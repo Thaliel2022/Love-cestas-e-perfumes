@@ -29,6 +29,23 @@ const loginAttempts = {};
 app.use(cors());
 app.use(express.json());
 
+// ==============================================================================
+// ||                    >>> INÍCIO DO CÓDIGO DE DIAGNÓSTICO <<<                  ||
+// ==============================================================================
+// Este bloco irá imprimir as variáveis de ambiente nos logs do Render.
+// Podemos removê-lo depois que o problema for resolvido.
+console.log("--- VARIÁVEIS DE AMBIENTE LIDAS PELO RENDER ---");
+console.log("DB_HOST:", process.env.DB_HOST);
+console.log("DB_USER:", process.env.DB_USER);
+console.log("DB_PASSWORD:", process.env.DB_PASSWORD ? "******** (recebido)" : "NÃO RECEBIDO");
+console.log("DB_NAME:", process.env.DB_NAME);
+console.log("DB_PORT:", process.env.DB_PORT);
+console.log("-------------------------------------------------");
+// ==============================================================================
+// ||                     >>> FIM DO CÓDIGO DE DIAGNÓSTICO <<<                   ||
+// ==============================================================================
+
+
 // Middleware de higienização de entrada
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
