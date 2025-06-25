@@ -1,7 +1,7 @@
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
-const cors =require('cors');
+const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -29,23 +29,6 @@ const loginAttempts = {};
 app.use(cors());
 app.use(express.json());
 
-// ==============================================================================
-// ||                    >>> INÍCIO DO CÓDIGO DE DIAGNÓSTICO <<<                  ||
-// ==============================================================================
-// Este bloco irá imprimir as variáveis de ambiente nos logs do Render.
-// Podemos removê-lo depois que o problema for resolvido.
-console.log("--- VARIÁVEIS DE AMBIENTE LIDAS PELO RENDER ---");
-console.log("DB_HOST:", process.env.DB_HOST);
-console.log("DB_USER:", process.env.DB_USER);
-console.log("DB_PASSWORD:", process.env.DB_PASSWORD ? "******** (recebido)" : "NÃO RECEBIDO");
-console.log("DB_NAME:", process.env.DB_NAME);
-console.log("DB_PORT:", process.env.DB_PORT);
-console.log("-------------------------------------------------");
-// ==============================================================================
-// ||                     >>> FIM DO CÓDIGO DE DIAGNÓSTICO <<<                   ||
-// ==============================================================================
-
-
 // Middleware de higienização de entrada
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
@@ -71,7 +54,6 @@ const db = mysql.createPool({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'lovecestas_db',
-    port: process.env.DB_PORT || 3306, // <<< ADIÇÃO IMPORTANTE AQUI
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -391,7 +373,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // ==============================================================================
-// ||                          >>> NOVA ROTA - BUSCA PREDITIVA <<<               ||
+// ||                    >>> NOVA ROTA - BUSCA PREDITIVA <<<                   ||
 // ==============================================================================
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
@@ -409,7 +391,7 @@ app.get('/api/products/search-suggestions', async (req, res) => {
     }
 });
 // ==============================================================================
-// ||                           >>> FIM DA NOVA ROTA <<<                         ||
+// ||                     >>> FIM DA NOVA ROTA <<<                             ||
 // ==============================================================================
 
 
@@ -422,7 +404,7 @@ app.get('/api/products/:id', async (req, res) => {
 });
 
 // ==============================================================================
-// ||               >>> NOVA ROTA - PRODUTOS RELACIONADOS POR COMPRA <<<         ||
+// ||          >>> NOVA ROTA - PRODUTOS RELACIONADOS POR COMPRA <<<            ||
 // ==============================================================================
 app.get('/api/products/:id/related-by-purchase', async (req, res) => {
     const { id } = req.params;
@@ -461,7 +443,7 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
     }
 });
 // ==============================================================================
-// ||                           >>> FIM DA NOVA ROTA <<<                         ||
+// ||                     >>> FIM DA NOVA ROTA <<<                             ||
 // ==============================================================================
 
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
