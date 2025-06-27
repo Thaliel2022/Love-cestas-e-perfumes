@@ -2350,6 +2350,9 @@ const MyAccountPage = ({ onNavigate }) => {
 // ------------------------------------
 // --- FIM DA PRIMEIRA PARTE ---
 // ------------------------------------
+// ------------------------------------
+// --- FIM DA PRIMEIRA PARTE ---
+// ------------------------------------
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
@@ -2577,13 +2580,13 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
             {/* Sidebar */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
-                    <button className="lg:hidden" onClick={() => setIsSidebarOpen(false)}>
+                    <button className="lg:hidden p-2" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
-                <nav className="flex-grow p-4 space-y-2">
+                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
                     {[
                         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
                         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
@@ -2597,15 +2600,17 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         </a>
                     ))}
                 </nav>
-                <div className="p-4 border-t border-gray-800">
+                <div className="p-4 border-t border-gray-800 flex-shrink-0">
                     <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2">🏠 Voltar à Loja</a>
                     <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800">🚪 Sair</button>
                 </div>
             </aside>
+             {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+
             {/* Main Content */}
-            <div className="flex-1 flex flex-col">
-                <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4">
-                     <button onClick={() => setIsSidebarOpen(true)}>
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4 flex-shrink-0">
+                     <button onClick={() => setIsSidebarOpen(true)} className="p-2">
                         <MenuIcon className="h-6 w-6 text-gray-600"/>
                      </button>
                      <h1 className="text-lg font-bold ml-4 capitalize">{activePage}</h1>
@@ -2686,7 +2691,11 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     useEffect(() => {
         const initialData = {};
         fieldsConfig.forEach(field => {
-            initialData[field.name] = item?.[field.name] ?? (field.type === 'checkbox' ? false : (field.name === 'images' ? [] : ''));
+            // Define o valor inicial: usa o valor do item, ou um padrão baseado no tipo de campo
+            initialData[field.name] = item?.[field.name] ?? 
+                (field.type === 'select' ? (field.options[0]?.value || '') : 
+                (field.type === 'checkbox' ? 0 : 
+                (field.name === 'images' ? [] : '')));
         });
         
         if (item?.images) {
@@ -2695,6 +2704,14 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
 
         setFormData(initialData);
     }, [item, fieldsConfig]);
+
+    // Oculta e limpa o valor quando o tipo de cupom é 'frete grátis'
+    useEffect(() => {
+        if (formData.type === 'free_shipping') {
+            setFormData(prev => ({ ...prev, value: '' }));
+        }
+    }, [formData.type]);
+
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -2725,6 +2742,7 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
             const response = await apiImageUploadService('/upload/image', file);
             setFormData(prev => ({...prev, images: [...(prev.images || []), response.imageUrl]}));
             setUploadStatus('Upload concluído com sucesso!');
+            setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
             setUploadStatus(`Erro no upload: ${error.message}`);
         }
@@ -2746,8 +2764,10 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
             }
         });
 
+        // Garante que o campo 'images' sempre seja uma string JSON
         const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
         const finalData = { ...dataToSubmit, images: JSON.stringify(imagesToSave) };
+        delete finalData.images_upload; // Remove o campo de upload que não vai pro DB
 
         onSave(finalData);
     };
@@ -2812,10 +2832,14 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                      return (
                         <div key={field.name}>
                              <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                             <input type="file" name={field.name} onChange={handleImageChange} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+                             <input type="file" name={field.name} accept="image/*" onChange={handleImageChange} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
                              {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                         </div>
                     );
+                }
+                // Adiciona a lógica para ocultar o campo de valor do cupom
+                if (field.name === 'value' && formData.type === 'free_shipping') {
+                    return null;
                 }
                 return(
                     <div key={field.name}>
@@ -2827,7 +2851,9 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                                  {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         ) : (
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} checked={field.type === 'checkbox' ? !!formData[field.name] : undefined} onChange={handleChange} className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm ${field.type === 'checkbox' ? 'h-4 w-4' : ''}`} required={field.required} step={field.step} disabled={field.editable === false} />
+                            <div className="flex items-center">
+                                <input type={field.type} name={field.name} value={formData[field.name] || ''} checked={field.type === 'checkbox' ? !!formData[field.name] : undefined} onChange={handleChange} className={`mt-1 block border border-gray-300 rounded-md shadow-sm ${field.type === 'checkbox' ? 'h-4 w-4' : 'w-full px-3 py-2'}`} required={field.required} step={field.step} disabled={field.editable === false} />
+                            </div>
                         )}
                     </div>
                 );
@@ -2840,6 +2866,88 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     );
 };
 
+const FileUploadArea = ({ onFileSelect }) => {
+    const [dragging, setDragging] = useState(false);
+    const [fileName, setFileName] = useState('');
+    const fileInputRef = useRef(null);
+
+    const handleDragEvents = (e, isDragging) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragging(isDragging);
+    };
+
+    const handleDrop = (e) => {
+        handleDragEvents(e, false);
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            setFileName(files[0].name);
+            onFileSelect(files[0]);
+        }
+    };
+    
+    const handleFileChange = (e) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            setFileName(files[0].name);
+            onFileSelect(files[0]);
+        }
+    };
+    
+    const triggerFileSelect = () => fileInputRef.current.click();
+
+    return (
+        <div 
+            className={`p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${dragging ? 'border-amber-500 bg-amber-50' : 'border-gray-300 hover:border-gray-400'}`}
+            onDragEnter={(e) => handleDragEvents(e, true)}
+            onDragOver={(e) => handleDragEvents(e, true)}
+            onDragLeave={(e) => handleDragEvents(e, false)}
+            onDrop={handleDrop}
+            onClick={triggerFileSelect}
+        >
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={handleFileChange}
+            />
+            <UploadIcon className="h-10 w-10 mx-auto text-gray-400 mb-2"/>
+            {fileName ? (
+                <div>
+                    <p className="font-semibold text-gray-800">{fileName}</p>
+                    <p className="text-xs text-gray-500">Clique ou arraste outro arquivo para substituir</p>
+                </div>
+            ) : (
+                <p className="text-gray-600">Arraste e solte o arquivo CSV aqui, ou <span className="text-amber-600 font-semibold">clique para selecionar</span>.</p>
+            )}
+        </div>
+    );
+}
+
+const DownloadTemplateButton = () => {
+    const handleDownload = () => {
+        const headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active";
+        const exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1";
+        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "modelo_produtos.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    return (
+        <button onClick={handleDownload} className="text-sm text-blue-600 hover:text-blue-800 underline">
+            Baixar modelo CSV
+        </button>
+    );
+};
+
+
 const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -2850,6 +2958,7 @@ const AdminProducts = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importMessage, setImportMessage] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
   
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -2920,7 +3029,7 @@ const AdminProducts = () => {
       { name: 'images_upload', label: 'Fazer Upload de Nova Imagem', type: 'file' },
       { name: 'images', label: 'URLs das Imagens', type: 'text_array' },
       { name: 'description', label: 'Descrição', type: 'textarea' },
-      { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\nCorpo: Canela)', type: 'textarea' },
+      { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
       { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
       { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
       { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
@@ -2931,9 +3040,9 @@ const AdminProducts = () => {
       { name: 'is_active', label: 'Ativo', type: 'checkbox' },
   ];
 
-  const handleFileSelect = (event) => {
+  const handleFileSelect = (file) => {
       setImportMessage('');
-      setSelectedFile(event.target.files[0]);
+      setSelectedFile(file);
   };
 
   const handleImport = async () => {
@@ -2941,7 +3050,8 @@ const AdminProducts = () => {
           setImportMessage('Por favor, selecione um arquivo.');
           return;
       }
-      setImportMessage('Importando...');
+      setIsImporting(true);
+      setImportMessage('Importando, por favor aguarde...');
       try {
           const result = await apiUploadService('/products/import', selectedFile);
           setImportMessage(result.message);
@@ -2955,6 +3065,8 @@ const AdminProducts = () => {
       } catch (error) {
           setImportMessage(`Erro: ${error.message}`);
           notification.show(`Erro na importação: ${error.message}`, 'error');
+      } finally {
+          setIsImporting(false);
       }
   };
 
@@ -3015,18 +3127,18 @@ const AdminProducts = () => {
                     <div className="space-y-4">
                         <div>
                             <h3 className="font-bold text-lg mb-2">Instruções</h3>
-                            <p className="text-sm text-gray-600">
-                                Seu arquivo CSV deve conter as seguintes colunas no cabeçalho: 
-                                <code className="text-xs bg-gray-200 p-1 rounded">name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active</code>
+                            <p className="text-sm text-gray-600 mb-2">
+                                O arquivo CSV deve conter um cabeçalho com as colunas exatamente como no modelo. 
                             </p>
-                            <p className="text-sm text-gray-600 mt-1">O campo <code className="text-xs bg-gray-200 p-1 rounded">is_active</code> deve ser 1 (ou true) para ativo e 0 (ou false) para inativo.</p>
-                             <p className="text-sm text-gray-600 mt-1">O campo <code className="text-xs bg-gray-200 p-1 rounded">images</code> pode conter múltiplas URLs separadas por vírgula.</p>
+                             <DownloadTemplateButton />
                         </div>
-                        <input type="file" accept=".csv" onChange={handleFileSelect} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"/>
-                        <button onClick={handleImport} disabled={!selectedFile} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400">
-                            Fazer Upload e Importar
+                        
+                        <FileUploadArea onFileSelect={handleFileSelect} />
+
+                        <button onClick={handleImport} disabled={!selectedFile || isImporting} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center">
+                            {isImporting ? <SpinnerIcon /> : 'Fazer Upload e Importar'}
                         </button>
-                        {importMessage && <p className={`mt-4 text-center ${importMessage.startsWith('Erro') ? 'text-red-600' : 'text-green-600'}`}>{importMessage}</p>}
+                        {importMessage && <p className={`mt-4 text-center text-sm font-semibold ${importMessage.startsWith('Erro') ? 'text-red-600' : 'text-green-600'}`}>{importMessage}</p>}
                     </div>
                 </Modal>
             )}
@@ -3041,7 +3153,7 @@ const AdminProducts = () => {
                     </button>
                 )}
                 <button onClick={() => setIsImportModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center space-x-2">
-                    <UploadIcon className="h-5 w-5"/> <span>Importar CSV</span>
+                    <UploadIcon className="h-5 w-5"/> <span>Importar</span>
                 </button>
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
@@ -3059,7 +3171,7 @@ const AdminProducts = () => {
         </div>
 
         <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full min-w-[600px] text-left">
                  <thead className="bg-gray-100">
                     <tr>
                         <th className="p-4 w-4">
@@ -3073,7 +3185,7 @@ const AdminProducts = () => {
                         <th className="p-4 hidden md:table-cell">Marca</th>
                         <th className="p-4">Preço</th>
                         <th className="p-4 hidden sm:table-cell">Estoque</th>
-                        <th className="p-4 hidden sm:table-cell">Vendas</th>
+                        <th className="p-4 hidden lg:table-cell">Vendas</th>
                         <th className="p-4 hidden md:table-cell">Ativo</th>
                         <th className="p-4">Ações</th>
                     </tr>
@@ -3100,7 +3212,7 @@ const AdminProducts = () => {
                             <td className="p-4 hidden md:table-cell">{p.brand}</td>
                             <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
                             <td className="p-4 hidden sm:table-cell">{p.stock}</td>
-                            <td className="p-4 hidden sm:table-cell">{p.sales || 0}</td>
+                            <td className="p-4 hidden lg:table-cell">{p.sales || 0}</td>
                             <td className="p-4 hidden md:table-cell">{p.is_active ? 'Sim' : 'Não'}</td>
                             <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
                         </tr>
@@ -3174,12 +3286,22 @@ const AdminUsers = () => {
             </AnimatePresence>
             <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                <table className="w-full text-left">
-                     <thead className="bg-gray-100"><tr><th className="p-4">ID</th><th className="p-4">Nome</th><th className="p-4">Email</th><th className="p-4">Função</th><th className="p-4">Ações</th></tr></thead>
+                <table className="w-full min-w-[600px] text-left">
+                     <thead className="bg-gray-100">
+                         <tr>
+                            <th className="p-4 hidden sm:table-cell">ID</th>
+                            <th className="p-4">Nome</th>
+                            <th className="p-4 hidden md:table-cell">Email</th>
+                            <th className="p-4">Função</th>
+                            <th className="p-4">Ações</th>
+                         </tr>
+                    </thead>
                      <tbody>
                         {users.map(u => (
                             <tr key={u.id} className="border-b">
-                                <td className="p-4">{u.id}</td><td className="p-4">{u.name}</td><td className="p-4">{u.email}</td>
+                                <td className="p-4 hidden sm:table-cell">{u.id}</td>
+                                <td className="p-4">{u.name}<p className="text-sm text-gray-500 md:hidden">{u.email}</p></td>
+                                <td className="p-4 hidden md:table-cell">{u.email}</td>
                                 <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
                                 <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
                             </tr>
@@ -3298,20 +3420,20 @@ const AdminCoupons = () => {
                     </Modal>
                 )}
             </AnimatePresence>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
             </div>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full text-left">
+                 <table className="w-full min-w-[700px] text-left">
                      <thead className="bg-gray-100">
                          <tr>
                             <th className="p-4">Código</th>
                             <th className="p-4">Tipo</th>
                             <th className="p-4">Valor</th>
-                            <th className="p-4">1ª Compra</th>
-                            <th className="p-4">Uso Único</th>
-                            <th className="p-4">Validade</th>
+                            <th className="p-4 hidden sm:table-cell">1ª Compra</th>
+                            <th className="p-4 hidden sm:table-cell">Uso Único</th>
+                            <th className="p-4 hidden md:table-cell">Validade</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
                          </tr>
@@ -3322,9 +3444,9 @@ const AdminCoupons = () => {
                                 <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
                                 <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
                                 <td className="p-4">{c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
-                                <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
-                                <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
-                                <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
+                                <td className="p-4 hidden sm:table-cell">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
+                                <td className="p-4 hidden sm:table-cell">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
+                                <td className="p-4 hidden md:table-cell"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
                                 <td className="p-4">
                                      <span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
                                         {c.is_active ? 'Ativo' : 'Inativo'}
@@ -3363,8 +3485,9 @@ const AdminOrders = () => {
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
-                setOrders(data);
-                setFilteredOrders(data);
+                const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
+                setOrders(sortedData);
+                setFilteredOrders(sortedData);
             })
             .catch(err => console.error("Falha ao buscar pedidos:", err));
     }, []);
@@ -3534,7 +3657,7 @@ const AdminOrders = () => {
             
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                     <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
@@ -3542,25 +3665,25 @@ const AdminOrders = () => {
                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="minPrice" placeholder="Preço Mínimo" value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="maxPrice" placeholder="Preço Máximo" value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                 </div>
-                <div className="mt-4 flex space-x-2">
+                <div className="mt-4 flex gap-2 flex-wrap">
                     <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
                     <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
 
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full text-left">
+                 <table className="w-full min-w-[800px] text-left">
                      <thead className="bg-gray-100">
                         <tr>
                             <th className="p-4 font-semibold">Pedido ID</th>
                             <th className="p-4 font-semibold">Cliente</th>
-                            <th className="p-4 font-semibold">Data</th>
+                            <th className="p-4 font-semibold hidden md:table-cell">Data</th>
                             <th className="p-4 font-semibold">Total</th>
                             <th className="p-4 font-semibold">Status</th>
-                            <th className="p-4 font-semibold">Cód. Rastreio</th>
+                            <th className="p-4 font-semibold hidden lg:table-cell">Cód. Rastreio</th>
                             <th className="p-4 font-semibold">Ações</th>
                         </tr>
                      </thead>
@@ -3568,13 +3691,13 @@ const AdminOrders = () => {
                         {filteredOrders.map(o => (
                             <tr key={o.id} className="border-b hover:bg-gray-50">
                                 <td className="p-4 font-mono">#{o.id}</td>
-                                <td className="p-4">{o.user_name}</td>
-                                <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
+                                <td className="p-4">{o.user_name} <p className="text-sm text-gray-500 md:hidden">{new Date(o.date).toLocaleString('pt-BR')}</p></td>
+                                <td className="p-4 hidden md:table-cell">{new Date(o.date).toLocaleString('pt-BR')}</td>
                                 <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
                                 <td className="p-4">
                                      <span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span>
                                 </td>
-                                <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
+                                <td className="p-4 font-mono hidden lg:table-cell">{o.tracking_code || 'N/A'}</td>
                                 <td className="p-4">
                                     <button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button>
                                 </td>
@@ -3664,22 +3787,22 @@ const AdminReports = () => {
         <div>
             <h1 className="text-3xl font-bold mb-6">Relatórios</h1>
             <div className="bg-white p-6 rounded-lg shadow space-y-4">
-                <div className="flex justify-between items-center p-4 border rounded-md">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
                     <div>
                         <h4 className="font-bold">Relatório de Vendas</h4>
                         <p className="text-sm text-gray-600">Exporte um resumo de todos os pedidos realizados.</p>
                     </div>
-                    <div className="space-x-2">
+                    <div className="space-x-2 flex-shrink-0">
                         <button onClick={() => handleSalesExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
                         <button onClick={() => handleSalesExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
                     </div>
                 </div>
-                <div className="flex justify-between items-center p-4 border rounded-md">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
                     <div>
                         <h4 className="font-bold">Relatório de Estoque</h4>
                         <p className="text-sm text-gray-600">Exporte a lista de produtos com o estoque atual.</p>
                     </div>
-                    <div className="space-x-2">
+                    <div className="space-x-2 flex-shrink-0">
                          <button onClick={() => handleStockExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
                         <button onClick={() => handleStockExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
                     </div>
