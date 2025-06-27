@@ -1,3 +1,5 @@
+// ARQUIVO: server.js (ATUALIZADO)
+
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -9,7 +11,6 @@ const csv = require('csv-parser');
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { Readable } = require('stream'); // <<< ADICIONADO: Para processar CSV em memória
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
 // <<< ALTERAÇÃO: Import do Cloudinary >>>
@@ -48,6 +49,8 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 app.use(sanitizeInput);
+// A linha abaixo para servir arquivos estáticos não é mais necessária para as imagens de produto
+// app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
@@ -55,7 +58,7 @@ const db = mysql.createPool({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'lovecestas_db',
-    port: process.env.DB_PORT || 3306,
+    port: process.env.DB_PORT || 3306, // Adicionado para compatibilidade com Railway
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -75,6 +78,7 @@ const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKE
 const preference = new Preference(mpClient);
 
 // <<< ALTERAÇÃO: Configuração do Cloudinary >>>
+// As variáveis de ambiente devem ser configuradas no painel do seu serviço de backend (Render)
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
   api_key: process.env.CLOUDINARY_API_KEY, 
@@ -82,9 +86,11 @@ cloudinary.config({
 });
 
 // --- CONFIGURAÇÃO DO MULTER PARA UPLOAD ---
-// <<< ALTERAÇÃO: Multer agora usa a memória para todos os uploads, não salva mais no disco >>>
+const csvUpload = multer({ dest: 'uploads/' });
+
+// <<< ALTERAÇÃO: Multer agora usa a memória, não salva mais o arquivo no disco do servidor >>>
 const memoryStorage = multer.memoryStorage();
-const upload = multer({ storage: memoryStorage });
+const imageUpload = multer({ storage: memoryStorage });
 
 
 // --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
@@ -109,12 +115,14 @@ const verifyAdmin = (req, res, next) => {
 
 
 // --- ROTA DE UPLOAD DE IMAGEM ---
-app.post('/api/upload/image', verifyToken, upload.single('image'), async (req, res) => {
+// <<< ALTERAÇÃO: Rota de upload de imagem atualizada para usar o Cloudinary >>>
+app.post('/api/upload/image', verifyToken, imageUpload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
     }
 
     try {
+        // Envia o buffer da imagem (da memória) diretamente para o Cloudinary
         const result = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 { resource_type: "image" },
@@ -130,6 +138,7 @@ app.post('/api/upload/image', verifyToken, upload.single('image'), async (req, r
             uploadStream.end(req.file.buffer);
         });
 
+        // Retorna a URL segura da imagem hospedada no Cloudinary
         res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
 
     } catch (error) {
@@ -247,9 +256,9 @@ app.get('/api/track/:code', async (req, res) => {
             { status: 'Objeto saiu para entrega ao destinatário', date: now.toISOString(), location: 'Centro de Distribuição - Campina Grande/PB' },
         ],
         'BR123456789BR': [
-            { status: 'Objeto postado', date: new Date(new Date().setDate(now.getDate() - 5)).toISOString(), location: 'Agência dos Correios - São Paulo/SP' },
-            { status: 'Objeto em trânsito para Unidade de Tratamento', date: new Date(new Date().setDate(now.getDate() - 4)).toISOString(), location: 'De São Paulo/SP para Recife/PE' },
-            { status: 'Objeto entregue ao destinatário', date: new Date(new Date().setDate(now.getDate() - 2)).toISOString(), location: 'Endereço do Cliente - João Pessoa/PB' },
+             { status: 'Objeto postado', date: new Date(new Date().setDate(now.getDate() - 5)).toISOString(), location: 'Agência dos Correios - São Paulo/SP' },
+             { status: 'Objeto em trânsito para Unidade de Tratamento', date: new Date(new Date().setDate(now.getDate() - 4)).toISOString(), location: 'De São Paulo/SP para Recife/PE' },
+             { status: 'Objeto entregue ao destinatário', date: new Date(new Date().setDate(now.getDate() - 2)).toISOString(), location: 'Endereço do Cliente - João Pessoa/PB' },
         ]
     };
 
@@ -267,7 +276,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
         return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
     }
-     
+    
     const ME_TOKEN = process.env.ME_TOKEN;
     if (!ME_TOKEN) {
         return res.status(500).json({ message: "API de frete não configurada no servidor." });
@@ -275,7 +284,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
 
     const productIds = products.map(p => p.id);
     const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
-     
+    
     const productsWithDetails = products.map(p => {
         const dbProduct = dbProducts.find(dbp => dbp.id == p.id);
         return {...p, ...dbProduct};
@@ -315,7 +324,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
             const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
             return res.status(apiResponse.status).json({ message: errorMessage });
         }
-         
+        
         const filteredOptions = data
             .filter(option => !option.error)
             .map(option => ({
@@ -324,7 +333,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
                 delivery_time: option.delivery_time,
                 company: { name: option.company.name, picture: option.company.picture }
             }));
-         
+        
         res.json(filteredOptions);
     } catch (error) {
         console.error("Erro ao calcular frete com Melhor Envio:", error);
@@ -486,36 +495,26 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// <<< CORREÇÃO: Rota de importação de CSV agora processa em memória >>>
-app.post('/api/products/import', verifyToken, verifyAdmin, upload.single('file'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo enviado.' });
-    }
+app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo enviado.' });
+    const filePath = req.file.path;
     const products = [];
     const connection = await db.getConnection();
     try {
         await new Promise((resolve, reject) => {
-            // Cria um stream de leitura a partir do buffer do arquivo em memória
-            const readableStream = new Readable();
-            readableStream.push(req.file.buffer);
-            readableStream.push(null); // Indica o fim do stream
-
-            readableStream.pipe(csv())
+            fs.createReadStream(filePath).pipe(csv())
                 .on('data', (row) => {
                     if (!row.name || !row.price) return;
                     products.push([
                         row.name, row.brand || '', row.category || 'Geral', parseFloat(row.price) || 0,
-                        parseInt(row.stock) || 0, row.images ? JSON.stringify(row.images.split(',')) : '[]', row.description || '',
+                        parseInt(row.stock) || 0, row.images ? `["${row.images.split(',').join('","')}"]` : '[]', row.description || '',
                         row.notes || '', row.how_to_use || '', row.ideal_for || '',
-                        row.volume || '',
+                        row.volume || '', 
                         parseFloat(row.weight) || 0.3, parseInt(row.width) || 11, parseInt(row.height) || 11, parseInt(row.length) || 16,
                         row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0
                     ]);
-                })
-                .on('end', resolve)
-                .on('error', reject);
+                }).on('end', resolve).on('error', reject);
         });
-
         if (products.length > 0) {
             await connection.beginTransaction();
             const sql = "INSERT INTO products (name, brand, category, price, stock, images, description, notes, how_to_use, ideal_for, volume, weight, width, height, length, is_active) VALUES ?";
@@ -530,11 +529,10 @@ app.post('/api/products/import', verifyToken, verifyAdmin, upload.single('file')
         console.error("Erro durante a importação de CSV:", err);
         res.status(500).json({ message: `Erro ao processar o arquivo: ${err.message}` });
     } finally {
+        fs.unlinkSync(filePath);
         connection.release();
-        // Não é mais necessário apagar o arquivo, pois ele nunca foi salvo em disco
     }
 });
-
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
 app.get('/api/products/:id/reviews', async (req, res) => {
@@ -762,7 +760,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO ---
+// --- ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO (ESTRATÉGIA DE ITEM ÚNICO) ---
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -983,18 +981,17 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
     }
 });
 
-// <<< CORREÇÃO: Rota de atualização de usuário agora inclui o CPF >>>
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { name, email, role, password, cpf } = req.body;
+    const { name, email, role, password } = req.body;
 
-    if (!name || !email || !role || !cpf) {
-        return res.status(400).json({ message: "Nome, email, função e CPF são obrigatórios." });
+    if (!name || !email || !role) {
+        return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
     }
 
     try {
-        let queryParams = [name, email, role, cpf.replace(/\D/g, '')];
-        let sql = "UPDATE users SET name = ?, email = ?, role = ?, cpf = ?";
+        let queryParams = [name, email, role];
+        let sql = "UPDATE users SET name = ?, email = ?, role = ?";
 
         if (password && password.trim() !== '') {
             if (password.length < 6) {
@@ -1017,16 +1014,12 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         res.json({ message: "Usuário atualizado com sucesso!" });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
-             const message = err.message.includes('email') 
-                ? "Este e-mail já está em uso por outro usuário." 
-                : "Este CPF já está em uso por outro usuário.";
-            return res.status(409).json({ message });
+            return res.status(409).json({ message: "Este e-mail já está em uso por outro usuário." });
         }
         console.error("Erro ao atualizar usuário:", err);
         res.status(500).json({ message: "Erro interno ao atualizar usuário." });
     }
 });
-
 
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
     const userId = req.user.id;
@@ -1104,26 +1097,16 @@ app.post('/api/coupons/validate', verifyToken, async (req, res) => {
     }
 });
 
-// <<< CORREÇÃO: Rota de criação de cupom mais robusta >>>
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    
-    // Validação aprimorada:
-    if (!code || !type) {
-        return res.status(400).json({ message: "Código e tipo são obrigatórios." });
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null))) {
+        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
     }
-    if (type !== 'free_shipping' && (value === undefined || value === null || value === '')) {
-        return res.status(400).json({ message: "O campo 'valor' é obrigatório para cupons de tipo 'percentage' e 'fixed'." });
-    }
-
     try {
         const sql = "INSERT INTO coupons (code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user) VALUES (?, ?, ?, ?, ?, ?, ?)";
         const params = [
-            code.toUpperCase(), type, 
-            type === 'free_shipping' ? null : value, // Garante que o valor seja NULL para frete grátis
-            is_active ? 1 : 0, 
-            validity_days || null, 
-            is_first_purchase ? 1 : 0, 
+            code.toUpperCase(), type, type === 'free_shipping' ? null : value, 
+            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, 
             is_single_use_per_user ? 1 : 0
         ];
         const [result] = await db.query(sql, params);
@@ -1137,33 +1120,23 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-
 app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    
-    if (!code || !type) {
-        return res.status(400).json({ message: "Código e tipo são obrigatórios." });
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null))) {
+        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
     }
-    if (type !== 'free_shipping' && (value === undefined || value === null || value === '')) {
-        return res.status(400).json({ message: "O campo 'valor' é obrigatório para cupons de tipo 'percentage' e 'fixed'." });
-    }
-
     try {
         const sql = "UPDATE coupons SET code = ?, type = ?, value = ?, is_active = ?, validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ? WHERE id = ?";
         const params = [
-            code.toUpperCase(), type, 
-            type === 'free_shipping' ? null : value, 
-            is_active ? 1 : 0, 
-            validity_days || null, 
-            is_first_purchase ? 1 : 0, 
-            is_single_use_per_user ? 1 : 0, 
-            id
+            code.toUpperCase(), type, type === 'free_shipping' ? null : value, 
+            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, 
+            is_single_use_per_user ? 1 : 0, id
         ];
         await db.query(sql, params);
         res.json({ message: "Cupom atualizado com sucesso." });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
+         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: "Este código de cupom já existe." });
         }
         console.error("Erro ao atualizar cupom:", err);

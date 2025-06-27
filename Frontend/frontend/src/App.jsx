@@ -1570,6 +1570,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                         
+                        {/* >>> NOVO: Seção de Parcelamento <<< */}
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
                                 <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
@@ -1585,6 +1586,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                             </div>
                         </div>
+                        {/* <<< FIM NOVO >>> */}
                         
                         <div className="flex items-center space-x-4">
                             <p className="font-semibold">Quantidade:</p>
@@ -2345,6 +2347,9 @@ const MyAccountPage = ({ onNavigate }) => {
         </>
     );
 };
+// ------------------------------------
+// --- FIM DA PRIMEIRA PARTE ---
+// ------------------------------------
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
@@ -2560,7 +2565,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 };
 // --- PAINEL DO ADMINISTRADOR ---
 
-// <<< MELHORIA: Layout do admin agora é mais responsivo >>>
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -2571,18 +2575,15 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     }
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
-            {/* Overlay para fechar o menu no mobile */}
-            {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-40 lg:hidden"></div>}
-
             {/* Sidebar */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
                     <button className="lg:hidden" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
-                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
+                <nav className="flex-grow p-4 space-y-2">
                     {[
                         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
                         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
@@ -2596,14 +2597,14 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         </a>
                     ))}
                 </nav>
-                <div className="p-4 border-t border-gray-800 flex-shrink-0">
+                <div className="p-4 border-t border-gray-800">
                     <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2">🏠 Voltar à Loja</a>
                     <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800">🚪 Sair</button>
                 </div>
             </aside>
             {/* Main Content */}
-            <div className="flex-1 flex flex-col w-full overflow-x-hidden">
-                <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4 flex-shrink-0">
+            <div className="flex-1 flex flex-col">
+                <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4">
                      <button onClick={() => setIsSidebarOpen(true)}>
                         <MenuIcon className="h-6 w-6 text-gray-600"/>
                      </button>
@@ -2678,7 +2679,6 @@ const AdminDashboard = () => {
     );
 };
 
-// <<< CORREÇÃO: Formulário de Admin agora esconde o valor do cupom de frete grátis e lida com máscara de CPF >>>
 const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
@@ -2692,25 +2692,15 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         if (item?.images) {
             initialData.images = parseImages(item.images, null);
         }
-        
-        // Garante que o CPF seja mascarado ao carregar dados existentes
-        if (item?.cpf) {
-            initialData.cpf = maskCPF(item.cpf);
-        }
 
         setFormData(initialData);
     }, [item, fieldsConfig]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        
-        if (name === 'cpf') {
-            setFormData(prev => ({ ...prev, [name]: maskCPF(value) }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
-        }
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
     };
-    
+
     const handleImageArrayChange = (index, value) => {
         const newImages = [...(formData.images || [])];
         newImages[index] = value;
@@ -2744,9 +2734,17 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         e.preventDefault();
         const dataToSubmit = { ...formData };
 
+        // Formata o volume
         if (dataToSubmit.volume && !isNaN(dataToSubmit.volume) && !dataToSubmit.volume.toLowerCase().includes('ml')) {
             dataToSubmit.volume = `${dataToSubmit.volume}ml`;
         }
+        
+        // Remove campos que não devem ser enviados na edição (ex: cpf em 'users')
+        fieldsConfig.forEach(field => {
+            if (field.editable === false) {
+                delete dataToSubmit[field.name];
+            }
+        });
 
         const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
         const finalData = { ...dataToSubmit, images: JSON.stringify(imagesToSave) };
@@ -2757,11 +2755,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {fieldsConfig.map(field => {
-                 // CORREÇÃO: Esconde o campo de valor se o tipo de cupom for 'free_shipping'
-                 if (field.name === 'value' && formData.type === 'free_shipping') {
-                    return null;
-                }
-
                  if (field.name === 'brand') {
                     return (
                         <div key={field.name}>
@@ -2831,10 +2824,10 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                             <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
                         ) : field.type === 'select' ? (
                             <select name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required={field.required}>
-                                 {field.options.map(opt => <option key={opt.value} value={opt.label}>{opt.label}</option>)}
+                                 {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                             </select>
                         ) : (
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} checked={field.type === 'checkbox' ? !!formData[field.name] : undefined} onChange={handleChange} className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm ${field.type === 'checkbox' ? 'h-4 w-4' : ''}`} required={field.required} step={field.step} />
+                            <input type={field.type} name={field.name} value={formData[field.name] || ''} checked={field.type === 'checkbox' ? !!formData[field.name] : undefined} onChange={handleChange} className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm ${field.type === 'checkbox' ? 'h-4 w-4' : ''}`} required={field.required} step={field.step} disabled={field.editable === false} />
                         )}
                     </div>
                 );
@@ -3065,9 +3058,8 @@ const AdminProducts = () => {
             />
         </div>
 
-        {/* <<< MELHORIA: Tabela agora é rolável em telas pequenas >>> */}
         <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-            <table className="w-full text-left min-w-[800px]">
+            <table className="w-full text-left">
                  <thead className="bg-gray-100">
                     <tr>
                         <th className="p-4 w-4">
@@ -3078,11 +3070,11 @@ const AdminProducts = () => {
                             />
                         </th>
                         <th className="p-4">Produto</th>
-                        <th className="p-4">Marca</th>
+                        <th className="p-4 hidden md:table-cell">Marca</th>
                         <th className="p-4">Preço</th>
-                        <th className="p-4">Estoque</th>
-                        <th className="p-4">Vendas</th>
-                        <th className="p-4">Ativo</th>
+                        <th className="p-4 hidden sm:table-cell">Estoque</th>
+                        <th className="p-4 hidden sm:table-cell">Vendas</th>
+                        <th className="p-4 hidden md:table-cell">Ativo</th>
                         <th className="p-4">Ações</th>
                     </tr>
                 </thead>
@@ -3102,13 +3094,14 @@ const AdminProducts = () => {
                                 </div>
                                 <div>
                                     <p className="font-semibold">{p.name}</p>
+                                    <p className="text-sm text-gray-500 md:hidden">{p.brand}</p>
                                 </div>
                             </td>
-                            <td className="p-4">{p.brand}</td>
+                            <td className="p-4 hidden md:table-cell">{p.brand}</td>
                             <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
-                            <td className="p-4">{p.stock}</td>
-                            <td className="p-4">{p.sales || 0}</td>
-                            <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
+                            <td className="p-4 hidden sm:table-cell">{p.stock}</td>
+                            <td className="p-4 hidden sm:table-cell">{p.sales || 0}</td>
+                            <td className="p-4 hidden md:table-cell">{p.is_active ? 'Sim' : 'Não'}</td>
                             <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
                         </tr>
                     ))}
@@ -3162,11 +3155,10 @@ const AdminUsers = () => {
         });
     };
     
-    // <<< CORREÇÃO: Adicionado campo CPF ao formulário de edição >>>
     const userFields = [
         { name: 'name', label: 'Nome', type: 'text', required: true },
         { name: 'email', label: 'Email', type: 'email', required: true },
-        { name: 'cpf', label: 'CPF', type: 'text', required: true },
+        { name: 'cpf', label: 'CPF', type: 'text', required: false, editable: false },
         { name: 'role', label: 'Função', type: 'select', options: [{value: 'user', label: 'Usuário'}, {value: 'admin', label: 'Administrador'}] },
         { name: 'password', label: 'Nova Senha (deixe em branco para não alterar)', type: 'password', required: false },
     ];
@@ -3182,24 +3174,12 @@ const AdminUsers = () => {
             </AnimatePresence>
             <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                <table className="w-full text-left min-w-[800px]">
-                     <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-4">ID</th>
-                            <th className="p-4">Nome</th>
-                            <th className="p-4">Email</th>
-                            <th className="p-4">CPF</th>
-                            <th className="p-4">Função</th>
-                            <th className="p-4">Ações</th>
-                        </tr>
-                    </thead>
+                <table className="w-full text-left">
+                     <thead className="bg-gray-100"><tr><th className="p-4">ID</th><th className="p-4">Nome</th><th className="p-4">Email</th><th className="p-4">Função</th><th className="p-4">Ações</th></tr></thead>
                      <tbody>
                         {users.map(u => (
                             <tr key={u.id} className="border-b">
-                                <td className="p-4">{u.id}</td>
-                                <td className="p-4">{u.name}</td>
-                                <td className="p-4">{u.email}</td>
-                                <td className="p-4">{maskCPF(u.cpf)}</td>
+                                <td className="p-4">{u.id}</td><td className="p-4">{u.name}</td><td className="p-4">{u.email}</td>
                                 <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
                                 <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
                             </tr>
@@ -3260,7 +3240,7 @@ const AdminCoupons = () => {
 
     const fetchCoupons = useCallback(() => {
         apiService('/coupons').then(data => {
-            setCoupons(data.sort((a,b) => b.id - a.id));
+            setCoupons(data.sort((a,b) => b.id - a.id)); // Ordena por mais recente
         }).catch(err=>console.error(err));
     }, []);
 
@@ -3318,12 +3298,12 @@ const AdminCoupons = () => {
                     </Modal>
                 )}
             </AnimatePresence>
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
+            <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 w-full sm:w-auto justify-center"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
             </div>
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full text-left min-w-[800px]">
+                 <table className="w-full text-left">
                      <thead className="bg-gray-100">
                          <tr>
                             <th className="p-4">Código</th>
@@ -3554,7 +3534,7 @@ const AdminOrders = () => {
             
             <div className="bg-white p-4 rounded-lg shadow-md mb-6">
                 <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
@@ -3565,14 +3545,14 @@ const AdminOrders = () => {
                     <input type="number" name="minPrice" placeholder="Preço Mínimo" value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <input type="number" name="maxPrice" placeholder="Preço Máximo" value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                 </div>
-                <div className="mt-4 flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="mt-4 flex space-x-2">
                     <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
                     <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
 
             <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full text-left min-w-[900px]">
+                 <table className="w-full text-left">
                      <thead className="bg-gray-100">
                         <tr>
                             <th className="p-4 font-semibold">Pedido ID</th>
@@ -3684,22 +3664,22 @@ const AdminReports = () => {
         <div>
             <h1 className="text-3xl font-bold mb-6">Relatórios</h1>
             <div className="bg-white p-6 rounded-lg shadow space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md gap-4">
+                <div className="flex justify-between items-center p-4 border rounded-md">
                     <div>
                         <h4 className="font-bold">Relatório de Vendas</h4>
                         <p className="text-sm text-gray-600">Exporte um resumo de todos os pedidos realizados.</p>
                     </div>
-                    <div className="space-x-2 flex-shrink-0">
+                    <div className="space-x-2">
                         <button onClick={() => handleSalesExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
                         <button onClick={() => handleSalesExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
                     </div>
                 </div>
-                <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md gap-4">
+                <div className="flex justify-between items-center p-4 border rounded-md">
                     <div>
                         <h4 className="font-bold">Relatório de Estoque</h4>
                         <p className="text-sm text-gray-600">Exporte a lista de produtos com o estoque atual.</p>
                     </div>
-                    <div className="space-x-2 flex-shrink-0">
+                    <div className="space-x-2">
                          <button onClick={() => handleStockExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
                         <button onClick={() => handleStockExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
                     </div>
