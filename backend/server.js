@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO PARA UPLOAD EM MEMÓRIA)
+// ARQUIVO: server.js (ATUALIZADO COM RASTREAMENTO REAL)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -13,7 +13,6 @@ const path = require('path');
 const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
-// <<< ALTERAÇÃO: Import do módulo de stream do Node.js >>>
 const stream = require('stream');
 
 // Carrega variáveis de ambiente do arquivo .env
@@ -83,7 +82,6 @@ cloudinary.config({
 });
 
 // --- CONFIGURAÇÃO DO MULTER PARA UPLOAD ---
-// <<< ALTERAÇÃO: Multer agora usa a memória para todos os uploads >>>
 const memoryStorage = multer.memoryStorage();
 const memoryUpload = multer({ storage: memoryStorage });
 
@@ -138,7 +136,6 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
 
 
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
-// (As rotas de autenticação e usuários permanecem as mesmas)
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
     if (!name || !email || !password || !cpf) {
@@ -236,32 +233,55 @@ app.post('/api/reset-password', async (req, res) => {
 });
 
 
-// --- ROTAS DE SERVIÇOS EXTERNOS (RASTREIO, FRETE) ---
-// (As rotas de Rastreio e Cálculo de Frete permanecem as mesmas)
+// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
-    const now = new Date();
-    const mockTrackingData = {
-        'BR987654321BR': [
-            { status: 'Objeto postado', date: new Date(new Date().setDate(now.getDate() - 2)).toISOString(), location: 'Agência dos Correios - João Pessoa/PB' },
-            { status: 'Objeto em trânsito para Unidade de Tratamento', date: new Date(new Date().setDate(now.getDate() - 1)).toISOString(), location: 'De João Pessoa/PB para Recife/PE' },
-            { status: 'Objeto saiu para entrega ao destinatário', date: now.toISOString(), location: 'Centro de Distribuição - Campina Grande/PB' },
-        ],
-        'BR123456789BR': [
-             { status: 'Objeto postado', date: new Date(new Date().setDate(now.getDate() - 5)).toISOString(), location: 'Agência dos Correios - São Paulo/SP' },
-             { status: 'Objeto em trânsito para Unidade de Tratamento', date: new Date(new Date().setDate(now.getDate() - 4)).toISOString(), location: 'De São Paulo/SP para Recife/PE' },
-             { status: 'Objeto entregue ao destinatário', date: new Date(new Date().setDate(now.getDate() - 2)).toISOString(), location: 'Endereço do Cliente - João Pessoa/PB' },
-        ]
-    };
+    const ME_TOKEN = process.env.ME_TOKEN;
 
-    const trackingInfo = mockTrackingData[code];
-    if (trackingInfo) {
-        res.json(trackingInfo.sort((a,b) => new Date(b.date) - new Date(a.date)));
-    } else {
-        res.status(404).json({ message: 'Código de rastreio não encontrado ou sem informações.' });
+    if (!ME_TOKEN) {
+        return res.status(500).json({ message: "API de rastreio não configurada no servidor." });
+    }
+
+    try {
+        const apiResponse = await fetch('https://www.melhorenvio.com.br/api/v2/me/shipment/tracking', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ME_TOKEN}`,
+                'User-Agent': 'Love Cestas e Perfumes (contato@lovecestaseperfumes.com.br)'
+            },
+            body: JSON.stringify({ orders: [code] })
+        });
+
+        const data = await apiResponse.json();
+
+        if (!apiResponse.ok || !data[code]) {
+            const errorMessage = data.message || "Código de rastreio não encontrado ou sem informações.";
+            return res.status(404).json({ message: errorMessage });
+        }
+
+        const trackingInfo = data[code];
+        if (trackingInfo.status === 'error') {
+             return res.status(404).json({ message: trackingInfo.message || 'Erro ao consultar o rastreio.' });
+        }
+
+        const formattedHistory = trackingInfo.history.map(event => ({
+            status: event.status,
+            location: `${event.city || ''}${event.city && event.state ? ' - ' : ''}${event.state || ''}`,
+            date: event.date
+        })).sort((a, b) => new Date(b.date) - new Date(a.date)); // Garante a ordem correta
+
+        res.json(formattedHistory);
+
+    } catch (error) {
+        console.error("Erro ao buscar rastreio no Melhor Envio:", error);
+        res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
 });
 
+
+// --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body; 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
@@ -334,7 +354,6 @@ app.post('/api/shipping/calculate', async (req, res) => {
 
 
 // --- ROTAS DE PRODUTOS ---
-// (As rotas de produtos permanecem as mesmas)
 app.get('/api/products', async (req, res) => {
     try {
         const sql = `
@@ -488,7 +507,6 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// <<< ALTERAÇÃO: Rota de importação de CSV para usar buffer em memória >>>
 app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
@@ -499,7 +517,6 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
 
     try {
         await new Promise((resolve, reject) => {
-            // Cria uma stream a partir do buffer do arquivo em memória
             const bufferStream = new stream.PassThrough();
             bufferStream.end(req.file.buffer);
 
@@ -534,14 +551,12 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
         console.error("Erro durante a importação de CSV:", err);
         res.status(500).json({ message: `Erro ao processar o arquivo: ${err.message}` });
     } finally {
-        // Não é mais necessário deletar o arquivo, pois ele nunca foi salvo
         connection.release();
     }
 });
 
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
-// (As rotas de avaliações permanecem as mesmas)
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -559,11 +574,7 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
 });
 
 
-// --- ROTAS DE CARRINHO, PEDIDOS, MERCADO PAGO, USUÁRIOS, CUPONS, WISHLIST ---
-// (Todas as demais rotas permanecem idênticas ao arquivo original)
-// ... cole aqui o restante das suas rotas (carrinho, pedidos, etc.) ...
-// ... elas não precisam de alteração para esta correção específica ...
-// --- ROTA DE CARRINHO PERSISTENTE ---
+// --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -670,7 +681,7 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount } = req.body;
-    if (!req.user.id || !items || items.length === 0 || !total) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
+    if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
     try {
@@ -772,7 +783,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO (ESTRATÉGIA DE ITEM ÚNICO) ---
+// --- ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO ---
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -963,7 +974,6 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
                             connection.release();
                         }
                     } else if (currentStatus === 'Pendente' || currentStatus === 'Processando') {
-                        // Apenas atualiza se o status não for final (ex: Entregue)
                         await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                     }
                 }
