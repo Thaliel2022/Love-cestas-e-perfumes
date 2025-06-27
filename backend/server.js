@@ -233,49 +233,38 @@ app.post('/api/reset-password', async (req, res) => {
 });
 
 
-// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL) ---
+// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
-    const ME_TOKEN = process.env.ME_TOKEN;
+    
+    // As credenciais do Link&Track podem ser armazenadas em variáveis de ambiente para maior segurança
+    const LT_USER = process.env.LT_USER || 'teste';
+    const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
 
-    if (!ME_TOKEN) {
-        return res.status(500).json({ message: "API de rastreio não configurada no servidor." });
-    }
+    const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
     try {
-        const apiResponse = await fetch('https://www.melhorenvio.com.br/api/v2/me/shipment/tracking', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ME_TOKEN}`,
-                'User-Agent': 'Love Cestas e Perfumes (contato@lovecestaseperfumes.com.br)'
-            },
-            body: JSON.stringify({ orders: [code] })
-        });
-
+        const apiResponse = await fetch(LT_API_URL);
         const data = await apiResponse.json();
 
-        if (!apiResponse.ok || !data[code]) {
-            const errorMessage = data.message || "Código de rastreio não encontrado ou sem informações.";
+        if (!apiResponse.ok || data.erro) {
+            // A API Link&Track retorna erro 200 com um campo 'erro' em caso de falha.
+            const errorMessage = data.erro || 'Não foi possível rastrear o objeto. Verifique o código.';
             return res.status(404).json({ message: errorMessage });
         }
-
-        const trackingInfo = data[code];
-        if (trackingInfo.status === 'error') {
-             return res.status(404).json({ message: trackingInfo.message || 'Erro ao consultar o rastreio.' });
-        }
-
-        const formattedHistory = trackingInfo.history.map(event => ({
+        
+        // A API retorna um array 'eventos'. Precisamos formatá-lo para o que o frontend espera.
+        // Frontend espera: { status: string, location: string, date: string }
+        const formattedHistory = data.eventos.map(event => ({
             status: event.status,
-            location: `${event.city || ''}${event.city && event.state ? ' - ' : ''}${event.state || ''}`,
-            date: event.date
-        })).sort((a, b) => new Date(b.date) - new Date(a.date)); // Garante a ordem correta
+            location: event.local,
+            date: new Date(`${event.data.split('/').reverse().join('-')}T${event.hora}`).toISOString()
+        }));
 
         res.json(formattedHistory);
 
     } catch (error) {
-        console.error("Erro ao buscar rastreio no Melhor Envio:", error);
+        console.error("Erro ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
 });
@@ -1223,7 +1212,6 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
-
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
