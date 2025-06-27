@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO)
+// ARQUIVO: server.js (ATUALIZADO PARA UPLOAD EM MEMÓRIA)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -12,9 +12,9 @@ const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
-
-// <<< ALTERAÇÃO: Import do Cloudinary >>>
 const cloudinary = require('cloudinary').v2;
+// <<< ALTERAÇÃO: Import do módulo de stream do Node.js >>>
+const stream = require('stream');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -49,8 +49,6 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 app.use(sanitizeInput);
-// A linha abaixo para servir arquivos estáticos não é mais necessária para as imagens de produto
-// app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
@@ -58,7 +56,7 @@ const db = mysql.createPool({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'lovecestas_db',
-    port: process.env.DB_PORT || 3306, // Adicionado para compatibilidade com Railway
+    port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -77,8 +75,7 @@ db.getConnection()
 const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const preference = new Preference(mpClient);
 
-// <<< ALTERAÇÃO: Configuração do Cloudinary >>>
-// As variáveis de ambiente devem ser configuradas no painel do seu serviço de backend (Render)
+// --- CONFIGURAÇÃO DO CLOUDINARY ---
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
   api_key: process.env.CLOUDINARY_API_KEY, 
@@ -86,11 +83,9 @@ cloudinary.config({
 });
 
 // --- CONFIGURAÇÃO DO MULTER PARA UPLOAD ---
-const csvUpload = multer({ dest: 'uploads/' });
-
-// <<< ALTERAÇÃO: Multer agora usa a memória, não salva mais o arquivo no disco do servidor >>>
+// <<< ALTERAÇÃO: Multer agora usa a memória para todos os uploads >>>
 const memoryStorage = multer.memoryStorage();
-const imageUpload = multer({ storage: memoryStorage });
+const memoryUpload = multer({ storage: memoryStorage });
 
 
 // --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
@@ -114,15 +109,12 @@ const verifyAdmin = (req, res, next) => {
 };
 
 
-// --- ROTA DE UPLOAD DE IMAGEM ---
-// <<< ALTERAÇÃO: Rota de upload de imagem atualizada para usar o Cloudinary >>>
-app.post('/api/upload/image', verifyToken, imageUpload.single('image'), async (req, res) => {
+// --- ROTA DE UPLOAD DE IMAGEM (CLOUDINARY) ---
+app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
     }
-
     try {
-        // Envia o buffer da imagem (da memória) diretamente para o Cloudinary
         const result = await new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream(
                 { resource_type: "image" },
@@ -137,10 +129,7 @@ app.post('/api/upload/image', verifyToken, imageUpload.single('image'), async (r
             );
             uploadStream.end(req.file.buffer);
         });
-
-        // Retorna a URL segura da imagem hospedada no Cloudinary
         res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
-
     } catch (error) {
         console.error("Erro no upload para o Cloudinary:", error);
         res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
@@ -148,7 +137,8 @@ app.post('/api/upload/image', verifyToken, imageUpload.single('image'), async (r
 });
 
 
-// --- ROTA DE AUTENTICAÇÃO ---
+// --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
+// (As rotas de autenticação e usuários permanecem as mesmas)
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
     if (!name || !email || !password || !cpf) {
@@ -245,7 +235,9 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- ROTA DE RASTREIO ---
+
+// --- ROTAS DE SERVIÇOS EXTERNOS (RASTREIO, FRETE) ---
+// (As rotas de Rastreio e Cálculo de Frete permanecem as mesmas)
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     const now = new Date();
@@ -270,7 +262,6 @@ app.get('/api/track/:code', async (req, res) => {
     }
 });
 
-// --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body; 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
@@ -341,7 +332,9 @@ app.post('/api/shipping/calculate', async (req, res) => {
     }
 });
 
+
 // --- ROTAS DE PRODUTOS ---
+// (As rotas de produtos permanecem as mesmas)
 app.get('/api/products', async (req, res) => {
     try {
         const sql = `
@@ -495,17 +488,26 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload.single('file'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo enviado.' });
-    const filePath = req.file.path;
+// <<< ALTERAÇÃO: Rota de importação de CSV para usar buffer em memória >>>
+app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('file'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
+    }
+
     const products = [];
     const connection = await db.getConnection();
+
     try {
         await new Promise((resolve, reject) => {
-            fs.createReadStream(filePath).pipe(csv())
+            // Cria uma stream a partir do buffer do arquivo em memória
+            const bufferStream = new stream.PassThrough();
+            bufferStream.end(req.file.buffer);
+
+            bufferStream
+                .pipe(csv())
                 .on('data', (row) => {
                     if (!row.name || !row.price) return;
-                    products.push([
+                     products.push([
                         row.name, row.brand || '', row.category || 'Geral', parseFloat(row.price) || 0,
                         parseInt(row.stock) || 0, row.images ? `["${row.images.split(',').join('","')}"]` : '[]', row.description || '',
                         row.notes || '', row.how_to_use || '', row.ideal_for || '',
@@ -513,8 +515,11 @@ app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload.single('fil
                         parseFloat(row.weight) || 0.3, parseInt(row.width) || 11, parseInt(row.height) || 11, parseInt(row.length) || 16,
                         row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0
                     ]);
-                }).on('end', resolve).on('error', reject);
+                })
+                .on('end', resolve)
+                .on('error', reject);
         });
+
         if (products.length > 0) {
             await connection.beginTransaction();
             const sql = "INSERT INTO products (name, brand, category, price, stock, images, description, notes, how_to_use, ideal_for, volume, weight, width, height, length, is_active) VALUES ?";
@@ -529,12 +534,14 @@ app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload.single('fil
         console.error("Erro durante a importação de CSV:", err);
         res.status(500).json({ message: `Erro ao processar o arquivo: ${err.message}` });
     } finally {
-        fs.unlinkSync(filePath);
+        // Não é mais necessário deletar o arquivo, pois ele nunca foi salvo
         connection.release();
     }
 });
 
+
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
+// (As rotas de avaliações permanecem as mesmas)
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -551,7 +558,12 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
     } catch (err) { res.status(500).json({ message: "Erro interno ao adicionar avaliação." }); }
 });
 
-// --- ROTAS DE CARRINHO PERSISTENTE ---
+
+// --- ROTAS DE CARRINHO, PEDIDOS, MERCADO PAGO, USUÁRIOS, CUPONS, WISHLIST ---
+// (Todas as demais rotas permanecem idênticas ao arquivo original)
+// ... cole aqui o restante das suas rotas (carrinho, pedidos, etc.) ...
+// ... elas não precisam de alteração para esta correção específica ...
+// --- ROTA DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -1099,7 +1111,7 @@ app.post('/api/coupons/validate', verifyToken, async (req, res) => {
 
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null))) {
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
         return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
     }
     try {
@@ -1123,7 +1135,7 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
 app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null))) {
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
         return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
     }
     try {
@@ -1138,7 +1150,7 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     } catch (err) {
          if (err.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: "Este código de cupom já existe." });
-        }
+         }
         console.error("Erro ao atualizar cupom:", err);
         res.status(500).json({ message: "Erro interno ao atualizar cupom." });
     }
@@ -1201,6 +1213,7 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
+
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
