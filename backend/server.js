@@ -233,28 +233,32 @@ app.post('/api/reset-password', async (req, res) => {
 });
 
 
-// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
+// --- ROTA DE RASTREIO (COM LOGS DE DEBUG APRIMORADOS) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     
-    // As credenciais do Link&Track podem ser armazenadas em variáveis de ambiente para maior segurança
     const LT_USER = process.env.LT_USER || 'teste';
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
 
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
+    console.log(`Iniciando rastreio para o código: ${code} na URL: ${LT_API_URL}`);
+
     try {
         const apiResponse = await fetch(LT_API_URL);
-        const data = await apiResponse.json();
+        
+        console.log(`Resposta da API Link&Track - Status: ${apiResponse.status}`);
+        
+        const responseText = await apiResponse.text(); // Lê como texto para evitar erro de JSON inválido
+        console.log(`Resposta da API Link&Track - Corpo: ${responseText}`);
+        
+        const data = JSON.parse(responseText);
 
         if (!apiResponse.ok || data.erro) {
-            // A API Link&Track retorna erro 200 com um campo 'erro' em caso de falha.
             const errorMessage = data.erro || 'Não foi possível rastrear o objeto. Verifique o código.';
             return res.status(404).json({ message: errorMessage });
         }
         
-        // A API retorna um array 'eventos'. Precisamos formatá-lo para o que o frontend espera.
-        // Frontend espera: { status: string, location: string, date: string }
         const formattedHistory = data.eventos.map(event => ({
             status: event.status,
             location: event.local,
@@ -264,7 +268,8 @@ app.get('/api/track/:code', async (req, res) => {
         res.json(formattedHistory);
 
     } catch (error) {
-        console.error("Erro ao buscar rastreio com Link&Track:", error);
+        // Log detalhado do erro
+        console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
 });
