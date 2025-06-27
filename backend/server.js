@@ -1,3 +1,5 @@
+// ARQUIVO: server.js (ATUALIZADO)
+
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -11,13 +13,15 @@ const path = require('path');
 const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 
+// <<< ALTERAÇÃO: Import do Cloudinary >>>
+const cloudinary = require('cloudinary').v2;
+
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
 const saltRounds = 10;
-// Lê o segredo JWT a partir das variáveis de ambiente
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_for_dev_only';
 
 // --- CONFIGURAÇÕES DE SEGURANÇA ---
@@ -29,7 +33,6 @@ const loginAttempts = {};
 app.use(cors());
 app.use(express.json());
 
-// Middleware de higienização de entrada
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
         for (const key in obj) {
@@ -46,7 +49,8 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 app.use(sanitizeInput);
-app.use('/public', express.static(path.join(__dirname, 'public')));
+// A linha abaixo para servir arquivos estáticos não é mais necessária para as imagens de produto
+// app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
@@ -54,6 +58,7 @@ const db = mysql.createPool({
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'lovecestas_db',
+    port: process.env.DB_PORT || 3306, // Adicionado para compatibilidade com Railway
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0
@@ -72,27 +77,21 @@ db.getConnection()
 const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
 const preference = new Preference(mpClient);
 
+// <<< ALTERAÇÃO: Configuração do Cloudinary >>>
+// As variáveis de ambiente devem ser configuradas no painel do seu serviço de backend (Render)
+cloudinary.config({ 
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
+  api_secret: process.env.CLOUDINARY_API_SECRET 
+});
+
 // --- CONFIGURAÇÃO DO MULTER PARA UPLOAD ---
 const csvUpload = multer({ dest: 'uploads/' });
-const imageStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = 'public/images';
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-    }
-});
-const imageFileFilter = (req, file, cb) => {
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-        return cb(new Error('Apenas ficheiros de imagem são permitidos!'), false);
-    }
-    cb(null, true);
-};
-const imageUpload = multer({ storage: imageStorage, fileFilter: imageFileFilter });
+
+// <<< ALTERAÇÃO: Multer agora usa a memória, não salva mais o arquivo no disco do servidor >>>
+const memoryStorage = multer.memoryStorage();
+const imageUpload = multer({ storage: memoryStorage });
+
 
 // --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
 const verifyToken = (req, res, next) => {
@@ -114,28 +113,40 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- FUNÇÃO AUXILIAR DE IMAGEM ---
-const getFirstImageFromString = (imagesJsonString) => {
-    if (!imagesJsonString || typeof imagesJsonString !== 'string') return null;
-    try {
-        const imagesArray = JSON.parse(imagesJsonString);
-        if (Array.isArray(imagesArray) && imagesArray.length > 0) {
-            return imagesArray[0];
-        }
-    } catch (e) {
-        console.warn('Could not parse images JSON string:', imagesJsonString);
-    }
-    return null;
-};
 
 // --- ROTA DE UPLOAD DE IMAGEM ---
-app.post('/api/upload/image', verifyToken, imageUpload.single('image'), (req, res) => {
+// <<< ALTERAÇÃO: Rota de upload de imagem atualizada para usar o Cloudinary >>>
+app.post('/api/upload/image', verifyToken, imageUpload.single('image'), async (req, res) => {
     if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum ficheiro de imagem enviado.' });
+        return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
     }
-    const imageUrl = `${req.protocol}://${req.get('host')}/public/images/${req.file.filename}`;
-    res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: imageUrl });
+
+    try {
+        // Envia o buffer da imagem (da memória) diretamente para o Cloudinary
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { resource_type: "image" },
+                (error, result) => {
+                    if (error) {
+                        console.error("Cloudinary upload error:", error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+            uploadStream.end(req.file.buffer);
+        });
+
+        // Retorna a URL segura da imagem hospedada no Cloudinary
+        res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
+
+    } catch (error) {
+        console.error("Erro no upload para o Cloudinary:", error);
+        res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
+    }
 });
+
 
 // --- ROTA DE AUTENTICAÇÃO ---
 app.post('/api/register', async (req, res) => {
@@ -372,9 +383,6 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// ==============================================================================
-// ||                    >>> NOVA ROTA - BUSCA PREDITIVA <<<                   ||
-// ==============================================================================
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
     if (!q || q.length < 2) {
@@ -390,9 +398,6 @@ app.get('/api/products/search-suggestions', async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar sugestões." });
     }
 });
-// ==============================================================================
-// ||                     >>> FIM DA NOVA ROTA <<<                             ||
-// ==============================================================================
 
 
 app.get('/api/products/:id', async (req, res) => {
@@ -403,24 +408,18 @@ app.get('/api/products/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ message: "Erro ao buscar produto." }); }
 });
 
-// ==============================================================================
-// ||          >>> NOVA ROTA - PRODUTOS RELACIONADOS POR COMPRA <<<            ||
-// ==============================================================================
 app.get('/api/products/:id/related-by-purchase', async (req, res) => {
     const { id } = req.params;
     try {
-        // Encontra todos os pedidos que contêm o produto principal
         const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
         const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
         
         if (ordersWithProduct.length === 0) {
-            return res.json([]); // Se ninguém comprou, retorna array vazio
+            return res.json([]);
         }
 
         const orderIds = ordersWithProduct.map(o => o.order_id);
 
-        // Encontra todos os produtos comprados nesses mesmos pedidos, exclui o produto principal,
-        // conta a frequência e retorna os mais frequentes
         const sqlFindRelated = `
             SELECT 
                 p.*,
@@ -442,9 +441,6 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
     }
 });
-// ==============================================================================
-// ||                     >>> FIM DA NOVA ROTA <<<                             ||
-// ==============================================================================
 
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { name, brand, category, price, stock, images, description, notes, how_to_use, ideal_for, volume, weight, width, height, length, is_active } = req.body;
@@ -668,7 +664,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // Verifica o estoque antes de prosseguir
         for (const item of items) {
             const [product] = await connection.query("SELECT stock FROM products WHERE id = ? FOR UPDATE", [item.id]);
             if (product.length === 0 || product[0].stock < item.qty) {
@@ -796,9 +791,10 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Nenhum item encontrado para este pedido." });
         }
 
-        const appUrl = process.env.APP_URL || 'http://localhost:8081';
-        if (!process.env.APP_URL) {
-            console.warn("AVISO: A variável de ambiente APP_URL não está definida. Isso pode não funcionar para webhooks em produção.");
+        const appUrl = process.env.APP_URL;
+        if (!appUrl) {
+            console.error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida. Pagamentos irão falhar.");
+            return res.status(500).json({ message: "Erro de configuração do servidor." });
         }
         
         const productsSubtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
@@ -838,8 +834,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                 failure: `${appUrl}/#cart`,
                 pending: `${appUrl}/#account`,
             },
-            auto_return: 'approved',
-            notification_url: `${appUrl}/api/mercadopago-webhook`
+            notification_url: `${process.env.BACKEND_URL || appUrl}/api/mercadopago-webhook`
         };
 
         if (finalShippingCostForMP > 0) {
@@ -955,7 +950,8 @@ app.post('/api/mercadopago-webhook', async (req, res) => {
                         } finally {
                             connection.release();
                         }
-                    } else {
+                    } else if (currentStatus === 'Pendente' || currentStatus === 'Processando') {
+                        // Apenas atualiza se o status não for final (ex: Entregue)
                         await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                     }
                 }
@@ -1209,5 +1205,5 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
-    console.log(`Servidor backend completo rodando em http://localhost:${PORT}`);
+    console.log(`Servidor backend completo rodando na porta ${PORT}`);
 });
