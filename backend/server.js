@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM RASTREAMENTO REAL)
+// ARQUIVO: server.js (ATUALIZADO COM EXCLUSÃO EM MASSA E PARCELAMENTO REAL)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -233,24 +233,19 @@ app.post('/api/reset-password', async (req, res) => {
 });
 
 
-// --- ROTA DE RASTREIO (COM LOGS DE DEBUG APRIMORADOS) ---
+// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     
     const LT_USER = process.env.LT_USER || 'teste';
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
-
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
     console.log(`Iniciando rastreio para o código: ${code} na URL: ${LT_API_URL}`);
-
     try {
         const apiResponse = await fetch(LT_API_URL);
-        
-        console.log(`Resposta da API Link&Track - Status: ${apiResponse.status}`);
-        
-        const responseText = await apiResponse.text(); // Lê como texto para evitar erro de JSON inválido
-        console.log(`Resposta da API Link&Track - Corpo: ${responseText}`);
+        const responseText = await apiResponse.text();
+        console.log(`Resposta da API Link&Track - Status: ${apiResponse.status}, Corpo: ${responseText}`);
         
         const data = JSON.parse(responseText);
 
@@ -266,9 +261,7 @@ app.get('/api/track/:code', async (req, res) => {
         }));
 
         res.json(formattedHistory);
-
     } catch (error) {
-        // Log detalhado do erro
         console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
@@ -485,19 +478,35 @@ app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// <<< ALTERAÇÃO: Rota de exclusão em massa para lidar com muitos IDs >>>
 app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
         return res.status(400).json({ message: "É necessário fornecer um array de IDs de produtos." });
     }
-    const placeholders = ids.map(() => '?').join(',');
-    const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
+
+    const connection = await db.getConnection();
     try {
-        const [result] = await db.query(sql, ids);
-        res.json({ message: `${result.affectedRows} produtos deletados com sucesso.` });
+        await connection.beginTransaction();
+        const CHUNK_SIZE = 100; // Processa 100 exclusões por vez
+        let totalAffectedRows = 0;
+
+        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            const chunk = ids.slice(i, i + CHUNK_SIZE);
+            const placeholders = chunk.map(() => '?').join(',');
+            const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
+            const [result] = await connection.query(sql, chunk);
+            totalAffectedRows += result.affectedRows;
+        }
+        
+        await connection.commit();
+        res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
     } catch (err) {
+        await connection.rollback();
         console.error("Erro ao deletar múltiplos produtos:", err);
         res.status(500).json({ message: "Erro interno ao deletar produtos." });
+    } finally {
+        connection.release();
     }
 });
 
@@ -875,32 +884,59 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTA DE PARCELAMENTO MERCADO PAGO ---
+// <<< ALTERAÇÃO: ROTA DE PARCELAMENTO SEM BIN >>>
 app.get('/api/mercadopago/installments', async (req, res) => {
-    const { amount, bin } = req.query;
+    const { amount } = req.query;
 
-    if (!amount || !bin) {
-        return res.status(400).json({ message: "Valor (amount) e BIN do cartão são obrigatórios." });
+    if (!amount) {
+        return res.status(400).json({ message: "O valor (amount) é obrigatório." });
     }
     
-    const MP_API_URL = `https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`;
     const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
-
     if (!MP_ACCESS_TOKEN) {
         return res.status(500).json({ message: "API de pagamento não configurada no servidor." });
     }
 
     try {
-        const apiResponse = await fetch(MP_API_URL, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        // Consulta as formas de pagamento para obter os BINs mais comuns
+        const paymentMethodsResponse = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
-        const data = await apiResponse.json();
-        if (!apiResponse.ok) {
-            const errorMessage = data.message || 'Não foi possível obter as parcelas.';
-            return res.status(apiResponse.status).json({ message: errorMessage });
+        const paymentMethods = await paymentMethodsResponse.json();
+
+        // Filtra por cartões de crédito e pega os BINS mais comuns (Visa, Master, etc.)
+        const commonBins = paymentMethods
+            .filter(pm => pm.id.includes('visa') || pm.id.includes('master'))
+            .map(pm => pm.settings[0]?.bin.pattern.replace(/\^/g, '').substring(0,6))
+            .filter(Boolean) // Remove nulos ou vazios
+            .slice(0, 2); // Usa os 2 primeiros para evitar muitas requisições
+        
+        if(commonBins.length === 0) commonBins.push('411111'); // Fallback
+
+        let bestInstallmentPlan = [];
+
+        // Itera sobre os BINs para encontrar o melhor plano de parcelamento
+        for(const bin of commonBins) {
+            const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
+                 headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+            });
+            const installmentsData = await installmentsResponse.json();
+
+            if (installmentsResponse.ok && installmentsData.length > 0) {
+                const currentPlan = installmentsData[0].payer_costs;
+                // Critério: o plano com mais parcelas é considerado o melhor
+                if (currentPlan.length > bestInstallmentPlan.length) {
+                    bestInstallmentPlan = currentPlan;
+                }
+            }
         }
-        res.json(data);
+        
+        if(bestInstallmentPlan.length === 0) {
+            return res.status(404).json({ message: 'Não foi possível obter opções de parcelamento para este valor.' });
+        }
+        
+        res.json(bestInstallmentPlan);
+
     } catch (error) {
         console.error("Erro ao buscar parcelas do Mercado Pago:", error);
         res.status(500).json({ message: "Erro interno do servidor ao buscar parcelas." });
@@ -1217,6 +1253,7 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
+
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
