@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM WEBHOOK ROBUSTO)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO NA ROTA DE PARCELAMENTO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -886,8 +886,9 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+// <<< CORREÇÃO: ROTA DE PARCELAMENTO CORRIGIDA para usar req.query >>>
 app.get('/api/mercadopago/installments', async (req, res) => {
-    const { amount } = req.body;
+    const { amount } = req.query; // <<< ALTERADO DE req.body PARA req.query
 
     if (!amount) {
         return res.status(400).json({ message: "O valor (amount) é obrigatório." });
@@ -907,7 +908,8 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         const creditCardMethods = paymentMethods.filter(pm => 
             pm.payment_type_id === 'credit_card' && 
             pm.status === 'active' &&
-            pm.settings && pm.settings.length > 0
+            pm.settings && pm.settings.length > 0 && 
+            pm.settings[0].bin // Garante que as configurações do BIN existem
         );
         
         let bestInstallmentPlan = [];
@@ -951,12 +953,9 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 });
 
 
-// <<< ALTERAÇÃO: ROTA DE WEBHOOK ROBUSTA >>>
 app.post('/api/mercadopago-webhook', (req, res) => {
-    // 1. Responde imediatamente ao Mercado Pago para evitar timeouts
     res.sendStatus(200); 
 
-    // 2. Processa a notificação de forma assíncrona
     (async () => {
         try {
             const { query, body } = req;
@@ -1019,7 +1018,7 @@ app.post('/api/mercadopago-webhook', (req, res) => {
                             } finally {
                                 connection.release();
                             }
-                        } else if (currentStatus === 'Pendente') { // Só atualiza se o status for pendente para evitar sobrescrever status manuais
+                        } else if (currentStatus === 'Pendente') { 
                             await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                         }
                     }
@@ -1028,7 +1027,7 @@ app.post('/api/mercadopago-webhook', (req, res) => {
         } catch (error) {
             console.error('Erro GRAVE ao processar webhook do Mercado Pago de forma assíncrona:', error);
         }
-    })(); // Imediatamente invoca a função assíncrona
+    })(); 
 });
 
 // --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
