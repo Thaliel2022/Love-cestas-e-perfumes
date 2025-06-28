@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO NO WEBHOOK)
+// ARQUIVO: server.js (ATUALIZADO COM WEBHOOK INTELIGENTE PARA SIMULAÇÕES)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -886,9 +886,8 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
-// <<< CORREÇÃO: ROTA DE PARCELAMENTO CORRIGIDA para usar req.query >>>
 app.get('/api/mercadopago/installments', async (req, res) => {
-    const { amount } = req.query; // <<< ALTERADO DE req.body PARA req.query
+    const { amount } = req.query;
 
     if (!amount) {
         return res.status(400).json({ message: "O valor (amount) é obrigatório." });
@@ -909,7 +908,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
             pm.payment_type_id === 'credit_card' && 
             pm.status === 'active' &&
             pm.settings && pm.settings.length > 0 && 
-            pm.settings[0].bin // Garante que as configurações do BIN existem
+            pm.settings[0].bin
         );
         
         let bestInstallmentPlan = [];
@@ -970,8 +969,14 @@ app.post('/api/mercadopago-webhook', (req, res) => {
             console.log("Processando webhook do Mercado Pago:", { topic, id: paymentId });
 
             if (topic === 'payment' && paymentId) {
+                // <<< CORREÇÃO: Ignorar a consulta para o ID de simulação >>>
+                if (paymentId === 123456 || paymentId === '123456') {
+                    console.log('Notificação de simulação recebida e ignorada com sucesso.');
+                    return;
+                }
+
                 const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                    headers: { 'Authorization': `Bearer ${mpClient.accessToken}` } // <<< CORREÇÃO AQUI
+                    headers: { 'Authorization': `Bearer ${mpClient.accessToken}` }
                 });
 
                 if (!paymentResponse.ok) {
@@ -1275,4 +1280,3 @@ const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
     console.log(`Servidor backend completo rodando na porta ${PORT}`);
 });
-
