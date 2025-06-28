@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM WEBHOOK INTELIGENTE PARA SIMULAÇÕES)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO FINAL DE WEBHOOK)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -71,7 +71,9 @@ db.getConnection()
     });
 
 // --- CONFIGURAÇÃO DO CLIENTE DO MERCADO PAGO ---
-const mpClient = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+// <<< ALTERAÇÃO: Ler o token em uma constante separada para mais robustez >>>
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
+const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 const preference = new Preference(mpClient);
 
 // --- CONFIGURAÇÃO DO CLOUDINARY ---
@@ -572,7 +574,7 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 
 app.post('/api/reviews', verifyToken, async (req, res) => {
     const { product_id, rating, comment } = req.body;
-    if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são necessários." });
+    if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são obrigatórios." });
     try {
         await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
@@ -893,7 +895,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         return res.status(400).json({ message: "O valor (amount) é obrigatório." });
     }
     
-    const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
     if (!MP_ACCESS_TOKEN) {
         return res.status(500).json({ message: "API de pagamento não configurada no servidor." });
     }
@@ -969,14 +970,13 @@ app.post('/api/mercadopago-webhook', (req, res) => {
             console.log("Processando webhook do Mercado Pago:", { topic, id: paymentId });
 
             if (topic === 'payment' && paymentId) {
-                // <<< CORREÇÃO: Ignorar a consulta para o ID de simulação >>>
                 if (paymentId === 123456 || paymentId === '123456') {
                     console.log('Notificação de simulação recebida e ignorada com sucesso.');
                     return;
                 }
 
                 const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                    headers: { 'Authorization': `Bearer ${mpClient.accessToken}` }
+                    headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
                 });
 
                 if (!paymentResponse.ok) {
