@@ -934,8 +934,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
-
-// ROTA DE CONSULTA DE PARCELAS
+// ROTA DE CONSULTA DE PARCELAS (CORRIGIDA)
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -948,7 +947,10 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 
     try {
-        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&marketplace=NONE`, {
+        // CORREÇÃO: A API do Mercado Pago exige um 'bin' (primeiros 6 dígitos do cartão) ou 'payment_method_id'
+        // para retornar as parcelas. Usamos um BIN comum de VISA para obter um plano de parcelamento representativo.
+        const bin = '411111'; 
+        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
@@ -959,10 +961,12 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 
         const installmentsData = await installmentsResponse.json();
         
+        // A API retorna um array, e o plano de parcelamento está no primeiro item.
         if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
             res.json(installmentsData[0].payer_costs);
         } else {
-            res.status(404).json({ message: 'Não foi possível obter opções de parcelamento para este valor.' });
+            // Se não houver payer_costs, pode não haver parcelamento para esse valor/cartão
+            res.status(404).json({ message: 'Não foram encontradas opções de parcelamento.' });
         }
 
     } catch (error) {
