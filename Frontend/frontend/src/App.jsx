@@ -29,7 +29,7 @@ const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
-
+const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -1277,12 +1277,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [thumbnailIndex, setThumbnailIndex] = useState(0);
     
-    // >>> NOVO: Estados para parcelamento
-    const [installments, setInstallments] = useState(null);
+    const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    // <<< FIM NOVO
-
+    
     const productImages = useMemo(() => parseImages(product?.images, null), [product]);
 
     const fetchProductData = useCallback(async (id) => {
@@ -1326,18 +1324,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         window.scrollTo(0, 0);
     }, [productId, fetchProductData]);
     
-    // >>> NOVO: useEffect para buscar parcelas
     useEffect(() => {
         const fetchInstallments = async (price) => {
             if (!price || price <= 0) return;
             setIsLoadingInstallments(true);
-            setInstallments(null);
+            setInstallments([]);
             try {
-                // Usando um BIN comum de cartão Visa para obter uma prévia das parcelas
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}&bin=411111`);
-                if (installmentData && installmentData.length > 0 && installmentData[0].payer_costs) {
-                    setInstallments(installmentData[0].payer_costs);
-                }
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
             } catch (error) {
                 console.warn("Não foi possível carregar as opções de parcelamento.", error);
             } finally {
@@ -1349,7 +1343,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             fetchInstallments(product.price);
         }
     }, [product]);
-    // <<< FIM NOVO
 
 
     const handleReviewSubmit = async (e) => {
@@ -1456,12 +1449,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
 
-    // >>> NOVO: Função para obter resumo do parcelamento
     const getInstallmentSummary = () => {
         if (isLoadingInstallments) {
             return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
         }
-        if (!installments) {
+        if (!installments || installments.length === 0) {
             return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
         }
 
@@ -1484,7 +1476,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
         return null;
     };
-    // <<< FIM NOVO
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -1570,7 +1561,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                         
-                        {/* >>> NOVO: Seção de Parcelamento <<< */}
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
                                 <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
@@ -1579,14 +1569,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <button
                                         onClick={() => setIsInstallmentModalOpen(true)}
                                         className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-                                        disabled={isLoadingInstallments || !installments}
+                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
                                     >
                                         Ver parcelas disponíveis
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        {/* <<< FIM NOVO >>> */}
                         
                         <div className="flex items-center space-x-4">
                             <p className="font-semibold">Quantidade:</p>
@@ -2049,8 +2038,7 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};
-const WishlistPage = ({ onNavigate }) => {
+};const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -2347,12 +2335,7 @@ const MyAccountPage = ({ onNavigate }) => {
         </>
     );
 };
-// ------------------------------------
-// --- FIM DA PRIMEIRA PARTE ---
-// ------------------------------------
-// ------------------------------------
-// --- FIM DA PRIMEIRA PARTE ---
-// ------------------------------------
+
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
@@ -2474,6 +2457,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 }
 
             } else {
+                // Navegação para sucesso em caso de outros métodos de pagamento (não implementado)
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
@@ -2551,14 +2535,95 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
+// >>> INÍCIO DA PÁGINA DE SUCESSO ATUALIZADA <<<
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
+    const { clearOrderState } = useShop();
+    const [status, setStatus] = useState('Pendente'); 
+    const [error, setError] = useState('');
+    const pollIntervalRef = useRef(null);
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+        // Limpa o carrinho e outros estados do pedido imediatamente ao entrar na página
+        clearOrderState();
+
+        const pollStatus = async () => {
+            try {
+                // Usamos o endpoint que verifica o status
+                const response = await apiService(`/orders/${orderId}/status`); 
+                if (response.status && response.status !== 'Pendente') {
+                    setStatus(response.status);
+                    if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                    if(timeoutRef.current) clearTimeout(timeoutRef.current);
+                }
+            } catch (err) {
+                setError('Não foi possível verificar o status do pagamento. Por favor, verifique em "Minha Conta".');
+                if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                if(timeoutRef.current) clearTimeout(timeoutRef.current);
+            }
+        };
+        
+        // Inicia a verificação a cada 3 segundos
+        pollIntervalRef.current = setInterval(pollStatus, 3000);
+
+        // Define um tempo máximo de espera de 45 segundos
+        timeoutRef.current = setTimeout(() => {
+            if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (status === 'Pendente') { // Se ainda estiver pendente após o tempo, mostra sucesso genérico
+                 setStatus('Timeout');
+            }
+        }, 45000);
+
+        // Limpa tudo ao sair da página
+        return () => {
+            if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if(timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, [orderId, clearOrderState, status]);
+
+
+    const renderContent = () => {
+        if (status === 'Pendente') {
+            return (
+                <>
+                    <div className="relative mb-6">
+                        <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
+                        <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">Confirmando Pagamento...</h1>
+                    <p className="text-gray-300 mb-6">Aguarde um instante, estamos confirmando seu pagamento com a operadora.</p>
+                </>
+            );
+        }
+
+        if (error) {
+             return (
+                <>
+                    <ExclamationIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                    <h1 className="text-2xl sm:text-3xl font-bold text-red-400 mb-2">Ocorreu um Problema</h1>
+                    <p className="text-gray-300 mb-6">{error}</p>
+                </>
+            );
+        }
+        
+        // Cobre os casos de sucesso final ('Processando', 'Timeout', etc.)
+        return (
+            <>
+                <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">Pedido Realizado com Sucesso!</h1>
+                <p className="text-gray-300 mb-6">
+                    Seu pedido <strong className="font-mono">#{orderId}</strong> foi recebido.
+                    {status === 'Processando' ? " O pagamento foi aprovado e já estamos preparando tudo para o envio!" : " Você pode acompanhar o status final na sua área de cliente."}
+                </p>
+            </>
+        );
+    };
+
     return (
         <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
             <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
-                <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">Pedido Realizado com Sucesso!</h1>
-                <p className="text-gray-300 mb-6">O seu pedido <strong className="font-mono">#{orderId}</strong> foi recebido e está sendo processado.</p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                {renderContent()}
+                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
                     <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
                     <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
                 </div>
@@ -2566,8 +2631,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         </div>
     );
 };
-// --- PAINEL DO ADMINISTRADOR ---
+// >>> FIM DA PÁGINA DE SUCESSO ATUALIZADA <<<
 
+
+// --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -2691,7 +2758,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     useEffect(() => {
         const initialData = {};
         fieldsConfig.forEach(field => {
-            // Define o valor inicial: usa o valor do item, ou um padrão baseado no tipo de campo
             initialData[field.name] = item?.[field.name] ?? 
                 (field.type === 'select' ? (field.options[0]?.value || '') : 
                 (field.type === 'checkbox' ? 0 : 
@@ -2705,7 +2771,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         setFormData(initialData);
     }, [item, fieldsConfig]);
 
-    // Oculta e limpa o valor quando o tipo de cupom é 'frete grátis'
     useEffect(() => {
         if (formData.type === 'free_shipping') {
             setFormData(prev => ({ ...prev, value: '' }));
@@ -2752,22 +2817,19 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         e.preventDefault();
         const dataToSubmit = { ...formData };
 
-        // Formata o volume
         if (dataToSubmit.volume && !isNaN(dataToSubmit.volume) && !dataToSubmit.volume.toLowerCase().includes('ml')) {
             dataToSubmit.volume = `${dataToSubmit.volume}ml`;
         }
         
-        // Remove campos que não devem ser enviados na edição (ex: cpf em 'users')
         fieldsConfig.forEach(field => {
             if (field.editable === false) {
                 delete dataToSubmit[field.name];
             }
         });
 
-        // Garante que o campo 'images' sempre seja uma string JSON
         const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
         const finalData = { ...dataToSubmit, images: JSON.stringify(imagesToSave) };
-        delete finalData.images_upload; // Remove o campo de upload que não vai pro DB
+        delete finalData.images_upload; 
 
         onSave(finalData);
     };
@@ -2837,7 +2899,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                         </div>
                     );
                 }
-                // Adiciona a lógica para ocultar o campo de valor do cupom
                 if (field.name === 'value' && formData.type === 'free_shipping') {
                     return null;
                 }
