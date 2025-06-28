@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÕES FINAIS DE WEBHOOK E ESTOQUE)
+// ARQUIVO: server.js (ATUALIZADO COM SINCRONIZAÇÃO E WEBHOOK ROBUSTO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -137,6 +137,7 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
 
 
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
+// ... (código de autenticação e usuários permanece o mesmo) ...
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
     if (!name || !email || !password || !cpf) {
@@ -573,7 +574,7 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 
 app.post('/api/reviews', verifyToken, async (req, res) => {
     const { product_id, rating, comment } = req.body;
-    if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são obrigatórios." });
+    if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são necessários." });
     try {
         await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
@@ -1019,7 +1020,7 @@ const processPaymentWebhook = async (paymentId) => {
             let newOrderStatus = null;
             if (paymentStatus === 'approved' && currentDBStatus === 'Pendente') {
                 newOrderStatus = 'Processando';
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== 'Cancelado') {
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled' || paymentStatus === 'refunded') && currentDBStatus !== 'Cancelado') {
                 newOrderStatus = 'Cancelado';
             }
 
