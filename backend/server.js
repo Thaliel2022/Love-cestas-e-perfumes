@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO FINAL DE WEBHOOK)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO NA DEVOLUÇÃO DE ESTOQUE)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -71,7 +71,6 @@ db.getConnection()
     });
 
 // --- CONFIGURAÇÃO DO CLIENTE DO MERCADO PAGO ---
-// <<< ALTERAÇÃO: Ler o token em uma constante separada para mais robustez >>>
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
 const preference = new Preference(mpClient);
@@ -1010,10 +1009,10 @@ app.post('/api/mercadopago-webhook', (req, res) => {
                                 const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
                                 if (itemsToReturn.length > 0) {
                                     const stockUpdatePromises = itemsToReturn.map(item =>
-                                        connection.query("UPDATE products SET stock = stock + ?, sales = sales - ? WHERE id = ?", [item.quantity, item.quantity, item.product_id])
+                                        connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id])
                                     );
                                     await Promise.all(stockUpdatePromises);
-                                    console.log(`Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido e vendas decrementadas.`);
+                                    console.log(`Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido.`);
                                 }
                                 await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                                 await connection.commit();
