@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO FINAL DE WEBHOOK E ESTOQUE)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÕES FINAIS DE WEBHOOK E ESTOQUE)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -977,18 +977,18 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
-            console.log(`Notificação de simulação ignorada (ID: ${paymentId}).`);
+            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
             return;
         }
 
-        console.log(`Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
+        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
         const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
         if (!paymentResponse.ok) {
             const errorText = await paymentResponse.text();
-            console.error(`Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
+            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
             return;
         }
         
@@ -997,54 +997,60 @@ const processPaymentWebhook = async (paymentId) => {
         const paymentStatus = payment.status;
 
         if (!orderId) {
-            console.log(`Webhook para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
+            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
             return;
         }
 
-        console.log(`Atualizando pedido ${orderId} para o status de pagamento: ${paymentStatus}`);
-        let newOrderStatus = 'Pendente';
-        if (paymentStatus === 'approved') {
-            newOrderStatus = 'Processando';
-        } else if (paymentStatus === 'rejected' || paymentStatus === 'cancelled') {
-            newOrderStatus = 'Cancelado';
-        }
+        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
         
-        const [currentOrderResult] = await db.query("SELECT status FROM orders WHERE id = ?", [orderId]);
-        
-        if (currentOrderResult.length === 0) {
-            console.log(`Pedido ${orderId} não encontrado no banco de dados.`);
-            return;
-        }
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
-        const currentStatus = currentOrderResult[0].status;
-
-        if (newOrderStatus === 'Cancelado' && currentStatus !== 'Cancelado') {
-            const connection = await db.getConnection();
-            try {
-                await connection.beginTransaction();
-                const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
-                if (itemsToReturn.length > 0) {
-                    for (const item of itemsToReturn) {
-                        // Devolve apenas o estoque, não altera as vendas.
-                        await connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id]);
-                    }
-                    console.log(`Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido.`);
-                }
-                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
+            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ?", [orderId]);
+            if (currentOrderResult.length === 0) {
+                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
                 await connection.commit();
-            } catch(stockError) {
-                await connection.rollback();
-                console.error(`ERRO CRÍTICO ao devolver estoque para o pedido ${orderId}:`, stockError);
-            } finally {
-                connection.release();
+                return;
             }
-        } else if (currentStatus === 'Pendente') { 
-            await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
-        } else {
-             console.log(`Status do pedido ${orderId} já é '${currentStatus}'. Nenhuma atualização de status por webhook necessária.`);
+            const currentDBStatus = currentOrderResult[0].status;
+            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
+
+            let newOrderStatus = null;
+            if (paymentStatus === 'approved' && currentDBStatus === 'Pendente') {
+                newOrderStatus = 'Processando';
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== 'Cancelado') {
+                newOrderStatus = 'Cancelado';
+            }
+
+            if (newOrderStatus) {
+                console.log(`[Webhook] Atualizando status do pedido ${orderId} de '${currentDBStatus}' para '${newOrderStatus}'.`);
+                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
+                
+                if (newOrderStatus === 'Cancelado') {
+                    const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+                    if (itemsToReturn.length > 0) {
+                        for (const item of itemsToReturn) {
+                            await connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id]);
+                        }
+                        console.log(`[Webhook] Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido.`);
+                    }
+                }
+                await connection.commit();
+                console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
+            } else {
+                console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
+                await connection.commit(); 
+            }
+        } catch(dbError) {
+            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
+            if (connection) await connection.rollback();
+        } finally {
+            if (connection) connection.release();
         }
+
     } catch (error) {
-        console.error('Erro GRAVE ao processar o webhook de pagamento:', error);
+        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
     }
 };
 
@@ -1060,9 +1066,7 @@ app.post('/api/mercadopago-webhook', (req, res) => {
     const paymentId = query.id || query['data.id'] || body.data?.id;
 
     if (topic === 'payment') {
-        processPaymentWebhook(paymentId).catch(err => {
-             console.error("Erro não capturado no processamento do webhook:", err);
-        });
+        processPaymentWebhook(paymentId);
     }
 });
 
