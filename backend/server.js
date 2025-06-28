@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM EXCLUSÃO EM MASSA E PARCELAMENTO REAL)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÕES DE PAGAMENTO E PARCELAMENTO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -478,7 +478,6 @@ app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// <<< ALTERAÇÃO: Rota de exclusão em massa para lidar com muitos IDs >>>
 app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { ids } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -488,7 +487,7 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-        const CHUNK_SIZE = 100; // Processa 100 exclusões por vez
+        const CHUNK_SIZE = 100;
         let totalAffectedRows = 0;
 
         for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
@@ -503,6 +502,10 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
     } catch (err) {
         await connection.rollback();
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+            console.error("Tentativa de deletar produto referenciado em pedidos:", err);
+            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes. Considere desativá-los em vez de excluir." });
+        }
         console.error("Erro ao deletar múltiplos produtos:", err);
         res.status(500).json({ message: "Erro interno ao deletar produtos." });
     } finally {
@@ -794,6 +797,12 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         if (!orderId) {
             return res.status(400).json({ message: "ID do pedido é obrigatório." });
         }
+        // <<< CORREÇÃO: Verifica se APP_URL está definida ANTES de prosseguir >>>
+        const appUrl = process.env.APP_URL;
+        if (!appUrl) {
+            console.error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida. Pagamentos não podem ser processados.");
+            return res.status(500).json({ message: "Erro de configuração do servidor: a URL da aplicação não está definida." });
+        }
 
         const [orderResult] = await db.query("SELECT * FROM orders WHERE id = ?", [orderId]);
         if (!orderResult.length) {
@@ -815,12 +824,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         );
         if (!orderItems.length) {
             return res.status(400).json({ message: "Nenhum item encontrado para este pedido." });
-        }
-
-        const appUrl = process.env.APP_URL;
-        if (!appUrl) {
-            console.error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida. Pagamentos irão falhar.");
-            return res.status(500).json({ message: "Erro de configuração do servidor." });
         }
         
         const productsSubtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
@@ -884,7 +887,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
-// <<< ALTERAÇÃO: ROTA DE PARCELAMENTO SEM BIN >>>
+// <<< ALTERAÇÃO: ROTA DE PARCELAMENTO CORRIGIDA para ser mais robusta >>>
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -898,35 +901,42 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 
     try {
-        // Consulta as formas de pagamento para obter os BINs mais comuns
         const paymentMethodsResponse = await fetch('https://api.mercadopago.com/v1/payment_methods', {
              headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
         const paymentMethods = await paymentMethodsResponse.json();
 
-        // Filtra por cartões de crédito e pega os BINS mais comuns (Visa, Master, etc.)
-        const commonBins = paymentMethods
-            .filter(pm => pm.id.includes('visa') || pm.id.includes('master'))
-            .map(pm => pm.settings[0]?.bin.pattern.replace(/\^/g, '').substring(0,6))
-            .filter(Boolean) // Remove nulos ou vazios
-            .slice(0, 2); // Usa os 2 primeiros para evitar muitas requisições
+        // Filtra por cartões de crédito e remove os que não tem 'settings'
+        const creditCardMethods = paymentMethods.filter(pm => 
+            pm.payment_type_id === 'credit_card' && 
+            pm.status === 'active' &&
+            pm.settings && pm.settings.length > 0
+        );
         
-        if(commonBins.length === 0) commonBins.push('411111'); // Fallback
-
         let bestInstallmentPlan = [];
+        let maxNoInterestInstallments = 0;
 
-        // Itera sobre os BINs para encontrar o melhor plano de parcelamento
-        for(const bin of commonBins) {
-            const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
+        for(const pm of creditCardMethods) {
+            const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&payment_method_id=${pm.id}`, {
                  headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
             });
-            const installmentsData = await installmentsResponse.json();
+            
+            if (installmentsResponse.ok) {
+                const installmentsData = await installmentsResponse.json();
+                if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
+                    const currentPlan = installmentsData[0].payer_costs;
+                    
+                    const currentMaxNoInterest = Math.max(0, ...currentPlan
+                        .filter(p => p.installment_rate === 0)
+                        .map(p => p.installments)
+                    );
 
-            if (installmentsResponse.ok && installmentsData.length > 0) {
-                const currentPlan = installmentsData[0].payer_costs;
-                // Critério: o plano com mais parcelas é considerado o melhor
-                if (currentPlan.length > bestInstallmentPlan.length) {
-                    bestInstallmentPlan = currentPlan;
+                    if (currentMaxNoInterest > maxNoInterestInstallments) {
+                        maxNoInterestInstallments = currentMaxNoInterest;
+                        bestInstallmentPlan = currentPlan;
+                    } else if (maxNoInterestInstallments === 0 && currentPlan.length > bestInstallmentPlan.length) {
+                        bestInstallmentPlan = currentPlan;
+                    }
                 }
             }
         }
@@ -942,6 +952,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         res.status(500).json({ message: "Erro interno do servidor ao buscar parcelas." });
     }
 });
+
 
 // --- ROTA DE WEBHOOK DO MERCADO PAGO ---
 app.post('/api/mercadopago-webhook', async (req, res) => {
