@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÕES DE PAGAMENTO E PARCELAMENTO)
+// ARQUIVO: server.js (ATUALIZADO COM WEBHOOK ROBUSTO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -797,7 +797,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         if (!orderId) {
             return res.status(400).json({ message: "ID do pedido é obrigatório." });
         }
-        // <<< CORREÇÃO: Verifica se APP_URL está definida ANTES de prosseguir >>>
         const appUrl = process.env.APP_URL;
         if (!appUrl) {
             console.error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida. Pagamentos não podem ser processados.");
@@ -887,9 +886,8 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
-// <<< ALTERAÇÃO: ROTA DE PARCELAMENTO CORRIGIDA para ser mais robusta >>>
 app.get('/api/mercadopago/installments', async (req, res) => {
-    const { amount } = req.query;
+    const { amount } = req.body;
 
     if (!amount) {
         return res.status(400).json({ message: "O valor (amount) é obrigatório." });
@@ -906,7 +904,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         });
         const paymentMethods = await paymentMethodsResponse.json();
 
-        // Filtra por cartões de crédito e remove os que não tem 'settings'
         const creditCardMethods = paymentMethods.filter(pm => 
             pm.payment_type_id === 'credit_card' && 
             pm.status === 'active' &&
@@ -954,76 +951,84 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 });
 
 
-// --- ROTA DE WEBHOOK DO MERCADO PAGO ---
-app.post('/api/mercadopago-webhook', async (req, res) => {
-    if (!req.body) {
-        return res.sendStatus(200);
-    }
-    const { query, body } = req;
-    const topic = query.topic || query.type || body.topic;
-    const paymentId = query.id || query['data.id'] || body.data?.id;
+// <<< ALTERAÇÃO: ROTA DE WEBHOOK ROBUSTA >>>
+app.post('/api/mercadopago-webhook', (req, res) => {
+    // 1. Responde imediatamente ao Mercado Pago para evitar timeouts
+    res.sendStatus(200); 
 
-    console.log("Webhook do Mercado Pago recebido:", { topic, id: paymentId });
-
-    if (topic === 'payment' && paymentId) {
+    // 2. Processa a notificação de forma assíncrona
+    (async () => {
         try {
-            const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                headers: { 'Authorization': `Bearer ${mpClient.config.accessToken}` }
-            });
-            const payment = await paymentResponse.json();
+            const { query, body } = req;
+            if (!body) {
+                console.log("Webhook recebido com corpo vazio.");
+                return;
+            }
 
-            const orderId = payment.external_reference;
-            const paymentStatus = payment.status; 
+            const topic = query.topic || query.type || body.topic;
+            const paymentId = query.id || query['data.id'] || body.data?.id;
 
-            if (orderId) {
-                console.log(`Atualizando pedido ${orderId} para o status de pagamento: ${paymentStatus}`);
-                let newOrderStatus = 'Pendente';
-                if (paymentStatus === 'approved') {
-                    newOrderStatus = 'Processando';
-                } else if (paymentStatus === 'rejected' || paymentStatus === 'cancelled') {
-                    newOrderStatus = 'Cancelado';
+            console.log("Processando webhook do Mercado Pago:", { topic, id: paymentId });
+
+            if (topic === 'payment' && paymentId) {
+                const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+                    headers: { 'Authorization': `Bearer ${mpClient.config.accessToken}` }
+                });
+
+                if (!paymentResponse.ok) {
+                    const errorText = await paymentResponse.text();
+                    console.error(`Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
+                    return;
                 }
                 
-                const [currentOrderResult] = await db.query("SELECT status FROM orders WHERE id = ?", [orderId]);
-                
-                if (currentOrderResult.length > 0) {
-                    const currentStatus = currentOrderResult[0].status;
+                const payment = await paymentResponse.json();
+                const orderId = payment.external_reference;
+                const paymentStatus = payment.status;
 
-                    if (newOrderStatus === 'Cancelado' && currentStatus !== 'Cancelado') {
-                        const connection = await db.getConnection();
-                        try {
-                            await connection.beginTransaction();
-                            
-                            const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
-                            
-                            if (itemsToReturn.length > 0) {
-                                const stockUpdatePromises = itemsToReturn.map(item =>
-                                    connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id])
-                                );
-                                await Promise.all(stockUpdatePromises);
-                                console.log(`Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido.`);
+                if (orderId) {
+                    console.log(`Atualizando pedido ${orderId} para o status de pagamento: ${paymentStatus}`);
+                    let newOrderStatus = 'Pendente';
+                    if (paymentStatus === 'approved') {
+                        newOrderStatus = 'Processando';
+                    } else if (paymentStatus === 'rejected' || paymentStatus === 'cancelled') {
+                        newOrderStatus = 'Cancelado';
+                    }
+                    
+                    const [currentOrderResult] = await db.query("SELECT status FROM orders WHERE id = ?", [orderId]);
+                    
+                    if (currentOrderResult.length > 0) {
+                        const currentStatus = currentOrderResult[0].status;
+
+                        if (newOrderStatus === 'Cancelado' && currentStatus !== 'Cancelado') {
+                            const connection = await db.getConnection();
+                            try {
+                                await connection.beginTransaction();
+                                const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+                                if (itemsToReturn.length > 0) {
+                                    const stockUpdatePromises = itemsToReturn.map(item =>
+                                        connection.query("UPDATE products SET stock = stock + ?, sales = sales - ? WHERE id = ?", [item.quantity, item.quantity, item.product_id])
+                                    );
+                                    await Promise.all(stockUpdatePromises);
+                                    console.log(`Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido e vendas decrementadas.`);
+                                }
+                                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
+                                await connection.commit();
+                            } catch(stockError) {
+                                await connection.rollback();
+                                console.error(`ERRO CRÍTICO ao devolver estoque para o pedido ${orderId}:`, stockError);
+                            } finally {
+                                connection.release();
                             }
-                            
-                            await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
-                            
-                            await connection.commit();
-                        } catch(stockError) {
-                            await connection.rollback();
-                            console.error(`ERRO CRÍTICO ao devolver estoque para o pedido ${orderId}:`, stockError);
-                            throw stockError; 
-                        } finally {
-                            connection.release();
+                        } else if (currentStatus === 'Pendente') { // Só atualiza se o status for pendente para evitar sobrescrever status manuais
+                            await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                         }
-                    } else if (currentStatus === 'Pendente' || currentStatus === 'Processando') {
-                        await db.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                     }
                 }
             }
         } catch (error) {
-            console.error('Erro ao processar webhook do Mercado Pago:', error);
+            console.error('Erro GRAVE ao processar webhook do Mercado Pago de forma assíncrona:', error);
         }
-    }
-    res.sendStatus(200);
+    })(); // Imediatamente invoca a função assíncrona
 });
 
 // --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
