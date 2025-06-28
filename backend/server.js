@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÕES FINAIS DE WEBHOOK E ESTOQUE)
+// ARQUIVO: server.js (ATUALIZADO COM MELHORIAS NO WEBHOOK E LOGGING)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -29,8 +29,10 @@ const LOCK_TIME_IN_MINUTES = 15;
 const loginAttempts = {};
 
 // --- MIDDLEWARES ---
+// IMPORTANTE: O middleware de body-parser do express deve vir ANTES das rotas
 app.use(cors());
 app.use(express.json());
+
 
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
@@ -811,7 +813,30 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO ---
+// <<< INÍCIO DA SEÇÃO ATUALIZADA DE PAGAMENTOS E WEBHOOK >>>
+
+// ROTA PARA OBTER O STATUS DE UM PEDIDO (NOVO)
+app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    try {
+        // Verifica se o pedido pertence ao usuário logado ou se é admin
+        const [orderResult] = await db.query("SELECT status, user_id FROM orders WHERE id = ?", [id]);
+        if (orderResult.length === 0) {
+            return res.status(404).json({ message: 'Pedido não encontrado.' });
+        }
+        if (orderResult[0].user_id !== userId && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Acesso negado a este pedido.' });
+        }
+        res.json({ status: orderResult[0].status });
+    } catch(err) {
+        console.error(`Erro ao buscar status do pedido ${id}:`, err);
+        res.status(500).json({ message: 'Erro ao consultar o status do pedido.' });
+    }
+});
+
+
+// ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -820,9 +845,11 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             return res.status(400).json({ message: "ID do pedido é obrigatório." });
         }
         const appUrl = process.env.APP_URL;
-        if (!appUrl) {
-            console.error("ERRO CRÍTICO: A variável de ambiente APP_URL não está definida. Pagamentos não podem ser processados.");
-            return res.status(500).json({ message: "Erro de configuração do servidor: a URL da aplicação não está definida." });
+        const backendUrl = process.env.BACKEND_URL || appUrl; // Usa BACKEND_URL se definido, senão APP_URL
+
+        if (!appUrl || !backendUrl) {
+            console.error("ERRO CRÍTICO: As variáveis de ambiente APP_URL e BACKEND_URL não estão definidas.");
+            return res.status(500).json({ message: "Erro de configuração do servidor: URLs da aplicação não definidas." });
         }
 
         const [orderResult] = await db.query("SELECT * FROM orders WHERE id = ?", [orderId]);
@@ -865,7 +892,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         }
         
         finalItemPriceForMP = Math.max(0, finalItemPriceForMP);
-
         const productNames = orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
 
         const preferenceBody = {
@@ -884,7 +910,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                 failure: `${appUrl}/#cart`,
                 pending: `${appUrl}/#account`,
             },
-            notification_url: `${process.env.BACKEND_URL || appUrl}/api/mercadopago-webhook`
+            notification_url: `${backendUrl}/api/mercadopago-webhook`
         };
 
         if (finalShippingCostForMP > 0) {
@@ -908,6 +934,8 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+
+// ROTA DE CONSULTA DE PARCELAS
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -920,60 +948,31 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 
     try {
-        const paymentMethodsResponse = await fetch('https://api.mercadopago.com/v1/payment_methods', {
-             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&marketplace=NONE`, {
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
-        const paymentMethods = await paymentMethodsResponse.json();
 
-        const creditCardMethods = paymentMethods.filter(pm => 
-            pm.payment_type_id === 'credit_card' && 
-            pm.status === 'active' &&
-            pm.settings && pm.settings.length > 0 && 
-            pm.settings[0].bin
-        );
-        
-        let bestInstallmentPlan = [];
-        let maxNoInterestInstallments = 0;
-
-        for(const pm of creditCardMethods) {
-            const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&payment_method_id=${pm.id}`, {
-                 headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-            });
-            
-            if (installmentsResponse.ok) {
-                const installmentsData = await installmentsResponse.json();
-                if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
-                    const currentPlan = installmentsData[0].payer_costs;
-                    
-                    const currentMaxNoInterest = Math.max(0, ...currentPlan
-                        .filter(p => p.installment_rate === 0)
-                        .map(p => p.installments)
-                    );
-
-                    if (currentMaxNoInterest > maxNoInterestInstallments) {
-                        maxNoInterestInstallments = currentMaxNoInterest;
-                        bestInstallmentPlan = currentPlan;
-                    } else if (maxNoInterestInstallments === 0 && currentPlan.length > bestInstallmentPlan.length) {
-                        bestInstallmentPlan = currentPlan;
-                    }
-                }
-            }
+        if (!installmentsResponse.ok) {
+            const errorData = await installmentsResponse.json();
+            throw new Error(errorData.message || 'Não foi possível obter os parcelamentos.');
         }
+
+        const installmentsData = await installmentsResponse.json();
         
-        if(bestInstallmentPlan.length === 0) {
-            return res.status(404).json({ message: 'Não foi possível obter opções de parcelamento para este valor.' });
+        if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
+            res.json(installmentsData[0].payer_costs);
+        } else {
+            res.status(404).json({ message: 'Não foi possível obter opções de parcelamento para este valor.' });
         }
-        
-        res.json(bestInstallmentPlan);
 
     } catch (error) {
         console.error("Erro ao buscar parcelas do Mercado Pago:", error);
-        res.status(500).json({ message: "Erro interno do servidor ao buscar parcelas." });
+        res.status(500).json({ message: error.message || "Erro interno do servidor ao buscar parcelas." });
     }
 });
 
 
-// <<< ALTERAÇÃO: ROTA DE WEBHOOK MAIS ROBUSTA E COM LÓGICA DE CANCELAMENTO CORRETA >>>
+// FUNÇÃO DE PROCESSAMENTO DO WEBHOOK (SEPARADA PARA CLAREZA)
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1007,7 +1006,7 @@ const processPaymentWebhook = async (paymentId) => {
         try {
             await connection.beginTransaction();
 
-            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ?", [orderId]);
+            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [orderId]);
             if (currentOrderResult.length === 0) {
                 console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
                 await connection.commit();
@@ -1054,21 +1053,30 @@ const processPaymentWebhook = async (paymentId) => {
     }
 };
 
+// ROTA DE WEBHOOK DO MERCADO PAGO
 app.post('/api/mercadopago-webhook', (req, res) => {
-    res.sendStatus(200); 
+    // Responde 200 OK imediatamente para o Mercado Pago
+    res.sendStatus(200);
 
-    const { query, body } = req;
-    if (!body) {
-        console.log("Webhook recebido com corpo vazio.");
-        return;
-    }
-    const topic = query.topic || query.type || body.topic;
-    const paymentId = query.id || query['data.id'] || body.data?.id;
+    const notification = req.body;
+    const topic = req.query.topic || req.query.type;
 
-    if (topic === 'payment') {
-        processPaymentWebhook(paymentId);
+    console.log('[Webhook] Notificação recebida. Query:', req.query, 'Body:', notification);
+
+    if (notification && topic === 'payment') {
+        const paymentId = req.query.id || notification.data?.id;
+        console.log(`[Webhook] Tópico 'payment' detectado. ID do pagamento: ${paymentId}.`);
+        if (paymentId) {
+            processPaymentWebhook(paymentId);
+        } else {
+            console.log('[Webhook] Tópico "payment", mas sem ID de pagamento encontrado na notificação.');
+        }
+    } else {
+         console.log(`[Webhook] Tópico não é 'payment' ou notificação está vazia. Tópico: ${topic}. Ignorando.`);
     }
 });
+
+// <<< FIM DA SEÇÃO ATUALIZADA >>>
 
 
 // --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
