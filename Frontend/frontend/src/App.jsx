@@ -29,6 +29,7 @@ const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const SyncIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h5M20 20v-5h-5M20 4h-5v5M4 20h5v-5" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 4L4 20M4 4l16 16" /></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -1277,11 +1278,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [thumbnailIndex, setThumbnailIndex] = useState(0);
     
-    // >>> NOVO: Estados para parcelamento
     const [installments, setInstallments] = useState(null);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    // <<< FIM NOVO
 
     const productImages = useMemo(() => parseImages(product?.images, null), [product]);
 
@@ -1326,17 +1325,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         window.scrollTo(0, 0);
     }, [productId, fetchProductData]);
     
-    // >>> NOVO: useEffect para buscar parcelas
     useEffect(() => {
         const fetchInstallments = async (price) => {
             if (!price || price <= 0) return;
             setIsLoadingInstallments(true);
             setInstallments(null);
             try {
-                // Usando um BIN comum de cartão Visa para obter uma prévia das parcelas
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}&bin=411111`);
-                if (installmentData && installmentData.length > 0 && installmentData[0].payer_costs) {
-                    setInstallments(installmentData[0].payer_costs);
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                if (Array.isArray(installmentData) && installmentData.length > 0) {
+                    setInstallments(installmentData);
                 }
             } catch (error) {
                 console.warn("Não foi possível carregar as opções de parcelamento.", error);
@@ -1349,7 +1346,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             fetchInstallments(product.price);
         }
     }, [product]);
-    // <<< FIM NOVO
 
 
     const handleReviewSubmit = async (e) => {
@@ -1456,12 +1452,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
 
-    // >>> NOVO: Função para obter resumo do parcelamento
     const getInstallmentSummary = () => {
         if (isLoadingInstallments) {
             return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
         }
-        if (!installments) {
+        if (!installments || installments.length === 0) {
             return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
         }
 
@@ -1484,7 +1479,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
         return null;
     };
-    // <<< FIM NOVO
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -1570,7 +1564,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                         
-                        {/* >>> NOVO: Seção de Parcelamento <<< */}
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
                                 <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
@@ -1586,7 +1579,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                             </div>
                         </div>
-                        {/* <<< FIM NOVO >>> */}
                         
                         <div className="flex items-center space-x-4">
                             <p className="font-semibold">Quantidade:</p>
@@ -2350,9 +2342,6 @@ const MyAccountPage = ({ onNavigate }) => {
 // ------------------------------------
 // --- FIM DA PRIMEIRA PARTE ---
 // ------------------------------------
-// ------------------------------------
-// --- FIM DA PRIMEIRA PARTE ---
-// ------------------------------------
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
@@ -2594,6 +2583,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
                         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
                         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+                        { key: 'sync', label: 'Sincronizar Pedidos', icon: <SyncIcon className="h-5 w-5"/> },
                     ].map(item => (
                         <a href="#" key={item.key} onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} className={`flex items-center px-4 py-2 space-x-3 rounded-md transition-colors ${activePage === item.key ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}>
                             {item.icon}<span>{item.label}</span>
@@ -2691,7 +2681,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     useEffect(() => {
         const initialData = {};
         fieldsConfig.forEach(field => {
-            // Define o valor inicial: usa o valor do item, ou um padrão baseado no tipo de campo
             initialData[field.name] = item?.[field.name] ?? 
                 (field.type === 'select' ? (field.options[0]?.value || '') : 
                 (field.type === 'checkbox' ? 0 : 
@@ -2705,7 +2694,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         setFormData(initialData);
     }, [item, fieldsConfig]);
 
-    // Oculta e limpa o valor quando o tipo de cupom é 'frete grátis'
     useEffect(() => {
         if (formData.type === 'free_shipping') {
             setFormData(prev => ({ ...prev, value: '' }));
@@ -2752,22 +2740,19 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         e.preventDefault();
         const dataToSubmit = { ...formData };
 
-        // Formata o volume
         if (dataToSubmit.volume && !isNaN(dataToSubmit.volume) && !dataToSubmit.volume.toLowerCase().includes('ml')) {
             dataToSubmit.volume = `${dataToSubmit.volume}ml`;
         }
         
-        // Remove campos que não devem ser enviados na edição (ex: cpf em 'users')
         fieldsConfig.forEach(field => {
             if (field.editable === false) {
                 delete dataToSubmit[field.name];
             }
         });
 
-        // Garante que o campo 'images' sempre seja uma string JSON
         const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
         const finalData = { ...dataToSubmit, images: JSON.stringify(imagesToSave) };
-        delete finalData.images_upload; // Remove o campo de upload que não vai pro DB
+        delete finalData.images_upload;
 
         onSave(finalData);
     };
@@ -2837,7 +2822,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                         </div>
                     );
                 }
-                // Adiciona a lógica para ocultar o campo de valor do cupom
                 if (field.name === 'value' && formData.type === 'free_shipping') {
                     return null;
                 }
@@ -3464,489 +3448,3 @@ const AdminCoupons = () => {
         </div>
     );
 };
-
-const AdminOrders = () => {
-    const [orders, setOrders] = useState([]);
-    const [filteredOrders, setFilteredOrders] = useState([]);
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingOrder, setEditingOrder] = useState(null);
-    const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
-    const notification = useNotification();
-    const [filters, setFilters] = useState({
-        startDate: '',
-        endDate: '',
-        status: '',
-        customerName: '',
-        minPrice: '',
-        maxPrice: '',
-    });
-    const statuses = ['Pendente', 'Processando', 'Enviado', 'Entregue', 'Cancelado'];
-
-    const fetchOrders = useCallback(() => {
-        apiService('/orders')
-            .then(data => {
-                const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
-                setOrders(sortedData);
-                setFilteredOrders(sortedData);
-            })
-            .catch(err => console.error("Falha ao buscar pedidos:", err));
-    }, []);
-
-    useEffect(() => {
-        fetchOrders();
-    }, [fetchOrders]);
-    
-    const handleOpenEditModal = async (order) => {
-        try {
-            const fullOrderDetails = await apiService(`/orders/${order.id}`);
-            setEditingOrder(fullOrderDetails);
-            setEditFormData({
-                status: fullOrderDetails.status,
-                tracking_code: fullOrderDetails.tracking_code || ''
-            });
-            setIsEditModalOpen(true);
-        } catch (error) {
-            notification.show("Erro ao buscar detalhes do pedido.", 'error');
-            console.error(error);
-        }
-    };
-
-    const handleEditFormChange = (e) => {
-        const { name, value } = e.target;
-        setEditFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSaveOrder = async (e) => {
-        e.preventDefault();
-        if (!editingOrder) return;
-        try {
-            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
-            fetchOrders();
-            setIsEditModalOpen(false);
-            setEditingOrder(null);
-            notification.show('Pedido atualizado com sucesso!');
-        } catch(error) {
-            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
-        }
-    };
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
-    };
-
-    const applyFilters = useCallback(() => {
-        let tempOrders = [...orders];
-
-        if (filters.startDate) {
-            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
-        }
-        if (filters.endDate) {
-            const endOfDay = new Date(filters.endDate);
-            endOfDay.setHours(23, 59, 59, 999);
-            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
-        }
-        if (filters.status) {
-            tempOrders = tempOrders.filter(o => o.status === filters.status);
-        }
-        if (filters.customerName) {
-            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
-        }
-        if (filters.minPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
-        }
-        if (filters.maxPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
-        }
-
-        setFilteredOrders(tempOrders);
-    }, [orders, filters]);
-
-    const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
-        setFilteredOrders(orders);
-    }
-
-    return (
-        <div>
-            <AnimatePresence>
-                {editingOrder && (
-                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
-                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
-                                    <p>{editingOrder.user_name}</p>
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
-                                    <p className="capitalize">{editingOrder.payment_method}</p>
-                                </div>
-                            </div>
-
-                            <div>
-                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
-                                 <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                     {(() => {
-                                         try {
-                                             const addr = JSON.parse(editingOrder.shipping_address);
-                                             return (
-                                                 <>
-                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                                     <p>{addr.cep}</p>
-                                                 </>
-                                             )
-                                         } catch { return <p>Endereço mal formatado.</p> }
-                                     })()}
-                                 </div>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
-                                <div className="space-y-2 border-t pt-2">
-                                    {editingOrder.items?.map(item => (
-                                        <div key={item.id} className="flex items-center text-sm">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
-                                            <div>
-                                                <p className="font-semibold text-gray-800">{item.name}</p>
-                                                <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
-                                <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
-                                    <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
-                                    <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
-                                    {Number(editingOrder.discount_amount) > 0 && (
-                                    <div className="flex justify-between text-green-600">
-                                        <span>Desconto ({editingOrder.coupon_code || ''}):</span> 
-                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
-                                    </div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
-                                </div>
-                            </div>
-
-                            <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
-                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
-                                    <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                 </div>
-                                 <div>
-                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
-                                 </div>
-                                 <div className="flex justify-end space-x-3 pt-4">
-                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                                    <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
-                                </div>
-                            </form>
-                        </div>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
-            
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
-                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
-                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
-                        <option value="">Todos os Status</option>
-                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                </div>
-                <div className="mt-4 flex gap-2 flex-wrap">
-                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
-                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
-                </div>
-            </div>
-
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full min-w-[800px] text-left">
-                     <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-4 font-semibold">Pedido ID</th>
-                            <th className="p-4 font-semibold">Cliente</th>
-                            <th className="p-4 font-semibold hidden md:table-cell">Data</th>
-                            <th className="p-4 font-semibold">Total</th>
-                            <th className="p-4 font-semibold">Status</th>
-                            <th className="p-4 font-semibold hidden lg:table-cell">Cód. Rastreio</th>
-                            <th className="p-4 font-semibold">Ações</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {filteredOrders.map(o => (
-                            <tr key={o.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4 font-mono">#{o.id}</td>
-                                <td className="p-4">{o.user_name} <p className="text-sm text-gray-500 md:hidden">{new Date(o.date).toLocaleString('pt-BR')}</p></td>
-                                <td className="p-4 hidden md:table-cell">{new Date(o.date).toLocaleString('pt-BR')}</td>
-                                <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                <td className="p-4">
-                                     <span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span>
-                                </td>
-                                <td className="p-4 font-mono hidden lg:table-cell">{o.tracking_code || 'N/A'}</td>
-                                <td className="p-4">
-                                    <button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button>
-                                </td>
-                            </tr>
-                        ))}
-                     </tbody>
-                 </table>
-            </div>
-        </div>
-    );
-};
-
-const AdminReports = () => {
-    const runWhenLibsReady = (callback, requiredLibs) => {
-        const check = () => {
-            const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
-            const isExcelReady = requiredLibs.includes('excel') ? (window.XLSX) : true;
-
-            if (isPdfReady && isExcelReady) {
-                callback();
-            } else {
-                console.log("Aguardando bibliotecas de relatório...");
-                setTimeout(check, 100);
-            }
-        };
-        check();
-    };
-
-    const generatePdf = (data, headers, title) => {
-        runWhenLibsReady(() => {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const timestamp = new Date().toLocaleString('pt-BR');
-
-            doc.setFontSize(18);
-            doc.text(title, pageWidth / 2, 16, { align: 'center' });
-            doc.setFontSize(8);
-            doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({ 
-                head: [headers], 
-                body: data,
-                startY: 25
-            });
-            doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
-        }, ['pdf']);
-    };
-
-    const generateExcel = (data, filename) => {
-        runWhenLibsReady(() => {
-            const wb = window.XLSX.utils.book_new();
-            const ws = window.XLSX.utils.json_to_sheet(data);
-            window.XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-            window.XLSX.writeFile(wb, `${filename}.xlsx`);
-        }, ['excel']);
-    };
-
-    const handleSalesExport = async (format) => {
-        try {
-            const orders = await apiService('/orders');
-            const data = orders.map(o => ({ Pedido_ID: o.id, Cliente: o.user_name, Data: new Date(o.date).toLocaleDateString(), Total: o.total, Status: o.status }));
-            if (format === 'pdf') {
-                generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio de Vendas');
-            } else {
-                generateExcel(data, 'relatorio_vendas');
-            }
-        } catch (error) {
-            alert(`Falha ao gerar relatório de vendas: ${error.message}`);
-        }
-    };
-    
-    const handleStockExport = async (format) => {
-        try {
-            const products = await apiService('/products/all');
-            const data = products.map(p => ({ Produto: p.name, Marca: p.brand, Estoque: p.stock, Preço: p.price }));
-            if (format === 'pdf') {
-                generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio de Estoque');
-            } else {
-                generateExcel(data, 'relatorio_estoque');
-            }
-        } catch (error) {
-            alert(`Falha ao gerar relatório de estoque: ${error.message}`);
-        }
-    };
-
-    return(
-        <div>
-            <h1 className="text-3xl font-bold mb-6">Relatórios</h1>
-            <div className="bg-white p-6 rounded-lg shadow space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
-                    <div>
-                        <h4 className="font-bold">Relatório de Vendas</h4>
-                        <p className="text-sm text-gray-600">Exporte um resumo de todos os pedidos realizados.</p>
-                    </div>
-                    <div className="space-x-2 flex-shrink-0">
-                        <button onClick={() => handleSalesExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
-                        <button onClick={() => handleSalesExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
-                    </div>
-                </div>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
-                    <div>
-                        <h4 className="font-bold">Relatório de Estoque</h4>
-                        <p className="text-sm text-gray-600">Exporte a lista de produtos com o estoque atual.</p>
-                    </div>
-                    <div className="space-x-2 flex-shrink-0">
-                         <button onClick={() => handleStockExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
-                        <button onClick={() => handleStockExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-function AppContent() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-  }, []);
-  
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentPath]);
-
-  const renderPage = () => {
-    const [path, queryString] = currentPath.split('?');
-    const searchParams = new URLSearchParams(queryString);
-    const initialSearch = searchParams.get('search') || '';
-    const initialCategory = searchParams.get('category') || '';
-    const initialBrand = searchParams.get('brand') || '';
-    
-    const [mainPage, pageId] = path.split('/');
-
-    if (mainPage === 'admin') {
-        if (isLoading) return null;
-        if (!isAuthenticated || user.role !== 'admin') {
-             return <LoginPage onNavigate={navigate} />;
-        }
-        
-        const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard />, 
-            'products': <AdminProducts />,
-            'orders': <AdminOrders />,
-            'users': <AdminUsers />,
-            'coupons': <AdminCoupons />,
-            'reports': <AdminReports />,
-        };
-
-        return (
-            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard />}
-            </AdminLayout>
-        );
-    }
-
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        if(isLoading) return null;
-        return <LoginPage onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'product' && pageId) {
-        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    }
-    
-    const pages = {
-        'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} />,
-        'login': <LoginPage onNavigate={navigate} />,
-        'register': <RegisterPage onNavigate={navigate} />,
-        'cart': <CartPage onNavigate={navigate} />,
-        'checkout': <CheckoutPage onNavigate={navigate} />,
-        'wishlist': <WishlistPage onNavigate={navigate} />,
-        'account': <MyAccountPage onNavigate={navigate} />,
-        'ajuda': <AjudaPage onNavigate={navigate} />,
-        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
-    };
-    return pages[mainPage] || <HomePage onNavigate={navigate} />;
-  };
-  
-  if (isLoading) return <div className="h-screen flex items-center justify-center bg-black"><p className="text-xl text-white">Carregando...</p></div>;
-
-  const showHeaderFooter = !currentPath.startsWith('admin');
-  
-  return (
-    <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-white mt-auto py-8 text-center border-t border-gray-800">
-          <p className="text-gray-500">© 2025 LovecestasePerfumes</p>
-        </footer>
-      )}
-    </div>
-  );
-}
-
-export default function App() {
-    useEffect(() => {
-        const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) {
-                if(callback) callback();
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
-            script.onload = () => { if (callback) callback(); };
-            document.body.appendChild(script);
-        };
-
-        // Carrega as bibliotecas de relatório
-        loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
-            loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
-        });
-
-        // Carrega o SDK do Mercado Pago
-        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
-
-    }, []);
-
-    return (
-        <AuthProvider>
-            <NotificationProvider>
-                <ConfirmationProvider>
-                    <ShopProvider>
-                        <AppContent />
-                    </ShopProvider>
-                </ConfirmationProvider>
-            </NotificationProvider>
-        </AuthProvider>
-    );
-}
