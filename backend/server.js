@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO NA ROTA DE PARCELAMENTO)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO NO WEBHOOK)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -971,7 +971,7 @@ app.post('/api/mercadopago-webhook', (req, res) => {
 
             if (topic === 'payment' && paymentId) {
                 const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-                    headers: { 'Authorization': `Bearer ${mpClient.config.accessToken}` }
+                    headers: { 'Authorization': `Bearer ${mpClient.accessToken}` } // <<< CORREÇÃO AQUI
                 });
 
                 if (!paymentResponse.ok) {
@@ -1275,3 +1275,4 @@ const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
     console.log(`Servidor backend completo rodando na porta ${PORT}`);
 });
+
