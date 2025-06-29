@@ -1042,11 +1042,13 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
         // --- LÓGICA DE PARCELAMENTO DINÂMICO ---
-        let maxInstallments = 1;
-        if (total >= 200) {
+        let maxInstallments;
+        // Para compras acima de R$100, permite até 10 parcelas (o MP mostrará quais são com/sem juros).
+        // Para compras até R$100, permite somente 1 parcela.
+        if (total > 100) {
             maxInstallments = 10;
-        } else if (total >= 100) {
-            maxInstallments = 3;
+        } else {
+            maxInstallments = 1;
         }
 
         const preferenceBody = {
@@ -1063,7 +1065,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                 excluded_payment_methods: [],
                 excluded_payment_types: [],
                 installments: maxInstallments,
-                default_installments: 1
+                default_installments: 1 // Sempre sugere 1x, mas o usuário pode escolher outras opções
             },
             external_reference: orderId.toString(),
             back_urls: {
@@ -1506,7 +1508,6 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
-
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
