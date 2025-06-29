@@ -12,6 +12,7 @@ const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
+const crypto = require('crypto'); // <-- Adicionado para a chave de idempotência
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -902,7 +903,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'X-Idempotency-Key': crypto.randomUUID()
                     }
                 });
                 
