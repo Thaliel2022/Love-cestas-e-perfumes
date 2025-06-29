@@ -16,8 +16,7 @@ const stream = require('stream');
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
-// >>> CORREÇÃO/MELHORIA 1: Constantes para status de pedidos <<<
-// Centraliza os status para evitar erros de digitação e facilitar a manutenção.
+// Constantes para status de pedidos
 const ORDER_STATUS = {
     PENDING: 'Pendente',
     PROCESSING: 'Processando',
@@ -26,8 +25,7 @@ const ORDER_STATUS = {
     CANCELLED: 'Cancelado',
 };
 
-// >>> CORREÇÃO/MELHORIA 2: Verificação de Variáveis de Ambiente Essenciais <<<
-// Garante que o servidor não inicie sem configurações críticas.
+// Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = () => {
     const requiredVars = [
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
@@ -39,7 +37,7 @@ const checkRequiredEnvVars = () => {
         console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
         missingVars.forEach(varName => console.error(`- ${varName}`));
         console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
-        process.exit(1); // Encerra o processo se houver variáveis faltando
+        process.exit(1);
     }
     console.log('Verificação de variáveis de ambiente concluída com sucesso.');
 };
@@ -49,12 +47,12 @@ checkRequiredEnvVars();
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
 const saltRounds = 10;
-const JWT_SECRET = process.env.JWT_SECRET; // Removido fallback inseguro
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // --- CONFIGURAÇÕES DE SEGURANÇA ---
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_IN_MINUTES = 15;
-const loginAttempts = {}; // Nota: Em produção, considere usar Redis para persistência.
+const loginAttempts = {};
 
 // --- MIDDLEWARES ---
 app.use(cors());
@@ -137,12 +135,10 @@ const verifyAdmin = (req, res, next) => {
 
 // --- ROTAS DA APLICAÇÃO ---
 
-// ROTA DE VERIFICAÇÃO DE SAÚDE (HEALTH CHECK)
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
 });
 
-// --- ROTA DE UPLOAD DE IMAGEM (CLOUDINARY) ---
 app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
@@ -164,7 +160,6 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
         });
         res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
     } catch (error) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro no upload para o Cloudinary:", error);
         res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
     }
@@ -188,7 +183,6 @@ app.post('/api/register', async (req, res) => {
                 : "Este CPF já está cadastrado.";
             return res.status(409).json({ message });
         }
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao registrar usuário:", err);
         res.status(500).json({ message: "Erro interno ao registrar usuário." });
     }
@@ -221,7 +215,6 @@ app.post('/api/login', async (req, res) => {
         const { password: _, ...userData } = user;
         res.json({ message: "Login bem-sucedido", user: userData, token: token });
     } catch (err) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao fazer login:", err);
         res.status(500).json({ message: "Erro interno ao fazer login." });
     }
@@ -239,7 +232,6 @@ app.post('/api/forgot-password', async (req, res) => {
         }
         res.status(200).json({ message: "Usuário validado com sucesso." });
     } catch (err) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao validar usuário para recuperação de senha:", err);
         res.status(500).json({ message: "Erro interno do servidor." });
     }
@@ -266,7 +258,6 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(200).json({ message: "Senha redefinida com sucesso." });
 
     } catch (err) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao redefinir a senha:", err);
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
     }
@@ -301,7 +292,6 @@ app.get('/api/track/:code', async (req, res) => {
 
         res.json(formattedHistory);
     } catch (error) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
@@ -371,7 +361,6 @@ app.post('/api/shipping/calculate', async (req, res) => {
         
         res.json(filteredOptions);
     } catch (error) {
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao calcular frete com Melhor Envio:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
     }
@@ -743,7 +732,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // >>> CORREÇÃO/MELHORIA 4: Revalidação de cupom na transação <<<
         if (coupon_code) {
             const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
             if (coupons.length === 0) throw new Error("Cupom inválido ou não existe.");
@@ -850,7 +838,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
             const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
             if (itemsToAdjust.length > 0) {
                 for (const item of itemsToAdjust) {
-                    // >>> CORREÇÃO/MELHORIA 5: Decrementar contagem de vendas ao cancelar <<<
                     await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                 }
                 console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
@@ -888,7 +875,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 
-// ROTA PARA OBTER O STATUS DE UM PEDIDO
 app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
@@ -907,7 +893,6 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     }
 });
 
-// ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -994,7 +979,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 
-// ROTA DE CONSULTA DE PARCELAS
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -1028,7 +1012,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 });
 
 
-// FUNÇÃO DE PROCESSAMENTO DO WEBHOOK
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1086,7 +1069,6 @@ const processPaymentWebhook = async (paymentId) => {
                     const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
                     if (itemsToReturn.length > 0) {
                         for (const item of itemsToReturn) {
-                             // >>> CORREÇÃO/MELHORIA 5: Decrementar contagem de vendas ao cancelar <<<
                             await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                         }
                         console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
@@ -1110,7 +1092,6 @@ const processPaymentWebhook = async (paymentId) => {
     }
 };
 
-// ROTA DE WEBHOOK DO MERCADO PAGO
 app.post('/api/mercadopago-webhook', (req, res) => {
     res.sendStatus(200);
 
@@ -1217,7 +1198,6 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
         res.json({ message: "Usuário deletado com sucesso." });
     } catch (err) { 
-        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao deletar usuário:", err);
         res.status(500).json({ message: "Erro interno ao deletar usuário." }); 
     }
@@ -1234,10 +1214,22 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/coupons/validate', verifyToken, async (req, res) => {
+// >>> CORREÇÃO: Tornar rota pública e adicionar verificação de usuário internamente <<<
+app.post('/api/coupons/validate', async (req, res) => {
     const { code } = req.body;
-    const userId = req.user.id;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    let user = null;
 
+    if (token) {
+        try {
+            user = jwt.verify(token, JWT_SECRET);
+        } catch (err) {
+            // Token inválido, mas não bloqueamos a rota. O usuário é tratado como deslogado.
+            console.log("Token de validação de cupom inválido ou expirado, tratando como deslogado.");
+        }
+    }
+    
     try {
         const [coupons] = await db.query("SELECT * FROM coupons WHERE code = ?", [code.toUpperCase()]);
         if (coupons.length === 0) {
@@ -1257,15 +1249,23 @@ app.post('/api/coupons/validate', verifyToken, async (req, res) => {
             }
         }
         
-        if (coupon.is_first_purchase) {
-            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [userId]);
+        // Verifica se o cupom precisa de um usuário logado
+        if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
+            if (!user) {
+                return res.status(403).json({ message: "Você precisa estar logado para usar este cupom." });
+            }
+        }
+        
+        // Continua com as validações que dependem do usuário
+        if (user && coupon.is_first_purchase) {
+            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
             if (orders.length > 0) {
                 return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
             }
         }
         
-        if (coupon.is_single_use_per_user) {
-            const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [userId, coupon.id]);
+        if (user && coupon.is_single_use_per_user) {
+            const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
             if (usage.length > 0) {
                 return res.status(403).json({ message: "Você já utilizou este cupom." });
             }
@@ -1278,6 +1278,7 @@ app.post('/api/coupons/validate', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao validar cupom." });
     }
 });
+
 
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;

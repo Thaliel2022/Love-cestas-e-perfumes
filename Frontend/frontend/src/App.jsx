@@ -72,7 +72,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         headers: {
             'Content-Type': 'application/json',
         },
-        signal: options.signal, // Adiciona o signal para cancelamento
+        signal: options.signal,
     };
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
@@ -264,7 +264,6 @@ const ShopProvider = ({ children }) => {
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     const [couponCode, setCouponCode] = useState("");
-    const [discount, setDiscount] = useState(0);
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
@@ -288,7 +287,6 @@ const ShopProvider = ({ children }) => {
                 setShippingOptions([]);
                 setSelectedShipping(null);
                 setCouponCode('');
-                setDiscount(0);
                 setAppliedCoupon(null);
                 setCouponMessage('');
             }
@@ -404,27 +402,15 @@ const ShopProvider = ({ children }) => {
     const removeCoupon = useCallback(() => {
         setAppliedCoupon(null);
         setCouponCode('');
-        setDiscount(0);
         setCouponMessage('');
     }, []);
 
-    const applyCoupon = useCallback(async (code, subtotal, shippingCost) => {
+    const applyCoupon = useCallback(async (code) => {
         setCouponCode(code);
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
-            const { coupon } = response;
-            let discountValue = 0;
-
-            if (coupon.type === 'percentage') {
-                discountValue = subtotal * (parseFloat(coupon.value) / 100);
-            } else if (coupon.type === 'fixed') {
-                discountValue = parseFloat(coupon.value);
-            } else if (coupon.type === 'free_shipping') {
-                discountValue = shippingCost;
-            }
-            setDiscount(discountValue);
-            setAppliedCoupon(coupon);
-            setCouponMessage(`Cupom "${coupon.code}" aplicado!`);
+            setAppliedCoupon(response.coupon);
+            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
         } catch (error) {
             removeCoupon();
             setCouponMessage(error.message || "Não foi possível aplicar o cupom.");
@@ -453,7 +439,6 @@ const ShopProvider = ({ children }) => {
             shippingError,
             calculateShipping,
             couponCode, setCouponCode,
-            discount,
             couponMessage,
             applyCoupon,
             appliedCoupon,
@@ -1894,7 +1879,7 @@ const CartPage = ({ onNavigate }) => {
         isLoadingShipping, shippingError,
         selectedShipping, setSelectedShipping,
         couponCode, setCouponCode,
-        discount, applyCoupon, removeCoupon,
+        applyCoupon, removeCoupon,
         couponMessage, appliedCoupon
     } = useShop();
 
@@ -1903,20 +1888,31 @@ const CartPage = ({ onNavigate }) => {
         calculateShipping(shippingCep, cart);
     };
 
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const shippingCost = selectedShipping ? selectedShipping.price : 0;
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
+
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping') {
+            discountValue = shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost]);
+
     
     const handleApplyCoupon = (e) => {
         e.preventDefault();
         if (couponCode.trim()) {
-            applyCoupon(couponCode, subtotal, shippingCost);
+            applyCoupon(couponCode);
         }
     }
     
-    const shippingDiscount = appliedCoupon?.type === 'free_shipping' ? shippingCost : 0;
-    const finalShippingCost = Math.max(0, shippingCost - shippingDiscount);
-    const finalDiscount = discount - (appliedCoupon?.type === 'free_shipping' ? shippingDiscount : 0);
-    const total = subtotal - finalDiscount + finalShippingCost;
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
 
     return (
@@ -1995,9 +1991,7 @@ const CartPage = ({ onNavigate }) => {
                                 {selectedShipping && (
                                     <div className="flex justify-between text-gray-300">
                                         <span>Frete ({selectedShipping.name})</span>
-                                        <span className={`${shippingDiscount > 0 ? 'line-through text-red-400' : ''}`}>
-                                            R$ {shippingCost.toFixed(2)}
-                                        </span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {appliedCoupon && (
@@ -2005,9 +1999,6 @@ const CartPage = ({ onNavigate }) => {
                                         <span>Desconto ({appliedCoupon.code})</span>
                                         <span>- R$ {discount.toFixed(2)}</span>
                                     </div>
-                                )}
-                                {shippingDiscount > 0 && (
-                                     <div className="flex justify-between text-gray-300"><span>Novo Frete</span><span>R$ 0.00</span></div>
                                 )}
                             </div>
                             <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
@@ -2021,7 +2012,7 @@ const CartPage = ({ onNavigate }) => {
                                     <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
                                     <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
                                 </form>
-                                {couponMessage && <p className="text-sm mt-2 text-red-400">{couponMessage}</p>}
+                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
                                 </>
                             ) : (
                                 <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
@@ -2359,7 +2350,7 @@ const AjudaPage = ({ onNavigate }) => (
 );
 
 const CheckoutPage = ({ onNavigate }) => {
-    const { cart, selectedShipping, discount, couponCode, clearOrderState, shippingCep, appliedCoupon } = useShop();
+    const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
     const [shippingAddress, setShippingAddress] = useState({ 
@@ -2369,12 +2360,23 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isFormValid, setIsFormValid] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-    const shippingCost = selectedShipping ? selectedShipping.price : 0;
-    const shippingDiscount = appliedCoupon?.type === 'free_shipping' ? shippingCost : 0;
-    const finalShippingCost = Math.max(0, shippingCost - shippingDiscount);
-    const finalDiscount = discount - (appliedCoupon?.type === 'free_shipping' ? shippingDiscount : 0);
-    const total = subtotal - finalDiscount + finalShippingCost;
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
+
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping') {
+            discountValue = shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost]);
+    
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
     
     const handleCepLookup = useCallback(async (cepValue) => {
         const cep = cepValue.replace(/\D/g, '');
@@ -2438,8 +2440,8 @@ const CheckoutPage = ({ onNavigate }) => {
                 shippingAddress: shippingAddress,
                 paymentMethod: paymentMethod,
                 shipping_method: selectedShipping.name,
-                shipping_cost: selectedShipping.price,
-                coupon_code: couponCode,
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon ? appliedCoupon.code : null,
                 discount_amount: discount
             };
             const orderResult = await apiService('/orders', 'POST', orderPayload);
@@ -2457,7 +2459,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 }
 
             } else {
-                // Navegação para sucesso em caso de outros métodos de pagamento (não implementado)
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
@@ -2508,11 +2509,11 @@ const CheckoutPage = ({ onNavigate }) => {
                             <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
                             {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
                             <div className="border-t border-gray-700 mt-4 pt-4">
-                                {discount > 0 && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({couponCode})</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                                {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                 {selectedShipping ? (
                                     <div className="flex justify-between text-gray-300 py-1">
                                         <span>Frete ({selectedShipping.name})</span>
-                                        <span>R$ {selectedShipping.price.toFixed(2)}</span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
                                     </div>
                                 ) : (
                                     <div className="text-gray-400 text-sm text-center py-1">Selecione o frete na página anterior.</div>
@@ -3221,55 +3222,71 @@ const AdminProducts = () => {
             />
         </div>
 
-        <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left">
-                 <thead className="bg-gray-100">
-                    <tr>
-                        <th className="p-4 w-4">
-                            <input
-                                type="checkbox"
-                                onChange={handleSelectAll}
-                                checked={products.length > 0 && selectedProducts.length === products.length}
-                            />
-                        </th>
-                        <th className="p-4">Produto</th>
-                        <th className="p-4 hidden md:table-cell">Marca</th>
-                        <th className="p-4">Preço</th>
-                        <th className="p-4 hidden sm:table-cell">Estoque</th>
-                        <th className="p-4 hidden lg:table-cell">Vendas</th>
-                        <th className="p-4 hidden md:table-cell">Ativo</th>
-                        <th className="p-4">Ações</th>
-                    </tr>
-                </thead>
-                 <tbody>
-                    {products.map(p => (
-                        <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''}`}>
-                            <td className="p-4">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedProducts.includes(p.id)}
-                                    onChange={() => handleSelectProduct(p.id)}
-                                />
-                            </td>
-                            <td className="p-4 flex items-center">
-                                <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
-                                    <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
-                                </div>
-                                <div>
-                                    <p className="font-semibold">{p.name}</p>
-                                    <p className="text-sm text-gray-500 md:hidden">{p.brand}</p>
-                                </div>
-                            </td>
-                            <td className="p-4 hidden md:table-cell">{p.brand}</td>
-                            <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
-                            <td className="p-4 hidden sm:table-cell">{p.stock}</td>
-                            <td className="p-4 hidden lg:table-cell">{p.sales || 0}</td>
-                            <td className="p-4 hidden md:table-cell">{p.is_active ? 'Sim' : 'Não'}</td>
-                            <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
+        {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="hidden md:block">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 w-4">
+                                <input type="checkbox" onChange={handleSelectAll} checked={products.length > 0 && selectedProducts.length === products.length} />
+                            </th>
+                            <th className="p-4">Produto</th>
+                            <th className="p-4">Marca</th>
+                            <th className="p-4">Preço</th>
+                            <th className="p-4">Estoque</th>
+                            <th className="p-4">Vendas</th>
+                            <th className="p-4">Ativo</th>
+                            <th className="p-4">Ações</th>
                         </tr>
-                    ))}
-                 </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {products.map(p => (
+                            <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''}`}>
+                                <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
+                                <td className="p-4 flex items-center">
+                                    <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
+                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
+                                    </div>
+                                    <p className="font-semibold">{p.name}</p>
+                                </td>
+                                <td className="p-4">{p.brand}</td>
+                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
+                                <td className="p-4">{p.stock}</td>
+                                <td className="p-4">{p.sales || 0}</td>
+                                <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
+                                <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="md:hidden space-y-4 p-4">
+                {products.map(p => (
+                    <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                        <div className="flex justify-between items-start">
+                             <div className="flex items-center">
+                                <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4"/>
+                                <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                <div>
+                                    <p className="font-bold">{p.name}</p>
+                                    <p className="text-sm text-gray-500">{p.brand}</p>
+                                </div>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
+                             <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
+                             <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
+                        </div>
+                         <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                            <button onClick={() => handleOpenModal(p)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     </div>
   )
@@ -3336,29 +3353,50 @@ const AdminUsers = () => {
                 )}
             </AnimatePresence>
             <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                <table className="w-full min-w-[600px] text-left">
-                     <thead className="bg-gray-100">
-                         <tr>
-                            <th className="p-4 hidden sm:table-cell">ID</th>
-                            <th className="p-4">Nome</th>
-                            <th className="p-4 hidden md:table-cell">Email</th>
-                            <th className="p-4">Função</th>
-                            <th className="p-4">Ações</th>
-                         </tr>
-                    </thead>
-                     <tbody>
-                        {users.map(u => (
-                            <tr key={u.id} className="border-b">
-                                <td className="p-4 hidden sm:table-cell">{u.id}</td>
-                                <td className="p-4">{u.name}<p className="text-sm text-gray-500 md:hidden">{u.email}</p></td>
-                                <td className="p-4 hidden md:table-cell">{u.email}</td>
-                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
-                                <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
-                            </tr>
-                        ))}
-                     </tbody>
-                </table>
+            
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden md:block">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100">
+                             <tr>
+                                <th className="p-4">ID</th>
+                                <th className="p-4">Nome</th>
+                                <th className="p-4">Email</th>
+                                <th className="p-4">Função</th>
+                                <th className="p-4">Ações</th>
+                             </tr>
+                        </thead>
+                         <tbody>
+                            {users.map(u => (
+                                <tr key={u.id} className="border-b">
+                                    <td className="p-4">{u.id}</td>
+                                    <td className="p-4">{u.name}</td>
+                                    <td className="p-4">{u.email}</td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                </div>
+                 <div className="md:hidden space-y-4 p-4">
+                    {users.map(u => (
+                        <div key={u.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold">{u.name}</p>
+                                    <p className="text-sm text-gray-500">{u.email}</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span>
+                            </div>
+                            <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenUserModal(u)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(u.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -3413,7 +3451,7 @@ const AdminCoupons = () => {
 
     const fetchCoupons = useCallback(() => {
         apiService('/coupons').then(data => {
-            setCoupons(data.sort((a,b) => b.id - a.id)); // Ordena por mais recente
+            setCoupons(data.sort((a,b) => b.id - a.id));
         }).catch(err=>console.error(err));
     }, []);
 
@@ -3475,42 +3513,60 @@ const AdminCoupons = () => {
                 <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
             </div>
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full min-w-[700px] text-left">
-                     <thead className="bg-gray-100">
-                         <tr>
-                            <th className="p-4">Código</th>
-                            <th className="p-4">Tipo</th>
-                            <th className="p-4">Valor</th>
-                            <th className="p-4 hidden sm:table-cell">1ª Compra</th>
-                            <th className="p-4 hidden sm:table-cell">Uso Único</th>
-                            <th className="p-4 hidden md:table-cell">Validade</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Ações</th>
-                         </tr>
-                    </thead>
-                     <tbody>
-                        {coupons.map(c => (
-                            <tr key={c.id} className="border-b">
-                                <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
-                                <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
-                                <td className="p-4">{c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
-                                <td className="p-4 hidden sm:table-cell">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
-                                <td className="p-4 hidden sm:table-cell">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
-                                <td className="p-4 hidden md:table-cell"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
-                                <td className="p-4">
-                                     <span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
-                                        {c.is_active ? 'Ativo' : 'Inativo'}
-                                    </span>
-                                </td>
-                                <td className="p-4 space-x-2">
-                                    <button onClick={() => handleOpenModal(c)}><EditIcon className="h-5 w-5 text-gray-600 hover:text-blue-600"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5 text-gray-600 hover:text-red-600"/></button>
-                                </td>
-                            </tr>
-                        ))}
-                     </tbody>
-                 </table>
+
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden md:block">
+                    <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                             <tr>
+                                <th className="p-4">Código</th>
+                                <th className="p-4">Tipo</th>
+                                <th className="p-4">Valor</th>
+                                <th className="p-4">1ª Compra</th>
+                                <th className="p-4">Uso Único</th>
+                                <th className="p-4">Validade</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4">Ações</th>
+                             </tr>
+                        </thead>
+                         <tbody>
+                            {coupons.map(c => (
+                                <tr key={c.id} className="border-b">
+                                    <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
+                                    <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
+                                    <td className="p-4">{c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
+                                    <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(c)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                </div>
+                 <div className="md:hidden space-y-4 p-4">
+                    {coupons.map(c => (
+                         <div key={c.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <span className="font-mono font-bold">{c.code}</span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                 <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
+                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
+                                 <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
+                                 <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
+                                 <div className="col-span-2"><strong className="text-gray-500 block">Validade Restante</strong> <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></div>
+                            </div>
+                             <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenModal(c)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(c.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -3725,37 +3781,57 @@ const AdminOrders = () => {
                 </div>
             </div>
 
-            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-                 <table className="w-full min-w-[800px] text-left">
-                     <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-4 font-semibold">Pedido ID</th>
-                            <th className="p-4 font-semibold">Cliente</th>
-                            <th className="p-4 font-semibold hidden md:table-cell">Data</th>
-                            <th className="p-4 font-semibold">Total</th>
-                            <th className="p-4 font-semibold">Status</th>
-                            <th className="p-4 font-semibold hidden lg:table-cell">Cód. Rastreio</th>
-                            <th className="p-4 font-semibold">Ações</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {filteredOrders.map(o => (
-                            <tr key={o.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4 font-mono">#{o.id}</td>
-                                <td className="p-4">{o.user_name} <p className="text-sm text-gray-500 md:hidden">{new Date(o.date).toLocaleString('pt-BR')}</p></td>
-                                <td className="p-4 hidden md:table-cell">{new Date(o.date).toLocaleString('pt-BR')}</td>
-                                <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                <td className="p-4">
-                                     <span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span>
-                                </td>
-                                <td className="p-4 font-mono hidden lg:table-cell">{o.tracking_code || 'N/A'}</td>
-                                <td className="p-4">
-                                    <button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button>
-                                </td>
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden lg:block">
+                     <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-4 font-semibold">Pedido ID</th>
+                                <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Data</th>
+                                <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Cód. Rastreio</th>
+                                <th className="p-4 font-semibold">Ações</th>
                             </tr>
-                        ))}
-                     </tbody>
-                 </table>
+                         </thead>
+                         <tbody>
+                            {filteredOrders.map(o => (
+                                <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 font-mono">#{o.id}</td>
+                                    <td className="p-4">{o.user_name}</td>
+                                    <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
+                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
+                                    <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                     </table>
+                </div>
+                <div className="lg:hidden space-y-4 p-4">
+                    {filteredOrders.map(o => (
+                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold">Pedido #{o.id}</p>
+                                    <p className="text-sm text-gray-600">{o.user_name}</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
+                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
+                            </div>
+                            <div className="flex justify-end mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
