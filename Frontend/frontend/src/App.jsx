@@ -5,7 +5,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
 // --- ÍCONES SVG ---
-// (Ícones existentes)
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -31,14 +30,6 @@ const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-
-// ---> ATUALIZAÇÃO: Novos Ícones para a Linha do Tempo de Status
-const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
-const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
-const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
-const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const CurrencyDollarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0 1H9m3 0h3m-3 10v-1m0 1h3m-3 0H9m12-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -2077,7 +2068,288 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const CheckoutPage = ({ onNavigate }) => {
+};
+const MyAccountPage = ({ onNavigate }) => {
+    const { user } = useAuth();
+    const { addToCart } = useShop();
+    const notification = useNotification();
+    
+    const [orders, setOrders] = useState([]);
+    const [message, setMessage] = useState('');
+
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
+    const [addressForm, setAddressForm] = useState({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
+    const [isAddressFormValid, setIsAddressFormValid] = useState(false);
+
+    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+    const [currentTrackingCode, setCurrentTrackingCode] = useState('');
+
+
+    const fetchUserData = useCallback(() => {
+        if (!user) return;
+        apiService('/orders/my-orders')
+            .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
+            .catch(err => {
+                console.error("Falha ao buscar pedidos:", err);
+                setMessage("Falha ao buscar histórico de pedidos.");
+            });
+    }, [user]);
+
+    useEffect(() => {
+        fetchUserData();
+    }, [fetchUserData]);
+
+    useEffect(() => {
+        const { cep, logradouro, numero, bairro, localidade, uf } = addressForm;
+        const isValid = cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
+        setIsAddressFormValid(isValid);
+    }, [addressForm]);
+    
+    const handlePasswordChange = async (e) => {
+        e.preventDefault();
+        setMessage('');
+        if(newPassword.length < 6) {
+            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
+            return;
+        }
+        try {
+            await apiService('/users/me/password', 'PUT', { password: newPassword });
+            notification.show('Senha alterada com sucesso!');
+            setNewPassword('');
+            setIsPasswordModalOpen(false);
+        } catch (error) {
+             notification.show(`Erro: ${error.message}`, 'error');
+        }
+    };
+    
+    const handleOpenAddressModal = (order) => {
+        try {
+            const currentAddress = order.shipping_address ? JSON.parse(order.shipping_address) : {};
+            setAddressForm({
+                cep: currentAddress.cep || '', logradouro: currentAddress.logradouro || '',
+                numero: currentAddress.numero || '', complemento: currentAddress.complemento || '',
+                bairro: currentAddress.bairro || '', localidade: currentAddress.localidade || '',
+                uf: currentAddress.uf || ''
+            });
+        } catch (error) {
+            console.error("Failed to parse shipping address:", error);
+            notification.show("O endereço deste pedido está mal formatado.", "error");
+            setAddressForm({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
+        }
+        setEditingOrder(order);
+        setIsAddressModalOpen(true);
+    };
+    
+    const handleAddressFormChange = (e) => {
+        const { name, value } = e.target;
+        setAddressForm(prev => ({...prev, [name]: value}));
+    };
+
+    const handleCepLookupInModal = async (e) => {
+        const cep = e.target.value.replace(/\D/g, '');
+        setAddressForm(prev => ({...prev, cep: e.target.value}));
+        if (cep.length !== 8) return;
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            const data = await response.json();
+            if(!data.erro) {
+                setAddressForm(prev => ({ ...prev, logradouro: data.logradouro, bairro: data.bairro, localidade: data.localidade, uf: data.uf, numero: '', complemento: '' }));
+            } else {
+                notification.show("CEP não encontrado.", "error");
+            }
+        } catch(error) {
+            console.error("Erro ao buscar CEP:", error);
+        }
+    };
+
+    const handleSaveAddress = async (e) => {
+        e.preventDefault();
+        if (!editingOrder || !isAddressFormValid) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}/address`, 'PUT', { address: addressForm });
+            notification.show('Endereço atualizado com sucesso!');
+            setIsAddressModalOpen(false);
+            fetchUserData();
+        } catch (error) {
+            notification.show(`Erro ao atualizar endereço: ${error.message}`, "error");
+        }
+    };
+    
+    const handleRepeatOrder = (orderItems) => {
+        if (!orderItems) return;
+        let count = 0;
+        orderItems.forEach(item => {
+            const product = {
+                id: item.product_id,
+                name: item.name,
+                price: item.price,
+                images: item.images,
+            };
+            addToCart(product, item.quantity);
+            count++;
+        });
+        notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
+        onNavigate('cart');
+    }
+
+    const handleOpenTrackingModal = (trackingCode) => {
+        setCurrentTrackingCode(trackingCode);
+        setIsTrackingModalOpen(true);
+    };
+
+    return (
+        <>
+            <AnimatePresence>
+                {isPasswordModalOpen && (
+                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
+                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+                                <input 
+                                    type="password" 
+                                    value={newPassword} 
+                                    onChange={e => setNewPassword(e.target.value)} 
+                                    placeholder="Mínimo 6 caracteres" 
+                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500"
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+            {isAddressModalOpen && (
+                <Modal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} title={`Alterar Endereço do Pedido #${editingOrder?.id}`}>
+                     <form onSubmit={handleSaveAddress} className="space-y-4">
+                        <input name="cep" value={addressForm.cep} onBlur={handleCepLookupInModal} onChange={handleAddressFormChange} placeholder="CEP" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <input name="logradouro" value={addressForm.logradouro} onChange={handleAddressFormChange} placeholder="Rua" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <div className="flex space-x-2">
+                            <input name="numero" value={addressForm.numero} onChange={handleAddressFormChange} placeholder="Nº" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                            <input name="complemento" value={addressForm.complemento} onChange={handleAddressFormChange} placeholder="Compl." className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        </div>
+                        <input name="bairro" value={addressForm.bairro} onChange={handleAddressFormChange} placeholder="Bairro" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <div className="flex space-x-2">
+                            <input name="localidade" value={addressForm.localidade} onChange={handleAddressFormChange} placeholder="Cidade" className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                            <input name="uf" value={addressForm.uf} onChange={handleAddressFormChange} placeholder="UF" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        </div>
+                        <button type="submit" disabled={!isAddressFormValid} className="w-full bg-gray-800 text-white font-bold py-2 rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed">Salvar Endereço</button>
+                     </form>
+                </Modal>
+            )}
+            </AnimatePresence>
+
+            <TrackingModal 
+                isOpen={isTrackingModalOpen}
+                onClose={() => setIsTrackingModalOpen(false)}
+                trackingCode={currentTrackingCode}
+            />
+
+            <div className="bg-black text-white min-h-screen py-12">
+                <div className="container mx-auto px-4">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-1 space-y-8">
+                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">Meus Dados</h2>
+                                 <div className="space-y-2">
+                                     <p><strong>Nome:</strong> {user?.name}</p>
+                                     <p><strong>Email:</strong> {user?.email}</p>
+                                     <button onClick={() => setIsPasswordModalOpen(true)} className="w-full mt-4 bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Alterar Senha</button>
+                                 </div>
+                             </div>
+                        </div>
+                        <div className="lg:col-span-2">
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                               <h2 className="text-2xl font-bold text-amber-400 mb-4">Histórico de Pedidos</h2>
+                               {orders.length > 0 ? (
+                                   <div className="space-y-6">
+                                       {orders.map(order => (
+                                           <div key={order.id} className="border border-gray-800 rounded-lg p-4">
+                                               <div className="flex flex-col sm:flex-row justify-between items-start mb-4 border-b border-gray-800 pb-2 gap-2">
+                                                    <div>
+                                                       <p><strong>Pedido:</strong> #{order.id}</p>
+                                                       <p><strong>Data:</strong> {new Date(order.date).toLocaleString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="text-left sm:text-right">
+                                                       <p><strong>Total:</strong> <span className="text-amber-400 font-bold">R$ {Number(order.total).toFixed(2)}</span></p>
+                                                       <p><strong>Status:</strong> <span className="font-semibold text-amber-400">{order.status}</span></p>
+                                                    </div>
+                                               </div>
+
+                                                {order.tracking_code && (
+                                                    <div className="my-3 p-2 bg-gray-800 rounded-md">
+                                                        <p className="text-sm">
+                                                            <strong>Cód. Rastreio:</strong> {order.tracking_code}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                               <div className="space-y-2 mb-4">
+                                                   {order.items.map(item => (
+                                                       <div key={item.id} className="flex items-center text-sm">
+                                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                                            <span>{item.quantity}x {item.name}</span>
+                                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                                                       </div>
+                                                   ))}
+                                               </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                                    {order.status === 'Pendente' && (
+                                                        <button onClick={() => handleOpenAddressModal(order)} className="bg-blue-600 text-white text-sm px-4 py-1 rounded-md hover:bg-blue-700">
+                                                            Alterar Endereço
+                                                        </button>
+                                                    )}
+                                                    {order.tracking_code && (
+                                                        <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">
+                                                            Rastrear Pedido
+                                                        </button>
+                                                    )}
+                                                </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               ) : (
+                                   <p className="text-gray-500">{message || "Você ainda não fez nenhum pedido."}</p>
+                               )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
+const AjudaPage = ({ onNavigate }) => (
+    <div className="bg-black text-white min-h-screen py-12">
+        <div className="container mx-auto px-4 text-center">
+            <h1 className="text-4xl font-bold mb-8 text-amber-400">Central de Ajuda</h1>
+            <div className="max-w-md mx-auto bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6">
+                <div>
+                    <h2 className="text-2xl font-bold mb-2">Fale Conosco</h2>
+                    <p className="text-gray-400">Tem alguma dúvida ou precisa de ajuda com seu pedido? Entre em contato pelos nossos canais oficiais.</p>
+                </div>
+                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
+                    <InstagramIcon className="h-8 w-8 text-amber-400" />
+                    <span className="text-lg">@lovecestaseperfumesjp</span>
+                </a>
+                 <div className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg">
+                    <WhatsappIcon className="h-8 w-8 text-amber-400" />
+                    <span className="text-lg">83 98787-8878</span>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const CheckoutPage = ({ onNavigate }) => {
     const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
@@ -2370,409 +2642,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         </div>
     );
 };
-
-// --- ATUALIZAÇÃO: NOVO COMPONENTE DE LINHA DO TEMPO DE STATUS ---
-const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
-    const STATUS_DEFINITIONS = useMemo(() => ({
-        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
-        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-        'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
-        'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
-    }), []);
-    
-    // Ordem lógica da linha do tempo.
-    const timelineOrder = useMemo(() => [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
-    ], []);
-
-    const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
-    const currentStatusIndex = timelineOrder.indexOf(currentStatus);
-
-    // Se o status for "Cancelado" ou "Reembolsado", exibe uma linha do tempo especial.
-    if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
-        const specialStatus = STATUS_DEFINITIONS[currentStatus];
-        return (
-            <div className="p-4 bg-gray-800 rounded-lg">
-                <div onClick={() => onStatusClick(specialStatus)} className={`flex items-center gap-4 cursor-pointer`}>
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-${specialStatus.color}-500 text-white`}>
-                        {specialStatus.icon}
-                    </div>
-                    <div>
-                        <h4 className={`font-bold text-lg text-${specialStatus.color}-400`}>{specialStatus.title}</h4>
-                        <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="w-full">
-            <div className="flex justify-between items-center flex-wrap gap-2">
-                {timelineOrder.map((statusKey, index) => {
-                    const statusInfo = historyMap.get(statusKey);
-                    const isCompleted = statusInfo || index < currentStatusIndex;
-                    const isCurrent = statusKey === currentStatus;
-
-                    const definition = STATUS_DEFINITIONS[statusKey];
-                    if (!definition) return null;
-
-                    const color = isCompleted ? definition.color : 'gray';
-
-                    return (
-                        <React.Fragment key={statusKey}>
-                            <div className="flex flex-col items-center cursor-pointer group" onClick={() => onStatusClick(definition)}>
-                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 
-                                    ${isCompleted ? `bg-${color}-500 border-${color}-500` : 'bg-gray-700 border-gray-600'} 
-                                    ${isCurrent ? 'animate-pulse' : ''} transition-all`}>
-                                    {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
-                                </div>
-                                <p className={`mt-2 text-xs text-center font-semibold ${isCompleted ? `text-${color}-400` : 'text-gray-500'} transition-all`}>
-                                    {definition.title}
-                                </p>
-                                {statusInfo && (
-                                     <p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>
-                                )}
-                            </div>
-                            {index < timelineOrder.length - 1 && (
-                                <div className={`flex-1 h-1 ${isCompleted ? `bg-${color}-500` : 'bg-gray-700'}`}></div>
-                            )}
-                        </React.Fragment>
-                    );
-                })}
-            </div>
-        </div>
-    );
-};
-
-// --- ATUALIZAÇÃO: NOVO MODAL DE DESCRIÇÃO DE STATUS ---
-const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
-    if (!isOpen || !details) return null;
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Detalhes do Status">
-             <div className="flex flex-col items-center text-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center bg-${details.color}-100 text-${details.color}-600 mb-4`}>
-                    {React.cloneElement(details.icon, { className: 'h-8 w-8' })}
-                </div>
-                <h3 className={`text-xl font-bold text-${details.color}-700 mb-2`}>{details.title}</h3>
-                <p className="text-gray-600">{details.description}</p>
-            </div>
-        </Modal>
-    );
-};
-
-
-// --- ATUALIZAÇÃO: PÁGINA "MINHA CONTA" COM A NOVA LINHA DO TEMPO ---
-const MyAccountPage = ({ onNavigate }) => {
-    const { user, logout } = useAuth();
-    const { addToCart } = useShop();
-    const notification = useNotification();
-    
-    const [orders, setOrders] = useState([]);
-    const [message, setMessage] = useState('');
-
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    
-    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-    const [editingOrder, setEditingOrder] = useState(null);
-    const [addressForm, setAddressForm] = useState({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
-    const [isAddressFormValid, setIsAddressFormValid] = useState(false);
-
-    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-    const [currentTrackingCode, setCurrentTrackingCode] = useState('');
-    
-    // State para o modal de status
-    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-    const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
-
-    const fetchUserData = useCallback(() => {
-        if (!user) return;
-        apiService('/orders/my-orders')
-            .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
-            .catch(err => {
-                console.error("Falha ao buscar pedidos:", err);
-                setMessage("Falha ao buscar histórico de pedidos.");
-            });
-    }, [user]);
-
-    useEffect(() => {
-        fetchUserData();
-    }, [fetchUserData]);
-
-    useEffect(() => {
-        const { cep, logradouro, numero, bairro, localidade, uf } = addressForm;
-        const isValid = cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
-        setIsAddressFormValid(isValid);
-    }, [addressForm]);
-    
-    const handlePasswordChange = async (e) => {
-        e.preventDefault();
-        setMessage('');
-        if(newPassword.length < 6) {
-            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
-            return;
-        }
-        try {
-            await apiService('/users/me/password', 'PUT', { password: newPassword });
-            notification.show('Senha alterada com sucesso!');
-            setNewPassword('');
-            setIsPasswordModalOpen(false);
-        } catch (error) {
-             notification.show(`Erro: ${error.message}`, 'error');
-        }
-    };
-    
-    const handleOpenAddressModal = (order) => {
-        try {
-            const currentAddress = order.shipping_address ? JSON.parse(order.shipping_address) : {};
-            setAddressForm({
-                cep: currentAddress.cep || '', logradouro: currentAddress.logradouro || '',
-                numero: currentAddress.numero || '', complemento: currentAddress.complemento || '',
-                bairro: currentAddress.bairro || '', localidade: currentAddress.localidade || '',
-                uf: currentAddress.uf || ''
-            });
-        } catch (error) {
-            console.error("Failed to parse shipping address:", error);
-            notification.show("O endereço deste pedido está mal formatado.", "error");
-            setAddressForm({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
-        }
-        setEditingOrder(order);
-        setIsAddressModalOpen(true);
-    };
-    
-    const handleAddressFormChange = (e) => {
-        const { name, value } = e.target;
-        setAddressForm(prev => ({...prev, [name]: value}));
-    };
-
-    const handleCepLookupInModal = async (e) => {
-        const cep = e.target.value.replace(/\D/g, '');
-        setAddressForm(prev => ({...prev, cep: e.target.value}));
-        if (cep.length !== 8) return;
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            const data = await response.json();
-            if(!data.erro) {
-                setAddressForm(prev => ({ ...prev, logradouro: data.logradouro, bairro: data.bairro, localidade: data.localidade, uf: data.uf, numero: '', complemento: '' }));
-            } else {
-                notification.show("CEP não encontrado.", "error");
-            }
-        } catch(error) {
-            console.error("Erro ao buscar CEP:", error);
-        }
-    };
-
-    const handleSaveAddress = async (e) => {
-        e.preventDefault();
-        if (!editingOrder || !isAddressFormValid) return;
-        try {
-            await apiService(`/orders/${editingOrder.id}/address`, 'PUT', { address: addressForm });
-            notification.show('Endereço atualizado com sucesso!');
-            setIsAddressModalOpen(false);
-            fetchUserData();
-        } catch (error) {
-            notification.show(`Erro ao atualizar endereço: ${error.message}`, "error");
-        }
-    };
-    
-    const handleRepeatOrder = (orderItems) => {
-        if (!orderItems) return;
-        let count = 0;
-        orderItems.forEach(item => {
-            const product = {
-                id: item.product_id,
-                name: item.name,
-                price: item.price,
-                images: item.images,
-            };
-            addToCart(product, item.quantity);
-            count++;
-        });
-        notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
-        onNavigate('cart');
-    }
-
-    const handleOpenTrackingModal = (trackingCode) => {
-        setCurrentTrackingCode(trackingCode);
-        setIsTrackingModalOpen(true);
-    };
-
-    const handleOpenStatusModal = (statusDetails) => {
-        setSelectedStatusDetails(statusDetails);
-        setIsStatusModalOpen(true);
-    };
-
-
-    return (
-        <>
-            <AnimatePresence>
-                {isPasswordModalOpen && (
-                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
-                        <form onSubmit={handlePasswordChange} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input 
-                                    type="password" 
-                                    value={newPassword} 
-                                    onChange={e => setNewPassword(e.target.value)} 
-                                    placeholder="Mínimo 6 caracteres" 
-                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500"
-                                />
-                            </div>
-                            <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-            {isAddressModalOpen && (
-                <Modal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} title={`Alterar Endereço do Pedido #${editingOrder?.id}`}>
-                     <form onSubmit={handleSaveAddress} className="space-y-4">
-                        <input name="cep" value={addressForm.cep} onBlur={handleCepLookupInModal} onChange={handleAddressFormChange} placeholder="CEP" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
-                        <input name="logradouro" value={addressForm.logradouro} onChange={handleAddressFormChange} placeholder="Rua" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
-                        <div className="flex space-x-2">
-                            <input name="numero" value={addressForm.numero} onChange={handleAddressFormChange} placeholder="Nº" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
-                            <input name="complemento" value={addressForm.complemento} onChange={handleAddressFormChange} placeholder="Compl." className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
-                        </div>
-                        <input name="bairro" value={addressForm.bairro} onChange={handleAddressFormChange} placeholder="Bairro" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
-                        <div className="flex space-x-2">
-                            <input name="localidade" value={addressForm.localidade} onChange={handleAddressFormChange} placeholder="Cidade" className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
-                            <input name="uf" value={addressForm.uf} onChange={handleAddressFormChange} placeholder="UF" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
-                        </div>
-                        <button type="submit" disabled={!isAddressFormValid} className="w-full bg-gray-800 text-white font-bold py-2 rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed">Salvar Endereço</button>
-                     </form>
-                </Modal>
-            )}
-            </AnimatePresence>
-
-            <TrackingModal 
-                isOpen={isTrackingModalOpen}
-                onClose={() => setIsTrackingModalOpen(false)}
-                trackingCode={currentTrackingCode}
-            />
-            
-             <StatusDescriptionModal
-                isOpen={isStatusModalOpen}
-                onClose={() => setIsStatusModalOpen(false)}
-                details={selectedStatusDetails}
-            />
-
-            <div className="bg-black text-white min-h-screen py-12">
-                <div className="container mx-auto px-4">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-1 space-y-8">
-                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">Meus Dados</h2>
-                                 <div className="space-y-2">
-                                     <p><strong>Nome:</strong> {user?.name}</p>
-                                     <p><strong>Email:</strong> {user?.email}</p>
-                                     <button onClick={() => setIsPasswordModalOpen(true)} className="w-full mt-4 bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Alterar Senha</button>
-                                     <button onClick={() => { logout(); onNavigate('home'); }} className="w-full mt-2 bg-red-800 text-white font-bold py-2 rounded-md hover:bg-red-700">Sair</button>
-                                 </div>
-                             </div>
-                        </div>
-                        <div className="lg:col-span-2">
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                               <h2 className="text-2xl font-bold text-amber-400 mb-4">Histórico de Pedidos</h2>
-                               {orders.length > 0 ? (
-                                   <div className="space-y-6">
-                                       {orders.map(order => (
-                                           <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                                               <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                                                    <div>
-                                                       <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                                       <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
-                                                    </div>
-                                                    <div className="text-left sm:text-right">
-                                                       <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                                                    </div>
-                                               </div>
-                                               
-                                               <div className="my-6">
-                                                    <OrderStatusTimeline
-                                                        history={order.history || []}
-                                                        currentStatus={order.status}
-                                                        onStatusClick={handleOpenStatusModal}
-                                                    />
-                                               </div>
-
-                                                {order.tracking_code && (
-                                                    <div className="my-4 p-3 bg-gray-800 rounded-md">
-                                                        <p className="text-sm">
-                                                            <strong>Cód. Rastreio:</strong> {order.tracking_code}
-                                                        </p>
-                                                    </div>
-                                                )}
-
-                                               <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
-                                                   {order.items.map(item => (
-                                                       <div key={item.id} className="flex items-center text-sm">
-                                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
-                                                            <span>{item.quantity}x {item.name}</span>
-                                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
-                                                       </div>
-                                                   ))}
-                                               </div>
-                                                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
-                                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                                    {(order.status === 'Pendente' || order.status === 'Pagamento Aprovado') && (
-                                                        <button onClick={() => handleOpenAddressModal(order)} className="bg-blue-600 text-white text-sm px-4 py-1 rounded-md hover:bg-blue-700">
-                                                            Alterar Endereço
-                                                        </button>
-                                                    )}
-                                                    {order.tracking_code && (
-                                                        <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">
-                                                            Rastrear Pedido
-                                                        </button>
-                                                    )}
-                                                </div>
-                                           </div>
-                                       ))}
-                                   </div>
-                               ) : (
-                                   <p className="text-gray-500">{message || "Você ainda não fez nenhum pedido."}</p>
-                               )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-
-const AjudaPage = ({ onNavigate }) => (
-    <div className="bg-black text-white min-h-screen py-12">
-        <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold mb-8 text-amber-400">Central de Ajuda</h1>
-            <div className="max-w-md mx-auto bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6">
-                <div>
-                    <h2 className="text-2xl font-bold mb-2">Fale Conosco</h2>
-                    <p className="text-gray-400">Tem alguma dúvida ou precisa de ajuda com seu pedido? Entre em contato pelos nossos canais oficiais.</p>
-                </div>
-                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
-                    <InstagramIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">@lovecestaseperfumesjp</span>
-                </a>
-                 <div className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg">
-                    <WhatsappIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">83 98787-8878</span>
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -2785,6 +2654,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
             {/* Sidebar */}
+            {/* >>> CORREÇÃO: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
@@ -2828,8 +2698,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
-
-// ... (Restante dos componentes do admin permanecem iguais, com exceção de AdminOrders) ...
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0 });
@@ -3372,6 +3240,7 @@ const AdminProducts = () => {
             />
         </div>
 
+        {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <div className="hidden md:block">
                 <table className="w-full text-left">
@@ -3503,6 +3372,7 @@ const AdminUsers = () => {
             </AnimatePresence>
             <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
             
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden md:block">
                     <table className="w-full text-left">
@@ -3662,6 +3532,7 @@ const AdminCoupons = () => {
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
             </div>
 
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden md:block">
                     <table className="w-full text-left">
@@ -3682,6 +3553,7 @@ const AdminCoupons = () => {
                                 <tr key={c.id} className="border-b">
                                     <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
                                     <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
+                                    {/* >>> CORREÇÃO: Exibição de "Grátis" <<< */}
                                     <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
                                     <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
                                     <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
@@ -3702,6 +3574,7 @@ const AdminCoupons = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                  <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
+                                 {/* >>> CORREÇÃO: Exibição de "Grátis" <<< */}
                                  <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
                                  <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
                                  <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
@@ -3734,11 +3607,7 @@ const AdminOrders = () => {
         minPrice: '',
         maxPrice: '',
     });
-    // --- ATUALIZAÇÃO: Lista de status para admin
-    const statuses = [
-        'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
-        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
-    ];
+    const statuses = ['Pendente', 'Processando', 'Enviado', 'Entregue', 'Cancelado'];
 
     const fetchOrders = useCallback(() => {
         apiService('/orders')
@@ -3932,6 +3801,7 @@ const AdminOrders = () => {
                 </div>
             </div>
 
+            {/* >>> CORREÇÃO: Tabela Responsiva <<< */}
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block">
                      <table className="w-full text-left">
