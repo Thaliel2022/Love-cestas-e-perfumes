@@ -72,7 +72,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         headers: {
             'Content-Type': 'application/json',
         },
-        signal: options.signal, // Adiciona o signal para cancelamento
+        signal: options.signal,
     };
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
@@ -2021,7 +2021,7 @@ const CartPage = ({ onNavigate }) => {
                                     <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
                                     <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
                                 </form>
-                                {couponMessage && <p className="text-sm mt-2 text-red-400">{couponMessage}</p>}
+                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
                                 </>
                             ) : (
                                 <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
@@ -2038,7 +2038,8 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const WishlistPage = ({ onNavigate }) => {
+};
+const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -2335,7 +2336,6 @@ const MyAccountPage = ({ onNavigate }) => {
         </>
     );
 };
-
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
@@ -2457,7 +2457,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 }
 
             } else {
-                // Navegação para sucesso em caso de outros métodos de pagamento (não implementado)
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
@@ -2535,10 +2534,9 @@ const CheckoutPage = ({ onNavigate }) => {
     );
 };
 
-// >>> INÍCIO DA PÁGINA DE SUCESSO ATUALIZADA <<<
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
-    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout'
+    const [pageStatus, setPageStatus] = useState('processing'); 
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
     useEffect(() => {
@@ -2623,9 +2621,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         </div>
     );
 };
-// >>> FIM DA PÁGINA DE SUCESSO ATUALIZADA <<<
-
-
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -3869,6 +3864,7 @@ const AdminReports = () => {
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent() {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const notification = useNotification();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
   const navigate = useCallback((path) => {
@@ -3882,6 +3878,26 @@ function AppContent() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  // NOVO: Verificador de confirmação de pagamento
+  useEffect(() => {
+      if (!isAuthenticated) return;
+
+      const checkConfirmation = async () => {
+          try {
+              const data = await apiService('/orders/pending-confirmation');
+              if (data && data.orderId) {
+                  notification.show(`Pagamento do pedido #${data.orderId} foi confirmado!`);
+              }
+          } catch(err) {
+              console.error("Erro ao verificar confirmação de pagamento:", err);
+          }
+      };
+
+      const intervalId = setInterval(checkConfirmation, 10000); // Verifica a cada 10 segundos
+
+      return () => clearInterval(intervalId); // Limpa o intervalo quando o componente desmonta
+  }, [isAuthenticated, notification]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
