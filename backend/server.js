@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM LOG DE DIAGNÓSTICO E HEALTH CHECK)
+// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO DE ROTA DE RETORNO DO MERCADO PAGO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -817,14 +817,13 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// <<< INÍCIO DA SEÇÃO ATUALIZADA DE PAGAMENTOS E WEBHOOK >>>
+// --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 
-// ROTA PARA OBTER O STATUS DE UM PEDIDO (NOVO)
+// ROTA PARA OBTER O STATUS DE UM PEDIDO
 app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
     try {
-        // Verifica se o pedido pertence ao usuário logado ou se é admin
         const [orderResult] = await db.query("SELECT status, user_id FROM orders WHERE id = ?", [id]);
         if (orderResult.length === 0) {
             return res.status(404).json({ message: 'Pedido não encontrado.' });
@@ -839,7 +838,6 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     }
 });
 
-
 // ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
@@ -849,7 +847,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             return res.status(400).json({ message: "ID do pedido é obrigatório." });
         }
         const appUrl = process.env.APP_URL;
-        const backendUrl = process.env.BACKEND_URL || appUrl; // Usa BACKEND_URL se definido, senão APP_URL
+        const backendUrl = process.env.BACKEND_URL || appUrl;
 
         if (!appUrl || !backendUrl) {
             console.error("ERRO CRÍTICO: As variáveis de ambiente APP_URL e BACKEND_URL não estão definidas.");
@@ -862,14 +860,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         }
         const order = orderResult[0];
 
-        const MINIMUM_TRANSACTION_VALUE = 1.00;
-        const orderTotal = Number(Number(order.total).toFixed(2));
-        if (orderTotal < MINIMUM_TRANSACTION_VALUE) {
-            return res.status(400).json({ 
-                message: `O valor total do pedido (R$ ${orderTotal.toFixed(2)}) é muito baixo. O valor mínimo para pagamentos online é de R$ ${MINIMUM_TRANSACTION_VALUE.toFixed(2)}.` 
-            });
-        }
-
         const [orderItems] = await db.query(
             `SELECT oi.quantity, oi.price, p.name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?`, 
             [orderId]
@@ -879,7 +869,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         }
         
         const productsSubtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
-        
         let finalItemPriceForMP = productsSubtotal;
         let finalShippingCostForMP = Number(Number(order.shipping_cost).toFixed(2));
         
@@ -895,7 +884,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             }
         }
         
-        finalItemPriceForMP = Math.max(0, finalItemPriceForMP);
+        finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP); // Garante um valor mínimo para o item
         const productNames = orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
 
         const preferenceBody = {
@@ -924,7 +913,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             };
         }
         
-        // LINHA DE LOG PARA DIAGNÓSTICO:
         console.log(`[Webhook URL Gerada]: ${preferenceBody.notification_url}`);
 
         const result = await preference.create({ body: preferenceBody });
@@ -942,7 +930,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 
-// ROTA DE CONSULTA DE PARCELAS (CORRIGIDA)
+// ROTA DE CONSULTA DE PARCELAS
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -980,7 +968,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 });
 
 
-// FUNÇÃO DE PROCESSAMENTO DO WEBHOOK (SEPARADA PARA CLAREZA)
+// FUNÇÃO DE PROCESSAMENTO DO WEBHOOK
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1063,7 +1051,6 @@ const processPaymentWebhook = async (paymentId) => {
 
 // ROTA DE WEBHOOK DO MERCADO PAGO
 app.post('/api/mercadopago-webhook', (req, res) => {
-    // Responde 200 OK imediatamente para o Mercado Pago
     res.sendStatus(200);
 
     const notification = req.body;
@@ -1083,8 +1070,6 @@ app.post('/api/mercadopago-webhook', (req, res) => {
          console.log(`[Webhook] Tópico não é 'payment' ou notificação está vazia. Tópico: ${topic}. Ignorando.`);
     }
 });
-
-// <<< FIM DA SEÇÃO ATUALIZADA >>>
 
 
 // --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
