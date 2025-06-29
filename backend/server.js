@@ -1,5 +1,3 @@
-// ARQUIVO: server.js (VERSÃO FINAL COM NOTIFICAÇÃO PÓS-PAGAMENTO)
-
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
@@ -18,15 +16,45 @@ const stream = require('stream');
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
+// >>> CORREÇÃO/MELHORIA 1: Constantes para status de pedidos <<<
+// Centraliza os status para evitar erros de digitação e facilitar a manutenção.
+const ORDER_STATUS = {
+    PENDING: 'Pendente',
+    PROCESSING: 'Processando',
+    SHIPPED: 'Enviado',
+    DELIVERED: 'Entregue',
+    CANCELLED: 'Cancelado',
+};
+
+// >>> CORREÇÃO/MELHORIA 2: Verificação de Variáveis de Ambiente Essenciais <<<
+// Garante que o servidor não inicie sem configurações críticas.
+const checkRequiredEnvVars = () => {
+    const requiredVars = [
+        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
+        'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
+        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP'
+    ];
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+        console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
+        missingVars.forEach(varName => console.error(`- ${varName}`));
+        console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
+        process.exit(1); // Encerra o processo se houver variáveis faltando
+    }
+    console.log('Verificação de variáveis de ambiente concluída com sucesso.');
+};
+checkRequiredEnvVars();
+
+
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
 const saltRounds = 10;
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key_for_dev_only';
+const JWT_SECRET = process.env.JWT_SECRET; // Removido fallback inseguro
 
 // --- CONFIGURAÇÕES DE SEGURANÇA ---
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_IN_MINUTES = 15;
-const loginAttempts = {};
+const loginAttempts = {}; // Nota: Em produção, considere usar Redis para persistência.
 
 // --- MIDDLEWARES ---
 app.use(cors());
@@ -51,10 +79,10 @@ app.use(sanitizeInput);
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'lovecestas_db',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
@@ -109,10 +137,12 @@ const verifyAdmin = (req, res, next) => {
 
 // --- ROTAS DA APLICAÇÃO ---
 
+// ROTA DE VERIFICAÇÃO DE SAÚDE (HEALTH CHECK)
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
 });
 
+// --- ROTA DE UPLOAD DE IMAGEM (CLOUDINARY) ---
 app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
@@ -134,12 +164,13 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
         });
         res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
     } catch (error) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro no upload para o Cloudinary:", error);
         res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
     }
 });
 
-// ... (outras rotas de autenticação, produtos, etc. Omitidas por brevidade)
+
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
@@ -157,6 +188,7 @@ app.post('/api/register', async (req, res) => {
                 : "Este CPF já está cadastrado.";
             return res.status(409).json({ message });
         }
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao registrar usuário:", err);
         res.status(500).json({ message: "Erro interno ao registrar usuário." });
     }
@@ -189,6 +221,7 @@ app.post('/api/login', async (req, res) => {
         const { password: _, ...userData } = user;
         res.json({ message: "Login bem-sucedido", user: userData, token: token });
     } catch (err) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao fazer login:", err);
         res.status(500).json({ message: "Erro interno ao fazer login." });
     }
@@ -206,6 +239,7 @@ app.post('/api/forgot-password', async (req, res) => {
         }
         res.status(200).json({ message: "Usuário validado com sucesso." });
     } catch (err) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao validar usuário para recuperação de senha:", err);
         res.status(500).json({ message: "Erro interno do servidor." });
     }
@@ -232,6 +266,7 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(200).json({ message: "Senha redefinida com sucesso." });
 
     } catch (err) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao redefinir a senha:", err);
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
     }
@@ -246,11 +281,10 @@ app.get('/api/track/:code', async (req, res) => {
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
-    console.log(`Iniciando rastreio para o código: ${code} na URL: ${LT_API_URL}`);
+    console.log(`Iniciando rastreio para o código: ${code}`);
     try {
         const apiResponse = await fetch(LT_API_URL);
         const responseText = await apiResponse.text();
-        console.log(`Resposta da API Link&Track - Status: ${apiResponse.status}, Corpo: ${responseText}`);
         
         const data = JSON.parse(responseText);
 
@@ -267,6 +301,7 @@ app.get('/api/track/:code', async (req, res) => {
 
         res.json(formattedHistory);
     } catch (error) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
@@ -281,10 +316,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     }
     
     const ME_TOKEN = process.env.ME_TOKEN;
-    if (!ME_TOKEN) {
-        return res.status(500).json({ message: "API de frete não configurada no servidor." });
-    }
-
+    
     const productIds = products.map(p => p.id);
     const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
     
@@ -294,7 +326,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     });
 
     const payload = {
-        from: { postal_code: process.env.ORIGIN_CEP || "58038101" },
+        from: { postal_code: process.env.ORIGIN_CEP },
         to: { postal_code: cep_destino.replace(/\D/g, '') },
         products: productsWithDetails.map(product => ({ 
             id: String(product.id),
@@ -339,6 +371,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
         
         res.json(filteredOptions);
     } catch (error) {
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
         console.error("Erro ao calcular frete com Melhor Envio:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
     }
@@ -409,7 +442,10 @@ app.get('/api/products/:id', async (req, res) => {
         const [products] = await db.query("SELECT * FROM products WHERE id = ?", [req.params.id]);
         if (products.length === 0) return res.status(404).json({ message: "Produto não encontrado." });
         res.json(products[0]);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar produto." }); }
+    } catch (err) { 
+        console.error("Erro ao buscar produto por ID:", err);
+        res.status(500).json({ message: "Erro ao buscar produto." }); 
+    }
 });
 
 app.get('/api/products/:id/related-by-purchase', async (req, res) => {
@@ -572,7 +608,10 @@ app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
         res.json(reviews);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar avaliações." }); }
+    } catch (err) { 
+        console.error("Erro ao buscar avaliações:", err);
+        res.status(500).json({ message: "Erro ao buscar avaliações." }); 
+    }
 });
 
 app.post('/api/reviews', verifyToken, async (req, res) => {
@@ -581,7 +620,10 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
     try {
         await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
-    } catch (err) { res.status(500).json({ message: "Erro interno ao adicionar avaliação." }); }
+    } catch (err) { 
+        console.error("Erro ao adicionar avaliação:", err);
+        res.status(500).json({ message: "Erro interno ao adicionar avaliação." }); 
+    }
 });
 
 
@@ -669,7 +711,10 @@ app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [orders] = await db.query("SELECT o.*, u.name as user_name FROM orders o JOIN users u ON o.user_id = u.id ORDER BY o.date DESC");
         res.json(orders);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar pedidos." }); }
+    } catch (err) { 
+        console.error("Erro ao buscar pedidos (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar pedidos." }); 
+    }
 });
 
 app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
@@ -698,6 +743,31 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        // >>> CORREÇÃO/MELHORIA 4: Revalidação de cupom na transação <<<
+        if (coupon_code) {
+            const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
+            if (coupons.length === 0) throw new Error("Cupom inválido ou não existe.");
+            
+            const coupon = coupons[0];
+            if (!coupon.is_active) throw new Error("Este cupom não está mais ativo.");
+
+            if (coupon.validity_days) {
+                const createdAt = new Date(coupon.created_at);
+                const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
+                if (new Date() > expiryDate) throw new Error("Este cupom expirou.");
+            }
+
+            if (coupon.is_first_purchase) {
+                const [orders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
+                if (orders.length > 0) throw new Error("Este cupom é válido apenas para a primeira compra.");
+            }
+
+            if (coupon.is_single_use_per_user) {
+                const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
+                if (usage.length > 0) throw new Error("Você já utilizou este cupom.");
+            }
+        }
+
         for (const item of items) {
             const [product] = await connection.query("SELECT stock FROM products WHERE id = ? FOR UPDATE", [item.id]);
             if (product.length === 0 || product[0].stock < item.qty) {
@@ -705,8 +775,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             }
         }
         
-        const orderSql = "INSERT INTO orders (user_id, total, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        const orderParams = [req.user.id, total, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0];
+        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const orderParams = [req.user.id, total, ORDER_STATUS.PENDING, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0];
         const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
         
@@ -751,7 +821,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
         if (order.length === 0) {
             return res.status(404).json({ message: "Pedido não encontrado ou não pertence a este usuário." });
         }
-        if (order[0].status !== 'Pendente') {
+        if (order[0].status !== ORDER_STATUS.PENDING) {
             return res.status(403).json({ message: "Endereço não pode ser alterado para este pedido." });
         }
         await db.query("UPDATE orders SET shipping_address = ? WHERE id = ?", [JSON.stringify(address), id]);
@@ -770,19 +840,20 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ?", [id]);
+        const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [id]);
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
         const currentStatus = currentOrderResult[0].status;
 
-        if (status === 'Cancelado' && currentStatus !== 'Cancelado') {
-            const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
-            if (itemsToReturn.length > 0) {
-                for (const item of itemsToReturn) {
-                    await connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id]);
+        if (status === ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.CANCELLED) {
+            const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
+            if (itemsToAdjust.length > 0) {
+                for (const item of itemsToAdjust) {
+                    // >>> CORREÇÃO/MELHORIA 5: Decrementar contagem de vendas ao cancelar <<<
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                 }
-                console.log(`Estoque do pedido #${id} devolvido manualmente pelo admin.`);
+                console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
             }
         }
         
@@ -817,39 +888,24 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 
-// **NOVA ROTA** PARA VERIFICAR SE HÁ NOTIFICAÇÕES PENDENTES
-app.get('/api/orders/pending-confirmation', verifyToken, async (req, res) => {
+// ROTA PARA OBTER O STATUS DE UM PEDIDO
+app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
+    const { id } = req.params;
     const userId = req.user.id;
-    const connection = await db.getConnection();
     try {
-        await connection.beginTransaction();
-        const [orders] = await connection.query(
-            "SELECT id FROM orders WHERE user_id = ? AND is_confirmation_pending = 1",
-            [userId]
-        );
-
-        if (orders.length > 0) {
-            const orderId = orders[0].id;
-            // "Abaixa a bandeira" para não notificar novamente
-            await connection.query(
-                "UPDATE orders SET is_confirmation_pending = 0 WHERE id = ?",
-                [orderId]
-            );
-            await connection.commit();
-            res.json({ orderId: orderId });
-        } else {
-            await connection.commit();
-            res.json({}); // Retorna objeto vazio se não houver notificação
+        const [orderResult] = await db.query("SELECT status, user_id FROM orders WHERE id = ?", [id]);
+        if (orderResult.length === 0) {
+            return res.status(404).json({ message: 'Pedido não encontrado.' });
         }
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao verificar confirmações pendentes:", err);
-        res.status(500).json({ message: "Erro ao verificar notificações." });
-    } finally {
-        connection.release();
+        if (orderResult[0].user_id !== userId && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Acesso negado a este pedido.' });
+        }
+        res.json({ status: orderResult[0].status });
+    } catch(err) {
+        console.error(`Erro ao buscar status do pedido ${id}:`, err);
+        res.status(500).json({ message: 'Erro ao consultar o status do pedido.' });
     }
 });
-
 
 // ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
@@ -860,12 +916,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             return res.status(400).json({ message: "ID do pedido é obrigatório." });
         }
         const appUrl = process.env.APP_URL;
-        const backendUrl = process.env.BACKEND_URL || appUrl;
-
-        if (!appUrl || !backendUrl) {
-            console.error("ERRO CRÍTICO: As variáveis de ambiente APP_URL e BACKEND_URL não estão definidas.");
-            return res.status(500).json({ message: "Erro de configuração do servidor: URLs da aplicação não definidas." });
-        }
+        const backendUrl = process.env.BACKEND_URL;
 
         const [orderResult] = await db.query("SELECT * FROM orders WHERE id = ?", [orderId]);
         if (!orderResult.length) {
@@ -951,10 +1002,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         return res.status(400).json({ message: "O valor (amount) é obrigatório." });
     }
     
-    if (!MP_ACCESS_TOKEN) {
-        return res.status(500).json({ message: "API de pagamento não configurada no servidor." });
-    }
-
     try {
         const bin = '411111'; 
         const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
@@ -1025,27 +1072,24 @@ const processPaymentWebhook = async (paymentId) => {
             console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
             let newOrderStatus = null;
-            if (paymentStatus === 'approved' && currentDBStatus === 'Pendente') {
-                newOrderStatus = 'Processando';
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== 'Cancelado') {
-                newOrderStatus = 'Cancelado';
+            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
+                newOrderStatus = ORDER_STATUS.PROCESSING;
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
+                newOrderStatus = ORDER_STATUS.CANCELLED;
             }
 
             if (newOrderStatus) {
                 console.log(`[Webhook] Atualizando status do pedido ${orderId} de '${currentDBStatus}' para '${newOrderStatus}'.`);
-                // **ALTERAÇÃO AQUI**: Adiciona is_confirmation_pending = 1
-                await connection.query(
-                    "UPDATE orders SET status = ?, payment_status = ?, is_confirmation_pending = 1 WHERE id = ?", 
-                    [newOrderStatus, paymentStatus, orderId]
-                );
+                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
                 
-                if (newOrderStatus === 'Cancelado') {
+                if (newOrderStatus === ORDER_STATUS.CANCELLED) {
                     const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
                     if (itemsToReturn.length > 0) {
                         for (const item of itemsToReturn) {
-                            await connection.query("UPDATE products SET stock = stock + ? WHERE id = ?", [item.quantity, item.product_id]);
+                             // >>> CORREÇÃO/MELHORIA 5: Decrementar contagem de vendas ao cancelar <<<
+                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                         }
-                        console.log(`[Webhook] Estoque de ${itemsToReturn.length} item(ns) do pedido ${orderId} foi devolvido.`);
+                        console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
                     }
                 }
                 await connection.commit();
@@ -1068,21 +1112,23 @@ const processPaymentWebhook = async (paymentId) => {
 
 // ROTA DE WEBHOOK DO MERCADO PAGO
 app.post('/api/mercadopago-webhook', (req, res) => {
-    console.log(`[Webhook-RAW] ROTA /api/mercadopago-webhook ACESSADA em: ${new Date().toISOString()}`);
     res.sendStatus(200);
-    try {
-        const notification = req.body;
-        const topic = req.query.topic || req.query.type;
-        if (notification && topic === 'payment') {
-            const paymentId = req.query.id || notification.data?.id;
-            if (paymentId) {
-                processPaymentWebhook(paymentId).catch(err => {
-                    console.error(`[Webhook-PROC] Erro não capturado dentro do processPaymentWebhook para o ID ${paymentId}:`, err);
-                });
-            }
+
+    const notification = req.body;
+    const topic = req.query.topic || req.query.type;
+
+    console.log('[Webhook] Notificação recebida. Query:', req.query, 'Body:', notification);
+
+    if (notification && topic === 'payment') {
+        const paymentId = req.query.id || notification.data?.id;
+        console.log(`[Webhook] Tópico 'payment' detectado. ID do pagamento: ${paymentId}.`);
+        if (paymentId) {
+            processPaymentWebhook(paymentId);
+        } else {
+            console.log('[Webhook] Tópico "payment", mas sem ID de pagamento encontrado na notificação.');
         }
-    } catch (error) {
-        console.error('[Webhook-PROC] Erro CRÍTICO ao processar o corpo da requisição do webhook:', error);
+    } else {
+         console.log(`[Webhook] Tópico não é 'payment' ou notificação está vazia. Tópico: ${topic}. Ignorando.`);
     }
 });
 
@@ -1092,7 +1138,10 @@ app.get('/api/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [users] = await db.query("SELECT id, name, email, cpf, role, created_at FROM users");
         res.json(users);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar usuários." }); }
+    } catch (err) { 
+        console.error("Erro ao buscar usuários:", err);
+        res.status(500).json({ message: "Erro ao buscar usuários." }); 
+    }
 });
 
 app.get('/api/users/me', verifyToken, async (req, res) => {
@@ -1101,6 +1150,7 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         res.json(rows[0]);
     } catch (err) {
+        console.error("Erro ao buscar dados do usuário:", err);
         res.status(500).json({ message: "Erro ao buscar dados do usuário." });
     }
 });
@@ -1157,6 +1207,7 @@ app.put('/api/users/me/password', verifyToken, async (req, res) => {
         await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
         res.json({ message: "Senha atualizada com sucesso." });
     } catch(err) {
+        console.error("Erro ao atualizar senha do usuário:", err);
         res.status(500).json({ message: "Erro ao atualizar a senha." });
     }
 });
@@ -1165,7 +1216,11 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
         res.json({ message: "Usuário deletado com sucesso." });
-    } catch (err) { res.status(500).json({ message: "Erro interno ao deletar usuário." }); }
+    } catch (err) { 
+        // >>> CORREÇÃO/MELHORIA 3: Log de erro aprimorado <<<
+        console.error("Erro ao deletar usuário:", err);
+        res.status(500).json({ message: "Erro interno ao deletar usuário." }); 
+    }
 });
 
 // --- ROTAS DE CUPONS (CRUD COMPLETO E AVANÇADO) ---
@@ -1173,7 +1228,10 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
         res.json(coupons);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar cupons." }); }
+    } catch (err) { 
+        console.error("Erro ao buscar cupons:", err);
+        res.status(500).json({ message: "Erro ao buscar cupons." }); 
+    }
 });
 
 app.post('/api/coupons/validate', verifyToken, async (req, res) => {
@@ -1200,7 +1258,7 @@ app.post('/api/coupons/validate', verifyToken, async (req, res) => {
         }
         
         if (coupon.is_first_purchase) {
-            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ?", [userId]);
+            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [userId]);
             if (orders.length > 0) {
                 return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
             }
@@ -1272,7 +1330,10 @@ app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM coupons WHERE id = ?", [req.params.id]);
         res.json({ message: "Cupom deletado com sucesso." });
-    } catch (err) { res.status(500).json({ message: "Erro interno ao deletar cupom." }); }
+    } catch (err) { 
+        console.error("Erro ao deletar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao deletar cupom." }); 
+    }
 });
 
 // --- ROTAS DA LISTA DE DESEJOS (WISHLIST) ---
