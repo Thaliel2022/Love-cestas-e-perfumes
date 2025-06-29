@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM CORREÇÃO DE ROTA DE RETORNO DO MERCADO PAGO)
+// ARQUIVO: server.js (VERSÃO FINAL COM NOTIFICAÇÃO PÓS-PAGAMENTO)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -109,12 +109,10 @@ const verifyAdmin = (req, res, next) => {
 
 // --- ROTAS DA APLICAÇÃO ---
 
-// ROTA DE VERIFICAÇÃO DE SAÚDE (HEALTH CHECK)
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
 });
 
-// --- ROTA DE UPLOAD DE IMAGEM (CLOUDINARY) ---
 app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
@@ -141,7 +139,7 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
     }
 });
 
-
+// ... (outras rotas de autenticação, produtos, etc. Omitidas por brevidade)
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
@@ -819,24 +817,39 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 
-// ROTA PARA OBTER O STATUS DE UM PEDIDO
-app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
-    const { id } = req.params;
+// **NOVA ROTA** PARA VERIFICAR SE HÁ NOTIFICAÇÕES PENDENTES
+app.get('/api/orders/pending-confirmation', verifyToken, async (req, res) => {
     const userId = req.user.id;
+    const connection = await db.getConnection();
     try {
-        const [orderResult] = await db.query("SELECT status, user_id FROM orders WHERE id = ?", [id]);
-        if (orderResult.length === 0) {
-            return res.status(404).json({ message: 'Pedido não encontrado.' });
+        await connection.beginTransaction();
+        const [orders] = await connection.query(
+            "SELECT id FROM orders WHERE user_id = ? AND is_confirmation_pending = 1",
+            [userId]
+        );
+
+        if (orders.length > 0) {
+            const orderId = orders[0].id;
+            // "Abaixa a bandeira" para não notificar novamente
+            await connection.query(
+                "UPDATE orders SET is_confirmation_pending = 0 WHERE id = ?",
+                [orderId]
+            );
+            await connection.commit();
+            res.json({ orderId: orderId });
+        } else {
+            await connection.commit();
+            res.json({}); // Retorna objeto vazio se não houver notificação
         }
-        if (orderResult[0].user_id !== userId && req.user.role !== 'admin') {
-            return res.status(403).json({ message: 'Acesso negado a este pedido.' });
-        }
-        res.json({ status: orderResult[0].status });
-    } catch(err) {
-        console.error(`Erro ao buscar status do pedido ${id}:`, err);
-        res.status(500).json({ message: 'Erro ao consultar o status do pedido.' });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao verificar confirmações pendentes:", err);
+        res.status(500).json({ message: "Erro ao verificar notificações." });
+    } finally {
+        connection.release();
     }
 });
+
 
 // ROTA PARA CRIAR PAGAMENTO COM MERCADO PAGO
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
@@ -884,7 +897,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             }
         }
         
-        finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP); // Garante um valor mínimo para o item
+        finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP);
         const productNames = orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
 
         const preferenceBody = {
@@ -1020,7 +1033,11 @@ const processPaymentWebhook = async (paymentId) => {
 
             if (newOrderStatus) {
                 console.log(`[Webhook] Atualizando status do pedido ${orderId} de '${currentDBStatus}' para '${newOrderStatus}'.`);
-                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
+                // **ALTERAÇÃO AQUI**: Adiciona is_confirmation_pending = 1
+                await connection.query(
+                    "UPDATE orders SET status = ?, payment_status = ?, is_confirmation_pending = 1 WHERE id = ?", 
+                    [newOrderStatus, paymentStatus, orderId]
+                );
                 
                 if (newOrderStatus === 'Cancelado') {
                     const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
@@ -1051,23 +1068,21 @@ const processPaymentWebhook = async (paymentId) => {
 
 // ROTA DE WEBHOOK DO MERCADO PAGO
 app.post('/api/mercadopago-webhook', (req, res) => {
+    console.log(`[Webhook-RAW] ROTA /api/mercadopago-webhook ACESSADA em: ${new Date().toISOString()}`);
     res.sendStatus(200);
-
-    const notification = req.body;
-    const topic = req.query.topic || req.query.type;
-
-    console.log('[Webhook] Notificação recebida. Query:', req.query, 'Body:', notification);
-
-    if (notification && topic === 'payment') {
-        const paymentId = req.query.id || notification.data?.id;
-        console.log(`[Webhook] Tópico 'payment' detectado. ID do pagamento: ${paymentId}.`);
-        if (paymentId) {
-            processPaymentWebhook(paymentId);
-        } else {
-            console.log('[Webhook] Tópico "payment", mas sem ID de pagamento encontrado na notificação.');
+    try {
+        const notification = req.body;
+        const topic = req.query.topic || req.query.type;
+        if (notification && topic === 'payment') {
+            const paymentId = req.query.id || notification.data?.id;
+            if (paymentId) {
+                processPaymentWebhook(paymentId).catch(err => {
+                    console.error(`[Webhook-PROC] Erro não capturado dentro do processPaymentWebhook para o ID ${paymentId}:`, err);
+                });
+            }
         }
-    } else {
-         console.log(`[Webhook] Tópico não é 'payment' ou notificação está vazia. Tópico: ${topic}. Ignorando.`);
+    } catch (error) {
+        console.error('[Webhook-PROC] Erro CRÍTICO ao processar o corpo da requisição do webhook:', error);
     }
 });
 
