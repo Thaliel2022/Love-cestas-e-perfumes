@@ -755,7 +755,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
-// >>> MELHORIA: Carrossel com swipe para mobile <<<
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -771,24 +770,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
         window.addEventListener('resize', updateItemsPerPage);
         return () => window.removeEventListener('resize', updateItemsPerPage);
     }, [updateItemsPerPage]);
-
-    const goNext = useCallback(() => {
+    
+    const goNext = () => {
         setCurrentIndex(prev => Math.min(prev + 1, products.length - itemsPerPage));
-    }, [products.length, itemsPerPage]);
+    };
 
-    const goPrev = useCallback(() => {
+    const goPrev = () => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
-    }, []);
-
-    const handleDragEnd = (event, info) => {
-        const swipePower = (offset, velocity) => Math.abs(offset) * velocity;
-        const swipe = swipePower(info.offset.x, info.velocity.x);
-        
-        if (swipe < -10000) {
-            goNext();
-        } else if (swipe > 10000) {
-            goPrev();
-        }
     };
     
     if (!products || products.length === 0) {
@@ -813,18 +801,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
                     variants={carouselContainerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="flex -mx-2 md:-mx-4"
+                    className="flex -mx-2 md:-mx-4 transition-transform duration-500 ease-out"
                     style={{ transform: `translateX(-${currentIndex * (100 / itemsPerPage)}%)` }}
-                    transition={{ type: "spring", stiffness: 400, damping: 50 }}
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.1}
-                    onDragEnd={handleDragEnd}
                 >
                     {products.map(product => (
                         <div 
                             key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4 cursor-grab active:cursor-grabbing"
+                            className="flex-shrink-0 px-2 md:px-4"
                             style={{ width: `${100 / itemsPerPage}%` }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
@@ -856,21 +839,23 @@ const Header = memo(({ onNavigate }) => {
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+    // Animação do carrinho
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
     const cartAnimationControls = useAnimation();
 
     useEffect(() => {
+        // Inicia a animação apenas se um item for ADICIONADO (não removido)
         if (totalCartItems > prevTotalCartItems.current) {
-            // >>> MELHORIA: Animação de "shake" no carrinho <<<
             cartAnimationControls.start({
-                rotate: [0, -10, 10, -10, 10, 0],
-                transition: { duration: 0.5, ease: "easeInOut" }
+                scale: [1, 1.25, 0.9, 1.1, 1],
+                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
             });
         }
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
-    
+    // Fim da animação do carrinho
+
     useEffect(() => {
         if (searchTerm.length < 2) {
             setSearchSuggestions([]);
@@ -957,15 +942,13 @@ const Header = memo(({ onNavigate }) => {
                         </button>
                     )}
 
-                    {/* >>> MELHORIA: Ícone de favoritos preenchido <<< */}
                     <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
-                        <HeartIcon className="h-6 w-6" filled={wishlist.length > 0}/>
+                        <HeartIcon className="h-6 w-6"/>
                         {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
                     </button>
                     
                     <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition">
-                        {/* >>> MELHORIA: Ícone do carrinho em destaque <<< */}
-                        <CartIcon className={`h-6 w-6 transition-colors ${totalCartItems > 0 ? 'text-amber-400' : ''}`}/>
+                        <CartIcon className="h-6 w-6"/>
                         {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
                     </motion.button>
                     
@@ -2373,7 +2356,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [shippingAddress, setShippingAddress] = useState({ 
         cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' 
     });
-    // >>> CORREÇÃO: Validação do número <<<
     const [addressErrors, setAddressErrors] = useState({ numero: false });
     const [paymentMethod, setPaymentMethod] = useState('');
     const [isFormValid, setIsFormValid] = useState(false);
@@ -2436,10 +2418,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
         
-        // >>> CORREÇÃO: Validação do número <<<
         if (name === 'numero') {
-            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || /^[0-9]+$/.test(value);
-            setAddressErrors(prev => ({...prev, numero: !isValid && value !== ''}));
+            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || value === '';
+            setAddressErrors(prev => ({...prev, numero: !isValid}));
         }
 
         setShippingAddress(prev => ({...prev, [name]: value}));
