@@ -755,7 +755,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
-// >>> MELHORIA: Carrossel com swipe para mobile <<<
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -771,27 +770,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
         window.addEventListener('resize', updateItemsPerPage);
         return () => window.removeEventListener('resize', updateItemsPerPage);
     }, [updateItemsPerPage]);
+    
+    const goNext = () => {
+        setCurrentIndex(prev => Math.min(prev + 1, products.length - itemsPerPage));
+    };
 
-    const goNext = useCallback(() => {
-        if (products.length > itemsPerPage) {
-            setCurrentIndex(prev => Math.min(prev + 1, products.length - itemsPerPage));
-        }
-    }, [products.length, itemsPerPage]);
-
-    const goPrev = useCallback(() => {
+    const goPrev = () => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
-    }, []);
-
-    const onDragEnd = (event, info) => {
-        const { offset, velocity } = info;
-        const swipePower = (offset, velocity) => Math.abs(offset) * velocity;
-        const swipe = swipePower(offset.x, velocity.x);
-
-        if (swipe < -10000) {
-            goNext();
-        } else if (swipe > 10000) {
-            goPrev();
-        }
     };
     
     if (!products || products.length === 0) {
@@ -813,27 +798,20 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
             {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
             <div className="overflow-hidden">
                 <motion.div
-                    key={currentIndex} // Re-mount on index change to ensure smooth animation
                     variants={carouselContainerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="flex -mx-2 md:-mx-4 cursor-grab"
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.2}
-                    onDragEnd={onDragEnd}
-                    style={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }} // Set initial position
-                    transition={{ type: "tween", ease: "easeInOut", duration: 0.5 }} // Smooth transition for arrow clicks
+                    className="flex -mx-2 md:-mx-4 transition-transform duration-500 ease-out"
+                    style={{ transform: `translateX(-${currentIndex * (100 / itemsPerPage)}%)` }}
                 >
                     {products.map(product => (
-                        <motion.div 
+                        <div 
                             key={product.id} 
                             className="flex-shrink-0 px-2 md:px-4"
                             style={{ width: `${100 / itemsPerPage}%` }}
-                            variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
-                        </motion.div>
+                        </div>
                     ))}
                 </motion.div>
             </div>
@@ -861,21 +839,23 @@ const Header = memo(({ onNavigate }) => {
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+    // Animação do carrinho
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
     const cartAnimationControls = useAnimation();
 
     useEffect(() => {
+        // Inicia a animação apenas se um item for ADICIONADO (não removido)
         if (totalCartItems > prevTotalCartItems.current) {
-            // >>> MELHORIA: Animação de "shake" no carrinho <<<
             cartAnimationControls.start({
-                rotate: [0, -10, 10, -10, 10, 0],
-                transition: { duration: 0.5, ease: "easeInOut" }
+                scale: [1, 1.25, 0.9, 1.1, 1],
+                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
             });
         }
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
-    
+    // Fim da animação do carrinho
+
     useEffect(() => {
         if (searchTerm.length < 2) {
             setSearchSuggestions([]);
@@ -962,15 +942,13 @@ const Header = memo(({ onNavigate }) => {
                         </button>
                     )}
 
-                    {/* >>> MELHORIA: Ícone de favoritos preenchido <<< */}
                     <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
-                        <HeartIcon className="h-6 w-6" filled={wishlist.length > 0}/>
+                        <HeartIcon className="h-6 w-6"/>
                         {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
                     </button>
                     
                     <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition">
-                        {/* >>> MELHORIA: Ícone do carrinho em destaque <<< */}
-                        <CartIcon className={`h-6 w-6 transition-colors ${totalCartItems > 0 ? 'text-amber-400' : ''}`}/>
+                        <CartIcon className="h-6 w-6"/>
                         {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
                     </motion.button>
                     
@@ -1039,7 +1017,6 @@ const Header = memo(({ onNavigate }) => {
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
-    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => { 
         apiService('/products')
@@ -1052,8 +1029,7 @@ const HomePage = ({ onNavigate }) => {
                     bestSellers: sortedBySales
                 });
             })
-            .catch(err => console.error("Falha ao buscar produtos:", err))
-            .finally(() => setIsLoading(false));
+            .catch(err => console.error("Falha ao buscar produtos:", err));
     }, []);
 
     const categoryCards = [
@@ -1078,21 +1054,6 @@ const HomePage = ({ onNavigate }) => {
             transition: { type: 'spring', stiffness: 100 }
         }
     };
-    
-    // >>> MELHORIA: Esqueleto de carregamento sutil <<<
-    if(isLoading) {
-        return (
-            <div className="bg-black text-white min-h-screen">
-                <div className="h-[70vh] bg-gray-900 animate-pulse"></div>
-                 <div className="container mx-auto px-4 py-16">
-                     <div className="h-8 w-1/3 bg-gray-800 rounded-md mx-auto mb-10 animate-pulse"></div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                         {[...Array(4)].map((_, i) => <ProductSkeleton key={i} />)}
-                     </div>
-                 </div>
-            </div>
-        )
-    }
 
     return (
       <>
@@ -1143,22 +1104,6 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
-const ProductSkeleton = () => (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
-        <div className="h-64 bg-gray-700"></div>
-        <div className="p-5 flex-grow flex flex-col">
-            <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-            <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
-            <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
-            <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
-            <div className="mt-4 flex items-stretch space-x-2">
-                <div className="h-10 bg-gray-700 rounded flex-grow"></div>
-                <div className="h-10 w-12 bg-gray-700 rounded"></div>
-            </div>
-        </div>
-    </div>
-);
-
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '' }) => {
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
@@ -1173,7 +1118,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
                 setAllProducts(data);
-                setFilteredProducts(data); // Inicia com todos os produtos
             })
             .catch(err => {
                  if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
@@ -1204,6 +1148,21 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
     const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
     
+    const ProductSkeleton = () => (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
+            <div className="h-64 bg-gray-700"></div>
+            <div className="p-5 flex-grow flex flex-col">
+                <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
+                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
+                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <div className="h-10 bg-gray-700 rounded flex-grow"></div>
+                    <div className="h-10 w-12 bg-gray-700 rounded"></div>
+                </div>
+            </div>
+        </div>
+    );
     
     const gridContainerVariants = {
         hidden: { opacity: 0 },
@@ -2397,7 +2356,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [shippingAddress, setShippingAddress] = useState({ 
         cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' 
     });
-    // >>> CORREÇÃO: Validação do número <<<
     const [addressErrors, setAddressErrors] = useState({ numero: false });
     const [paymentMethod, setPaymentMethod] = useState('');
     const [isFormValid, setIsFormValid] = useState(false);
@@ -2460,10 +2418,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
         
-        // >>> CORREÇÃO: Validação do número <<<
         if (name === 'numero') {
-            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || /^[0-9]+$/.test(value);
-            setAddressErrors(prev => ({...prev, numero: !isValid && value !== ''}));
+            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || value === '';
+            setAddressErrors(prev => ({...prev, numero: !isValid}));
         }
 
         setShippingAddress(prev => ({...prev, [name]: value}));
@@ -2696,7 +2653,8 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     }
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
-            {/* >>> MELHORIA: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
+            {/* Sidebar */}
+            {/* >>> CORREÇÃO: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
