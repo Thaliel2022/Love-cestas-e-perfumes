@@ -32,7 +32,7 @@ const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
-// ---> ATUALIZAÇÃO: Novos Ícones para a Linha do Tempo de Status
+// --- Ícones para a Linha do Tempo de Status ---
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
 const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -768,9 +768,10 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
 
+    // MELHORIA DE RESPONSIVIDADE: Ajuste para mostrar mais itens em telas menores
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 640) setItemsPerPage(1);
-        else if (window.innerWidth < 1024) setItemsPerPage(2);
+        if (window.innerWidth < 640) setItemsPerPage(2);
+        else if (window.innerWidth < 1024) setItemsPerPage(3);
         else setItemsPerPage(4);
     }, []);
 
@@ -1205,7 +1206,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             variants={gridContainerVariants}
                             initial="hidden"
                             animate="visible"
-                            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                            // MELHORIA DE RESPONSIVIDADE: Alterado de 1 para 2 colunas em telas pequenas
+                            className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-6"
                         >
                            {isLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
@@ -2038,7 +2040,8 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const WishlistPage = ({ onNavigate }) => {
+};
+const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -2077,7 +2080,8 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const CheckoutPage = ({ onNavigate }) => {
+};
+const CheckoutPage = ({ onNavigate }) => {
     const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
@@ -2371,21 +2375,20 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     );
 };
 
-// --- ATUALIZAÇÃO: NOVO COMPONENTE DE LINHA DO TEMPO DE STATUS ---
+// --- MELHORIA DE RESPONSIVIDADE: Novo componente de linha do tempo ---
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
-        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
-        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-        'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
-        'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
+        'Pendente': { title: 'Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
+        'Pagamento Aprovado': { title: 'Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Recusado': { title: 'Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
+        'Separando Pedido': { title: 'Separando', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+        'Enviado': { title: 'Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
+        'Saiu para Entrega': { title: 'Em Rota', description: 'O entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
+        'Entregue': { title: 'Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
+        'Cancelado': { title: 'Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
+        'Reembolsado': { title: 'Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na fatura depende da operadora.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
     }), []);
     
-    // Ordem lógica da linha do tempo.
     const timelineOrder = useMemo(() => [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
     ], []);
@@ -2393,7 +2396,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    // Se o status for "Cancelado" ou "Reembolsado", exibe uma linha do tempo especial.
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         return (
@@ -2413,7 +2415,42 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
-            <div className="flex justify-between items-center flex-wrap gap-2">
+            {/* --- Mobile View (Vertical) --- */}
+            <div className="md:hidden space-y-6">
+                 {timelineOrder.map((statusKey, index) => {
+                    const statusInfo = historyMap.get(statusKey);
+                    const isCompleted = statusInfo || index < currentStatusIndex;
+                    const isCurrent = statusKey === currentStatus;
+                    const definition = STATUS_DEFINITIONS[statusKey];
+                    if (!definition) return null;
+                    const color = isCompleted ? definition.color : 'gray';
+
+                    return (
+                        <div key={statusKey} className="flex items-start gap-4" onClick={() => onStatusClick(definition)}>
+                            <div className="flex flex-col items-center h-full">
+                                <div className={`w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 ${isCompleted ? `bg-${color}-500 border-${color}-500` : 'bg-gray-700 border-gray-600'} ${isCurrent ? 'animate-pulse' : ''}`}>
+                                    {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                </div>
+                                {index < timelineOrder.length - 1 && (
+                                    <div className={`w-0.5 flex-1 mt-2 ${isCompleted ? `bg-${color}-500` : 'bg-gray-700'}`}></div>
+                                )}
+                            </div>
+                            <div className="pt-1">
+                                <h4 className={`font-bold ${isCompleted ? `text-${color}-400` : 'text-gray-500'}`}>{definition.title}</h4>
+                                {statusInfo && (
+                                    <p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>
+                                )}
+                                {isCurrent && (
+                                    <p className="text-xs text-gray-400 mt-1">{definition.description}</p>
+                                )}
+                            </div>
+                        </div>
+                    )
+                })}
+            </div>
+
+            {/* --- Desktop View (Horizontal) --- */}
+            <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
                     const isCompleted = statusInfo || index < currentStatusIndex;
@@ -2450,7 +2487,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     );
 };
 
-// --- ATUALIZAÇÃO: NOVO MODAL DE DESCRIÇÃO DE STATUS ---
+
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
@@ -2468,7 +2505,6 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
 };
 
 
-// --- ATUALIZAÇÃO: PÁGINA "MINHA CONTA" COM A NOVA LINHA DO TEMPO ---
 const MyAccountPage = ({ onNavigate }) => {
     const { user, logout } = useAuth();
     const { addToCart } = useShop();
@@ -2488,7 +2524,6 @@ const MyAccountPage = ({ onNavigate }) => {
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [currentTrackingCode, setCurrentTrackingCode] = useState('');
     
-    // State para o modal de status
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
@@ -2772,7 +2807,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
