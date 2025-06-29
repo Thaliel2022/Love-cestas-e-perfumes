@@ -595,14 +595,14 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
                 .pipe(csv())
                 .on('data', (row) => {
                     if (!row.name || !row.price) return;
-                     products.push([
-                        row.name, row.brand || '', row.category || 'Geral', parseFloat(row.price) || 0,
-                        parseInt(row.stock) || 0, row.images ? `["${row.images.split(',').join('","')}"]` : '[]', row.description || '',
-                        row.notes || '', row.how_to_use || '', row.ideal_for || '',
-                        row.volume || '', 
-                        parseFloat(row.weight) || 0.3, parseInt(row.width) || 11, parseInt(row.height) || 11, parseInt(row.length) || 16,
-                        row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0
-                    ]);
+                        products.push([
+                            row.name, row.brand || '', row.category || 'Geral', parseFloat(row.price) || 0,
+                            parseInt(row.stock) || 0, row.images ? `["${row.images.split(',').join('","')}"]` : '[]', row.description || '',
+                            row.notes || '', row.how_to_use || '', row.ideal_for || '',
+                            row.volume || '', 
+                            parseFloat(row.weight) || 0.3, parseInt(row.width) || 11, parseInt(row.height) || 11, parseInt(row.length) || 16,
+                            row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0
+                        ]);
                 })
                 .on('end', resolve)
                 .on('error', reject);
@@ -865,7 +865,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
-// ---> ATUALIZAÇÃO: Rota de atualização de pedido do admin agora usa `updateOrderStatus`
+// ---> ATUALIZAÇÃO: Rota de atualização de pedido do admin agora usa `updateOrderStatus` e processa REEMBOLSOS
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -874,18 +874,58 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [id]);
+        // Buscamos mais dados do pedido para a lógica de reembolso
+        const [currentOrderResult] = await connection.query("SELECT status, payment_gateway_id, payment_status FROM orders WHERE id = ? FOR UPDATE", [id]);
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
-        const currentStatus = currentOrderResult[0].status;
+        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
         // Se o status está sendo alterado, use a função auxiliar
         if (status && status !== currentStatus) {
+            
+            // --- NOVA LÓGICA DE REEMBOLSO ---
+            if (status === ORDER_STATUS.REFUNDED) {
+                // Validação 1: O pedido precisa ter um ID de pagamento do gateway
+                if (!payment_gateway_id) {
+                    throw new Error("Reembolso falhou: Este pedido não possui um ID de pagamento registrado.");
+                }
+                // Validação 2: O pagamento precisa ter sido aprovado para ser reembolsado
+                if (currentPaymentStatus !== 'approved') {
+                     throw new Error(`Reembolso falhou: O pagamento não pode ser reembolsado pois seu status é '${currentPaymentStatus}'.`);
+                }
+
+                console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
+
+                // Faz a chamada para a API do Mercado Pago para criar um reembolso total
+                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const refundData = await refundResponse.json();
+
+                // Se a API do MP retornar um erro, a transação inteira é desfeita.
+                if (!refundResponse.ok) {
+                    console.error("[Reembolso] Erro da API do Mercado Pago:", refundData);
+                    throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
+                }
+                
+                console.log(`[Reembolso] Reembolso para o pagamento ${payment_gateway_id} processado com sucesso no Mercado Pago.`);
+                // Se o reembolso no MP foi bem-sucedido, prosseguimos para atualizar nosso banco.
+            }
+            
+            // Atualiza o status e o histórico em nosso banco de dados
             await updateOrderStatus(id, status, connection, "Status alterado pelo administrador.");
             
             // Lógica para reverter estoque se cancelado ou reembolsado pelo admin
-            if ((status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED) && currentStatus !== ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.REFUNDED) {
+            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED);
+            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED);
+
+            if (isRevertingStock && !wasAlreadyReverted) {
                 const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
                 if (itemsToAdjust.length > 0) {
                     for (const item of itemsToAdjust) {
@@ -907,7 +947,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     } catch (err) { 
         await connection.rollback();
         console.error("Erro ao atualizar pedido:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar o pedido." }); 
+        // Retorna a mensagem de erro específica para o frontend
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar o pedido." }); 
     } finally {
         connection.release();
     }
@@ -1052,7 +1093,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 });
 
-// ---> ATUALIZAÇÃO: Webhook agora usa `updateOrderStatus` e os novos status
+// ---> ATUALIZAÇÃO: Webhook agora usa `updateOrderStatus`, os novos status e salva o ID do pagamento
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1095,7 +1136,12 @@ const processPaymentWebhook = async (paymentId) => {
             const currentDBStatus = currentOrderResult[0].status;
             console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
-            await connection.query("UPDATE orders SET payment_status = ? WHERE id = ?", [paymentStatus, orderId]);
+            // --- ATUALIZAÇÃO PRINCIPAL AQUI ---
+            // Salva o status e o ID do pagamento do Mercado Pago
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?", 
+                [paymentStatus, payment.id, orderId]
+            );
             
             if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
                 await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
