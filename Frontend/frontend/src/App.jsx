@@ -2538,91 +2538,83 @@ const CheckoutPage = ({ onNavigate }) => {
 // >>> INÍCIO DA PÁGINA DE SUCESSO ATUALIZADA <<<
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
-    const [status, setStatus] = useState('Pendente'); 
-    const [error, setError] = useState('');
-    const pollIntervalRef = useRef(null);
-    const timeoutRef = useRef(null);
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout'
+    const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
     useEffect(() => {
-        // Limpa o carrinho e outros estados do pedido imediatamente ao entrar na página
         clearOrderState();
+
+        const pollIntervalRef = useRef(null);
+        const timeoutRef = useRef(null);
+
+        const cleanup = () => {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
 
         const pollStatus = async () => {
             try {
-                // Usamos o endpoint que verifica o status
                 const response = await apiService(`/orders/${orderId}/status`); 
                 if (response.status && response.status !== 'Pendente') {
-                    setStatus(response.status);
-                    if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                    if(timeoutRef.current) clearTimeout(timeoutRef.current);
+                    setFinalOrderStatus(response.status);
+                    setPageStatus('success');
+                    cleanup();
                 }
             } catch (err) {
-                setError('Não foi possível verificar o status do pagamento. Por favor, verifique em "Minha Conta".');
-                if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-                if(timeoutRef.current) clearTimeout(timeoutRef.current);
+                console.error("Erro ao verificar status, continuando a verificação.", err);
             }
         };
         
-        // Inicia a verificação a cada 3 segundos
         pollIntervalRef.current = setInterval(pollStatus, 3000);
 
-        // Define um tempo máximo de espera de 45 segundos
         timeoutRef.current = setTimeout(() => {
-            if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            if (status === 'Pendente') { // Se ainda estiver pendente após o tempo, mostra sucesso genérico
-                 setStatus('Timeout');
+            if (pageStatus === 'processing') {
+                setPageStatus('timeout');
+                cleanup();
             }
         }, 45000);
 
-        // Limpa tudo ao sair da página
-        return () => {
-            if(pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            if(timeoutRef.current) clearTimeout(timeoutRef.current);
-        };
-    }, [orderId, clearOrderState, status]);
+        return cleanup;
+    }, [orderId, clearOrderState, pageStatus]);
 
 
     const renderContent = () => {
-        if (status === 'Pendente') {
-            return (
-                <>
-                    <div className="relative mb-6">
-                        <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
-                        <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">Confirmando Pagamento...</h1>
-                    <p className="text-gray-300 mb-6">Aguarde um instante, estamos confirmando seu pagamento com a operadora.</p>
-                </>
-            );
+        switch (pageStatus) {
+            case 'success':
+                return {
+                    icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
+                    title: "Pagamento Aprovado!",
+                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
+                };
+            case 'timeout':
+                return {
+                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
+                    title: "Pedido Recebido!",
+                    message: `Seu pedido #${orderId} foi recebido. A confirmação do pagamento pode levar alguns minutos. Você pode acompanhar o status final na sua área de cliente.`
+                };
+            case 'processing':
+            default:
+                return {
+                    icon: (
+                        <div className="relative mb-6">
+                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
+                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
+                        </div>
+                    ),
+                    title: "Confirmando Pagamento...",
+                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
+                };
         }
-
-        if (error) {
-             return (
-                <>
-                    <ExclamationIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-                    <h1 className="text-2xl sm:text-3xl font-bold text-red-400 mb-2">Ocorreu um Problema</h1>
-                    <p className="text-gray-300 mb-6">{error}</p>
-                </>
-            );
-        }
-        
-        // Cobre os casos de sucesso final ('Processando', 'Timeout', etc.)
-        return (
-            <>
-                <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">Pedido Realizado com Sucesso!</h1>
-                <p className="text-gray-300 mb-6">
-                    Seu pedido <strong className="font-mono">#{orderId}</strong> foi recebido.
-                    {status === 'Processando' ? " O pagamento foi aprovado e já estamos preparando tudo para o envio!" : " Você pode acompanhar o status final na sua área de cliente."}
-                </p>
-            </>
-        );
     };
+
+    const { icon, title, message } = renderContent();
 
     return (
         <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
             <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
-                {renderContent()}
+                {icon}
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
+                <p className="text-gray-300 mb-6">{message}</p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
                     <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
                     <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
