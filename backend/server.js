@@ -1,4 +1,4 @@
-// ARQUIVO: server.js (ATUALIZADO COM MELHORIAS NO WEBHOOK E LOGGING)
+// ARQUIVO: server.js (ATUALIZADO COM LOG DE DIAGNÓSTICO E HEALTH CHECK)
 
 // Importa os pacotes necessários
 const express = require('express');
@@ -29,10 +29,8 @@ const LOCK_TIME_IN_MINUTES = 15;
 const loginAttempts = {};
 
 // --- MIDDLEWARES ---
-// IMPORTANTE: O middleware de body-parser do express deve vir ANTES das rotas
 app.use(cors());
 app.use(express.json());
-
 
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
@@ -109,6 +107,12 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
+// --- ROTAS DA APLICAÇÃO ---
+
+// ROTA DE VERIFICAÇÃO DE SAÚDE (HEALTH CHECK)
+app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
+});
 
 // --- ROTA DE UPLOAD DE IMAGEM (CLOUDINARY) ---
 app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
@@ -920,6 +924,9 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             };
         }
         
+        // LINHA DE LOG PARA DIAGNÓSTICO:
+        console.log(`[Webhook URL Gerada]: ${preferenceBody.notification_url}`);
+
         const result = await preference.create({ body: preferenceBody });
 
         res.json({
@@ -934,6 +941,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+
 // ROTA DE CONSULTA DE PARCELAS (CORRIGIDA)
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
@@ -947,8 +955,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 
     try {
-        // CORREÇÃO: A API do Mercado Pago exige um 'bin' (primeiros 6 dígitos do cartão) ou 'payment_method_id'
-        // para retornar as parcelas. Usamos um BIN comum de VISA para obter um plano de parcelamento representativo.
         const bin = '411111'; 
         const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
@@ -961,11 +967,9 @@ app.get('/api/mercadopago/installments', async (req, res) => {
 
         const installmentsData = await installmentsResponse.json();
         
-        // A API retorna um array, e o plano de parcelamento está no primeiro item.
         if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
             res.json(installmentsData[0].payer_costs);
         } else {
-            // Se não houver payer_costs, pode não haver parcelamento para esse valor/cartão
             res.status(404).json({ message: 'Não foram encontradas opções de parcelamento.' });
         }
 
