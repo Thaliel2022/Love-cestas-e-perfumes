@@ -977,6 +977,7 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     }
 });
 
+// ATUALIZADO: Rota para criar pagamento com descrição detalhada
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -1001,30 +1002,50 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             return res.status(400).json({ message: "Nenhum item encontrado para este pedido." });
         }
         
-        const productsSubtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
-        let finalItemPriceForMP = productsSubtotal;
-        let finalShippingCostForMP = Number(Number(order.shipping_cost).toFixed(2));
-        
+        const subtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
+        const shipping = Number(order.shipping_cost || 0);
+        const discount = Number(order.discount_amount || 0);
+        const total = Number(order.total || 0);
+
+        let finalItemPriceForMP = subtotal;
+        let finalShippingCostForMP = shipping;
+        let isFreeShippingCoupon = false;
+
         if (order.coupon_code) {
             const [couponResult] = await db.query("SELECT type FROM coupons WHERE code = ?", [order.coupon_code]);
-            if (couponResult.length > 0) {
-                const couponType = couponResult[0].type;
-                if (couponType === 'free_shipping') {
-                    finalShippingCostForMP = 0;
-                } else {
-                    finalItemPriceForMP -= Number(order.discount_amount || 0);
-                }
+            if (couponResult.length > 0 && couponResult[0].type === 'free_shipping') {
+                isFreeShippingCoupon = true;
             }
         }
-        
-        finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP);
-        const productNames = orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
 
+        if(isFreeShippingCoupon) {
+            finalItemPriceForMP = subtotal;
+            finalShippingCostForMP = 0;
+        } else {
+            finalItemPriceForMP = subtotal - discount;
+        }
+
+        finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP);
+        
+        let description = `Subtotal: R$ ${subtotal.toFixed(2)}.`;
+        
+        if (isFreeShippingCoupon) {
+            description += ` Frete: GRÁTIS.`;
+        } else {
+            description += ` Frete: R$ ${shipping.toFixed(2)}.`;
+        }
+
+        if (!isFreeShippingCoupon && discount > 0) {
+            description += ` Desconto: -R$ ${discount.toFixed(2)}.`;
+        }
+        
+        description += ` Total: R$ ${total.toFixed(2)}.`;
+        
         const preferenceBody = {
             items: [
                 {
                     title: `Pedido #${order.id} - Love Cestas e Perfumes`,
-                    description: `Itens: ${productNames}`,
+                    description: description,
                     quantity: 1,
                     currency_id: 'BRL',
                     unit_price: Number(finalItemPriceForMP.toFixed(2))
@@ -1036,12 +1057,12 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                 failure: `${appUrl}/#cart`,
                 pending: `${appUrl}/#account`,
             },
-            notification_url: `${backendUrl}/api/mercadopago-webhook`
+            notification_url: `${backendUrl}/api/mercadopago-webhook`,
         };
 
         if (finalShippingCostForMP > 0) {
-            preferenceBody.shipments = {
-                cost: finalShippingCostForMP,
+             preferenceBody.shipments = {
+                cost: Number(finalShippingCostForMP.toFixed(2)),
                 mode: 'not_specified',
             };
         }
