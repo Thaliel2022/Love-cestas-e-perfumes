@@ -16,14 +16,19 @@ const stream = require('stream');
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
-// Constantes para status de pedidos
+// ---> ATUALIZAÇÃO: Constantes para status de pedidos
 const ORDER_STATUS = {
     PENDING: 'Pendente',
-    PROCESSING: 'Processando',
+    PAYMENT_APPROVED: 'Pagamento Aprovado',
+    PAYMENT_REJECTED: 'Pagamento Recusado',
+    PROCESSING: 'Separando Pedido', // Nome atualizado
     SHIPPED: 'Enviado',
+    OUT_FOR_DELIVERY: 'Saiu para Entrega',
     DELIVERED: 'Entregue',
     CANCELLED: 'Cancelado',
+    REFUNDED: 'Reembolsado'
 };
+
 
 // Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = () => {
@@ -132,6 +137,26 @@ const verifyAdmin = (req, res, next) => {
     }
     next();
 };
+
+// ---> ATUALIZAÇÃO: Função Auxiliar para atualizar status e registrar histórico
+/**
+ * Atualiza o status de um pedido e registra a mudança no histórico.
+ * @param {number} orderId O ID do pedido.
+ * @param {string} newStatus O novo status a ser aplicado.
+ * @param {object} connection A conexão com o banco de dados (para transações).
+ * @param {string|null} notes Notas opcionais para o registro de histórico.
+ */
+const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
+    // 1. Atualiza a tabela principal de pedidos com o status mais recente
+    await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
+    // 2. Insere o novo status na tabela de histórico
+    await connection.query(
+        "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
+        [orderId, newStatus, notes]
+    );
+    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+};
+
 
 // --- ROTAS DA APLICAÇÃO ---
 
@@ -305,7 +330,6 @@ app.post('/api/shipping/calculate', async (req, res) => {
         return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
     }
     
-    // >>> CORREÇÃO: Validação de CEP com ViaCEP antes de calcular <<<
     try {
         const cepCheckResponse = await fetch(`https://viacep.com.br/ws/${cep_destino.replace(/\D/g, '')}/json/`);
         const cepCheckData = await cepCheckResponse.json();
@@ -315,7 +339,6 @@ app.post('/api/shipping/calculate', async (req, res) => {
     } catch (cepError) {
         console.error("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
     }
-    // >>> FIM DA CORREÇÃO <<<
     
     const ME_TOKEN = process.env.ME_TOKEN;
     
@@ -693,13 +716,16 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
 });
 
 // --- ROTAS DE PEDIDOS ---
+// ---> ATUALIZAÇÃO: Rota de "Meus Pedidos" agora inclui o histórico de status
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
         const [orders] = await db.query("SELECT * FROM orders WHERE user_id = ? ORDER BY date DESC", [userId]);
         const detailedOrders = await Promise.all(orders.map(async (order) => {
             const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
-            return { ...order, items };
+            // Busca o histórico de status para este pedido
+            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
+            return { ...order, items, history };
         }));
         res.json(detailedOrders);
     } catch (err) {
@@ -707,6 +733,7 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
     }
 });
+
 
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -736,6 +763,7 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// ---> ATUALIZAÇÃO: Rota de criação de pedido agora usa a função `updateOrderStatus`
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount } = req.body;
     if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
@@ -745,7 +773,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         await connection.beginTransaction();
 
         if (coupon_code) {
-            const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
+            // ... (lógica de validação de cupom permanece a mesma)
+             const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
             if (coupons.length === 0) throw new Error("Cupom inválido ou não existe.");
             
             const coupon = coupons[0];
@@ -776,9 +805,13 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         }
         
         const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // Note que o status inicial já está sendo definido aqui. A função auxiliar cuidará do resto.
         const orderParams = [req.user.id, total, ORDER_STATUS.PENDING, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0];
         const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
+
+        // Registra o status inicial no histórico
+        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
         
         const itemPromises = items.map(item => Promise.all([
             connection.query("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)", [orderId, item.id, item.qty, item.price]),
@@ -821,7 +854,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
         if (order.length === 0) {
             return res.status(404).json({ message: "Pedido não encontrado ou não pertence a este usuário." });
         }
-        if (order[0].status !== ORDER_STATUS.PENDING) {
+        if (order[0].status !== ORDER_STATUS.PENDING && order[0].status !== ORDER_STATUS.PAYMENT_APPROVED) {
             return res.status(403).json({ message: "Endereço não pode ser alterado para este pedido." });
         }
         await db.query("UPDATE orders SET shipping_address = ? WHERE id = ?", [JSON.stringify(address), id]);
@@ -832,6 +865,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+// ---> ATUALIZAÇÃO: Rota de atualização de pedido do admin agora usa `updateOrderStatus`
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -846,31 +880,25 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         }
         const currentStatus = currentOrderResult[0].status;
 
-        if (status === ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.CANCELLED) {
-            const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
-            if (itemsToAdjust.length > 0) {
-                for (const item of itemsToAdjust) {
-                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+        // Se o status está sendo alterado, use a função auxiliar
+        if (status && status !== currentStatus) {
+            await updateOrderStatus(id, status, connection, "Status alterado pelo administrador.");
+            
+            // Lógica para reverter estoque se cancelado ou reembolsado pelo admin
+            if ((status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED) && currentStatus !== ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.REFUNDED) {
+                const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
+                if (itemsToAdjust.length > 0) {
+                    for (const item of itemsToAdjust) {
+                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                    }
+                    console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
                 }
-                console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
             }
         }
         
-        let fieldsToUpdate = [];
-        let queryParams = [];
-        if (status) {
-            fieldsToUpdate.push("status = ?");
-            queryParams.push(status);
-        }
+        // Se o código de rastreio está sendo atualizado (pode ser junto com status ou não)
         if (tracking_code !== undefined) { 
-            fieldsToUpdate.push("tracking_code = ?");
-            queryParams.push(tracking_code);
-        }
-        
-        if (fieldsToUpdate.length > 0) {
-            queryParams.push(id);
-            const sql = `UPDATE orders SET ${fieldsToUpdate.join(', ')} WHERE id = ?`;
-            await connection.query(sql, queryParams);
+            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
         }
 
         await connection.commit();
@@ -884,6 +912,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         connection.release();
     }
 });
+
 
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 
@@ -1023,7 +1052,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 });
 
-
+// ---> ATUALIZAÇÃO: Webhook agora usa `updateOrderStatus` e os novos status
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1066,32 +1095,30 @@ const processPaymentWebhook = async (paymentId) => {
             const currentDBStatus = currentOrderResult[0].status;
             console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
-            let newOrderStatus = null;
+            await connection.query("UPDATE orders SET payment_status = ? WHERE id = ?", [paymentStatus, orderId]);
+            
             if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
-                newOrderStatus = ORDER_STATUS.PROCESSING;
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+                // O próximo status (Separando Pedido) será definido manualmente pelo admin
             } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
-                newOrderStatus = ORDER_STATUS.CANCELLED;
-            }
-
-            if (newOrderStatus) {
-                console.log(`[Webhook] Atualizando status do pedido ${orderId} de '${currentDBStatus}' para '${newOrderStatus}'.`);
-                await connection.query("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", [newOrderStatus, paymentStatus, orderId]);
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
+                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
                 
-                if (newOrderStatus === ORDER_STATUS.CANCELLED) {
-                    const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
-                    if (itemsToReturn.length > 0) {
-                        for (const item of itemsToReturn) {
-                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                        }
-                        console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
+                // Reverte estoque
+                const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
+                if (itemsToReturn.length > 0) {
+                    for (const item of itemsToReturn) {
+                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                     }
+                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
                 }
-                await connection.commit();
-                console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
             } else {
-                console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
-                await connection.commit(); 
+                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
             }
+            
+            await connection.commit();
+            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
+
         } catch(dbError) {
             console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
             if (connection) await connection.rollback();
@@ -1103,6 +1130,7 @@ const processPaymentWebhook = async (paymentId) => {
         console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
     }
 };
+
 
 app.post('/api/mercadopago-webhook', (req, res) => {
     res.sendStatus(200);
