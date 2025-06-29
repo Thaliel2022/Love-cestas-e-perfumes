@@ -977,7 +977,7 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     }
 });
 
-// ATUALIZADO: Rota para criar pagamento com descrição detalhada
+// ATUALIZADO: Rota para criar pagamento com descrição detalhada e parcelamento dinâmico
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -1041,6 +1041,14 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
+        // --- LÓGICA DE PARCELAMENTO DINÂMICO ---
+        let maxInstallments = 1;
+        if (total >= 200) {
+            maxInstallments = 10;
+        } else if (total >= 100) {
+            maxInstallments = 3;
+        }
+
         const preferenceBody = {
             items: [
                 {
@@ -1051,6 +1059,12 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                     unit_price: Number(finalItemPriceForMP.toFixed(2))
                 }
             ],
+            payment_methods: {
+                excluded_payment_methods: [],
+                excluded_payment_types: [],
+                installments: maxInstallments,
+                default_installments: 1
+            },
             external_reference: orderId.toString(),
             back_urls: {
                 success: `${appUrl}/#order-success/${orderId}`,
