@@ -1039,6 +1039,7 @@ const Header = memo(({ onNavigate }) => {
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => { 
         apiService('/products')
@@ -1051,7 +1052,8 @@ const HomePage = ({ onNavigate }) => {
                     bestSellers: sortedBySales
                 });
             })
-            .catch(err => console.error("Falha ao buscar produtos:", err));
+            .catch(err => console.error("Falha ao buscar produtos:", err))
+            .finally(() => setIsLoading(false));
     }, []);
 
     const categoryCards = [
@@ -1076,6 +1078,21 @@ const HomePage = ({ onNavigate }) => {
             transition: { type: 'spring', stiffness: 100 }
         }
     };
+    
+    // >>> MELHORIA: Esqueleto de carregamento sutil <<<
+    if(isLoading) {
+        return (
+            <div className="bg-black text-white min-h-screen">
+                <div className="h-[70vh] bg-gray-900 animate-pulse"></div>
+                 <div className="container mx-auto px-4 py-16">
+                     <div className="h-8 w-1/3 bg-gray-800 rounded-md mx-auto mb-10 animate-pulse"></div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                         {[...Array(4)].map((_, i) => <ProductSkeleton key={i} />)}
+                     </div>
+                 </div>
+            </div>
+        )
+    }
 
     return (
       <>
@@ -1126,6 +1143,22 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
+const ProductSkeleton = () => (
+    <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
+        <div className="h-64 bg-gray-700"></div>
+        <div className="p-5 flex-grow flex flex-col">
+            <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
+            <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
+            <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
+            <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
+            <div className="mt-4 flex items-stretch space-x-2">
+                <div className="h-10 bg-gray-700 rounded flex-grow"></div>
+                <div className="h-10 w-12 bg-gray-700 rounded"></div>
+            </div>
+        </div>
+    </div>
+);
+
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '' }) => {
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
@@ -1140,6 +1173,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
                 setAllProducts(data);
+                setFilteredProducts(data); // Inicia com todos os produtos
             })
             .catch(err => {
                  if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
@@ -1170,21 +1204,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
     const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
     
-    const ProductSkeleton = () => (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
-            <div className="h-64 bg-gray-700"></div>
-            <div className="p-5 flex-grow flex flex-col">
-                <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
-                <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
-                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <div className="h-10 bg-gray-700 rounded flex-grow"></div>
-                    <div className="h-10 w-12 bg-gray-700 rounded"></div>
-                </div>
-            </div>
-        </div>
-    );
     
     const gridContainerVariants = {
         hidden: { opacity: 0 },
@@ -2677,8 +2696,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     }
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
-            {/* Sidebar */}
-            {/* >>> CORREÇÃO: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
+            {/* >>> MELHORIA: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
