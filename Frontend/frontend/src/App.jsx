@@ -2356,13 +2356,14 @@ const CheckoutPage = ({ onNavigate }) => {
     const [shippingAddress, setShippingAddress] = useState({ 
         cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' 
     });
+    const [addressErrors, setAddressErrors] = useState({ numero: false });
     const [paymentMethod, setPaymentMethod] = useState('');
     const [isFormValid, setIsFormValid] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
     const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
-
+    
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
@@ -2410,11 +2411,18 @@ const CheckoutPage = ({ onNavigate }) => {
         const { cep, logradouro, numero, bairro, localidade, uf } = shippingAddress;
         const addressComplete = cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
         const paymentSelected = paymentMethod !== '';
-        setIsFormValid(addressComplete && paymentSelected && !!selectedShipping);
-    }, [shippingAddress, paymentMethod, selectedShipping]);
+        const isAddressValid = !Object.values(addressErrors).some(err => err);
+        setIsFormValid(addressComplete && paymentSelected && !!selectedShipping && isAddressValid);
+    }, [shippingAddress, paymentMethod, selectedShipping, addressErrors]);
 
     const handleAddressChange = (e) => {
         const { name, value } = e.target;
+        
+        if (name === 'numero') {
+            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || value === '';
+            setAddressErrors(prev => ({...prev, numero: !isValid}));
+        }
+
         setShippingAddress(prev => ({...prev, [name]: value}));
     };
 
@@ -2428,7 +2436,7 @@ const CheckoutPage = ({ onNavigate }) => {
     
     const handlePlaceOrderAndPay = async () => {
         if (!isFormValid) {
-            notification.show("Por favor, preencha o endereço completo e selecione a forma de pagamento.", 'error');
+            notification.show("Por favor, preencha todos os campos corretamente e selecione a forma de pagamento.", 'error');
             return;
         }
         setIsLoading(true);
@@ -2482,7 +2490,16 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <input value={shippingAddress.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 <input name="logradouro" value={shippingAddress.logradouro} onChange={handleAddressChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 <div className="flex space-x-4">
-                                   <input name="numero" value={shippingAddress.numero} onChange={handleAddressChange} placeholder="Número" className="w-1/2 p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                   <div className="w-1/2">
+                                        <input 
+                                            name="numero" 
+                                            value={shippingAddress.numero} 
+                                            onChange={handleAddressChange} 
+                                            placeholder="Número" 
+                                            className={`w-full p-3 bg-gray-800 border rounded ${addressErrors.numero ? 'border-red-500' : 'border-gray-700'}`}
+                                        />
+                                        {addressErrors.numero && <p className="text-red-500 text-xs mt-1">Número inválido.</p>}
+                                   </div>
                                    <input name="complemento" value={shippingAddress.complemento} onChange={handleAddressChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 </div>
                                 <input name="bairro" value={shippingAddress.bairro} onChange={handleAddressChange} placeholder="Bairro" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
@@ -2637,6 +2654,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
             {/* Sidebar */}
+            {/* >>> CORREÇÃO: Layout do menu lateral para fixar header/footer e rolar apenas a navegação <<< */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
@@ -3535,7 +3553,8 @@ const AdminCoupons = () => {
                                 <tr key={c.id} className="border-b">
                                     <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
                                     <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
-                                    <td className="p-4">{c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
+                                    {/* >>> CORREÇÃO: Exibição de "Grátis" <<< */}
+                                    <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
                                     <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
                                     <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
                                     <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
@@ -3555,7 +3574,8 @@ const AdminCoupons = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                  <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
-                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'N/A' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
+                                 {/* >>> CORREÇÃO: Exibição de "Grátis" <<< */}
+                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
                                  <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
                                  <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
                                  <div className="col-span-2"><strong className="text-gray-500 block">Validade Restante</strong> <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></div>

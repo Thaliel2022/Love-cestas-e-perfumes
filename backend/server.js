@@ -1,7 +1,7 @@
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
-const cors = require('cors');
+const cors =require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -304,6 +304,18 @@ app.post('/api/shipping/calculate', async (req, res) => {
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
         return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
     }
+    
+    // >>> CORREÇÃO: Validação de CEP com ViaCEP antes de calcular <<<
+    try {
+        const cepCheckResponse = await fetch(`https://viacep.com.br/ws/${cep_destino.replace(/\D/g, '')}/json/`);
+        const cepCheckData = await cepCheckResponse.json();
+        if (cepCheckData.erro) {
+            return res.status(404).json({ message: "CEP não encontrado. Por favor, verifique o CEP digitado." });
+        }
+    } catch (cepError) {
+        console.error("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
+    }
+    // >>> FIM DA CORREÇÃO <<<
     
     const ME_TOKEN = process.env.ME_TOKEN;
     
@@ -1214,7 +1226,6 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// >>> CORREÇÃO: Tornar rota pública e adicionar verificação de usuário internamente <<<
 app.post('/api/coupons/validate', async (req, res) => {
     const { code } = req.body;
     const authHeader = req.headers['authorization'];
@@ -1225,7 +1236,6 @@ app.post('/api/coupons/validate', async (req, res) => {
         try {
             user = jwt.verify(token, JWT_SECRET);
         } catch (err) {
-            // Token inválido, mas não bloqueamos a rota. O usuário é tratado como deslogado.
             console.log("Token de validação de cupom inválido ou expirado, tratando como deslogado.");
         }
     }
@@ -1249,14 +1259,12 @@ app.post('/api/coupons/validate', async (req, res) => {
             }
         }
         
-        // Verifica se o cupom precisa de um usuário logado
         if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
             if (!user) {
                 return res.status(403).json({ message: "Você precisa estar logado para usar este cupom." });
             }
         }
         
-        // Continua com as validações que dependem do usuário
         if (user && coupon.is_first_purchase) {
             const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
             if (orders.length > 0) {
