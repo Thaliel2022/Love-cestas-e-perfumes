@@ -2300,7 +2300,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
         const pollStatus = async () => {
             try {
-                // Adicionado um pequeno atraso inicial para dar tempo ao webhook de processar.
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 const response = await apiService(`/orders/${orderId}/status`); 
                 if (response.status && response.status !== 'Pendente') {
@@ -2308,7 +2307,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                     setPageStatus('success');
                     cleanup();
                 }
-            } catch (err) { // <--- CORREÇÃO DE SINTAXE AQUI
+            } catch (err) {
                 console.error("Erro ao verificar status, continuando a verificação.", err);
             }
         };
@@ -2372,21 +2371,20 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     );
 };
 
-// --- ATUALIZAÇÃO: NOVO COMPONENTE DE LINHA DO TEMPO DE STATUS ---
+// --- COMPONENTE DE LINHA DO TEMPO TOTALMENTE RESPONSIVO ---
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
-        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
-        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-        'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
-        'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
+        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
+        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento!', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'Pagamento não autorizado.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
+        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo preparado.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+        'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido está a caminho.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
+        'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'Sua encomenda saiu para entrega.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
+        'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue!', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
+        'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
+        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor foi estornado.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
     }), []);
 
-    // Definição estática das classes para garantir que o Tailwind as compile.
     const colorClasses = useMemo(() => ({
         amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
         green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
@@ -2409,7 +2407,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
             <div className="p-4 bg-gray-800 rounded-lg">
                 <div onClick={() => onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
-                        {specialStatus.icon}
+                        {React.cloneElement(specialStatus.icon, { className: 'h-7 w-7'})}
                     </div>
                     <div>
                         <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
@@ -2422,40 +2420,60 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
-            <div className="flex justify-between items-center flex-wrap gap-2">
+            {/* --- LAYOUT DESKTOP (md e acima) --- */}
+            <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
                     const isStepActive = statusInfo || index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
-
                     if (!definition) return null;
-
                     const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
                     
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
                                 className={`flex flex-col items-center ${isStepActive ? 'cursor-pointer group' : 'cursor-default'}`} 
-                                onClick={isStepActive ? () => onStatusClick(definition) : undefined}
-                            >
-                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all
-                                    ${currentClasses.bg} ${currentClasses.border}
-                                    ${isCurrent ? 'animate-pulse' : ''}`}
-                                >
+                                onClick={isStepActive ? () => onStatusClick(definition) : undefined}>
+                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
-                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>
-                                    {definition.title}
-                                </p>
-                                {statusInfo && (
-                                     <p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>
-                                )}
+                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
+                                {statusInfo && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
                             </div>
-                            {index < timelineOrder.length - 1 && (
-                                <div className={`flex-1 h-1 transition-colors ${currentClasses.bg}`}></div>
-                            )}
+                            {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${currentClasses.bg}`}></div>}
                         </React.Fragment>
+                    );
+                })}
+            </div>
+
+            {/* --- LAYOUT MOBILE (abaixo de md) --- */}
+            <div className="md:hidden flex flex-col">
+                {timelineOrder.map((statusKey, index) => {
+                    const statusInfo = historyMap.get(statusKey);
+                    const isStepActive = statusInfo || index <= currentStatusIndex;
+                    const isCurrent = statusKey === currentStatus;
+                    const definition = STATUS_DEFINITIONS[statusKey];
+                    if (!definition) return null;
+                    const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+
+                    return (
+                        <div key={statusKey} className="flex">
+                            <div className="flex flex-col items-center mr-4">
+                                <div 
+                                    className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}
+                                    onClick={isStepActive ? () => onStatusClick(definition) : undefined}>
+                                    {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                </div>
+                                {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${currentClasses.bg}`}></div>}
+                            </div>
+                            <div 
+                                className={`pt-1.5 pb-8 ${isStepActive ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={isStepActive ? () => onStatusClick(definition) : undefined}>
+                                <p className={`font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
+                                {statusInfo && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
+                            </div>
+                        </div>
                     );
                 })}
             </div>
