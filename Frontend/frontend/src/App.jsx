@@ -702,13 +702,14 @@ const ProductInstallmentInfo = memo(({ price }) => {
     }, [price]);
 
     return (
-        <div ref={ref} className="h-5 mt-1">
+        <div ref={ref} className="h-5 mt-1 text-gray-400">
             {isLoading ? (
                 <div className="bg-gray-700/50 h-4 w-3/4 rounded-md animate-pulse"></div>
             ) : installment && installment.installments > 1 ? (
-                <p className="text-sm text-gray-300">
-                    em até <span className="font-bold text-white">{installment.installments}x</span> de <span className="font-bold text-white">R$ {installment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                    {installment.installment_rate === 0 && <span className="text-green-400 font-semibold ml-1">sem juros</span>}
+                <p className="flex items-center text-sm">
+                    <CreditCardIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                    em até <span className="font-bold text-white mx-1">{installment.installments}x</span> de <span className="font-bold text-white ml-1">R$ {installment.installment_amount.toFixed(2).replace('.', ',')}</span>
+                    {installment.installment_rate === 0 && <span className="text-green-400 font-semibold ml-1.5">s/ juros</span>}
                 </p>
             ) : null}
         </div>
@@ -1508,32 +1509,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     // ATUALIZAÇÃO: Lógica para exibir o resumo do parcelamento
     const getInstallmentSummary = () => {
-        if (isLoadingInstallments) {
-            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
-        }
         if (!installments || installments.length === 0) {
-            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
+            return null;
         }
 
         const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
         if (noInterest) {
             return (
-                <span>
+                <>
                     em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
-                </span>
+                </>
             );
         }
 
         const lastInstallment = installments[installments.length - 1];
         if (lastInstallment) {
             return (
-                <span>
+                <>
                     ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                </span>
+                </>
             );
         }
         return null;
     };
+
+    const installmentSummary = getInstallmentSummary();
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -1623,7 +1623,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <div className="flex items-start">
                                 <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
+                                    {isLoadingInstallments ? (
+                                        <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                                    ) : (
+                                        <p className="text-gray-300">{installmentSummary || <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>}</p>
+                                    )}
                                     <button
                                         onClick={() => setIsInstallmentModalOpen(true)}
                                         className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
