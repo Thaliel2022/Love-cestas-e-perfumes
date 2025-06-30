@@ -764,59 +764,95 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
+// --- ATUALIZAÇÃO: Carrossel de produtos com swipe/drag ---
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
+    const [isDragging, setIsDragging] = useState(false);
+    const carouselRef = useRef(null);
 
-    const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 640) setItemsPerPage(1);
-        else if (window.innerWidth < 1024) setItemsPerPage(2);
-        else setItemsPerPage(4);
-    }, []);
+    const updateLayout = useCallback(() => {
+        let newItemsPerPage = 4;
+        if (window.innerWidth < 640) newItemsPerPage = 1;
+        else if (window.innerWidth < 768) newItemsPerPage = 2; // Tailwind 'md'
+        else if (window.innerWidth < 1280) newItemsPerPage = 3; // Tailwind 'xl'
+        else newItemsPerPage = 4;
+
+        setItemsPerPage(newItemsPerPage);
+        // Garante que o índice atual não fique fora dos limites após o redimensionamento
+        setCurrentIndex(prev => {
+            const maxIndex = products.length > newItemsPerPage ? products.length - newItemsPerPage : 0;
+            return Math.max(0, Math.min(prev, maxIndex));
+        });
+    }, [products.length]);
 
     useEffect(() => {
-        updateItemsPerPage();
-        window.addEventListener('resize', updateItemsPerPage);
-        return () => window.removeEventListener('resize', updateItemsPerPage);
-    }, [updateItemsPerPage]);
-    
-    const goNext = () => {
-        setCurrentIndex(prev => Math.min(prev + 1, products.length - itemsPerPage));
+        updateLayout();
+        window.addEventListener('resize', updateLayout);
+        return () => window.removeEventListener('resize', updateLayout);
+    }, [updateLayout]);
+
+    const goNext = useCallback(() => {
+        const maxIndex = products.length > itemsPerPage ? products.length - itemsPerPage : 0;
+        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+    }, [products.length, itemsPerPage]);
+
+    const goPrev = useCallback(() => {
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
+    }, []);
+
+    const handleDragEnd = (event, info) => {
+        setIsDragging(false);
+        const { offset, velocity } = info;
+        const swipeThreshold = 50;
+
+        // Se o deslize não for significativo, não faz nada (a animação de 'snap back' cuidará disso)
+        if (Math.abs(offset.x) < swipeThreshold) {
+            return;
+        }
+
+        if (offset.x < -swipeThreshold || velocity.x < -400) {
+            goNext();
+        } else if (offset.x > swipeThreshold || velocity.x > 400) {
+            goPrev();
+        }
     };
 
-    const goPrev = () => {
-        setCurrentIndex(prev => Math.max(prev - 1, 0));
-    };
-    
     if (!products || products.length === 0) {
         return null;
     }
 
     const canGoPrev = currentIndex > 0;
-    const canGoNext = products && products.length > itemsPerPage && currentIndex < products.length - itemsPerPage;
+    const canGoNext = products.length > itemsPerPage && currentIndex < products.length - itemsPerPage;
 
     const carouselContainerVariants = {
         hidden: {},
         visible: {
-            transition: { staggerChildren: 0.15 }
+            transition: { staggerChildren: 0.1 }
         }
     };
 
     return (
         <div className="relative">
             {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-            <div className="overflow-hidden">
+            <div ref={carouselRef} className="overflow-hidden cursor-grab active:cursor-grabbing">
                 <motion.div
+                    drag="x"
+                    dragConstraints={{ right: 0, left: -((products.length - itemsPerPage) * ((carouselRef.current?.offsetWidth || 0) / itemsPerPage)) }}
+                    onDragStart={() => setIsDragging(true)}
+                    onDragEnd={handleDragEnd}
                     variants={carouselContainerVariants}
                     initial="hidden"
-                    animate="visible"
-                    className="flex -mx-2 md:-mx-4 transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${currentIndex * (100 / itemsPerPage)}%)` }}
+                    animate={{
+                        x: `-${currentIndex * (100 / itemsPerPage)}%`,
+                        transition: { type: 'spring', stiffness: 300, damping: 30 }
+                    }}
+                    className="flex -mx-2 md:-mx-4"
                 >
                     {products.map(product => (
-                        <div 
-                            key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4"
+                        <div
+                            key={product.id}
+                            className={`flex-shrink-0 px-2 md:px-4 ${isDragging ? 'pointer-events-none' : ''}`}
                             style={{ width: `${100 / itemsPerPage}%` }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
@@ -1388,7 +1424,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             calculateShipping(shippingCep, [{...product, qty: quantity}]);
         }
     };
-    
+
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
     const TabButton = ({ label, tabName }) => (
