@@ -2038,7 +2038,8 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const WishlistPage = ({ onNavigate }) => {
+};
+const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -2307,7 +2308,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                     setPageStatus('success');
                     cleanup();
                 }
-            } catch (err) {
+            } catch (err) { // <--- CORREÇÃO DE SINTAXE AQUI
                 console.error("Erro ao verificar status, continuando a verificação.", err);
             }
         };
@@ -2319,7 +2320,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 setPageStatus('timeout');
                 cleanup();
             }
-        }, 45000); // Aumentado para 45 segundos
+        }, 45000);
 
         return cleanup;
     }, [orderId, clearOrderState, pageStatus]);
@@ -2384,8 +2385,16 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
         'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
         'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
     }), []);
+
+    // Definição estática das classes para garantir que o Tailwind as compile.
+    const colorClasses = useMemo(() => ({
+        amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
+        green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
+        blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+        red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
+        gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+    }), []);
     
-    // Ordem lógica da linha do tempo.
     const timelineOrder = useMemo(() => [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
     ], []);
@@ -2393,17 +2402,17 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    // Se o status for "Cancelado" ou "Reembolsado", exibe uma linha do tempo especial.
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
+        const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
         return (
             <div className="p-4 bg-gray-800 rounded-lg">
-                <div onClick={() => onStatusClick(specialStatus)} className={`flex items-center gap-4 cursor-pointer`}>
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-${specialStatus.color}-500 text-white`}>
+                <div onClick={() => onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
                         {specialStatus.icon}
                     </div>
                     <div>
-                        <h4 className={`font-bold text-lg text-${specialStatus.color}-400`}>{specialStatus.title}</h4>
+                        <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
                         <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
                     </div>
                 </div>
@@ -2416,15 +2425,14 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
             <div className="flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
-                    // LÓGICA CORRIGIDA: Determina se a etapa está ativa (passada ou atual)
                     const isStepActive = statusInfo || index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
 
                     if (!definition) return null;
-                    
-                    const activeColor = definition.color;
 
+                    const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+                    
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
@@ -2432,12 +2440,12 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 onClick={isStepActive ? () => onStatusClick(definition) : undefined}
                             >
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all
-                                    ${isStepActive ? `bg-${activeColor}-500 border-${activeColor}-500` : 'bg-gray-700 border-gray-600'} 
+                                    ${currentClasses.bg} ${currentClasses.border}
                                     ${isCurrent ? 'animate-pulse' : ''}`}
                                 >
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
-                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${isStepActive ? `text-${activeColor}-400` : 'text-gray-500'}`}>
+                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>
                                     {definition.title}
                                 </p>
                                 {statusInfo && (
@@ -2445,7 +2453,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 )}
                             </div>
                             {index < timelineOrder.length - 1 && (
-                                <div className={`flex-1 h-1 transition-colors ${isStepActive ? `bg-${activeColor}-500` : 'bg-gray-700'}`}></div>
+                                <div className={`flex-1 h-1 transition-colors ${currentClasses.bg}`}></div>
                             )}
                         </React.Fragment>
                     );
@@ -2460,13 +2468,18 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
+    const modalColor = details.color || 'gray';
+    const bgColor = `bg-${modalColor}-100`;
+    const textColor = `text-${modalColor}-600`;
+    const titleColor = `text-${modalColor}-700`;
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Detalhes do Status">
              <div className="flex flex-col items-center text-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center bg-${details.color}-100 text-${details.color}-600 mb-4`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${bgColor} ${textColor} mb-4`}>
                     {React.cloneElement(details.icon, { className: 'h-8 w-8' })}
                 </div>
-                <h3 className={`text-xl font-bold text-${details.color}-700 mb-2`}>{details.title}</h3>
+                <h3 className={`text-xl font-bold ${titleColor} mb-2`}>{details.title}</h3>
                 <p className="text-gray-600">{details.description}</p>
             </div>
         </Modal>
@@ -2474,7 +2487,7 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
 };
 
 
-// --- ATUALIZAÇÃO: PÁGINA "MINHA CONTA" COM A NOVA LINHA DO TEMPO ---
+// --- PÁGINA "MINHA CONTA" ---
 const MyAccountPage = ({ onNavigate }) => {
     const { user, logout } = useAuth();
     const { addToCart } = useShop();
@@ -2494,7 +2507,6 @@ const MyAccountPage = ({ onNavigate }) => {
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [currentTrackingCode, setCurrentTrackingCode] = useState('');
     
-    // State para o modal de status
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
