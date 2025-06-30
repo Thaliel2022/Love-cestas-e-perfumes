@@ -2416,23 +2416,28 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
             <div className="flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
-                    const isCompleted = statusInfo || index < currentStatusIndex;
+                    // LÓGICA CORRIGIDA: Determina se a etapa está ativa (passada ou atual)
+                    const isStepActive = statusInfo || index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
-
                     const definition = STATUS_DEFINITIONS[statusKey];
-                    if (!definition) return null;
 
-                    const color = isCompleted ? definition.color : 'gray';
+                    if (!definition) return null;
+                    
+                    const activeColor = definition.color;
 
                     return (
                         <React.Fragment key={statusKey}>
-                            <div className="flex flex-col items-center cursor-pointer group" onClick={() => onStatusClick(definition)}>
-                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 
-                                    ${isCompleted ? `bg-${color}-500 border-${color}-500` : 'bg-gray-700 border-gray-600'} 
-                                    ${isCurrent ? 'animate-pulse' : ''} transition-all`}>
+                            <div 
+                                className={`flex flex-col items-center ${isStepActive ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                onClick={isStepActive ? () => onStatusClick(definition) : undefined}
+                            >
+                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all
+                                    ${isStepActive ? `bg-${activeColor}-500 border-${activeColor}-500` : 'bg-gray-700 border-gray-600'} 
+                                    ${isCurrent ? 'animate-pulse' : ''}`}
+                                >
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
-                                <p className={`mt-2 text-xs text-center font-semibold ${isCompleted ? `text-${color}-400` : 'text-gray-500'} transition-all`}>
+                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${isStepActive ? `text-${activeColor}-400` : 'text-gray-500'}`}>
                                     {definition.title}
                                 </p>
                                 {statusInfo && (
@@ -2440,7 +2445,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 )}
                             </div>
                             {index < timelineOrder.length - 1 && (
-                                <div className={`flex-1 h-1 ${isCompleted ? `bg-${color}-500` : 'bg-gray-700'}`}></div>
+                                <div className={`flex-1 h-1 transition-colors ${isStepActive ? `bg-${activeColor}-500` : 'bg-gray-700'}`}></div>
                             )}
                         </React.Fragment>
                     );
@@ -2449,6 +2454,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
         </div>
     );
 };
+
 
 // --- ATUALIZAÇÃO: NOVO MODAL DE DESCRIÇÃO DE STATUS ---
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
