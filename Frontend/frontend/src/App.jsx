@@ -32,7 +32,6 @@ const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
-// ---> ATUALIZAÇÃO: Novos Ícones para a Linha do Tempo de Status
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
 const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -764,9 +763,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
+// ATUALIZAÇÃO: Carrossel de produtos com swipe
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
+
+    // --- Início da lógica de Swipe ---
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const minSwipeDistance = 50; 
+    // --- Fim da lógica de Swipe ---
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(1);
@@ -779,39 +785,73 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
         window.addEventListener('resize', updateItemsPerPage);
         return () => window.removeEventListener('resize', updateItemsPerPage);
     }, [updateItemsPerPage]);
-    
-    const goNext = () => {
-        setCurrentIndex(prev => Math.min(prev + 1, products.length - itemsPerPage));
-    };
 
-    const goPrev = () => {
+    // Certifica que o índice não saia dos limites ao redimensionar a tela
+    useEffect(() => {
+        const maxIndex = Math.max(0, products.length - itemsPerPage);
+        if (currentIndex > maxIndex) {
+            setCurrentIndex(maxIndex);
+        }
+    }, [itemsPerPage, products, currentIndex]);
+    
+    const goNext = useCallback(() => {
+        const maxIndex = Math.max(0, products.length - itemsPerPage);
+        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+    }, [products.length, itemsPerPage]);
+
+    const goPrev = useCallback(() => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
-    };
+    }, []);
     
     if (!products || products.length === 0) {
         return null;
     }
 
     const canGoPrev = currentIndex > 0;
-    const canGoNext = products && products.length > itemsPerPage && currentIndex < products.length - itemsPerPage;
-
-    const carouselContainerVariants = {
-        hidden: {},
-        visible: {
-            transition: { staggerChildren: 0.15 }
-        }
+    const canGoNext = products.length > itemsPerPage && currentIndex < (products.length - itemsPerPage);
+    
+    // --- Início dos Handlers de Swipe ---
+    const handleTouchStart = (e) => {
+        setTouchEnd(null); // Reseta para evitar bugs com toques múltiplos
+        setTouchStart(e.targetTouches[0].clientX);
     };
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe && canGoNext) {
+            goNext();
+        } else if (isRightSwipe && canGoPrev) {
+            goPrev();
+        }
+        
+        // Limpa as posições de toque para o próximo swipe
+        setTouchStart(null);
+        setTouchEnd(null);
+    };
+    // --- Fim dos Handlers de Swipe ---
 
     return (
         <div className="relative">
             {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-            <div className="overflow-hidden">
+            <div 
+                className="overflow-hidden cursor-grab active:cursor-grabbing"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
                 <motion.div
-                    variants={carouselContainerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="flex -mx-2 md:-mx-4 transition-transform duration-500 ease-out"
-                    style={{ transform: `translateX(-${currentIndex * (100 / itemsPerPage)}%)` }}
+                    className="flex -mx-2 md:-mx-4"
+                    // Animação com `framer-motion` para um efeito mais suave
+                    animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
+                    transition={{ type: 'spring', stiffness: 350, damping: 40 }}
                 >
                     {products.map(product => (
                         <div 
@@ -827,10 +867,10 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
             {products.length > itemsPerPage && (
                 <>
-                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10">
+                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10">
+                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                 </>
@@ -2371,7 +2411,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     );
 };
 
-// --- COMPONENTE DE LINHA DO TEMPO TOTALMENTE RESPONSIVO ---
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
         'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
@@ -2482,7 +2521,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 };
 
 
-// --- ATUALIZAÇÃO: NOVO MODAL DE DESCRIÇÃO DE STATUS ---
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
@@ -2505,7 +2543,6 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
 };
 
 
-// --- PÁGINA "MINHA CONTA" ---
 const MyAccountPage = ({ onNavigate }) => {
     const { user, logout } = useAuth();
     const { addToCart } = useShop();
@@ -2808,7 +2845,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -2864,8 +2900,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
-
-// ... (Restante dos componentes do admin permanecem iguais, com exceção de AdminOrders) ...
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0 });
@@ -3770,7 +3804,6 @@ const AdminOrders = () => {
         minPrice: '',
         maxPrice: '',
     });
-    // --- ATUALIZAÇÃO: Lista de status para admin
     const statuses = [
         'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
         'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
