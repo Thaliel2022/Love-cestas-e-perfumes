@@ -2279,9 +2279,7 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};
-
-const OrderSuccessPage = ({ orderId, onNavigate }) => {
+};const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout'
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
@@ -2307,7 +2305,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                     setPageStatus('success');
                     cleanup();
                 }
-            } catch (err) {
+            } catch (err) => {
                 console.error("Erro ao verificar status, continuando a verificação.", err);
             }
         };
@@ -2416,8 +2414,13 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
             <div className="flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
-                    // LÓGICA CORRIGIDA: Determina se a etapa está ativa (passada ou atual)
-                    const isStepActive = statusInfo || index <= currentStatusIndex;
+                    
+                    // LÓGICA CORRIGIDA:
+                    // A etapa (ícone) é considerada "alcançada" se for a etapa atual ou uma anterior.
+                    const isStepReached = statusInfo || index <= currentStatusIndex;
+                    // A linha de conexão após a etapa só fica ativa se a etapa foi "completada" (status já avançou).
+                    const isLineActive = statusInfo || index < currentStatusIndex;
+
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
 
@@ -2428,16 +2431,16 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
-                                className={`flex flex-col items-center ${isStepActive ? 'cursor-pointer group' : 'cursor-default'}`} 
-                                onClick={isStepActive ? () => onStatusClick(definition) : undefined}
+                                className={`flex flex-col items-center ${isStepReached ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                onClick={isStepReached ? () => onStatusClick(definition) : undefined}
                             >
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all
-                                    ${isStepActive ? `bg-${activeColor}-500 border-${activeColor}-500` : 'bg-gray-700 border-gray-600'} 
+                                    ${isStepReached ? `bg-${activeColor}-500 border-${activeColor}-500` : 'bg-gray-700 border-gray-600'} 
                                     ${isCurrent ? 'animate-pulse' : ''}`}
                                 >
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
-                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${isStepActive ? `text-${activeColor}-400` : 'text-gray-500'}`}>
+                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${isStepReached ? `text-${activeColor}-400` : 'text-gray-500'}`}>
                                     {definition.title}
                                 </p>
                                 {statusInfo && (
@@ -2445,7 +2448,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 )}
                             </div>
                             {index < timelineOrder.length - 1 && (
-                                <div className={`flex-1 h-1 transition-colors ${isStepActive ? `bg-${activeColor}-500` : 'bg-gray-700'}`}></div>
+                                <div className={`flex-1 h-1 transition-colors ${isLineActive ? `bg-${activeColor}-500` : 'bg-gray-700'}`}></div>
                             )}
                         </React.Fragment>
                     );
