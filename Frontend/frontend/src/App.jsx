@@ -763,7 +763,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
-// ATUALIZAÇÃO: Carrossel de produtos com swipe e responsividade aprimorada
+// ATUALIZAÇÃO: Carrossel de produtos com swipe
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -774,15 +774,10 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const minSwipeDistance = 50; 
     // --- Fim da lógica de Swipe ---
 
-    // ATUALIZAÇÃO: Lógica de responsividade aprimorada
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 768) { // Telas de celular (breakpoint 'md' do Tailwind)
-            setItemsPerPage(2);
-        } else if (window.innerWidth < 1024) { // Telas de tablet (breakpoint 'lg' do Tailwind)
-            setItemsPerPage(3);
-        } else { // Telas de desktop
-            setItemsPerPage(4);
-        }
+        if (window.innerWidth < 640) setItemsPerPage(1);
+        else if (window.innerWidth < 1024) setItemsPerPage(2);
+        else setItemsPerPage(4);
     }, []);
 
     useEffect(() => {
@@ -2850,144 +2845,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-function AppContent() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-  }, []);
-  
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentPath]);
-
-  const renderPage = () => {
-    const [path, queryString] = currentPath.split('?');
-    const searchParams = new URLSearchParams(queryString);
-    const initialSearch = searchParams.get('search') || '';
-    const initialCategory = searchParams.get('category') || '';
-    const initialBrand = searchParams.get('brand') || '';
-    
-    const [mainPage, pageId] = path.split('/');
-
-    if (mainPage === 'admin') {
-        if (isLoading) return null;
-        if (!isAuthenticated || user.role !== 'admin') {
-             return <LoginPage onNavigate={navigate} />;
-        }
-        
-        const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard />, 
-            'products': <AdminProducts />,
-            'orders': <AdminOrders />,
-            'users': <AdminUsers />,
-            'coupons': <AdminCoupons />,
-            'reports': <AdminReports />,
-        };
-
-        return (
-            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard />}
-            </AdminLayout>
-        );
-    }
-
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        if(isLoading) return null;
-        return <LoginPage onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'product' && pageId) {
-        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    }
-    
-    const pages = {
-        'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} />,
-        'login': <LoginPage onNavigate={navigate} />,
-        'register': <RegisterPage onNavigate={navigate} />,
-        'cart': <CartPage onNavigate={navigate} />,
-        'checkout': <CheckoutPage onNavigate={navigate} />,
-        'wishlist': <WishlistPage onNavigate={navigate} />,
-        'account': <MyAccountPage onNavigate={navigate} />,
-        'ajuda': <AjudaPage onNavigate={navigate} />,
-        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
-    };
-    return pages[mainPage] || <HomePage onNavigate={navigate} />;
-  };
-  
-  if (isLoading) return <div className="h-screen flex items-center justify-center bg-black"><p className="text-xl text-white">Carregando...</p></div>;
-
-  const showHeaderFooter = !currentPath.startsWith('admin');
-  
-  return (
-    <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-white mt-auto py-8 text-center border-t border-gray-800">
-          <p className="text-gray-500">© 2025 LovecestasePerfumes</p>
-        </footer>
-      )}
-    </div>
-  );
-}
-
-export default function App() {
-    useEffect(() => {
-        const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) {
-                if(callback) callback();
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
-            script.onload = () => { if (callback) callback(); };
-            document.body.appendChild(script);
-        };
-
-        // Carrega as bibliotecas de relatório
-        loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
-            loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
-        });
-
-        // Carrega o SDK do Mercado Pago
-        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
-
-    }, []);
-
-    return (
-        <AuthProvider>
-            <NotificationProvider>
-                <ConfirmationProvider>
-                    <ShopProvider>
-                        <AppContent />
-                    </ShopProvider>
-                </ConfirmationProvider>
-            </NotificationProvider>
-        </AuthProvider>
-    );
-}
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -3585,81 +3442,66 @@ const AdminProducts = () => {
             />
         </div>
 
-        <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-             {/* --- Tabela para Desktop --- */}
-            <table className="w-full text-left hidden md:table">
-                <thead className="bg-gray-100">
-                    <tr>
-                        <th className="p-4 w-4">
-                            <input type="checkbox" onChange={handleSelectAll} checked={products.length > 0 && selectedProducts.length === products.length} />
-                        </th>
-                        <th className="p-4">Produto</th>
-                        <th className="p-4">Marca</th>
-                        <th className="p-4">Preço</th>
-                        <th className="p-4">Estoque</th>
-                        <th className="p-4">Vendas</th>
-                        <th className="p-4">Ativo</th>
-                        <th className="p-4">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {products.map(p => (
-                        <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-50' : ''}`}>
-                            <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
-                            <td className="p-4 flex items-center">
-                                <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
-                                    <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
-                                </div>
-                                <p className="font-semibold">{p.name}</p>
-                            </td>
-                            <td className="p-4">{p.brand}</td>
-                            <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
-                            <td className="p-4">{p.stock}</td>
-                            <td className="p-4">{p.sales || 0}</td>
-                            <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
-                            <td className="p-4 space-x-2">
-                                <button onClick={() => handleOpenModal(p)} className="text-gray-600 hover:text-blue-600 p-1"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDelete(p.id)} className="text-gray-600 hover:text-red-600 p-1"><TrashIcon className="h-5 w-5"/></button>
-                            </td>
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="hidden md:block">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 w-4">
+                                <input type="checkbox" onChange={handleSelectAll} checked={products.length > 0 && selectedProducts.length === products.length} />
+                            </th>
+                            <th className="p-4">Produto</th>
+                            <th className="p-4">Marca</th>
+                            <th className="p-4">Preço</th>
+                            <th className="p-4">Estoque</th>
+                            <th className="p-4">Vendas</th>
+                            <th className="p-4">Ativo</th>
+                            <th className="p-4">Ações</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-            
-            {/* --- Grid responsivo para Mobile --- */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden p-4">
+                    </thead>
+                    <tbody>
+                        {products.map(p => (
+                            <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''}`}>
+                                <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
+                                <td className="p-4 flex items-center">
+                                    <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
+                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
+                                    </div>
+                                    <p className="font-semibold">{p.name}</p>
+                                </td>
+                                <td className="p-4">{p.brand}</td>
+                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
+                                <td className="p-4">{p.stock}</td>
+                                <td className="p-4">{p.sales || 0}</td>
+                                <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
+                                <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="md:hidden space-y-4 p-4">
                 {products.map(p => (
-                    <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm flex flex-col h-full">
-                        <div className="flex justify-between items-start mb-3">
-                             <div className="flex items-start">
-                                <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-3 mt-1"/>
-                                <img src={getFirstImage(p.images, 'https://placehold.co/80x80/eee/ccc?text=Img')} className="h-16 w-16 object-contain mr-4 bg-gray-100 rounded"/>
+                    <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                        <div className="flex justify-between items-start">
+                             <div className="flex items-center">
+                                <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4"/>
+                                <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
                                 <div>
-                                    <p className="font-bold text-gray-800 leading-tight">{p.name}</p>
+                                    <p className="font-bold">{p.name}</p>
                                     <p className="text-sm text-gray-500">{p.brand}</p>
                                 </div>
                             </div>
-                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                            <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                         </div>
-
-                        <div className="flex-grow grid grid-cols-3 gap-2 my-4 text-center text-sm border-t border-b py-3">
-                            <div>
-                                <strong className="text-gray-500 block text-xs">Preço</strong>
-                                <span className="font-semibold">R$ {Number(p.price).toFixed(2)}</span>
-                            </div>
-                            <div>
-                                <strong className="text-gray-500 block text-xs">Estoque</strong> 
-                                <span className="font-semibold">{p.stock}</span>
-                            </div>
-                             <div>
-                                <strong className="text-gray-500 block text-xs">Vendas</strong>
-                                <span className="font-semibold">{p.sales || 0}</span>
-                             </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
+                             <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
+                             <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                         </div>
-
-                         <div className="flex justify-end space-x-2 mt-auto">
-                            <button onClick={() => handleOpenModal(p)} className="p-2 text-gray-600 hover:text-blue-600"><EditIcon className="h-5 w-5"/></button>
-                            <button onClick={() => handleDelete(p.id)} className="p-2 text-gray-600 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                         <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                            <button onClick={() => handleOpenModal(p)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
                         </div>
                     </div>
                 ))}
