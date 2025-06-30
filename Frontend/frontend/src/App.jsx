@@ -20,7 +20,7 @@ const ChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const BoxIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const TruckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 2h8a1 1 0 001-1z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h2a1 1 0 001-1V6a1 1 0 00-1-1h-2v11z" /></svg>;
 const UsersIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A6.995 6.995 0 0112 12a6.995 6.995 0 016-3.803M15 21a6 6 0 00-9-5.197" /></svg>;
-const TagIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2-2H7a2 2 0 01-2-2V5a2 2 0 012-2zm0 0v11a2 2 0 002 2h5a2 2 0 002-2l-7-7z" /></svg>;
+const TagIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm0 0v11a2 2 0 002 2h5a2 2 0 002-2l-7-7z" /></svg>;
 const FileIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>;
 const UploadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const InstagramIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>;
@@ -32,6 +32,7 @@ const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
+// ---> ATUALIZAÇÃO: Novos Ícones para a Linha do Tempo de Status
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
 const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -655,68 +656,6 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
 });
 
 
-// ATUALIZAÇÃO: Componente para mostrar parcelamento no card
-const ProductInstallmentInfo = memo(({ price }) => {
-    const [installment, setInstallment] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const ref = useRef(null);
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setIsLoading(true);
-                    apiService(`/mercadopago/installments?amount=${price}`)
-                        .then(data => {
-                            if (data && data.length > 0) {
-                                // Pega a maior opção de parcelamento sem juros, ou a maior com juros se não houver sem.
-                                const noInterestOptions = data.filter(p => p.installment_rate === 0);
-                                const bestOption = noInterestOptions.length > 0 
-                                    ? noInterestOptions[noInterestOptions.length - 1] 
-                                    : data[data.length - 1];
-                                
-                                setInstallment(bestOption);
-                            }
-                        })
-                        .catch(err => {
-                            console.warn(`Não foi possível carregar parcelas para o preço ${price}`, err);
-                        })
-                        .finally(() => {
-                            setIsLoading(false);
-                        });
-                    observer.unobserve(entry.target);
-                }
-            },
-            { rootMargin: "200px" } // Carrega um pouco antes de aparecer na tela
-        );
-
-        if (ref.current) {
-            observer.observe(ref.current);
-        }
-
-        return () => {
-            if (ref.current) {
-                observer.unobserve(ref.current);
-            }
-        };
-    }, [price]);
-
-    return (
-        <div ref={ref} className="h-5 mt-1 text-gray-400">
-            {isLoading ? (
-                <div className="bg-gray-700/50 h-4 w-3/4 rounded-md animate-pulse"></div>
-            ) : installment && installment.installments > 1 ? (
-                <p className="flex items-center text-sm">
-                    <CreditCardIcon className="h-4 w-4 mr-1.5 flex-shrink-0" />
-                    em até <span className="font-bold text-white mx-1">{installment.installments}x</span> de <span className="font-bold text-white ml-1">R$ {installment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                    {installment.installment_rate === 0 && <span className="text-green-400 font-semibold ml-1.5">s/ juros</span>}
-                </p>
-            ) : null}
-        </div>
-    );
-});
-
-
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -811,9 +750,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ))}
                 </div>
                 <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                {/* ATUALIZAÇÃO: Exibe o parcelamento aqui */}
-                <ProductInstallmentInfo price={product.price} />
+                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
                 <div className="mt-4 flex items-stretch space-x-2">
                     <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
@@ -1292,7 +1229,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     );
 };
 
-// ATUALIZAÇÃO: Modal de parcelas agora mostra se tem juros
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
@@ -1507,33 +1443,33 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
 
-    // ATUALIZAÇÃO: Lógica para exibir o resumo do parcelamento
     const getInstallmentSummary = () => {
+        if (isLoadingInstallments) {
+            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
+        }
         if (!installments || installments.length === 0) {
-            return null;
+            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
         }
 
         const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
         if (noInterest) {
             return (
-                <>
+                <span>
                     em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
-                </>
+                </span>
             );
         }
 
         const lastInstallment = installments[installments.length - 1];
         if (lastInstallment) {
             return (
-                <>
+                <span>
                     ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                </>
+                </span>
             );
         }
         return null;
     };
-
-    const installmentSummary = getInstallmentSummary();
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -1617,23 +1553,19 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                         
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
                                 <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    {isLoadingInstallments ? (
-                                        <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>
-                                    ) : (
-                                        <p className="text-gray-300">{installmentSummary || <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>}</p>
-                                    )}
+                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
                                     <button
                                         onClick={() => setIsInstallmentModalOpen(true)}
                                         className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
                                         disabled={isLoadingInstallments || !installments || installments.length === 0}
                                     >
-                                        Ver todas as parcelas
+                                        Ver parcelas disponíveis
                                     </button>
                                 </div>
                             </div>
@@ -1677,7 +1609,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             </div>
                                         </div>
                                         <div className="flex items-center">
-                                            <p className="font-bold text-amber-400 mr-4">R$ {Number(option.price).toFixed(2).replace('.', ',')}</p>
+                                            <p className="font-bold text-amber-400 mr-4">R$ {option.price.toFixed(2)}</p>
                                             {selectedShipping?.name === option.name && <CheckCircleIcon className="h-5 w-5 text-amber-500" />}
                                         </div>
                                     </div>
@@ -2016,7 +1948,7 @@ const CartPage = ({ onNavigate }) => {
                                             </div>
                                             <div className="flex-grow px-4">
                                                 <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2).replace('.', ',')}</p>
+                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
@@ -2025,7 +1957,7 @@ const CartPage = ({ onNavigate }) => {
                                                 <span className="w-8 text-center">{item.qty}</span>
                                                 <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
                                             </div>
-                                            <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2).replace('.', ',')}</p>
+                                            <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
                                             <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
                                         </div>
                                     </div>
@@ -2052,7 +1984,7 @@ const CartPage = ({ onNavigate }) => {
                                                 </div>
                                             </div>
                                             <div className="flex items-center">
-                                                <p className="font-bold text-amber-400 mr-4">R$ {option.price.toFixed(2).replace('.', ',')}</p>
+                                                <p className="font-bold text-amber-400 mr-4">R$ {option.price.toFixed(2)}</p>
                                                 {selectedShipping?.name === option.name && <CheckCircleIcon className="h-6 w-6 text-amber-500" />}
                                             </div>
                                         </div>
@@ -2064,23 +1996,23 @@ const CartPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
+                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                 {selectedShipping && (
                                     <div className="flex justify-between text-gray-300">
                                         <span>Frete ({selectedShipping.name})</span>
-                                        <span>R$ {shippingCost.toFixed(2).replace('.', ',')}</span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
                                     </div>
                                 )}
                                 {appliedCoupon && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Desconto ({appliedCoupon.code})</span>
-                                        <span>- R$ {discount.toFixed(2).replace('.', ',')}</span>
+                                        <span>- R$ {discount.toFixed(2)}</span>
                                     </div>
                                 )}
                             </div>
                             <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
                                 <span>Total</span>
-                                <span className="text-amber-400">R$ {total.toFixed(2).replace('.', ',')}</span>
+                                <span className="text-amber-400">R$ {total.toFixed(2)}</span>
                             </div>
                             
                             {!appliedCoupon ? (
@@ -2106,8 +2038,7 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};
-const WishlistPage = ({ onNavigate }) => {
+};const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -2146,8 +2077,7 @@ const WishlistPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};
-const CheckoutPage = ({ onNavigate }) => {
+};const CheckoutPage = ({ onNavigate }) => {
     const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
@@ -2302,7 +2232,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                                 <input name="bairro" value={shippingAddress.bairro} onChange={handleAddressChange} placeholder="Bairro" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 <div className="flex space-x-4">
-                                    <input name="localidade" value={shippingAddress.localidade} onChange={handleAddressChange} placeholder="Cidade" className="w-2/3 p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                    <input name="localidade" value={shippingAddress.localidade} onChange={handleAddressChange} placeholder="Cidade" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
                                     <input name="uf" value={shippingAddress.uf} onChange={handleAddressChange} placeholder="UF" className="w-1/4 p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 </div>
                             </div>
@@ -2322,18 +2252,18 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="lg:col-span-1">
                         <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                            {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2).replace('.', ',')}</span></div>)}
+                            {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
                             <div className="border-t border-gray-700 mt-4 pt-4">
-                                {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2).replace('.', ',')}</span></div>}
+                                {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                 {selectedShipping ? (
                                     <div className="flex justify-between text-gray-300 py-1">
                                         <span>Frete ({selectedShipping.name})</span>
-                                        <span>R$ {shippingCost.toFixed(2).replace('.', ',')}</span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
                                     </div>
                                 ) : (
                                     <div className="text-gray-400 text-sm text-center py-1">Selecione o frete na página anterior.</div>
                                 )}
-                                <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2).replace('.', ',')}</span></div>
+                                <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                             </div>
                             
                             <button onClick={handlePlaceOrderAndPay} disabled={!isFormValid || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
@@ -2763,7 +2693,7 @@ const MyAccountPage = ({ onNavigate }) => {
                                                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
                                                     </div>
                                                     <div className="text-left sm:text-right">
-                                                       <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2).replace('.', ',')}</span></p>
+                                                       <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
                                                     </div>
                                                </div>
                                                
@@ -2788,7 +2718,7 @@ const MyAccountPage = ({ onNavigate }) => {
                                                        <div key={item.id} className="flex items-center text-sm">
                                                             <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
                                                             <span>{item.quantity}x {item.name}</span>
-                                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2).replace('.', ',')}</span>
+                                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
                                                        </div>
                                                    ))}
                                                </div>
@@ -2949,7 +2879,7 @@ const AdminDashboard = () => {
         <div>
             <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Faturamento Total</h4><p className="text-3xl font-bold">R$ {stats.totalRevenue.toFixed(2).replace('.', ',')}</p></div>
+                <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Faturamento Total</h4><p className="text-3xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</p></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Vendas Totais</h4><p className="text-3xl font-bold">{stats.totalSales}</p></div>
                  <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Total de Clientes</h4><p className="text-3xl font-bold">{stats.newCustomers}</p></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Pedidos Pendentes</h4><p className="text-3xl font-bold">{stats.pendingOrders}</p></div>
@@ -3470,7 +3400,7 @@ const AdminProducts = () => {
                                     <p className="font-semibold">{p.name}</p>
                                 </td>
                                 <td className="p-4">{p.brand}</td>
-                                <td className="p-4">R$ {Number(p.price).toFixed(2).replace('.', ',')}</td>
+                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
                                 <td className="p-4">{p.stock}</td>
                                 <td className="p-4">{p.sales || 0}</td>
                                 <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
@@ -3495,7 +3425,7 @@ const AdminProducts = () => {
                             <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
-                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2).replace('.', ',')}</div>
+                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
                              <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
                              <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                         </div>
@@ -3752,7 +3682,7 @@ const AdminCoupons = () => {
                                 <tr key={c.id} className="border-b">
                                     <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
                                     <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
-                                    <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2).replace('.', ',')}`)}</td>
+                                    <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
                                     <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
                                     <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
                                     <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
@@ -3772,7 +3702,7 @@ const AdminCoupons = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                  <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
-                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2).replace('.', ',')}`)}</div>
+                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
                                  <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
                                  <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
                                  <div className="col-span-2"><strong className="text-gray-500 block">Validade Restante</strong> <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></div>
@@ -3938,7 +3868,7 @@ const AdminOrders = () => {
                                             <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
                                             <div>
                                                 <p className="font-semibold text-gray-800">{item.name}</p>
-                                                <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2).replace('.', ',')}</p>
+                                                <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -3948,15 +3878,15 @@ const AdminOrders = () => {
                             <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
                                 <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
-                                    <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2).replace('.', ',')}</span></div>
-                                    <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2).replace('.', ',')}</span></div>
+                                    <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
                                     {Number(editingOrder.discount_amount) > 0 && (
                                     <div className="flex justify-between text-green-600">
                                         <span>Desconto ({editingOrder.coupon_code || ''}):</span> 
-                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2).replace('.', ',')}</span>
+                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
                                     </div>
                                     )}
-                                    <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2).replace('.', ',')}</span></div>
+                                    <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
                                 </div>
                             </div>
 
@@ -4022,7 +3952,7 @@ const AdminOrders = () => {
                                     <td className="p-4 font-mono">#{o.id}</td>
                                     <td className="p-4">{o.user_name}</td>
                                     <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
-                                    <td className="p-4">R$ {Number(o.total).toFixed(2).replace('.', ',')}</td>
+                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
                                     <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
                                     <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
                                     <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
@@ -4043,7 +3973,7 @@ const AdminOrders = () => {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                 <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
-                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2).replace('.', ',')}</div>
+                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
                                 <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
                             </div>
                             <div className="flex justify-end mt-4 pt-2 border-t">
