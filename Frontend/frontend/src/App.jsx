@@ -31,7 +31,6 @@ const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/sv
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
 const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
 const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
@@ -2118,7 +2117,8 @@ const WishlistPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};const CheckoutPage = ({ onNavigate }) => {
+};
+const CheckoutPage = ({ onNavigate }) => {
     const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
@@ -2324,45 +2324,74 @@ const WishlistPage = ({ onNavigate }) => {
 
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
-    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout'
+    const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
+
+    const pollStatus = useCallback(async () => {
+        console.log(`Verificando status do pedido #${orderId}...`);
+        try {
+            const response = await apiService(`/orders/${orderId}/status`);
+            if (response.status && response.status !== 'Pendente') {
+                setFinalOrderStatus(response.status);
+                setPageStatus('success');
+                return true; // Indica que o status final foi alcançado
+            }
+        } catch (err) {
+            console.error("Erro ao verificar status, continuando a verificação.", err);
+        }
+        return false; // Indica que ainda está pendente
+    }, [orderId]);
 
     useEffect(() => {
         clearOrderState();
 
-        const pollIntervalRef = useRef(null);
-        const timeoutRef = useRef(null);
+        let pollInterval;
+        let timeout;
 
-        const cleanup = () => {
-            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        const startPolling = async () => {
+            // Tenta uma vez imediatamente
+            const isFinished = await pollStatus();
+            if (isFinished) return;
+
+            // Se não terminou, começa a verificar a cada 3 segundos
+            pollInterval = setInterval(async () => {
+                const finished = await pollStatus();
+                if (finished) {
+                    clearInterval(pollInterval);
+                    clearTimeout(timeout);
+                }
+            }, 3000);
+
+            // Define um tempo limite geral
+            timeout = setTimeout(() => {
+                clearInterval(pollInterval);
+                if (pageStatus === 'processing') {
+                    setPageStatus('timeout');
+                }
+            }, 45000);
         };
 
-        const pollStatus = async () => {
-            try {
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                const response = await apiService(`/orders/${orderId}/status`); 
-                if (response.status && response.status !== 'Pendente') {
-                    setFinalOrderStatus(response.status);
-                    setPageStatus('success');
-                    cleanup();
-                }
-            } catch (err) {
-                console.error("Erro ao verificar status, continuando a verificação.", err);
+        startPolling();
+
+        // **INÍCIO DA CORREÇÃO PARA iOS/SAFARI**
+        // Adiciona um listener para o evento 'visibilitychange'.
+        // Este evento é disparado quando o usuário retorna para a aba/página.
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && pageStatus === 'processing') {
+                console.log("Página ficou visível, forçando nova verificação de status.");
+                pollStatus();
             }
         };
         
-        pollIntervalRef.current = setInterval(pollStatus, 3000);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        // **FIM DA CORREÇÃO**
 
-        timeoutRef.current = setTimeout(() => {
-            if (pageStatus === 'processing') {
-                setPageStatus('timeout');
-                cleanup();
-            }
-        }, 45000);
-
-        return cleanup;
-    }, [orderId, clearOrderState, pageStatus]);
+        return () => {
+            clearInterval(pollInterval);
+            clearTimeout(timeout);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [orderId, clearOrderState, pollStatus, pageStatus]);
 
 
     const renderContent = () => {
