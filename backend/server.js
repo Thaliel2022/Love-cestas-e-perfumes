@@ -12,17 +12,17 @@ const fetch = require('node-fetch');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
-const crypto = require('crypto');
+const crypto = require('crypto'); // <-- Adicionado para a chave de idempotência
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
-// ---> Constantes para status de pedidos
+// ---> ATUALIZAÇÃO: Constantes para status de pedidos
 const ORDER_STATUS = {
     PENDING: 'Pendente',
     PAYMENT_APPROVED: 'Pagamento Aprovado',
     PAYMENT_REJECTED: 'Pagamento Recusado',
-    PROCESSING: 'Separando Pedido',
+    PROCESSING: 'Separando Pedido', // Nome atualizado
     SHIPPED: 'Enviado',
     OUT_FOR_DELIVERY: 'Saiu para Entrega',
     DELIVERED: 'Entregue',
@@ -139,9 +139,18 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- Função Auxiliar para atualizar status e registrar histórico
+// ---> ATUALIZAÇÃO: Função Auxiliar para atualizar status e registrar histórico
+/**
+ * Atualiza o status de um pedido e registra a mudança no histórico.
+ * @param {number} orderId O ID do pedido.
+ * @param {string} newStatus O novo status a ser aplicado.
+ * @param {object} connection A conexão com o banco de dados (para transações).
+ * @param {string|null} notes Notas opcionais para o registro de histórico.
+ */
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
+    // 1. Atualiza a tabela principal de pedidos com o status mais recente
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
+    // 2. Insere o novo status na tabela de histórico
     await connection.query(
         "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
         [orderId, newStatus, notes]
@@ -708,12 +717,14 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
 });
 
 // --- ROTAS DE PEDIDOS ---
+// ---> ATUALIZAÇÃO: Rota de "Meus Pedidos" agora inclui o histórico de status
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
         const [orders] = await db.query("SELECT * FROM orders WHERE user_id = ? ORDER BY date DESC", [userId]);
         const detailedOrders = await Promise.all(orders.map(async (order) => {
             const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
+            // Busca o histórico de status para este pedido
             const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
             return { ...order, items, history };
         }));
@@ -753,6 +764,7 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// ---> ATUALIZAÇÃO: Rota de criação de pedido agora usa a função `updateOrderStatus`
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount } = req.body;
     if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
@@ -762,7 +774,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         await connection.beginTransaction();
 
         if (coupon_code) {
-            const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
+            // ... (lógica de validação de cupom permanece a mesma)
+             const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
             if (coupons.length === 0) throw new Error("Cupom inválido ou não existe.");
             
             const coupon = coupons[0];
@@ -793,10 +806,12 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         }
         
         const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // Note que o status inicial já está sendo definido aqui. A função auxiliar cuidará do resto.
         const orderParams = [req.user.id, total, ORDER_STATUS.PENDING, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0];
         const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
 
+        // Registra o status inicial no histórico
         await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
         
         const itemPromises = items.map(item => Promise.all([
@@ -851,6 +866,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+// ---> ATUALIZAÇÃO: Rota de atualização de pedido do admin agora usa `updateOrderStatus` e processa REEMBOLSOS
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -859,24 +875,30 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
 
+        // Buscamos mais dados do pedido para a lógica de reembolso
         const [currentOrderResult] = await connection.query("SELECT status, payment_gateway_id, payment_status FROM orders WHERE id = ? FOR UPDATE", [id]);
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
         const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
+        // Se o status está sendo alterado, use a função auxiliar
         if (status && status !== currentStatus) {
             
+            // --- NOVA LÓGICA DE REEMBOLSO ---
             if (status === ORDER_STATUS.REFUNDED) {
+                // Validação 1: O pedido precisa ter um ID de pagamento do gateway
                 if (!payment_gateway_id) {
                     throw new Error("Reembolso falhou: Este pedido não possui um ID de pagamento registrado.");
                 }
+                // Validação 2: O pagamento precisa ter sido aprovado para ser reembolsado
                 if (currentPaymentStatus !== 'approved') {
                      throw new Error(`Reembolso falhou: O pagamento não pode ser reembolsado pois seu status é '${currentPaymentStatus}'.`);
                 }
 
                 console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
 
+                // Faz a chamada para a API do Mercado Pago para criar um reembolso total
                 const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
                     method: 'POST',
                     headers: {
@@ -888,16 +910,20 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 
                 const refundData = await refundResponse.json();
 
+                // Se a API do MP retornar um erro, a transação inteira é desfeita.
                 if (!refundResponse.ok) {
                     console.error("[Reembolso] Erro da API do Mercado Pago:", refundData);
                     throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
                 }
                 
                 console.log(`[Reembolso] Reembolso para o pagamento ${payment_gateway_id} processado com sucesso no Mercado Pago.`);
+                // Se o reembolso no MP foi bem-sucedido, prosseguimos para atualizar nosso banco.
             }
             
+            // Atualiza o status e o histórico em nosso banco de dados
             await updateOrderStatus(id, status, connection, "Status alterado pelo administrador.");
             
+            // Lógica para reverter estoque se cancelado ou reembolsado pelo admin
             const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED);
             const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED);
 
@@ -912,6 +938,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
             }
         }
         
+        // Se o código de rastreio está sendo atualizado (pode ser junto com status ou não)
         if (tracking_code !== undefined) { 
             await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
         }
@@ -922,6 +949,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     } catch (err) { 
         await connection.rollback();
         console.error("Erro ao atualizar pedido:", err);
+        // Retorna a mensagem de erro específica para o frontend
         res.status(500).json({ message: err.message || "Erro interno ao atualizar o pedido." }); 
     } finally {
         connection.release();
@@ -949,6 +977,7 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     }
 });
 
+// ATUALIZADO: Rota para criar pagamento com descrição detalhada e parcelamento dinâmico
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
@@ -1012,7 +1041,10 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
+        // --- LÓGICA DE PARCELAMENTO DINÂMICO ---
         let maxInstallments;
+        // Para compras acima de R$100, permite até 10 parcelas (o MP mostrará quais são com/sem juros).
+        // Para compras até R$100, permite somente 1 parcela.
         if (total > 100) {
             maxInstallments = 10;
         } else {
@@ -1033,7 +1065,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
                 excluded_payment_methods: [],
                 excluded_payment_types: [],
                 installments: maxInstallments,
-                default_installments: 1
+                default_installments: 1 // Sempre sugere 1x, mas o usuário pode escolher outras opções
             },
             external_reference: orderId.toString(),
             back_urls: {
@@ -1100,6 +1132,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
 });
 
+// ---> ATUALIZAÇÃO: Webhook agora usa `updateOrderStatus`, os novos status e salva o ID do pagamento
 const processPaymentWebhook = async (paymentId) => {
     try {
         if (!paymentId || paymentId === 123456 || paymentId === '123456') {
@@ -1142,6 +1175,8 @@ const processPaymentWebhook = async (paymentId) => {
             const currentDBStatus = currentOrderResult[0].status;
             console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
+            // --- ATUALIZAÇÃO PRINCIPAL AQUI ---
+            // Salva o status e o ID do pagamento do Mercado Pago
             await connection.query(
                 "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?", 
                 [paymentStatus, payment.id, orderId]
@@ -1149,10 +1184,12 @@ const processPaymentWebhook = async (paymentId) => {
             
             if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
                 await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+                // O próximo status (Separando Pedido) será definido manualmente pelo admin
             } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
                 await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
                 await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
                 
+                // Reverte estoque
                 const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
                 if (itemsToReturn.length > 0) {
                     for (const item of itemsToReturn) {
@@ -1471,126 +1508,6 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
-
-// --- NOVAS ROTAS: GERENCIAMENTO DE ENDEREÇOS ---
-app.get('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    try {
-        const [addresses] = await db.query("SELECT * FROM user_addresses WHERE user_id = ? ORDER BY is_default DESC, alias ASC", [userId]);
-        res.json(addresses);
-    } catch (err) {
-        console.error("Erro ao buscar endereços:", err);
-        res.status(500).json({ message: "Erro ao buscar endereços." });
-    }
-});
-
-app.post('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const [existingAddresses] = await connection.query("SELECT id FROM user_addresses WHERE user_id = ?", [userId]);
-        if (existingAddresses.length >= 2) {
-            throw new Error("Você pode cadastrar no máximo 2 endereços.");
-        }
-
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
-        const sql = "INSERT INTO user_addresses (user_id, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [userId, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0];
-        const [result] = await connection.query(sql, params);
-        
-        const [newAddress] = await connection.query("SELECT * FROM user_addresses WHERE id = ?", [result.insertId]);
-
-        await connection.commit();
-        res.status(201).json(newAddress[0]);
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao adicionar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao adicionar endereço." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-    
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
-        const sql = "UPDATE user_addresses SET alias = ?, cep = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?, localidade = ?, uf = ?, is_default = ? WHERE id = ? AND user_id = ?";
-        const params = [alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0, id, userId];
-        const [result] = await connection.query(sql, params);
-
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-
-        await connection.commit();
-        res.json({ message: "Endereço atualizado com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao atualizar endereço." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        const [result] = await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [id, userId]);
-        
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-        
-        await connection.commit();
-        res.json({ message: "Endereço padrão definido com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao definir endereço padrão:", err);
-        res.status(500).json({ message: err.message || "Erro ao definir endereço padrão." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-
-    try {
-        const [result] = await db.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [id, userId]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Endereço não encontrado ou não pertence a este usuário." });
-        }
-        res.json({ message: "Endereço deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar endereço:", err);
-        res.status(500).json({ message: "Erro ao deletar endereço." });
-    }
-});
-
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
