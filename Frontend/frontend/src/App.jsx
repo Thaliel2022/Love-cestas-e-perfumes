@@ -1472,7 +1472,8 @@ const ShippingCalculator = memo(({ items }) => {
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: Adicionado text-gray-900 para garantir visibilidade do texto */}
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
                              {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
@@ -1483,12 +1484,13 @@ const ShippingCalculator = memo(({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                             <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
-                             <span className="truncate">{getDestinationText()}</span>
-                         </div>
-                         <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline ml-auto flex-shrink-0 text-sm">Atualizar</button>
+                    {/* CORREÇÃO: Adicionado flex-wrap e classes responsivas para evitar quebra em mobile */}
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                        <div className="flex items-center gap-2 text-sm text-gray-400 min-w-0">
+                            <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
+                            <span className="flex-shrink min-w-0 break-words">{getDestinationText()}</span>
+                        </div>
+                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">Atualizar</button>
                     </div>
                     
                     <div className="min-h-[44px] flex flex-col justify-center">
