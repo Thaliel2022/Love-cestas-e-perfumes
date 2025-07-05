@@ -265,7 +265,7 @@ const AuthProvider = ({ children }) => {
 };
 
 const ShopProvider = ({ children }) => {
-    const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
     
@@ -279,23 +279,17 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    const fetchPersistentCart = useCallback(async () => {
-        if (!isAuthenticated) return;
-        try {
-            const dbCart = await apiService('/cart');
-            setCart(dbCart || []);
-        } catch (err) {
-            console.error("Falha ao buscar carrinho persistente:", err);
-            setCart([]);
-        }
-    }, [isAuthenticated]);
-
+    // CORREÇÃO: Função de busca de endereços agora atualiza o estado e retorna os endereços
     const fetchAddresses = useCallback(async () => {
-        if (!isAuthenticated) return [];
+        if (!isAuthenticated) {
+            setAddresses([]);
+            return [];
+        }
         try {
             const userAddresses = await apiService('/addresses');
-            setAddresses(userAddresses || []);
-            return userAddresses || [];
+            const validAddresses = userAddresses || [];
+            setAddresses(validAddresses);
+            return validAddresses;
         } catch (error) {
             console.error("Falha ao buscar endereços:", error);
             setAddresses([]);
@@ -303,23 +297,24 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated]);
 
-    const updateDefaultShippingLocation = useCallback((addrs) => {
-        const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
-        if (defaultAddr) {
-            setShippingLocation({
-                cep: defaultAddr.cep,
-                city: defaultAddr.localidade,
-                state: defaultAddr.uf,
-                alias: defaultAddr.alias
-            });
-        }
-    }, []);
-
+    // CORREÇÃO: Lógica de determinação de localização foi centralizada e robustecida
     const determineShippingLocation = useCallback(async () => {
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            updateDefaultShippingLocation(userAddresses);
-        } else if (navigator.geolocation) {
+            const defaultAddr = userAddresses.find(addr => addr.is_default) || userAddresses[0];
+            if (defaultAddr) {
+                setShippingLocation({
+                    cep: defaultAddr.cep,
+                    city: defaultAddr.localidade,
+                    state: defaultAddr.uf,
+                    alias: defaultAddr.alias
+                });
+                return; // Encerra se encontrou um endereço
+            }
+        }
+        
+        // Fallback para geolocalização se não houver endereço (ou não estiver logado)
+        if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
@@ -336,68 +331,77 @@ const ShopProvider = ({ children }) => {
                 console.warn("Geolocalização negada ou indisponível.", error.message);
             });
         }
-    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
+    }, [isAuthenticated, fetchAddresses]);
 
+    // CORREÇÃO: Efeito para lidar com o estado inicial e mudanças de autenticação
     useEffect(() => {
         if (isAuthLoading) return;
 
-        if (isAuthenticated) {
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            setCart([]);
-            setWishlist([]);
-            setAddresses([]);
-            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null);
-            setCouponCode('');
-            setAppliedCoupon(null);
-            setCouponMessage('');
-            determineShippingLocation();
-        }
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
-    
+        const initializeShop = async () => {
+            if (isAuthenticated) {
+                apiService('/wishlist').then(setWishlist).catch(console.error);
+                await Promise.all([
+                    apiService('/cart').then(dbCart => setCart(dbCart || [])),
+                    determineShippingLocation()
+                ]);
+            } else {
+                // Reseta tudo se deslogado
+                setCart([]);
+                setWishlist([]);
+                setAddresses([]);
+                setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+                setAutoCalculatedShipping(null);
+                setCouponCode('');
+                setAppliedCoupon(null);
+                setCouponMessage('');
+                await determineShippingLocation(); // Tenta geolocalização
+            }
+        };
+
+        initializeShop();
+    }, [isAuthenticated, isAuthLoading, determineShippingLocation]);
+
+    // CORREÇÃO: Efeito para recalcular o frete quando o CEP ou carrinho mudam
     useEffect(() => {
-        const debounceTimer = setTimeout(() => {
-            if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+        const calculateShipping = async () => {
+            // Só calcula se tiver um CEP válido e itens no carrinho
+            if (cart.length > 0 && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
-                
-                const calculateAutoShipping = async () => {
-                    try {
-                        const productsPayload = cart.map(item => ({
-                            id: String(item.id),
-                            price: item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        const options = await apiService('/shipping/calculate', 'POST', {
-                            cep_destino: shippingLocation.cep,
-                            products: productsPayload,
-                        });
-                        
-                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-                        
-                        if (pacOption) {
-                            setAutoCalculatedShipping(pacOption);
-                        } else {
-                            setShippingError('Frete PAC não disponível para este CEP.');
-                            setAutoCalculatedShipping(null);
-                        }
-                    } catch (error) {
-                        setShippingError(error.message || 'Não foi possível calcular o frete.');
+                try {
+                    const productsPayload = cart.map(item => ({
+                        id: String(item.id),
+                        price: item.price,
+                        quantity: item.qty || 1,
+                    }));
+                    const options = await apiService('/shipping/calculate', 'POST', {
+                        cep_destino: shippingLocation.cep,
+                        products: productsPayload,
+                    });
+                    
+                    const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                    
+                    if (pacOption) {
+                        setAutoCalculatedShipping(pacOption);
+                    } else {
+                        setShippingError('Frete PAC não disponível para este CEP.');
                         setAutoCalculatedShipping(null);
-                    } finally {
-                        setIsLoadingShipping(false);
                     }
-                };
-                calculateAutoShipping();
+                } catch (error) {
+                    setShippingError(error.message || 'Não foi possível calcular o frete.');
+                    setAutoCalculatedShipping(null);
+                } finally {
+                    setIsLoadingShipping(false);
+                }
             } else {
+                // Se não tiver CEP ou carrinho, reseta o frete
                 setAutoCalculatedShipping(null);
             }
-        }, 500);
+        };
+
+        const debounceTimer = setTimeout(calculateShipping, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation]);
+    }, [cart, shippingLocation.cep]); // Depende apenas do CEP, não do objeto inteiro
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1) => {
@@ -505,12 +509,12 @@ const ShopProvider = ({ children }) => {
             userName: user?.name,
             
             // Endereços e Frete
-            addresses, fetchAddresses,
+            addresses, fetchAddresses, // fetchAddresses agora é exposto para ser usado em outros componentes
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
             isLoadingShipping,
             shippingError,
-            updateDefaultShippingLocation,
+            determineShippingLocation, // Exposto para ser chamado manualmente se necessário
 
             // Cupons
             couponCode, setCouponCode,
@@ -1472,7 +1476,8 @@ const ShippingCalculator = memo(({ items }) => {
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: Adicionado text-gray-900 para garantir visibilidade do texto */}
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
                              {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
@@ -1483,12 +1488,13 @@ const ShippingCalculator = memo(({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                             <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
-                             <span className="truncate">{getDestinationText()}</span>
-                         </div>
-                         <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline ml-auto flex-shrink-0 text-sm">Atualizar</button>
+                    {/* CORREÇÃO: Adicionado flex-wrap e classes responsivas para evitar quebra em mobile */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-y-2 gap-x-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-400 min-w-0">
+                            <MapPinIcon className="h-5 w-5 flex-shrink-0"/>
+                            <span className="truncate">{getDestinationText()}</span>
+                        </div>
+                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">Atualizar</button>
                     </div>
                     
                     <div className="min-h-[44px] flex flex-col justify-center">
@@ -3029,7 +3035,7 @@ const MyOrdersSection = ({ onNavigate }) => {
 };
 
 const MyAddressesSection = () => {
-    const { addresses, fetchAddresses, updateDefaultShippingLocation } = useShop();
+    const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3053,8 +3059,7 @@ const MyAddressesSection = () => {
                 await apiService('/addresses', 'POST', formData);
                 notification.show('Endereço adicionado!');
             }
-            const updatedAddresses = await fetchAddresses(); 
-            updateDefaultShippingLocation(updatedAddresses); 
+            await fetchAddresses(); 
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3066,8 +3071,11 @@ const MyAddressesSection = () => {
             try {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
+                // CORREÇÃO: Após deletar, re-determina a localização de entrega
                 const updatedAddresses = await fetchAddresses(); 
-                updateDefaultShippingLocation(updatedAddresses); 
+                if (updatedAddresses.length === 0) {
+                    determineShippingLocation();
+                }
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3078,8 +3086,7 @@ const MyAddressesSection = () => {
         try {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
-            const updatedAddresses = await fetchAddresses(); 
-            updateDefaultShippingLocation(updatedAddresses); 
+            await fetchAddresses(); 
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
