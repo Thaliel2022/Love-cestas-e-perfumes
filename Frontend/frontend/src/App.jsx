@@ -312,17 +312,27 @@ const ShopProvider = ({ children }) => {
                 state: defaultAddr.uf,
                 alias: defaultAddr.alias
             });
+            return true; // Retorna true se um endereço foi definido
         }
+        return false; // Retorna false se nenhum endereço foi encontrado
     }, []);
 
+    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para usar geolocalização como fallback para usuários logados sem endereço.
     const determineShippingLocation = useCallback(async () => {
+        let locationDetermined = false;
+
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            updateDefaultShippingLocation(userAddresses);
-        } else if (navigator.geolocation) {
+            if (userAddresses && userAddresses.length > 0) {
+                locationDetermined = updateDefaultShippingLocation(userAddresses);
+            }
+        }
+
+        if (!locationDetermined && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
+                    // Usando uma API de geocodificação reversa que não requer chave
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
                     if (data.address && data.address.postcode) {
@@ -338,14 +348,17 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
+
     useEffect(() => {
         if (isAuthLoading) return;
 
         if (isAuthenticated) {
             fetchPersistentCart();
+            // A determinação da localização agora lida com todos os casos
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
+            // Limpa o estado ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
@@ -354,7 +367,7 @@ const ShopProvider = ({ children }) => {
             setCouponCode('');
             setAppliedCoupon(null);
             setCouponMessage('');
-            determineShippingLocation();
+            determineShippingLocation(); // Tenta usar geolocalização para usuários não logados
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
@@ -1145,7 +1158,6 @@ const HomePage = ({ onNavigate }) => {
 
     const categoryCards = [
         { name: "Masculino", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        // CORREÇÃO: URL da imagem da categoria Feminino atualizada para uma imagem funcional e de alta qualidade.
         { name: "Feminino", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
         { name: "Unissex", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", filter: "Unissex" }
     ];
@@ -1357,7 +1369,7 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// CORREÇÃO: Componente de cálculo de frete com melhorias de UX e correção de bug no input de CEP
+// CORREÇÃO: Layout do calculador de frete melhorado para responsividade e cor do input corrigida.
 const ShippingCalculator = memo(({ items }) => {
     const { addresses, shippingLocation, setShippingLocation } = useShop();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1472,7 +1484,8 @@ const ShippingCalculator = memo(({ items }) => {
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: Adicionada classe text-gray-900 para garantir visibilidade do texto */}
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
                              {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
@@ -1483,12 +1496,15 @@ const ShippingCalculator = memo(({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                             <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
-                             <span className="truncate">{getDestinationText()}</span>
-                         </div>
-                         <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline ml-auto flex-shrink-0 text-sm">Atualizar</button>
+                    {/* CORREÇÃO: Layout flexível para telas pequenas */}
+                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
+                            <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{getDestinationText()}</span>
+                        </div>
+                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                            Alterar
+                        </button>
                     </div>
                     
                     <div className="min-h-[44px] flex flex-col justify-center">
@@ -1724,7 +1740,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return null;
     };
     
-    // CORREÇÃO: Memoiza os itens para o calculador de frete para evitar recálculos desnecessários
     const itemsForShipping = useMemo(() => {
         if (!product) return [];
         return [{...product, qty: quantity}];
@@ -2537,7 +2552,6 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
     
-    // CORREÇÃO: Função para garantir que o nome do frete seja "PAC"
     const getShippingName = (name) => {
         if (name) {
             const lowerCaseName = name.toLowerCase();
