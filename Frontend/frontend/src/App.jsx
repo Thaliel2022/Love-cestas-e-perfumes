@@ -1146,7 +1146,7 @@ const HomePage = ({ onNavigate }) => {
     const categoryCards = [
         { name: "Masculino", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
         // CORREÇÃO: URL da imagem da categoria Feminino atualizada para uma imagem funcional e de alta qualidade.
-        { name: "Feminino", image: "https://images.unsplash.com/photo-1557174334-a8a5b2e5a266?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
+        { name: "Feminino", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
         { name: "Unissex", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", filter: "Unissex" }
     ];
 
@@ -1358,14 +1358,14 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
 });
 
 // CORREÇÃO: Componente de cálculo de frete com melhorias de UX e correção de bug no input de CEP
-const ShippingCalculator = ({ items }) => {
+const ShippingCalculator = memo(({ items }) => {
     const { addresses, shippingLocation, setShippingLocation } = useShop();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [shippingResult, setShippingResult] = useState(null);
     const [manualCep, setManualCep] = useState('');
-    const [apiError, setApiError] = useState(''); // Estado para erro específico da API de CEP
+    const [apiError, setApiError] = useState('');
 
     const calculateShipping = useCallback(async (location) => {
         if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
@@ -1389,23 +1389,16 @@ const ShippingCalculator = ({ items }) => {
                 setShippingResult(pacOption);
             } else {
                 setError('Frete PAC não disponível para este CEP.');
-                // CORREÇÃO: Não limpar o resultado anterior para evitar piscar a tela
-                // setShippingResult(null); 
             }
         } catch (err) {
             setError(err.message || 'Erro ao calcular o frete.');
-            // CORREÇÃO: Não limpar o resultado anterior para evitar piscar a tela
-            // setShippingResult(null);
         } finally {
             setIsLoading(false);
         }
     }, [items]);
 
     useEffect(() => {
-        const debounceTimer = setTimeout(() => {
-            calculateShipping(shippingLocation);
-        }, 300); // Adiciona um pequeno delay para evitar cálculos excessivos
-        return () => clearTimeout(debounceTimer);
+        calculateShipping(shippingLocation);
     }, [shippingLocation, items, calculateShipping]);
 
     const handleSelectAddress = (addr) => {
@@ -1432,11 +1425,10 @@ const ShippingCalculator = ({ items }) => {
                 setManualCep('');
             }
         } catch {
-            setApiError("No momento, as vendas são realizadas apenas no Brasil.");
+            setApiError("Não foi possível buscar o CEP. Tente novamente.");
         }
     };
     
-    // CORREÇÃO: Garante que o estado de erro da API seja limpo ao digitar
     const handleCepInputChange = (e) => {
         setManualCep(maskCEP(e.target.value));
         if (apiError) {
@@ -1491,7 +1483,6 @@ const ShippingCalculator = ({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    {/* CORREÇÃO: Melhoria na exibição do estado de carregamento e erro */}
                     <div className="flex items-center justify-between">
                          <div className="flex items-center gap-2 text-sm text-gray-400">
                              <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
@@ -1522,7 +1513,7 @@ const ShippingCalculator = ({ items }) => {
             </div>
         </>
     );
-};
+});
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
@@ -1732,6 +1723,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
         return null;
     };
+    
+    // CORREÇÃO: Memoiza os itens para o calculador de frete para evitar recálculos desnecessários
+    const itemsForShipping = useMemo(() => {
+        if (!product) return [];
+        return [{...product, qty: quantity}];
+    }, [product, quantity]);
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -1847,7 +1844,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
                         </div>
                         
-                        <ShippingCalculator items={[{...product, qty: quantity}]} />
+                        <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
 
