@@ -1147,7 +1147,7 @@ const HomePage = ({ onNavigate }) => {
 
     const categoryCards = [
         { name: "Masculino", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        { name: "Feminino", image: "https://images.unsplash.com/photo-1594035918258-744872047526?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
+        { name: "Feminino", image: "https://drive.google.com/file/d/1BRwiYc4F9hQS2Qn0HHEu5aORM-Rz5rrm/view", filter: "Feminino" },
         { name: "Unissex", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", filter: "Unissex" }
     ];
 
@@ -1412,21 +1412,21 @@ const ShippingCalculator = ({ items }) => {
         e.preventDefault();
         const cleanCep = manualCep.replace(/\D/g, '');
         if (cleanCep.length !== 8) {
-            setError("CEP inválido.");
+            notification.show("Por favor, insira um CEP brasileiro válido.", "error");
             return;
         }
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) {
-                setError("CEP não encontrado.");
+                notification.show("CEP não encontrado.", "error");
             } else {
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsModalOpen(false);
                 setManualCep('');
             }
         } catch {
-            setError("No momento, as vendas são realizadas apenas no Brasil.");
+            notification.show("No momento, as vendas são realizadas apenas no Brasil.", "error");
         }
     };
 
@@ -1469,7 +1469,6 @@ const ShippingCalculator = ({ items }) => {
                                 <input type="text" value={manualCep} onChange={e => setManualCep(maskCEP(e.target.value))} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
-                             {error && <p className="text-red-500 text-xs">{error}</p>}
                         </form>
                     </div>
                 </div>
@@ -2412,6 +2411,8 @@ const CheckoutPage = ({ onNavigate }) => {
     
     // MELHORIA: Estado para o endereço selecionado para a entrega
     const [selectedAddress, setSelectedAddress] = useState(null);
+    const [checkoutFormAddress, setCheckoutFormAddress] = useState(null);
+    const [formErrors, setFormErrors] = useState({});
     
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
@@ -2426,6 +2427,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
             if (defaultAddress) {
                 setSelectedAddress(defaultAddress);
+                setCheckoutFormAddress(defaultAddress);
             }
         }).finally(() => {
             setIsAddressLoading(false);
@@ -2446,6 +2448,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const handleAddressSelection = (address) => {
         setSelectedAddress(address);
+        setCheckoutFormAddress(address); // Atualiza o formulário também
         setIsAddressModalOpen(false);
     };
 
@@ -2460,6 +2463,7 @@ const CheckoutPage = ({ onNavigate }) => {
             notification.show('Endereço salvo com sucesso!');
             await fetchAddresses();
             setSelectedAddress(savedAddress); // Define o novo endereço como selecionado
+            setCheckoutFormAddress(savedAddress);
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
@@ -2483,8 +2487,22 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [appliedCoupon, subtotal, shippingCost]);
     
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+    
+    const validateForm = () => {
+        const errors = {};
+        if (!checkoutFormAddress?.numero?.trim()) {
+            errors.numero = "O número da residência é obrigatório.";
+        }
+        setFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
 
     const handlePlaceOrderAndPay = async () => {
+        if (!validateForm()) {
+            notification.show("Por favor, preencha todos os campos obrigatórios.", "error");
+            return;
+        }
+
         if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
             return;
@@ -2495,7 +2513,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
                 total: total,
-                shippingAddress: selectedAddress,
+                shippingAddress: checkoutFormAddress, // Usa o endereço do formulário
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
@@ -2543,24 +2561,49 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h2 className="text-2xl font-bold text-amber-400">1. Endereço de Entrega</h2>
+                                     <button onClick={() => setIsAddressModalOpen(true)} className="text-sm text-amber-400 hover:underline">
+                                        Usar outro endereço
+                                    </button>
+                                </div>
                                 {isAddressLoading ? (
                                     <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
-                                            Alterar Endereço
-                                        </button>
+                                ) : checkoutFormAddress ? (
+                                    <div className="space-y-4">
+                                        <input 
+                                            value={checkoutFormAddress.cep} 
+                                            readOnly 
+                                            className="w-full p-3 bg-gray-800 border border-gray-700 rounded-md"
+                                        />
+                                        <input 
+                                            value={checkoutFormAddress.logradouro} 
+                                            readOnly 
+                                            className="w-full p-3 bg-gray-800 border border-gray-700 rounded-md"
+                                        />
+                                        <div className="flex space-x-4">
+                                            <input 
+                                                name="numero"
+                                                value={checkoutFormAddress.numero || ''}
+                                                onChange={(e) => setCheckoutFormAddress({...checkoutFormAddress, numero: e.target.value})}
+                                                placeholder="Número" 
+                                                className={`w-1/2 p-3 bg-gray-800 border rounded-md ${formErrors.numero ? 'border-red-500' : 'border-gray-700'}`}
+                                                required 
+                                            />
+                                            <input 
+                                                value={checkoutFormAddress.complemento || ''}
+                                                onChange={(e) => setCheckoutFormAddress({...checkoutFormAddress, complemento: e.target.value})}
+                                                placeholder="Complemento" 
+                                                className="w-1/2 p-3 bg-gray-800 border border-gray-700 rounded-md"
+                                            />
+                                        </div>
+                                         {formErrors.numero && <p className="text-red-400 text-sm">{formErrors.numero}</p>}
                                     </div>
                                 ) : (
                                     <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                            Adicionar Endereço
+                                        <p className="text-gray-400 mb-3">Nenhum endereço selecionado.</p>
+                                        <button onClick={() => setIsAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                            Selecionar ou Adicionar Endereço
                                         </button>
                                     </div>
                                 )}
