@@ -303,7 +303,6 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated]);
 
-    // **CORREÇÃO**: Função para explicitamente atualizar a localização de frete
     const updateDefaultShippingLocation = useCallback((addrs) => {
         const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
         if (defaultAddr) {
@@ -364,7 +363,6 @@ const ShopProvider = ({ children }) => {
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
-                setAutoCalculatedShipping(null);
                 
                 const calculateAutoShipping = async () => {
                     try {
@@ -512,7 +510,7 @@ const ShopProvider = ({ children }) => {
             autoCalculatedShipping,
             isLoadingShipping,
             shippingError,
-            updateDefaultShippingLocation, // **CORREÇÃO**: Exporta a nova função
+            updateDefaultShippingLocation,
 
             // Cupons
             couponCode, setCouponCode,
@@ -1147,7 +1145,8 @@ const HomePage = ({ onNavigate }) => {
 
     const categoryCards = [
         { name: "Masculino", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        { name: "Feminino", image: "https://images.unsplash.com/photo-1594035918258-744872047526?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
+        // CORREÇÃO: URL da imagem da categoria Feminino atualizada para uma imagem funcional e de alta qualidade.
+        { name: "Feminino", image: "https://images.unsplash.com/photo-1557174334-a8a5b2e5a266?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
         { name: "Unissex", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", filter: "Unissex" }
     ];
 
@@ -1358,7 +1357,7 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// MELHORIA: Componente de cálculo de frete com modal de seleção de endereço
+// CORREÇÃO: Componente de cálculo de frete com melhorias de UX e correção de bug no input de CEP
 const ShippingCalculator = ({ items }) => {
     const { addresses, shippingLocation, setShippingLocation } = useShop();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1366,6 +1365,7 @@ const ShippingCalculator = ({ items }) => {
     const [error, setError] = useState('');
     const [shippingResult, setShippingResult] = useState(null);
     const [manualCep, setManualCep] = useState('');
+    const [apiError, setApiError] = useState(''); // Estado para erro específico da API de CEP
 
     const calculateShipping = useCallback(async (location) => {
         if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
@@ -1389,18 +1389,23 @@ const ShippingCalculator = ({ items }) => {
                 setShippingResult(pacOption);
             } else {
                 setError('Frete PAC não disponível para este CEP.');
-                setShippingResult(null);
+                // CORREÇÃO: Não limpar o resultado anterior para evitar piscar a tela
+                // setShippingResult(null); 
             }
         } catch (err) {
             setError(err.message || 'Erro ao calcular o frete.');
-            setShippingResult(null);
+            // CORREÇÃO: Não limpar o resultado anterior para evitar piscar a tela
+            // setShippingResult(null);
         } finally {
             setIsLoading(false);
         }
     }, [items]);
 
     useEffect(() => {
-        calculateShipping(shippingLocation);
+        const debounceTimer = setTimeout(() => {
+            calculateShipping(shippingLocation);
+        }, 300); // Adiciona um pequeno delay para evitar cálculos excessivos
+        return () => clearTimeout(debounceTimer);
     }, [shippingLocation, items, calculateShipping]);
 
     const handleSelectAddress = (addr) => {
@@ -1410,23 +1415,32 @@ const ShippingCalculator = ({ items }) => {
 
     const handleManualCepSubmit = async (e) => {
         e.preventDefault();
+        setApiError('');
         const cleanCep = manualCep.replace(/\D/g, '');
         if (cleanCep.length !== 8) {
-            setError("CEP inválido.");
+            setApiError("CEP inválido.");
             return;
         }
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) {
-                setError("CEP não encontrado.");
+                setApiError("CEP não encontrado.");
             } else {
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsModalOpen(false);
                 setManualCep('');
             }
         } catch {
-            setError("No momento, as vendas são realizadas apenas no Brasil.");
+            setApiError("No momento, as vendas são realizadas apenas no Brasil.");
+        }
+    };
+    
+    // CORREÇÃO: Garante que o estado de erro da API seja limpo ao digitar
+    const handleCepInputChange = (e) => {
+        setManualCep(maskCEP(e.target.value));
+        if (apiError) {
+            setApiError('');
         }
     };
 
@@ -1466,10 +1480,10 @@ const ShippingCalculator = ({ items }) => {
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={e => setManualCep(maskCEP(e.target.value))} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
-                             {error && <p className="text-red-500 text-xs">{error}</p>}
+                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
                         </form>
                     </div>
                 </div>
@@ -1477,26 +1491,33 @@ const ShippingCalculator = ({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    {isLoading ? (
-                        <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>
-                    ) : error && !shippingResult ? (
-                        <div><p className="text-red-400 font-semibold">{error}</p><button onClick={() => setIsModalOpen(true)} className="text-sm text-amber-400 hover:underline">Tentar novamente</button></div>
-                    ) : shippingResult ? (
-                        <div>
-                            <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
-                            <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
-                            <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-                                <MapPinIcon className="h-4 w-4"/>
-                                <span className="truncate">{getDestinationText()}</span>
-                                <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline ml-auto flex-shrink-0">Atualizar</button>
+                    {/* CORREÇÃO: Melhoria na exibição do estado de carregamento e erro */}
+                    <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2 text-sm text-gray-400">
+                             <MapPinIcon className="h-4 w-4 flex-shrink-0"/>
+                             <span className="truncate">{getDestinationText()}</span>
+                         </div>
+                         <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline ml-auto flex-shrink-0 text-sm">Atualizar</button>
+                    </div>
+                    
+                    <div className="min-h-[44px] flex flex-col justify-center">
+                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                        
+                        {!isLoading && error && (
+                            <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
+                        )}
+
+                        {!isLoading && shippingResult && (
+                            <div>
+                                <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
+                                <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
                             </div>
-                        </div>
-                    ) : (
-                         <div>
-                            <p className="text-gray-400">{getDestinationText()}</p>
-                            <button onClick={() => setIsModalOpen(true)} className="text-sm text-amber-400 hover:underline">Informar CEP</button>
-                        </div>
-                    )}
+                        )}
+                        
+                        {!isLoading && !shippingResult && !error && (
+                            <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
+                        )}
+                    </div>
                 </div>
             </div>
         </>
@@ -1826,7 +1847,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
                         </div>
                         
-                        {/* ATUALIZAÇÃO: Usa o novo componente de cálculo de frete */}
                         <ShippingCalculator items={[{...product, qty: quantity}]} />
                     </div>
                 </div>
@@ -2168,7 +2188,6 @@ const CartPage = ({ onNavigate }) => {
                                     </div>
                                 ))}
                             </div>
-                             {/* ATUALIZAÇÃO: Usa o novo componente de cálculo de frete */}
                             <ShippingCalculator items={cart} />
                         </div>
 
@@ -2410,7 +2429,6 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
     
-    // MELHORIA: Estado para o endereço selecionado para a entrega
     const [selectedAddress, setSelectedAddress] = useState(null);
     
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
@@ -2419,7 +2437,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     
-    // Efeito para carregar endereços e definir o padrão
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -2432,7 +2449,6 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses]);
 
-    // Efeito para atualizar a localização de frete sempre que o endereço selecionado mudar
     useEffect(() => {
         if (selectedAddress) {
             setShippingLocation({
@@ -2459,7 +2475,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
             await fetchAddresses();
-            setSelectedAddress(savedAddress); // Define o novo endereço como selecionado
+            setSelectedAddress(savedAddress); 
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
@@ -2523,6 +2539,17 @@ const CheckoutPage = ({ onNavigate }) => {
             setIsLoading(false);
         }
     };
+    
+    // CORREÇÃO: Função para garantir que o nome do frete seja "PAC"
+    const getShippingName = (name) => {
+        if (name) {
+            const lowerCaseName = name.toLowerCase();
+            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
+                return 'PAC';
+            }
+        }
+        return name || 'N/A';
+    };
 
     return (
         <>
@@ -2584,7 +2611,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
                                         <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Frete ({autoCalculatedShipping.name})</span>
+                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
@@ -3005,7 +3032,7 @@ const MyOrdersSection = ({ onNavigate }) => {
 };
 
 const MyAddressesSection = () => {
-    const { addresses, fetchAddresses, updateDefaultShippingLocation } = useShop(); // CORREÇÃO: Pega a função de atualização do contexto
+    const { addresses, fetchAddresses, updateDefaultShippingLocation } = useShop();
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3029,8 +3056,8 @@ const MyAddressesSection = () => {
                 await apiService('/addresses', 'POST', formData);
                 notification.show('Endereço adicionado!');
             }
-            const updatedAddresses = await fetchAddresses(); // CORREÇÃO: Pega a lista atualizada
-            updateDefaultShippingLocation(updatedAddresses); // CORREÇÃO: Força a atualização do frete
+            const updatedAddresses = await fetchAddresses(); 
+            updateDefaultShippingLocation(updatedAddresses); 
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3042,8 +3069,8 @@ const MyAddressesSection = () => {
             try {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
-                const updatedAddresses = await fetchAddresses(); // CORREÇÃO: Pega a lista atualizada
-                updateDefaultShippingLocation(updatedAddresses); // CORREÇÃO: Força a atualização do frete
+                const updatedAddresses = await fetchAddresses(); 
+                updateDefaultShippingLocation(updatedAddresses); 
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3054,8 +3081,8 @@ const MyAddressesSection = () => {
         try {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
-            const updatedAddresses = await fetchAddresses(); // CORREÇÃO: Pega a lista atualizada
-            updateDefaultShippingLocation(updatedAddresses); // CORREÇÃO: Força a atualização do frete
+            const updatedAddresses = await fetchAddresses(); 
+            updateDefaultShippingLocation(updatedAddresses); 
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
