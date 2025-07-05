@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
 // --- ÍCONES SVG ---
+// (Ícones existentes)
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -35,9 +36,6 @@ const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
 const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const CurrencyDollarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0 1H9m3 0h3m-3 10v-1m0 1h3m-3 0H9m12-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const MapPinIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
-const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -264,17 +262,14 @@ const AuthProvider = ({ children }) => {
 };
 
 const ShopProvider = ({ children }) => {
-    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+    const { isAuthenticated, isLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-    
-    // ATUALIZAÇÃO: Sistema de Endereços e Frete
-    const [addresses, setAddresses] = useState([]);
-    const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '' });
-    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+    const [shippingCep, setShippingCep] = useState('');
+    const [shippingOptions, setShippingOptions] = useState([]);
+    const [selectedShipping, setSelectedShipping] = useState(null);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
-    
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -290,115 +285,30 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated]);
 
-    const fetchAddresses = useCallback(async () => {
-        if (!isAuthenticated) return [];
-        try {
-            const userAddresses = await apiService('/addresses');
-            setAddresses(userAddresses || []);
-            return userAddresses || [];
-        } catch (error) {
-            console.error("Falha ao buscar endereços:", error);
-            setAddresses([]);
-            return [];
-        }
-    }, [isAuthenticated]);
-
-    const determineShippingLocation = useCallback(async () => {
-        // 1. Prioridade: Endereço padrão do usuário logado
-        if (isAuthenticated) {
-            const userAddresses = await fetchAddresses();
-            const defaultAddr = userAddresses.find(addr => addr.is_default);
-            if (defaultAddr) {
-                setShippingLocation({ cep: defaultAddr.cep, city: defaultAddr.localidade, state: defaultAddr.uf });
-                return;
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) {
+            if (!isAuthenticated) {
+                setCart([]);
+                setWishlist([]);
+                setShippingCep('');
+                setShippingOptions([]);
+                setSelectedShipping(null);
+                setCouponCode('');
+                setAppliedCoupon(null);
+                setCouponMessage('');
             }
+            return;
         }
+
+        fetchPersistentCart();
         
-        // 2. Fallback: Geolocalização do navegador
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    // Usando uma API pública para reverter a geolocalização para CEP
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    if (data.address && data.address.postcode) {
-                        const cep = data.address.postcode.replace(/\D/g, '');
-                        setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '' });
-                    }
-                } catch (error) {
-                    console.warn("Não foi possível obter CEP da geolocalização.", error);
-                }
-            }, (error) => {
-                console.warn("Geolocalização negada ou indisponível.", error.message);
+        apiService('/wishlist')
+            .then(setWishlist)
+            .catch(err => {
+                console.error("Falha ao buscar lista de desejos:", err);
+                setWishlist([]);
             });
-        }
-    }, [isAuthenticated, fetchAddresses]);
-
-    useEffect(() => {
-        if (isAuthLoading) return;
-
-        if (isAuthenticated) {
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            // Limpa tudo ao deslogar
-            setCart([]);
-            setWishlist([]);
-            setAddresses([]);
-            setShippingLocation({ cep: '', city: '', state: '' });
-            setAutoCalculatedShipping(null);
-            setCouponCode('');
-            setAppliedCoupon(null);
-            setCouponMessage('');
-            determineShippingLocation(); // Tenta usar geolocalização para visitantes
-        }
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
-    
-    // Efeito para cálculo automático de frete
-    useEffect(() => {
-        if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-            setIsLoadingShipping(true);
-            setShippingError('');
-            setAutoCalculatedShipping(null);
-            
-            const calculateAutoShipping = async () => {
-                try {
-                    const productsPayload = cart.map(item => ({
-                        id: String(item.id),
-                        price: item.price,
-                        quantity: item.qty || 1,
-                    }));
-                    const options = await apiService('/shipping/calculate', 'POST', {
-                        cep_destino: shippingLocation.cep,
-                        products: productsPayload,
-                    });
-                    
-                    const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-                    
-                    if (pacOption) {
-                        setAutoCalculatedShipping(pacOption);
-                    } else {
-                        setShippingError('Frete PAC não disponível para este CEP.');
-                        setAutoCalculatedShipping(null);
-                    }
-                } catch (error) {
-                    setShippingError(error.message || 'Não foi possível calcular o frete.');
-                    setAutoCalculatedShipping(null);
-                } finally {
-                    setIsLoadingShipping(false);
-                }
-            };
-            
-            const debounceTimer = setTimeout(calculateAutoShipping, 500);
-            return () => clearTimeout(debounceTimer);
-
-        } else {
-            setAutoCalculatedShipping(null);
-        }
-    }, [cart, shippingLocation]);
-
+    }, [isAuthenticated, isLoading, fetchPersistentCart]);
     
     const addToCart = useCallback(async (productToAdd, qty = 1) => {
         setCart(currentCart => {
@@ -470,6 +380,31 @@ const ShopProvider = ({ children }) => {
             console.error("Erro ao remover da lista de desejos:", error);
         }
     }, [isAuthenticated]);
+
+    const calculateShipping = useCallback(async (cep, items) => {
+        if (!cep || !items || items.length === 0) return;
+        setIsLoadingShipping(true);
+        setShippingError('');
+        setShippingOptions([]);
+        setSelectedShipping(null);
+        setShippingCep(cep);
+        try {
+            const productsPayload = items.map(item => ({
+                id: String(item.id),
+                price: item.price,
+                quantity: item.qty || 1,
+            }));
+            const data = await apiService('/shipping/calculate', 'POST', {
+                cep_destino: cep,
+                products: productsPayload,
+            });
+            setShippingOptions(data);
+        } catch (error) {
+            setShippingError(error.message || 'Não foi possível calcular o frete.');
+        } finally {
+            setIsLoadingShipping(false);
+        }
+    }, []);
     
     const removeCoupon = useCallback(() => {
         setAppliedCoupon(null);
@@ -492,9 +427,11 @@ const ShopProvider = ({ children }) => {
 
     const clearOrderState = useCallback(() => {
         clearCart();
+        setShippingCep('');
+        setShippingOptions([]);
+        setSelectedShipping(null);
         removeCoupon();
-        determineShippingLocation();
-    }, [clearCart, removeCoupon, determineShippingLocation]);
+    }, [clearCart, removeCoupon]);
 
     return (
         <ShopContext.Provider value={{
@@ -502,15 +439,12 @@ const ShopProvider = ({ children }) => {
             wishlist, addToCart, 
             addToWishlist, removeFromWishlist,
             updateQuantity, removeFromCart,
-            
-            // Endereços e Frete
-            addresses, fetchAddresses,
-            shippingLocation, setShippingLocation,
-            autoCalculatedShipping,
+            shippingCep, setShippingCep,
+            shippingOptions, setShippingOptions,
+            selectedShipping, setSelectedShipping,
             isLoadingShipping,
             shippingError,
-
-            // Cupons
+            calculateShipping,
             couponCode, setCouponCode,
             couponMessage,
             applyCoupon,
@@ -623,7 +557,7 @@ const ConfirmationProvider = ({ children }) => {
 
 
 // --- COMPONENTES DA UI ---
-const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
+const Modal = memo(({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   const backdropVariants = {
@@ -637,13 +571,6 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       exit: { y: "50vh", opacity: 0 }
   };
 
-  const sizeClasses = {
-      sm: 'max-w-sm',
-      md: 'max-w-md',
-      lg: 'max-w-lg',
-      xl: 'max-w-xl',
-  };
-
   return (
     <motion.div 
       className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" 
@@ -654,7 +581,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       onClick={onClose}
     >
       <motion.div 
-        className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${sizeClasses[size]}`} 
+        className="bg-white rounded-lg shadow-xl w-full max-w-lg flex flex-col" 
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
@@ -835,12 +762,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
+// ATUALIZAÇÃO: Carrossel de produtos com swipe
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
+
+    // --- Início da lógica de Swipe ---
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50; 
+    // --- Fim da lógica de Swipe ---
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(1);
@@ -854,6 +785,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
         return () => window.removeEventListener('resize', updateItemsPerPage);
     }, [updateItemsPerPage]);
 
+    // Certifica que o índice não saia dos limites ao redimensionar a tela
     useEffect(() => {
         const maxIndex = Math.max(0, products.length - itemsPerPage);
         if (currentIndex > maxIndex) {
@@ -877,8 +809,9 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const canGoPrev = currentIndex > 0;
     const canGoNext = products.length > itemsPerPage && currentIndex < (products.length - itemsPerPage);
     
+    // --- Início dos Handlers de Swipe ---
     const handleTouchStart = (e) => {
-        setTouchEnd(null);
+        setTouchEnd(null); // Reseta para evitar bugs com toques múltiplos
         setTouchStart(e.targetTouches[0].clientX);
     };
 
@@ -898,9 +831,11 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
             goPrev();
         }
         
+        // Limpa as posições de toque para o próximo swipe
         setTouchStart(null);
         setTouchEnd(null);
     };
+    // --- Fim dos Handlers de Swipe ---
 
     return (
         <div className="relative">
@@ -913,6 +848,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
             >
                 <motion.div
                     className="flex -mx-2 md:-mx-4"
+                    // Animação com `framer-motion` para um efeito mais suave
                     animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
                     transition={{ type: 'spring', stiffness: 350, damping: 40 }}
                 >
@@ -951,11 +887,13 @@ const Header = memo(({ onNavigate }) => {
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
 
+    // Animação do carrinho
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
     const cartAnimationControls = useAnimation();
 
     useEffect(() => {
+        // Inicia a animação apenas se um item for ADICIONADO (não removido)
         if (totalCartItems > prevTotalCartItems.current) {
             cartAnimationControls.start({
                 scale: [1, 1.25, 0.9, 1.1, 1],
@@ -964,6 +902,7 @@ const Header = memo(({ onNavigate }) => {
         }
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
+    // Fim da animação do carrinho
 
     useEffect(() => {
         if (searchTerm.length < 2) {
@@ -1354,145 +1293,6 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// --- NOVO COMPONENTE: CALCULADORA DE FRETE AUTOMÁTICA ---
-// CORREÇÃO: Exibição do valor real do frete
-const ShippingCalculator = ({ items }) => {
-    const { shippingLocation, setShippingLocation } = useShop();
-    const [localCep, setLocalCep] = useState(shippingLocation.cep);
-    const [isEditing, setIsEditing] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [shippingResult, setShippingResult] = useState(null);
-
-    const calculateShipping = useCallback(async (cep) => {
-        if (!cep || cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
-            setShippingResult(null);
-            return;
-        }
-        setIsLoading(true);
-        setError('');
-        try {
-            const productsPayload = items.map(item => ({
-                id: String(item.id),
-                price: item.price,
-                quantity: item.qty || 1,
-            }));
-            const options = await apiService('/shipping/calculate', 'POST', {
-                cep_destino: cep,
-                products: productsPayload,
-            });
-            const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-            if (pacOption) {
-                setShippingResult(pacOption);
-            } else {
-                setError('Frete PAC não disponível.');
-                setShippingResult(null);
-            }
-        } catch (err) {
-            setError(err.message || 'Erro ao calcular.');
-            setShippingResult(null);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [items]);
-
-    useEffect(() => {
-        setLocalCep(shippingLocation.cep);
-        calculateShipping(shippingLocation.cep);
-    }, [shippingLocation.cep, items, calculateShipping]);
-
-    const handleUpdateLocation = async (e) => {
-        e.preventDefault();
-        const cleanCep = localCep.replace(/\D/g, '');
-        if (cleanCep.length !== 8) {
-            setError("CEP inválido.");
-            return;
-        }
-        // Apenas para obter cidade/estado para exibição
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-            const data = await response.json();
-            if (data.erro) {
-                setError("CEP não encontrado.");
-            } else {
-                setShippingLocation({ cep: localCep, city: data.localidade, state: data.uf });
-                setIsEditing(false);
-            }
-        } catch {
-            setError("Erro ao validar CEP.");
-        }
-    };
-
-    const getDeliveryDate = (deliveryTime) => {
-        const date = new Date();
-        // Adiciona dias úteis (simplificado: não conta fins de semana)
-        let addedDays = 0;
-        while (addedDays < deliveryTime) {
-            date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedDays++;
-            }
-        }
-        return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-    };
-
-    return (
-        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-            {isEditing ? (
-                <form onSubmit={handleUpdateLocation} className="space-y-2">
-                    <label className="text-sm font-bold text-gray-300">Calcular frete e prazo</label>
-                    <div className="flex gap-2">
-                        <input
-                            type="text"
-                            value={localCep}
-                            onChange={e => setLocalCep(maskCEP(e.target.value))}
-                            placeholder="Digite seu CEP"
-                            className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md focus:ring-amber-400 focus:border-amber-400 text-sm"
-                        />
-                        <button type="submit" className="bg-amber-500 text-black font-bold px-4 rounded-md hover:bg-amber-400 transition-colors">OK</button>
-                    </div>
-                    {error && <p className="text-red-400 text-xs">{error}</p>}
-                </form>
-            ) : (
-                <div className="space-y-2">
-                    {isLoading ? (
-                        <div className="flex items-center gap-2">
-                            <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                            <span className="text-gray-400">Calculando...</span>
-                        </div>
-                    ) : error ? (
-                        <div>
-                            <p className="text-red-400 font-semibold">{error}</p>
-                            <button onClick={() => setIsEditing(true)} className="text-sm text-amber-400 hover:underline">Tentar novamente</button>
-                        </div>
-                    ) : shippingResult ? (
-                        <div>
-                            <p className="text-green-400">
-                                Frete via PAC:
-                                <span className="font-bold ml-2">
-                                    {shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}
-                                </span>
-                            </p>
-                             <p className="text-sm text-gray-400">
-                                Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-                                <MapPinIcon className="h-4 w-4"/>
-                                <span>Entregando em {shippingLocation.city}, {shippingLocation.cep}</span>
-                                <button onClick={() => setIsEditing(true)} className="text-amber-400 hover:underline">Atualizar local</button>
-                            </div>
-                        </div>
-                    ) : (
-                         <div>
-                            <p className="text-gray-400">Calcule o frete para seu endereço.</p>
-                            <button onClick={() => setIsEditing(true)} className="text-sm text-amber-400 hover:underline">Informar CEP</button>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
@@ -1502,7 +1302,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
-    const { addToCart } = useShop();
+    const { addToCart, calculateShipping, shippingCep, setShippingCep, shippingOptions, isLoadingShipping, shippingError, selectedShipping, setSelectedShipping } = useShop();
     const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
@@ -1618,6 +1418,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if(product) {
             addToCart(product, quantity);
             onNavigate('cart');
+        }
+    };
+    
+    const handleCalculateShipping = (e) => {
+        e.preventDefault();
+        if (product) {
+            calculateShipping(shippingCep, [{...product, qty: quantity}]);
         }
     };
     
@@ -1817,8 +1624,37 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
                         </div>
                         
-                        {/* ATUALIZAÇÃO: Usa o novo componente de cálculo de frete */}
-                        <ShippingCalculator items={[{...product, qty: quantity}]} />
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <h4 className="font-bold text-base mb-3 text-amber-400">Calcular Frete e Prazo</h4>
+                            <form onSubmit={handleCalculateShipping} className="flex">
+                                <input type="text" value={shippingCep} onChange={e => setShippingCep(maskCEP(e.target.value))} placeholder="00000-000" className="w-full p-2 bg-gray-800 border border-gray-700 rounded-l-md focus:ring-amber-400 focus:border-amber-400 text-sm" />
+                                <button type="submit" className="bg-amber-500 text-black font-bold px-4 rounded-r-md hover:bg-amber-400 transition-colors flex items-center justify-center" disabled={isLoadingShipping}>
+                                    {isLoadingShipping ? <div className="w-5 h-5 border-2 border-t-transparent border-black rounded-full animate-spin"></div> : 'OK'}
+                                </button>
+                            </form>
+                            {shippingError && <p className="text-red-400 mt-2 text-sm">{shippingError}</p>}
+                             <div className="mt-4 space-y-2">
+                                {shippingOptions.map((option, index) => (
+                                    <div 
+                                        key={index} 
+                                        onClick={() => setSelectedShipping(option)} 
+                                        className={`flex justify-between items-center text-sm p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${selectedShipping?.name === option.name ? 'border-amber-400 bg-amber-400/10' : 'border-gray-700 hover:border-gray-600'}`}
+                                    >
+                                        <div className="flex items-center">
+                                            {option.company?.picture && <img src={option.company.picture} alt={option.company.name} className="w-5 h-5 mr-3 rounded-full"/>}
+                                            <div className="flex flex-col">
+                                               <span className="font-semibold text-white">{option.name}</span>
+                                               {option.delivery_time && <span className="text-xs text-gray-400">{option.delivery_time} dias úteis</span>}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <p className="font-bold text-amber-400 mr-4">R$ {option.price.toFixed(2)}</p>
+                                            {selectedShipping?.name === option.name && <CheckCircleIcon className="h-5 w-5 text-amber-500" />}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -2086,16 +1922,22 @@ const CartPage = ({ onNavigate }) => {
         cart,
         updateQuantity,
         removeFromCart,
-        autoCalculatedShipping,
-        isLoadingShipping,
-        shippingError,
+        shippingCep, setShippingCep, 
+        shippingOptions, calculateShipping, 
+        isLoadingShipping, shippingError,
+        selectedShipping, setSelectedShipping,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon
     } = useShop();
 
+    const handleCalculateShipping = (e) => {
+        e.preventDefault();
+        calculateShipping(shippingCep, cart);
+    };
+
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -2119,6 +1961,7 @@ const CartPage = ({ onNavigate }) => {
     }
     
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -2159,28 +2002,46 @@ const CartPage = ({ onNavigate }) => {
                                     </div>
                                 ))}
                             </div>
-                             {/* ATUALIZAÇÃO: Usa o novo componente de cálculo de frete */}
-                            <ShippingCalculator items={cart} />
+                            
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6">
+                                <h4 className="font-bold text-lg mb-3 text-amber-400">Calcular Frete</h4>
+                                <form onSubmit={handleCalculateShipping} className="flex">
+                                    <input type="text" value={shippingCep} onChange={e => setShippingCep(maskCEP(e.target.value))} placeholder="00000-000" className="w-full p-2 bg-gray-800 border border-gray-700 rounded-l-md focus:ring-amber-400 focus:border-amber-400 text-sm" />
+                                    <button type="submit" className="bg-amber-500 text-black font-bold px-4 rounded-r-md hover:bg-amber-400 transition-colors flex items-center justify-center" disabled={isLoadingShipping}>
+                                        {isLoadingShipping ? <div className="w-5 h-5 border-2 border-t-transparent border-black rounded-full animate-spin"></div> : 'OK'}
+                                    </button>
+                                </form>
+                                {shippingError && <p className="text-red-400 mt-2 text-sm">{shippingError}</p>}
+                                <div className="mt-4 space-y-2">
+                                    {shippingOptions.map((option, index) => (
+                                        <div key={index} onClick={() => setSelectedShipping(option)} className={`flex justify-between items-center text-sm p-3 border rounded-lg cursor-pointer transition-all duration-200 ${selectedShipping?.name === option.name ? 'border-amber-400 bg-amber-400/20' : 'border-gray-700 hover:border-gray-600'}`}>
+                                            <div className="flex items-center">
+                                                <img src={option.company.picture} alt={option.company.name} className="w-6 h-6 mr-3 rounded-full"/>
+                                                <div className="flex flex-col">
+                                                   <span className="font-semibold text-white">{option.name}</span>
+                                                   <span className="text-xs text-gray-400">{option.delivery_time} dias úteis</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <p className="font-bold text-amber-400 mr-4">R$ {option.price.toFixed(2)}</p>
+                                                {selectedShipping?.name === option.name && <CheckCircleIcon className="h-6 w-6 text-amber-500" />}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
                                 <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                                
-                                <div className="flex justify-between text-gray-300">
-                                    <span>Frete (PAC)</span>
-                                    {isLoadingShipping ? (
-                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                    ) : autoCalculatedShipping ? (
-                                        <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                    ) : (
-                                        <span className="text-xs text-gray-500">Informe o CEP</span>
-                                    )}
-                                </div>
-                                
-                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
-
+                                {selectedShipping && (
+                                    <div className="flex justify-between text-gray-300">
+                                        <span>Frete ({selectedShipping.name})</span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 {appliedCoupon && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Desconto ({appliedCoupon.code})</span>
@@ -2208,8 +2069,8 @@ const CartPage = ({ onNavigate }) => {
                                 </div>
                             )}
                             
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!selectedShipping || cart.length === 0}>Ir para o Checkout</button>
+                            {!selectedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">Por favor, calcule e selecione uma opção de frete para continuar.</p>}
                         </div>
                     </div>
                 )}
@@ -2257,207 +2118,20 @@ const WishlistPage = ({ onNavigate }) => {
         </div>
     );
 };
-// --- NOVO COMPONENTE: FORMULÁRIO DE ENDEREÇO REUTILIZÁVEL ---
-const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
-    const [formData, setFormData] = useState({
-        alias: '',
-        cep: '',
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        localidade: '',
-        uf: '',
-        is_default: false,
-        ...initialData
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const notification = useNotification();
-
-    const handleCepLookup = useCallback(async (cepValue) => {
-        const cep = cepValue.replace(/\D/g, '');
-        if (cep.length !== 8) return;
-        
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
-            
-            const data = await response.json();
-            if (!data.erro) {
-                setFormData(prev => ({ 
-                    ...prev, 
-                    logradouro: data.logradouro, 
-                    bairro: data.bairro, 
-                    localidade: data.localidade, 
-                    uf: data.uf
-                }));
-            } else {
-                notification.show("CEP não encontrado.", "error");
-            }
-        } catch (error) {
-            console.error("Erro ao buscar CEP:", error);
-            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
-        }
-    }, [notification]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
-    const handleCepChange = (e) => {
-        const newCep = maskCEP(e.target.value);
-        setFormData(prev => ({ ...prev, cep: newCep }));
-        if (newCep.replace(/\D/g, '').length === 8) {
-            handleCepLookup(newCep);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        await onSave(formData);
-        setIsSaving(false);
-    };
-    
-    const isFormValid = useMemo(() => {
-        const { alias, cep, logradouro, numero, bairro, localidade, uf } = formData;
-        return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
-    }, [formData]);
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
-            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" />
-            </div>
-            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" className="w-1/4 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            </div>
-            <div className="flex items-center">
-                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-700">Salvar como endereço padrão</label>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
-                    {isSaving ? <SpinnerIcon /> : 'Salvar Endereço'}
-                </button>
-            </div>
-        </form>
-    );
-};
-// --- INÍCIO DA PARTE 2 ---
-
-// MELHORIA: Modal para seleção de endereço no checkout
-const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
-            <div className="space-y-3">
-                {addresses.map(addr => (
-                    <div 
-                        key={addr.id} 
-                        onClick={() => onSelectAddress(addr)}
-                        className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50"
-                    >
-                        <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
-                        <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero}</p>
-                        <p className="text-sm text-gray-500">{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                        <p className="text-sm text-gray-500">{addr.cep}</p>
-                    </div>
-                ))}
-                {addresses.length < 5 && (
-                    <button 
-                        onClick={onAddNewAddress}
-                        className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
-                    >
-                        <PlusCircleIcon className="h-6 w-6" />
-                        <span>Adicionar Novo Endereço</span>
-                    </button>
-                )}
-            </div>
-        </Modal>
-    );
-};
-
-
 const CheckoutPage = ({ onNavigate }) => {
-    const { 
-        cart, 
-        autoCalculatedShipping, 
-        appliedCoupon, 
-        clearOrderState,
-        addresses,
-        fetchAddresses,
-        setShippingLocation
-    } = useShop();
+    const { cart, selectedShipping, appliedCoupon, clearOrderState, shippingCep } = useShop();
     const notification = useNotification();
     
-    // MELHORIA: Estado para o endereço selecionado para a entrega
-    const [selectedAddress, setSelectedAddress] = useState(null);
-    
-    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
+    const [shippingAddress, setShippingAddress] = useState({ 
+        cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' 
+    });
+    const [addressErrors, setAddressErrors] = useState({ numero: false });
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [isFormValid, setIsFormValid] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [isAddressLoading, setIsAddressLoading] = useState(true);
-    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-    const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
-    
-    // Efeito para carregar endereços e definir o padrão
-    useEffect(() => {
-        setIsAddressLoading(true);
-        fetchAddresses().then(userAddresses => {
-            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
-            if (defaultAddress) {
-                setSelectedAddress(defaultAddress);
-            }
-        }).finally(() => {
-            setIsAddressLoading(false);
-        });
-    }, [fetchAddresses]);
-
-    // Efeito para atualizar a localização de frete sempre que o endereço selecionado mudar
-    useEffect(() => {
-        if (selectedAddress) {
-            setShippingLocation({
-                cep: selectedAddress.cep,
-                city: selectedAddress.localidade,
-                state: selectedAddress.uf
-            });
-        }
-    }, [selectedAddress, setShippingLocation]);
-
-    const handleAddressSelection = (address) => {
-        setSelectedAddress(address);
-        setIsAddressModalOpen(false);
-    };
-
-    const handleAddNewAddress = () => {
-        setIsAddressModalOpen(false);
-        setIsNewAddressModalOpen(true);
-    };
-
-    const handleSaveNewAddress = async (formData) => {
-        try {
-            const savedAddress = await apiService('/addresses', 'POST', formData);
-            notification.show('Endereço salvo com sucesso!');
-            await fetchAddresses();
-            setSelectedAddress(savedAddress); // Define o novo endereço como selecionado
-            setIsNewAddressModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
-        }
-    };
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
     
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -2473,10 +2147,65 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [appliedCoupon, subtotal, shippingCost]);
     
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+    
+    const handleCepLookup = useCallback(async (cepValue) => {
+        const cep = cepValue.replace(/\D/g, '');
+        if (cep.length !== 8) return;
+        
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
+            
+            const data = await response.json();
+            if (!data.erro) {
+                setShippingAddress(prev => ({ ...prev, logradouro: data.logradouro, bairro: data.bairro, localidade: data.localidade, uf: data.uf, numero: '', complemento: '' }));
+            } else {
+                notification.show("CEP não encontrado.", "error");
+            }
+        } catch (error) {
+            console.error("Erro ao buscar CEP:", error);
+            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
+        }
+    }, [notification]);
+    
+    useEffect(() => {
+        if (shippingCep) {
+            const maskedCep = maskCEP(shippingCep);
+            setShippingAddress(prev => ({ ...prev, cep: maskedCep }));
+            handleCepLookup(maskedCep);
+        }
+    }, [shippingCep, handleCepLookup]);
+    
+    useEffect(() => {
+        const { cep, logradouro, numero, bairro, localidade, uf } = shippingAddress;
+        const addressComplete = cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
+        const paymentSelected = paymentMethod !== '';
+        const isAddressValid = !Object.values(addressErrors).some(err => err);
+        setIsFormValid(addressComplete && paymentSelected && !!selectedShipping && isAddressValid);
+    }, [shippingAddress, paymentMethod, selectedShipping, addressErrors]);
 
+    const handleAddressChange = (e) => {
+        const { name, value } = e.target;
+        
+        if (name === 'numero') {
+            const isValid = /^[0-9]+[a-zA-Z-]*$/.test(value) || value === '';
+            setAddressErrors(prev => ({...prev, numero: !isValid}));
+        }
+
+        setShippingAddress(prev => ({...prev, [name]: value}));
+    };
+
+    const handleCepChange = (e) => {
+        const newCep = maskCEP(e.target.value);
+        setShippingAddress(prev => ({...prev, cep: newCep}));
+        if (newCep.replace(/\D/g, '').length === 8) {
+            handleCepLookup(newCep);
+        }
+    };
+    
     const handlePlaceOrderAndPay = async () => {
-        if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
+        if (!isFormValid) {
+            notification.show("Por favor, preencha todos os campos corretamente e selecione a forma de pagamento.", 'error');
             return;
         }
         setIsLoading(true);
@@ -2485,9 +2214,9 @@ const CheckoutPage = ({ onNavigate }) => {
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
                 total: total,
-                shippingAddress: selectedAddress,
+                shippingAddress: shippingAddress,
                 paymentMethod: paymentMethod,
-                shipping_method: autoCalculatedShipping.name,
+                shipping_method: selectedShipping.name,
                 shipping_cost: shippingCost,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
                 discount_amount: discount
@@ -2497,12 +2226,15 @@ const CheckoutPage = ({ onNavigate }) => {
 
             if (paymentMethod === 'mercadopago') {
                 const mpPayload = { orderId };
+                
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
+                
                 if (paymentResult && paymentResult.init_point) {
                     window.location.href = paymentResult.init_point;
                 } else {
                     throw new Error("Não foi possível obter o link de pagamento.");
                 }
+
             } else {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
@@ -2515,87 +2247,78 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     return (
-        <>
-            <AddressSelectionModal 
-                isOpen={isAddressModalOpen}
-                onClose={() => setIsAddressModalOpen(false)}
-                addresses={addresses}
-                onSelectAddress={handleAddressSelection}
-                onAddNewAddress={handleAddNewAddress}
-            />
-            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço">
-                <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
-            </Modal>
-
-            <div className="bg-black text-white min-h-screen">
-                <div className="container mx-auto px-4 py-8">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        <div className="lg:col-span-1 space-y-8">
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
-                                {isAddressLoading ? (
-                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
-                                            Alterar Endereço
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                            Adicionar Endereço
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
-                                <div className="space-y-3">
-                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
-                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
-                                    </button>
+        <div className="bg-black text-white min-h-screen">
+            <div className="container mx-auto px-4 py-8">
+                <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    {/* COLUNA ESQUERDA: Formulários */}
+                    <div className="lg:col-span-1 space-y-8">
+                        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                            <h2 className="text-2xl font-bold mb-4 text-amber-400">1. Endereço de Entrega</h2>
+                            <div className="space-y-4">
+                                <input value={shippingAddress.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                <input name="logradouro" value={shippingAddress.logradouro} onChange={handleAddressChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                <div className="flex space-x-4">
+                                   <div className="w-1/2">
+                                        <input 
+                                            name="numero" 
+                                            value={shippingAddress.numero} 
+                                            onChange={handleAddressChange} 
+                                            placeholder="Número" 
+                                            className={`w-full p-3 bg-gray-800 border rounded ${addressErrors.numero ? 'border-red-500' : 'border-gray-700'}`}
+                                        />
+                                        {addressErrors.numero && <p className="text-red-500 text-xs mt-1">Número inválido.</p>}
+                                   </div>
+                                   <input name="complemento" value={shippingAddress.complemento} onChange={handleAddressChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                </div>
+                                <input name="bairro" value={shippingAddress.bairro} onChange={handleAddressChange} placeholder="Bairro" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                <div className="flex space-x-4">
+                                    <input name="localidade" value={shippingAddress.localidade} onChange={handleAddressChange} placeholder="Cidade" className="w-full p-3 bg-gray-800 border border-gray-700 rounded"/>
+                                    <input name="uf" value={shippingAddress.uf} onChange={handleAddressChange} placeholder="UF" className="w-1/4 p-3 bg-gray-800 border border-gray-700 rounded"/>
                                 </div>
                             </div>
                         </div>
-                        <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
-                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
-                                <div className="border-t border-gray-700 mt-4 pt-4">
-                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                                    {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Frete ({autoCalculatedShipping.name})</span>
-                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
-                                </div>
-                                
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
-                                    {isLoading ? (
-                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
-                                    ) : (
-                                        'Finalizar e Pagar'
-                                    )}
+
+                        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                            <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
+                            <div className="space-y-3">
+                                <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                    <CreditCardIcon className="h-6 w-6 text-amber-400"/>
+                                    <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
                                 </button>
                             </div>
                         </div>
-                     </div>
-                </div>
+                    </div>
+                     {/* COLUNA DIREITA: Resumo */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                            <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
+                            {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
+                            <div className="border-t border-gray-700 mt-4 pt-4">
+                                {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                                {selectedShipping ? (
+                                    <div className="flex justify-between text-gray-300 py-1">
+                                        <span>Frete ({selectedShipping.name})</span>
+                                        <span>R$ {shippingCost.toFixed(2)}</span>
+                                    </div>
+                                ) : (
+                                    <div className="text-gray-400 text-sm text-center py-1">Selecione o frete na página anterior.</div>
+                                )}
+                                <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
+                            </div>
+                            
+                            <button onClick={handlePlaceOrderAndPay} disabled={!isFormValid || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                {isLoading ? (
+                                    <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
+                                ) : (
+                                    'Finalizar e Pagar'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                 </div>
             </div>
-        </>
+        </div>
     );
 };
 
@@ -2611,12 +2334,12 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
-                return true;
+                return true; // Indica que o status final foi alcançado
             }
         } catch (err) {
             console.error("Erro ao verificar status, continuando a verificação.", err);
         }
-        return false;
+        return false; // Indica que ainda está pendente
     }, [orderId]);
 
     useEffect(() => {
@@ -2626,9 +2349,11 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         let timeout;
 
         const startPolling = async () => {
+            // Tenta uma vez imediatamente
             const isFinished = await pollStatus();
             if (isFinished) return;
 
+            // Se não terminou, começa a verificar a cada 3 segundos
             pollInterval = setInterval(async () => {
                 const finished = await pollStatus();
                 if (finished) {
@@ -2637,6 +2362,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 }
             }, 3000);
 
+            // Define um tempo limite geral
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (pageStatus === 'processing') {
@@ -2646,7 +2372,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
 
         startPolling();
-        
+
+        // **INÍCIO DA CORREÇÃO PARA iOS/SAFARI**
+        // Adiciona um listener para o evento 'visibilitychange'.
+        // Este evento é disparado quando o usuário retorna para a aba/página.
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && pageStatus === 'processing') {
                 console.log("Página ficou visível, forçando nova verificação de status.");
@@ -2655,6 +2384,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
         
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        // **FIM DA CORREÇÃO**
 
         return () => {
             clearInterval(pollInterval);
@@ -2758,6 +2488,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
+            {/* --- LAYOUT DESKTOP (md e acima) --- */}
             <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
@@ -2784,6 +2515,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                 })}
             </div>
 
+            {/* --- LAYOUT MOBILE (abaixo de md) --- */}
             <div className="md:hidden flex flex-col">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
@@ -2840,255 +2572,51 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
 };
 
 
-const MyAccountPage = ({ onNavigate, subPage }) => {
+const MyAccountPage = ({ onNavigate }) => {
     const { user, logout } = useAuth();
-    const [activeTab, setActiveTab] = useState(subPage || 'orders');
-    
-    const handleNavigation = (tab) => {
-        setActiveTab(tab);
-        onNavigate(`account/${tab}`);
-    };
-
-    const tabs = [
-        { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
-        { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
-        { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
-    ];
-
-    return (
-        <div className="bg-black text-white min-h-screen py-12">
-            <div className="container mx-auto px-4">
-                <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <aside className="lg:col-span-1">
-                        <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
-                            {tabs.map(tab => (
-                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}>
-                                    {tab.icon}
-                                    <span>{tab.label}</span>
-                                </button>
-                            ))}
-                            <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                                <span>Sair</span>
-                            </button>
-                        </div>
-                    </aside>
-                    <main className="lg:col-span-3">
-                        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 min-h-[400px]">
-                            {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
-                            {activeTab === 'addresses' && <MyAddressesSection />}
-                            {activeTab === 'profile' && <MyProfileSection user={user} />}
-                        </div>
-                    </main>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const MyOrdersSection = ({ onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
+    
     const [orders, setOrders] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [message, setMessage] = useState('');
+
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
+    const [addressForm, setAddressForm] = useState({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
+    const [isAddressFormValid, setIsAddressFormValid] = useState(false);
+
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [currentTrackingCode, setCurrentTrackingCode] = useState('');
+    
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
-    useEffect(() => {
+    const fetchUserData = useCallback(() => {
+        if (!user) return;
         apiService('/orders/my-orders')
-            .then(data => setOrders(data))
-            .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
-            .finally(() => setIsLoading(false));
-    }, [notification]);
+            .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
+            .catch(err => {
+                console.error("Falha ao buscar pedidos:", err);
+                setMessage("Falha ao buscar histórico de pedidos.");
+            });
+    }, [user]);
 
-    const handleRepeatOrder = (orderItems) => {
-        if (!orderItems) return;
-        let count = 0;
-        orderItems.forEach(item => {
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images };
-            addToCart(product, item.quantity);
-            count++;
-        });
-        notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
-        onNavigate('cart');
-    };
+    useEffect(() => {
+        fetchUserData();
+    }, [fetchUserData]);
 
-    const handleOpenTrackingModal = (trackingCode) => {
-        setCurrentTrackingCode(trackingCode);
-        setIsTrackingModalOpen(true);
-    };
-
-    const handleOpenStatusModal = (statusDetails) => {
-        setSelectedStatusDetails(statusDetails);
-        setIsStatusModalOpen(true);
-    };
+    useEffect(() => {
+        const { cep, logradouro, numero, bairro, localidade, uf } = addressForm;
+        const isValid = cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
+        setIsAddressFormValid(isValid);
+    }, [addressForm]);
     
-    if (isLoading) return <div className="flex justify-center items-center h-full"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
-
-    return (
-        <>
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} trackingCode={currentTrackingCode} />
-            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
-            {orders.length > 0 ? (
-                <div className="space-y-6">
-                    {orders.map(order => (
-                        <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                                <div>
-                                    <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                    <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                    <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                                </div>
-                            </div>
-                            <div className="my-6">
-                                <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                            </div>
-                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
-                            <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
-                                {order.items.map(item => (
-                                    <div key={item.id} className="flex items-center text-sm">
-                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
-                                        <span>{item.quantity}x {item.name}</span>
-                                        <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
-                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-gray-500">Você ainda não fez nenhum pedido.</p>
-            )}
-        </>
-    );
-};
-
-const MyAddressesSection = () => {
-    const { addresses, fetchAddresses } = useShop();
-    const notification = useNotification();
-    const confirmation = useConfirmation();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingAddress, setEditingAddress] = useState(null);
-
-    const handleOpenModal = (address = null) => {
-        if (!address && addresses.length >= 5) {
-            notification.show("Você já possui 5 endereços cadastrados. Exclua um para adicionar outro.", "error");
-            return;
-        }
-        setEditingAddress(address);
-        setIsModalOpen(true);
-    };
-
-    const handleSaveAddress = async (formData) => {
-        try {
-            if (editingAddress) {
-                await apiService(`/addresses/${editingAddress.id}`, 'PUT', formData);
-                notification.show('Endereço atualizado!');
-            } else {
-                await apiService('/addresses', 'POST', formData);
-                notification.show('Endereço adicionado!');
-            }
-            fetchAddresses();
-            setIsModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-        }
-    };
-    
-    const handleDeleteAddress = (id) => {
-        confirmation.show("Tem certeza que deseja excluir este endereço?", async () => {
-            try {
-                await apiService(`/addresses/${id}`, 'DELETE');
-                notification.show('Endereço excluído.');
-                fetchAddresses();
-            } catch (error) {
-                notification.show(`Erro: ${error.message}`, 'error');
-            }
-        });
-    };
-    
-    const handleSetDefault = async (id) => {
-        try {
-            await apiService(`/addresses/${id}/default`, 'PUT');
-            notification.show('Endereço padrão atualizado.');
-            fetchAddresses();
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-        }
-    };
-    
-    return (
-        <>
-            <AnimatePresence>
-                {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingAddress ? 'Editar Endereço' : 'Adicionar Endereço'}>
-                        <AddressForm initialData={editingAddress} onSave={handleSaveAddress} onCancel={() => setIsModalOpen(false)} />
-                    </Modal>
-                )}
-            </AnimatePresence>
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-amber-400">Meus Endereços</h2>
-                <button 
-                    onClick={() => handleOpenModal()} 
-                    disabled={addresses.length >= 5}
-                    className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold text-sm disabled:bg-gray-500 disabled:cursor-not-allowed"
-                >
-                    Adicionar Novo
-                </button>
-            </div>
-             {addresses.length >= 5 && (
-                <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm p-3 rounded-md mb-6">
-                    Você atingiu o limite de 5 endereços. Para adicionar um novo, por favor, exclua um existente.
-                </div>
-            )}
-            {addresses.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {addresses.map(addr => (
-                        <div key={addr.id} className="bg-gray-800 p-5 rounded-lg border border-gray-700 flex flex-col">
-                            <div className="flex justify-between items-start mb-2">
-                                <h3 className="font-bold text-lg">{addr.alias}</h3>
-                                {addr.is_default ? (
-                                    <span className="text-xs bg-amber-400 text-black px-3 py-1 rounded-full font-semibold flex items-center gap-1"><CheckIcon className="h-3 w-3"/> Padrão</span>
-                                ) : (
-                                    <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-amber-400 hover:underline">Tornar Padrão</button>
-                                )}
-                            </div>
-                            <div className="text-sm text-gray-300 flex-grow">
-                                <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                <p>{addr.cep}</p>
-                            </div>
-                            <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-700">
-                                <button onClick={() => handleOpenModal(addr)} className="p-2 text-gray-400 hover:text-white"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 text-gray-400 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <p className="text-gray-500">Nenhum endereço cadastrado.</p>
-            )}
-        </>
-    );
-};
-
-const MyProfileSection = ({ user }) => {
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    const notification = useNotification();
-
     const handlePasswordChange = async (e) => {
         e.preventDefault();
+        setMessage('');
         if(newPassword.length < 6) {
             notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
             return;
@@ -3102,6 +2630,87 @@ const MyProfileSection = ({ user }) => {
              notification.show(`Erro: ${error.message}`, 'error');
         }
     };
+    
+    const handleOpenAddressModal = (order) => {
+        try {
+            const currentAddress = order.shipping_address ? JSON.parse(order.shipping_address) : {};
+            setAddressForm({
+                cep: currentAddress.cep || '', logradouro: currentAddress.logradouro || '',
+                numero: currentAddress.numero || '', complemento: currentAddress.complemento || '',
+                bairro: currentAddress.bairro || '', localidade: currentAddress.localidade || '',
+                uf: currentAddress.uf || ''
+            });
+        } catch (error) {
+            console.error("Failed to parse shipping address:", error);
+            notification.show("O endereço deste pedido está mal formatado.", "error");
+            setAddressForm({ cep: '', logradouro: '', numero: '', complemento: '', bairro: '', localidade: '', uf: '' });
+        }
+        setEditingOrder(order);
+        setIsAddressModalOpen(true);
+    };
+    
+    const handleAddressFormChange = (e) => {
+        const { name, value } = e.target;
+        setAddressForm(prev => ({...prev, [name]: value}));
+    };
+
+    const handleCepLookupInModal = async (e) => {
+        const cep = e.target.value.replace(/\D/g, '');
+        setAddressForm(prev => ({...prev, cep: e.target.value}));
+        if (cep.length !== 8) return;
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            const data = await response.json();
+            if(!data.erro) {
+                setAddressForm(prev => ({ ...prev, logradouro: data.logradouro, bairro: data.bairro, localidade: data.localidade, uf: data.uf, numero: '', complemento: '' }));
+            } else {
+                notification.show("CEP não encontrado.", "error");
+            }
+        } catch(error) {
+            console.error("Erro ao buscar CEP:", error);
+        }
+    };
+
+    const handleSaveAddress = async (e) => {
+        e.preventDefault();
+        if (!editingOrder || !isAddressFormValid) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}/address`, 'PUT', { address: addressForm });
+            notification.show('Endereço atualizado com sucesso!');
+            setIsAddressModalOpen(false);
+            fetchUserData();
+        } catch (error) {
+            notification.show(`Erro ao atualizar endereço: ${error.message}`, "error");
+        }
+    };
+    
+    const handleRepeatOrder = (orderItems) => {
+        if (!orderItems) return;
+        let count = 0;
+        orderItems.forEach(item => {
+            const product = {
+                id: item.product_id,
+                name: item.name,
+                price: item.price,
+                images: item.images,
+            };
+            addToCart(product, item.quantity);
+            count++;
+        });
+        notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
+        onNavigate('cart');
+    }
+
+    const handleOpenTrackingModal = (trackingCode) => {
+        setCurrentTrackingCode(trackingCode);
+        setIsTrackingModalOpen(true);
+    };
+
+    const handleOpenStatusModal = (statusDetails) => {
+        setSelectedStatusDetails(statusDetails);
+        setIsStatusModalOpen(true);
+    };
+
 
     return (
         <>
@@ -3111,26 +2720,134 @@ const MyProfileSection = ({ user }) => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500" />
+                                <input 
+                                    type="password" 
+                                    value={newPassword} 
+                                    onChange={e => setNewPassword(e.target.value)} 
+                                    placeholder="Mínimo 6 caracteres" 
+                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500"
+                                />
                             </div>
                             <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
                         </form>
                     </Modal>
                 )}
             </AnimatePresence>
+            
+            <AnimatePresence>
+            {isAddressModalOpen && (
+                <Modal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} title={`Alterar Endereço do Pedido #${editingOrder?.id}`}>
+                     <form onSubmit={handleSaveAddress} className="space-y-4">
+                        <input name="cep" value={addressForm.cep} onBlur={handleCepLookupInModal} onChange={handleAddressFormChange} placeholder="CEP" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <input name="logradouro" value={addressForm.logradouro} onChange={handleAddressFormChange} placeholder="Rua" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <div className="flex space-x-2">
+                            <input name="numero" value={addressForm.numero} onChange={handleAddressFormChange} placeholder="Nº" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                            <input name="complemento" value={addressForm.complemento} onChange={handleAddressFormChange} placeholder="Compl." className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        </div>
+                        <input name="bairro" value={addressForm.bairro} onChange={handleAddressFormChange} placeholder="Bairro" className="w-full p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        <div className="flex space-x-2">
+                            <input name="localidade" value={addressForm.localidade} onChange={handleAddressFormChange} placeholder="Cidade" className="w-2/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                            <input name="uf" value={addressForm.uf} onChange={handleAddressFormChange} placeholder="UF" className="w-1/3 p-2 bg-gray-100 border border-gray-300 rounded"/>
+                        </div>
+                        <button type="submit" disabled={!isAddressFormValid} className="w-full bg-gray-800 text-white font-bold py-2 rounded-md hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed">Salvar Endereço</button>
+                     </form>
+                </Modal>
+            )}
+            </AnimatePresence>
 
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
-            <div className="space-y-4 text-lg">
-                <div className="flex flex-col sm:flex-row">
-                    <strong className="w-24 text-gray-400">Nome:</strong>
-                    <span>{user?.name}</span>
-                </div>
-                <div className="flex flex-col sm:flex-row">
-                    <strong className="w-24 text-gray-400">Email:</strong>
-                    <span>{user?.email}</span>
+            <TrackingModal 
+                isOpen={isTrackingModalOpen}
+                onClose={() => setIsTrackingModalOpen(false)}
+                trackingCode={currentTrackingCode}
+            />
+            
+             <StatusDescriptionModal
+                isOpen={isStatusModalOpen}
+                onClose={() => setIsStatusModalOpen(false)}
+                details={selectedStatusDetails}
+            />
+
+            <div className="bg-black text-white min-h-screen py-12">
+                <div className="container mx-auto px-4">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-1 space-y-8">
+                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">Meus Dados</h2>
+                                 <div className="space-y-2">
+                                     <p><strong>Nome:</strong> {user?.name}</p>
+                                     <p><strong>Email:</strong> {user?.email}</p>
+                                     <button onClick={() => setIsPasswordModalOpen(true)} className="w-full mt-4 bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Alterar Senha</button>
+                                     <button onClick={() => { logout(); onNavigate('home'); }} className="w-full mt-2 bg-red-800 text-white font-bold py-2 rounded-md hover:bg-red-700">Sair</button>
+                                 </div>
+                             </div>
+                        </div>
+                        <div className="lg:col-span-2">
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                               <h2 className="text-2xl font-bold text-amber-400 mb-4">Histórico de Pedidos</h2>
+                               {orders.length > 0 ? (
+                                   <div className="space-y-6">
+                                       {orders.map(order => (
+                                           <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                                               <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                                                    <div>
+                                                       <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
+                                                       <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
+                                                    </div>
+                                                    <div className="text-left sm:text-right">
+                                                       <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                                    </div>
+                                               </div>
+                                               
+                                               <div className="my-6">
+                                                    <OrderStatusTimeline
+                                                        history={order.history || []}
+                                                        currentStatus={order.status}
+                                                        onStatusClick={handleOpenStatusModal}
+                                                    />
+                                               </div>
+
+                                                {order.tracking_code && (
+                                                    <div className="my-4 p-3 bg-gray-800 rounded-md">
+                                                        <p className="text-sm">
+                                                            <strong>Cód. Rastreio:</strong> {order.tracking_code}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                               <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
+                                                   {order.items.map(item => (
+                                                       <div key={item.id} className="flex items-center text-sm">
+                                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                                            <span>{item.quantity}x {item.name}</span>
+                                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                                                       </div>
+                                                   ))}
+                                               </div>
+                                                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
+                                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                                    {(order.status === 'Pendente' || order.status === 'Pagamento Aprovado') && (
+                                                        <button onClick={() => handleOpenAddressModal(order)} className="bg-blue-600 text-white text-sm px-4 py-1 rounded-md hover:bg-blue-700">
+                                                            Alterar Endereço
+                                                        </button>
+                                                    )}
+                                                    {order.tracking_code && (
+                                                        <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">
+                                                            Rastrear Pedido
+                                                        </button>
+                                                    )}
+                                                </div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               ) : (
+                                   <p className="text-gray-500">{message || "Você ainda não fez nenhum pedido."}</p>
+                               )}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-8 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
         </>
     );
 };
@@ -3350,13 +3067,11 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
             }
         });
 
-        if (fieldsConfig.some(f => f.name === 'images')) {
-            const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
-            dataToSubmit.images = JSON.stringify(imagesToSave);
-        }
-        delete dataToSubmit.images_upload; 
+        const imagesToSave = dataToSubmit.images ? dataToSubmit.images.filter(img => img && img.trim() !== '') : [];
+        const finalData = { ...dataToSubmit, images: JSON.stringify(imagesToSave) };
+        delete finalData.images_upload; 
 
-        onSave(dataToSubmit);
+        onSave(finalData);
     };
 
     return (
@@ -4547,7 +4262,7 @@ function AppContent() {
         'cart': <CartPage onNavigate={navigate} />,
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
-        'account': <MyAccountPage onNavigate={navigate} subPage={pageId} />,
+        'account': <MyAccountPage onNavigate={navigate} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
