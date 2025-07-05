@@ -265,11 +265,10 @@ const AuthProvider = ({ children }) => {
 };
 
 const ShopProvider = ({ children }) => {
-    const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+    const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
     
-    // ATUALIZAÇÃO: Sistema de Endereços e Frete
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '' });
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
@@ -305,22 +304,19 @@ const ShopProvider = ({ children }) => {
     }, [isAuthenticated]);
 
     const determineShippingLocation = useCallback(async () => {
-        // 1. Prioridade: Endereço padrão do usuário logado
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            const defaultAddr = userAddresses.find(addr => addr.is_default);
+            const defaultAddr = userAddresses.find(addr => addr.is_default) || userAddresses[0];
             if (defaultAddr) {
                 setShippingLocation({ cep: defaultAddr.cep, city: defaultAddr.localidade, state: defaultAddr.uf });
                 return;
             }
         }
         
-        // 2. Fallback: Geolocalização do navegador
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    // Usando uma API pública para reverter a geolocalização para CEP
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
                     if (data.address && data.address.postcode) {
@@ -344,7 +340,6 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            // Limpa tudo ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
@@ -353,51 +348,50 @@ const ShopProvider = ({ children }) => {
             setCouponCode('');
             setAppliedCoupon(null);
             setCouponMessage('');
-            determineShippingLocation(); // Tenta usar geolocalização para visitantes
+            determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    // Efeito para cálculo automático de frete
     useEffect(() => {
-        if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-            setIsLoadingShipping(true);
-            setShippingError('');
-            setAutoCalculatedShipping(null);
-            
-            const calculateAutoShipping = async () => {
-                try {
-                    const productsPayload = cart.map(item => ({
-                        id: String(item.id),
-                        price: item.price,
-                        quantity: item.qty || 1,
-                    }));
-                    const options = await apiService('/shipping/calculate', 'POST', {
-                        cep_destino: shippingLocation.cep,
-                        products: productsPayload,
-                    });
-                    
-                    const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-                    
-                    if (pacOption) {
-                        setAutoCalculatedShipping(pacOption);
-                    } else {
-                        setShippingError('Frete PAC não disponível para este CEP.');
+        const debounceTimer = setTimeout(() => {
+            if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+                setIsLoadingShipping(true);
+                setShippingError('');
+                setAutoCalculatedShipping(null);
+                
+                const calculateAutoShipping = async () => {
+                    try {
+                        const productsPayload = cart.map(item => ({
+                            id: String(item.id),
+                            price: item.price,
+                            quantity: item.qty || 1,
+                        }));
+                        const options = await apiService('/shipping/calculate', 'POST', {
+                            cep_destino: shippingLocation.cep,
+                            products: productsPayload,
+                        });
+                        
+                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        
+                        if (pacOption) {
+                            setAutoCalculatedShipping(pacOption);
+                        } else {
+                            setShippingError('Frete PAC não disponível para este CEP.');
+                            setAutoCalculatedShipping(null);
+                        }
+                    } catch (error) {
+                        setShippingError(error.message || 'Não foi possível calcular o frete.');
                         setAutoCalculatedShipping(null);
+                    } finally {
+                        setIsLoadingShipping(false);
                     }
-                } catch (error) {
-                    setShippingError(error.message || 'Não foi possível calcular o frete.');
-                    setAutoCalculatedShipping(null);
-                } finally {
-                    setIsLoadingShipping(false);
-                }
-            };
-            
-            const debounceTimer = setTimeout(calculateAutoShipping, 500);
-            return () => clearTimeout(debounceTimer);
-
-        } else {
-            setAutoCalculatedShipping(null);
-        }
+                };
+                calculateAutoShipping();
+            } else {
+                setAutoCalculatedShipping(null);
+            }
+        }, 500);
+        return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation]);
 
     
@@ -503,6 +497,7 @@ const ShopProvider = ({ children }) => {
             wishlist, addToCart, 
             addToWishlist, removeFromWishlist,
             updateQuantity, removeFromCart,
+            userName: user?.name,
             
             // Endereços e Frete
             addresses, fetchAddresses,
@@ -1355,10 +1350,9 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// --- NOVO COMPONENTE: CALCULADORA DE FRETE AUTOMÁTICA ---
-// CORREÇÃO: Exibição do valor real do frete
+// CORREÇÃO: Exibição do valor real do frete e nome do usuário
 const ShippingCalculator = ({ items }) => {
-    const { shippingLocation, setShippingLocation } = useShop();
+    const { shippingLocation, setShippingLocation, userName } = useShop();
     const [localCep, setLocalCep] = useState(shippingLocation.cep);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -1409,7 +1403,6 @@ const ShippingCalculator = ({ items }) => {
             setError("CEP inválido.");
             return;
         }
-        // Apenas para obter cidade/estado para exibição
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
@@ -1426,7 +1419,6 @@ const ShippingCalculator = ({ items }) => {
 
     const getDeliveryDate = (deliveryTime) => {
         const date = new Date();
-        // Adiciona dias úteis (simplificado: não conta fins de semana)
         let addedDays = 0;
         while (addedDays < deliveryTime) {
             date.setDate(date.getDate() + 1);
@@ -1435,6 +1427,14 @@ const ShippingCalculator = ({ items }) => {
             }
         }
         return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    };
+
+    const getDestinationText = () => {
+        const firstName = userName ? userName.split(' ')[0] : '';
+        if (shippingLocation.city) {
+            return `${firstName ? `Enviar para ${firstName} - ` : 'Entregar em '}${shippingLocation.city}, ${shippingLocation.cep}`;
+        }
+        return 'Calcular frete e prazo';
     };
 
     return (
@@ -1479,13 +1479,13 @@ const ShippingCalculator = ({ items }) => {
                             </p>
                             <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
                                 <MapPinIcon className="h-4 w-4"/>
-                                <span>Entregando em {shippingLocation.city}, {shippingLocation.cep}</span>
-                                <button onClick={() => setIsEditing(true)} className="text-amber-400 hover:underline">Atualizar local</button>
+                                <span>{getDestinationText()}</span>
+                                <button onClick={() => setIsEditing(true)} className="text-amber-400 hover:underline ml-auto">Atualizar</button>
                             </div>
                         </div>
                     ) : (
                          <div>
-                            <p className="text-gray-400">Calcule o frete para seu endereço.</p>
+                            <p className="text-gray-400">{getDestinationText()}</p>
                             <button onClick={() => setIsEditing(true)} className="text-sm text-amber-400 hover:underline">Informar CEP</button>
                         </div>
                     )}
