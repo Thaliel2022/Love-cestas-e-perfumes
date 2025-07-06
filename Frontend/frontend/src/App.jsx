@@ -831,7 +831,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     >
                         {product.name}
                     </h4>
-                    <div className="flex items-center mt-2">
+                    <div className="flex items-center mt-2 h-5">
                         {[...Array(5)].map((_, i) => (
                             <StarIcon 
                                 key={i} 
