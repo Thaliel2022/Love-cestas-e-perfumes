@@ -43,7 +43,7 @@ const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
-    cpf = String(cpf).replace(/[^\d]/g, '');
+    cpf = String(cpf).replace(/[^\d]/g, ''); 
     if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
     let sum = 0, remainder;
     for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
@@ -857,13 +857,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50; 
 
+    // ATUALIZAÇÃO: Ajustado para exibir 2 produtos no mobile e 3 em tablets.
     const updateItemsPerPage = useCallback(() => {
-        const width = window.innerWidth;
-        if (width < 768) { // Celulares e tablets pequenos (vertical)
+        if (window.innerWidth < 768) { // Mobile e tablets pequenos (abaixo de 'md')
             setItemsPerPage(2);
-        } else if (width < 1280) { // Tablets maiores e desktops pequenos
+        } else if (window.innerWidth < 1024) { // Tablets médios (entre 'md' e 'lg')
             setItemsPerPage(3);
-        } else { // Desktops grandes
+        } else { // Desktops (acima de 'lg')
             setItemsPerPage(4);
         }
     }, []);
@@ -1348,6 +1348,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
+
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
