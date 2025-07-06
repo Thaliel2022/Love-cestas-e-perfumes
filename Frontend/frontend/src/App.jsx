@@ -317,7 +317,6 @@ const ShopProvider = ({ children }) => {
         return false; // Retorna false se nenhum endereço foi encontrado
     }, []);
 
-    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
 
@@ -522,7 +521,6 @@ const ShopProvider = ({ children }) => {
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
-            // CORREÇÃO: Expondo a função para ser usada em outros componentes
             determineShippingLocation,
 
             // Cupons
@@ -741,7 +739,7 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
-
+// ATUALIZAÇÃO: Componente ProductCard corrigido para ter altura padronizada e imagem responsiva.
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -819,36 +817,52 @@ const ProductCard = memo(({ product, onNavigate }) => {
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white"
         >
-            <div className="relative h-64 bg-white">
+            {/* CORREÇÃO: 'h-64' trocado por 'aspect-square' para manter a proporção da imagem e evitar distorção */}
+            <div className="relative aspect-square bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
-            <div className="p-5 flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                <div className="flex items-center mt-2">
-                    {[...Array(5)].map((_, i) => (
-                        <StarIcon 
-                            key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                            isFilled={i < avgRating}
-                        />
-                    ))}
+
+            {/* CORREÇÃO: Adicionado 'flex-grow' para a área de conteúdo se expandir e padronizar a altura do card */}
+            <div className="p-5 flex flex-col flex-grow">
+                 {/* Área de texto que se expande */}
+                <div className="flex-grow">
+                    <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                    {/* CORREÇÃO: Título com altura mínima e truncamento para padronizar o layout */}
+                    <h4 
+                        title={product.name}
+                        className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[56px] line-clamp-2" 
+                        onClick={() => onNavigate(`product/${product.id}`)}
+                    >
+                        {product.name}
+                    </h4>
+                    <div className="flex items-center mt-2">
+                        {[...Array(5)].map((_, i) => (
+                            <StarIcon 
+                                key={i} 
+                                className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                                isFilled={i < avgRating}
+                            />
+                        ))}
+                    </div>
                 </div>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                    </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
+                
+                {/* CORREÇÃO: Área de preço e botões alinhada na parte inferior com 'mt-auto' */}
+                <div className="mt-auto pt-4">
+                    <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                    <div className="mt-4 flex items-stretch space-x-2">
+                        <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                            {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                        </button>
+                        <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                            {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                        </button>
+                    </div>
                 </div>
             </div>
         </motion.div>
     );
 });
-
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -856,13 +870,12 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50; 
 
-    // ATUALIZAÇÃO: Ajustado para exibir 2 produtos no mobile e 3 em tablets.
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 768) { // Mobile e tablets pequenos (abaixo de 'md')
+        if (window.innerWidth < 768) { 
             setItemsPerPage(2);
-        } else if (window.innerWidth < 1024) { // Tablets médios (entre 'md' e 'lg')
+        } else if (window.innerWidth < 1024) { 
             setItemsPerPage(3);
-        } else { // Desktops (acima de 'lg')
+        } else { 
             setItemsPerPage(4);
         }
     }, []);
@@ -3039,7 +3052,6 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
@@ -3066,7 +3078,7 @@ const MyAddressesSection = () => {
                 notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation(); 
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3079,7 +3091,7 @@ const MyAddressesSection = () => {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
                 await fetchAddresses();
-                determineShippingLocation(); // Força a reavaliação da localização
+                determineShippingLocation(); 
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3091,7 +3103,7 @@ const MyAddressesSection = () => {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation(); 
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
