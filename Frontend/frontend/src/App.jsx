@@ -43,7 +43,7 @@ const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
-    cpf = String(cpf).replace(/[^\d]/g, ''); 
+    cpf = String(cpf).replace(/[^\d]/g, '');
     if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
     let sum = 0, remainder;
     for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
@@ -802,8 +802,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         };
 
         return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
-                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
+            <button onClick={handleWishlistToggle} className={`absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
             </button>
         );
     };
@@ -816,34 +816,32 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            whileHover={{ y: -5, scale: 1.02, boxShadow: "0px 10px 25px -8px rgba(212, 175, 55, 0.2)" }}
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            {/* ATUALIZAÇÃO: Trocado h-64 por aspect-square para corrigir a proporção em telas menores */}
-            <div className="relative aspect-square bg-white">
+            <div className="relative w-full aspect-square bg-white p-2">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
-            <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+            <div className="p-3 md:p-4 flex-grow flex flex-col">
+                 <p className="text-xs text-amber-400 font-semibold tracking-wider uppercase">{product.brand}</p>
+                <h4 className="text-base md:text-lg font-bold tracking-tight mt-1 cursor-pointer hover:text-amber-400 flex-grow" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                 <div className="flex items-center mt-2">
                     {[...Array(5)].map((_, i) => (
                         <StarIcon 
                             key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
                             isFilled={i < avgRating}
                         />
                     ))}
                 </div>
-                <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                <p className="text-xl md:text-2xl font-light text-white mt-3">R$ {Number(product.price).toFixed(2)}</p>
+                <div className="mt-3 flex items-stretch space-x-2">
+                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
                     </button>
                     <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                        {isAddingToCart ? <SpinnerIcon className="text-amber-400 h-5 w-5" /> : <CartIcon className="h-5 w-5"/>}
                     </button>
                 </div>
             </div>
@@ -858,13 +856,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50; 
 
-    // ATUALIZAÇÃO: Ajustado para exibir 2 produtos no mobile e 3 em tablets.
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 768) { // Mobile e tablets pequenos (abaixo de 'md')
+        const width = window.innerWidth;
+        if (width < 768) { // Celulares e tablets pequenos (vertical)
             setItemsPerPage(2);
-        } else if (window.innerWidth < 1024) { // Tablets médios (entre 'md' e 'lg')
+        } else if (width < 1280) { // Tablets maiores e desktops pequenos
             setItemsPerPage(3);
-        } else { // Desktops (acima de 'lg')
+        } else { // Desktops grandes
             setItemsPerPage(4);
         }
     }, []);
@@ -933,14 +931,14 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
                 onTouchEnd={handleTouchEnd}
             >
                 <motion.div
-                    className="flex -mx-2 md:-mx-4"
+                    className="flex -mx-2"
                     animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
                     transition={{ type: 'spring', stiffness: 350, damping: 40 }}
                 >
                     {products.map(product => (
                         <div 
                             key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4"
+                            className="flex-shrink-0 px-2"
                             style={{ width: `${100 / itemsPerPage}%` }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
@@ -1280,8 +1278,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     
     const ProductSkeleton = () => (
         <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
-            <div className="h-64 bg-gray-700"></div>
-            <div className="p-5 flex-grow flex flex-col">
+            <div className="w-full aspect-square bg-gray-700"></div>
+            <div className="p-4 flex-grow flex flex-col">
                 <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
                 <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
                 <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
@@ -1326,7 +1324,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             variants={gridContainerVariants}
                             initial="hidden"
                             animate="visible"
-                            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                            className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"
                         >
                            {isLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
@@ -1349,7 +1347,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
-
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
