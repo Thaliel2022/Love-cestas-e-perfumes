@@ -825,8 +825,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
             </div>
             <div className="p-3 md:p-4 flex-grow flex flex-col">
                  <p className="text-xs text-amber-400 font-semibold tracking-wider uppercase">{product.brand}</p>
-                <h4 className="text-base md:text-lg font-bold tracking-tight mt-1 cursor-pointer hover:text-amber-400 flex-grow" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                <div className="flex items-center mt-2">
+                <h4 
+                    className="text-base md:text-lg font-bold tracking-tight mt-1 cursor-pointer hover:text-amber-400 h-12"
+                    onClick={() => onNavigate(`product/${product.id}`)}
+                    title={product.name}
+                >
+                    {product.name}
+                </h4>
+                <div className="flex items-center">
                     {[...Array(5)].map((_, i) => (
                         <StarIcon 
                             key={i} 
@@ -835,8 +841,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         />
                     ))}
                 </div>
-                <p className="text-xl md:text-2xl font-light text-white mt-3">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-3 flex items-stretch space-x-2">
+                
+                <div className="flex-grow" />
+
+                <p className="text-xl md:text-2xl font-light text-white mt-2">R$ {Number(product.price).toFixed(2)}</p>
+                <div className="mt-2 flex items-stretch space-x-2">
                     <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
                     </button>
