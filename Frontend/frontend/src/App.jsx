@@ -43,7 +43,7 @@ const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
-    cpf = String(cpf).replace(/[^\d]/g, ''); 
+    cpf = String(cpf).replace(/[^\d]/g, '');
     if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
     let sum = 0, remainder;
     for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
@@ -858,9 +858,14 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const minSwipeDistance = 50; 
 
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 640) setItemsPerPage(1);
-        else if (window.innerWidth < 1024) setItemsPerPage(2);
-        else setItemsPerPage(4);
+        const width = window.innerWidth;
+        if (width < 768) { // Celulares e tablets pequenos (vertical)
+            setItemsPerPage(2);
+        } else if (width < 1280) { // Tablets maiores e desktops pequenos
+            setItemsPerPage(3);
+        } else { // Desktops grandes
+            setItemsPerPage(4);
+        }
     }, []);
 
     useEffect(() => {
@@ -1343,7 +1348,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
-
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
