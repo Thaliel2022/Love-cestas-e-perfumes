@@ -317,7 +317,7 @@ const ShopProvider = ({ children }) => {
         return false; // Retorna false se nenhum endereço foi encontrado
     }, []);
 
-    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para usar geolocalização como fallback para usuários logados sem endereço.
+    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
 
@@ -332,7 +332,6 @@ const ShopProvider = ({ children }) => {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    // Usando uma API de geocodificação reversa que não requer chave
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                     const data = await response.json();
                     if (data.address && data.address.postcode) {
@@ -354,7 +353,6 @@ const ShopProvider = ({ children }) => {
 
         if (isAuthenticated) {
             fetchPersistentCart();
-            // A determinação da localização agora lida com todos os casos
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
@@ -367,7 +365,7 @@ const ShopProvider = ({ children }) => {
             setCouponCode('');
             setAppliedCoupon(null);
             setCouponMessage('');
-            determineShippingLocation(); // Tenta usar geolocalização para usuários não logados
+            determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
@@ -524,6 +522,8 @@ const ShopProvider = ({ children }) => {
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
+            // CORREÇÃO: Expondo a função para ser usada em outros componentes
+            determineShippingLocation,
 
             // Cupons
             couponCode, setCouponCode,
@@ -1369,7 +1369,6 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// CORREÇÃO: Layout do calculador de frete melhorado para responsividade e cor do input corrigida.
 const ShippingCalculator = memo(({ items }) => {
     const { addresses, shippingLocation, setShippingLocation } = useShop();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1484,7 +1483,6 @@ const ShippingCalculator = memo(({ items }) => {
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
-                                {/* CORREÇÃO: Adicionada classe text-gray-900 para garantir visibilidade do texto */}
                                 <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
                              </div>
@@ -1496,7 +1494,6 @@ const ShippingCalculator = memo(({ items }) => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="space-y-2">
-                    {/* CORREÇÃO: Layout flexível para telas pequenas */}
                     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                         <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
                             <MapPinIcon className="h-4 w-4 flex-shrink-0" />
@@ -2297,7 +2294,7 @@ const WishlistPage = ({ onNavigate }) => {
         </div>
     );
 };
-// --- NOVO COMPONENTE: FORMULÁRIO DE ENDEREÇO REUTILIZÁVEL ---
+
 const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
         alias: '',
@@ -2395,9 +2392,7 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
         </form>
     );
 };
-// --- INÍCIO DA PARTE 2 ---
 
-// MELHORIA: Modal para seleção de endereço no checkout
 const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
@@ -2935,7 +2930,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
     );
 };
 
-// Componente para exibir quando uma lista está vazia
 const EmptyState = ({ icon, title, message, buttonText, onButtonClick }) => (
     <div className="text-center py-10 sm:py-16 px-4">
         <div className="mx-auto w-fit p-4 bg-gray-800 rounded-full text-amber-400 mb-4">
@@ -3042,8 +3036,9 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
+// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
-    const { addresses, fetchAddresses, updateDefaultShippingLocation } = useShop();
+    const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3067,8 +3062,8 @@ const MyAddressesSection = () => {
                 await apiService('/addresses', 'POST', formData);
                 notification.show('Endereço adicionado!');
             }
-            const updatedAddresses = await fetchAddresses(); 
-            updateDefaultShippingLocation(updatedAddresses); 
+            await fetchAddresses();
+            determineShippingLocation(); // Força a reavaliação da localização
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3080,8 +3075,8 @@ const MyAddressesSection = () => {
             try {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
-                const updatedAddresses = await fetchAddresses(); 
-                updateDefaultShippingLocation(updatedAddresses); 
+                await fetchAddresses();
+                determineShippingLocation(); // Força a reavaliação da localização
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3092,8 +3087,8 @@ const MyAddressesSection = () => {
         try {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
-            const updatedAddresses = await fetchAddresses(); 
-            updateDefaultShippingLocation(updatedAddresses); 
+            await fetchAddresses();
+            determineShippingLocation(); // Força a reavaliação da localização
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
