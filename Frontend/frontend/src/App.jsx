@@ -802,8 +802,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         };
 
         return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
-                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
+            <button onClick={handleWishlistToggle} className={`absolute top-2 right-2 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
             </button>
         );
     };
@@ -816,34 +816,47 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            whileHover={{ y: -5, scale: 1.02, boxShadow: "0px 10px 25px -8px rgba(212, 175, 55, 0.2)" }}
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            <div className="relative h-64 bg-white">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
+            <div className="relative aspect-square bg-white" onClick={() => onNavigate(`product/${product.id}`)}>
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" />
                  <WishlistButton product={product} />
             </div>
-            <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                <div className="flex items-center mt-2">
-                    {[...Array(5)].map((_, i) => (
-                        <StarIcon 
-                            key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                            isFilled={i < avgRating}
-                        />
-                    ))}
+            
+            {/* ATUALIZAÇÃO: Estrutura do conteúdo do card totalmente refeita para corrigir o espaçamento e o corte de texto. */}
+            <div className="p-4 flex flex-col flex-grow">
+                <div className="flex-grow">
+                    <p className="text-xs text-amber-400 font-semibold tracking-wider uppercase">{product.brand}</p>
+                    <h4 
+                        className="font-bold tracking-normal mt-1 cursor-pointer hover:text-amber-400 text-sm leading-tight line-clamp-2"
+                        style={{ minHeight: '2.5rem' }} // Garante espaço para duas linhas
+                        title={product.name}
+                        onClick={() => onNavigate(`product/${product.id}`)}
+                    >
+                        {product.name}
+                    </h4>
+                    <div className="flex items-center mt-1">
+                        {[...Array(5)].map((_, i) => (
+                            <StarIcon 
+                                key={i} 
+                                className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                                isFilled={i < avgRating}
+                            />
+                        ))}
+                    </div>
                 </div>
-                <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                    </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
+                
+                <div className="pt-2 mt-auto">
+                    <p className="text-xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                    <div className="mt-2 flex items-stretch space-x-2">
+                        <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-xs text-center flex items-center justify-center disabled:opacity-50">
+                            {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                        </button>
+                        <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                            {isAddingToCart ? <SpinnerIcon className="text-amber-400 h-5 w-5" /> : <CartIcon className="h-5 w-5"/>}
+                        </button>
+                    </div>
                 </div>
             </div>
         </motion.div>
