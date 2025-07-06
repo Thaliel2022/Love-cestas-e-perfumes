@@ -815,29 +815,24 @@ const ProductCard = memo(({ product, onNavigate }) => {
         <motion.div 
             variants={cardVariants}
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            // Adicionado h-full para que o card ocupe a altura total da célula do grid
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            {/* Usado aspect-square para manter a proporção da imagem e ser responsivo */}
             <div className="relative w-full aspect-square bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer p-2" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
-            {/* Adicionado flex-grow para que esta área ocupe o espaço restante */}
             <div className="p-5 flex flex-col flex-grow">
-                <div> {/* Agrupador para o conteúdo do topo */}
+                <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    {/* Altura fixa para o título para garantir consistência */}
                     <h4
-                        className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 h-14 overflow-hidden"
+                        className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400"
                         onClick={() => onNavigate(`product/${product.id}`)}
                         title={product.name}
                     >
                         {product.name}
                     </h4>
-                    {/* Altura mínima para a área de avaliação para manter o alinhamento */}
-                    <div className="flex items-center mt-2 min-h-[20px]">
-                        {avgRating > 0 && [...Array(5)].map((_, i) => (
+                    <div className="flex items-center mt-2">
+                        {[...Array(5)].map((_, i) => (
                             <StarIcon 
                                 key={i} 
                                 className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
@@ -846,7 +841,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         ))}
                     </div>
                 </div>
-                {/* mt-auto empurra o preço e os botões para o final do card */}
                 <div className="mt-auto pt-4">
                     <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                     <div className="mt-4 flex items-stretch space-x-2">
@@ -1294,7 +1288,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             <div className="w-full aspect-square bg-gray-700"></div>
             <div className="p-5 flex flex-col flex-grow">
                 <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-                <div className="h-14 bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
                 <div className="h-5 bg-gray-700 rounded w-1/2"></div>
                 <div className="mt-auto pt-4">
                     <div className="h-8 bg-gray-700 rounded w-1/3 mb-4"></div>
@@ -1362,7 +1356,6 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
-
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
 
@@ -1546,6 +1539,7 @@ const ShippingCalculator = memo(({ items }) => {
         </>
     );
 });
+
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
