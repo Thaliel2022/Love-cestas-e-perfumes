@@ -819,7 +819,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            <div className="relative h-64 bg-white">
+            {/* ATUALIZAÇÃO: Trocado h-64 por aspect-square para corrigir a proporção em telas menores */}
+            <div className="relative aspect-square bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
