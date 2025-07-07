@@ -1158,7 +1158,7 @@ const HomePage = ({ onNavigate }) => {
 
     const categoryCards = [
         { name: "Perfumes Masculinos", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        { name: "Perfumes Femininos", image: "https://sdmntprwestus.oaiusercontent.com/files/00000000-6250-6230-b3ff-3ce2c2ed9737/raw?se=2025-07-07T06%3A55%3A02Z&sp=r&sv=2024-08-04&sr=b&scid=55e98598-fe34-5fdd-a5dc-e0ba3b590183&skoid=7399a3a4-0259-4d43-bcd6-a56ceeb4c28b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-07T01%3A36%3A05Z&ske=2025-07-08T01%3A36%3A05Z&sks=b&skv=2024-08-04&sig=cT8BrzQtqnQFTagZLg/FHcEwNd3jk0Y%2BgdDXsQ73KBs%3D", filter: "Feminino" },
+        { name: "Perfumes Femininos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867985/snqqq1qpjbw1s7njfvwx.png", filter: "Feminino" },
         { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
     ];
 
@@ -1182,7 +1182,7 @@ const HomePage = ({ onNavigate }) => {
     return (
       <>
         <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
-          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-5e78-61f7-8781-cf6b3f176f41/raw?se=2025-07-07T06%3A24%3A14Z&sp=r&sv=2024-08-04&sr=b&scid=88dbdc16-5091-54f6-9502-975e4300e8bd&skoid=71e8fa5c-90a9-4c17-827b-14c3005164d6&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-06T12%3A12%3A02Z&ske=2025-07-07T12%3A12%3A02Z&sks=b&skv=2024-08-04&sig=ZNsBZZKlPliRRO/d181Xoqrd02/4OIiXPaorKZNp61Y%3D')"}}></div>
+          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png')"}}></div>
           <motion.div 
             className="relative z-10 text-center p-4"
             variants={bannerVariants}
