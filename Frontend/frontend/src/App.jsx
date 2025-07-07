@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
-// --- ÍCONES SVG ---
+// --- ÍCONES SVG (Otimizados para o novo design) ---
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -204,7 +204,7 @@ const parseImages = (imagesJsonString, placeholder) => {
 };
 
 
-const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
+const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/E5E7EB/A0AEC0?text=Produto') => {
     const images = parseImages(imagesJsonString, placeholder);
     return images[0] || placeholder;
 };
@@ -312,12 +312,11 @@ const ShopProvider = ({ children }) => {
                 state: defaultAddr.uf,
                 alias: defaultAddr.alias
             });
-            return true; // Retorna true se um endereço foi definido
+            return true;
         }
-        return false; // Retorna false se nenhum endereço foi encontrado
+        return false;
     }, []);
 
-    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
 
@@ -356,7 +355,6 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            // Limpa o estado ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
@@ -515,17 +513,14 @@ const ShopProvider = ({ children }) => {
             updateQuantity, removeFromCart,
             userName: user?.name,
             
-            // Endereços e Frete
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
-            // CORREÇÃO: Expondo a função para ser usada em outros componentes
             determineShippingLocation,
 
-            // Cupons
             couponCode, setCouponCode,
             couponMessage,
             applyCoupon,
@@ -626,7 +621,7 @@ const ConfirmationProvider = ({ children }) => {
                     <Modal isOpen={true} onClose={confirmationState.onCancel} title="Confirmação">
                         <p className="text-gray-700 mb-6">{confirmationState.message}</p>
                         <div className="flex justify-end space-x-4">
-                            <button onClick={confirmationState.onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button onClick={confirmationState.onCancel} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
                             <button onClick={confirmationState.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar</button>
                         </div>
                     </Modal>
@@ -647,9 +642,9 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   };
 
   const modalVariants = {
-      hidden: { y: "-50vh", opacity: 0 },
-      visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } },
-      exit: { y: "50vh", opacity: 0 }
+      hidden: { y: "-50px", opacity: 0, scale: 0.95 },
+      visible: { y: 0, opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 30 } },
+      exit: { y: "50px", opacity: 0, scale: 0.95 }
   };
 
   const sizeClasses = {
@@ -661,7 +656,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
 
   return (
     <motion.div 
-      className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" 
+      className="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4" 
       variants={backdropVariants}
       initial="hidden"
       animate="visible"
@@ -669,13 +664,13 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       onClick={onClose}
     >
       <motion.div 
-        className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${sizeClasses[size]}`} 
+        className={`bg-white rounded-xl shadow-2xl w-full flex flex-col ${sizeClasses[size]}`} 
         style={{ maxHeight: '90vh' }} 
         variants={modalVariants}
         onClick={e => e.stopPropagation()}
       >
         <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+            <h2 className="text-xl font-bold text-gray-800">{title}</h2>
             <button onClick={onClose} className="text-3xl text-gray-400 hover:text-gray-600 leading-none">&times;</button>
         </div>
         <div className="flex-grow p-6 overflow-y-auto">
@@ -802,8 +797,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         };
 
         return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
-                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-white/70 p-2 rounded-full text-gray-700 backdrop-blur-sm transition ${isWishlisted ? 'text-amber-500' : 'hover:text-amber-500'}`}>
+                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
             </button>
         );
     };
@@ -816,33 +811,33 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
+            whileHover={{ y: -5, boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)" }}
+            className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col group text-gray-800 h-full transition-shadow duration-300"
         >
-            <div className="relative h-64 bg-white">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
+            <div className="relative h-64 bg-gray-100">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer p-4" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
             <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                 <p className="text-xs text-gray-500 font-semibold tracking-wider uppercase">{product.brand}</p>
+                <h4 className="text-lg font-semibold tracking-tight mt-1 cursor-pointer hover:text-amber-600" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                 <div className="flex items-center mt-2">
                     {[...Array(5)].map((_, i) => (
                         <StarIcon 
                             key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-300'}`} 
                             isFilled={i < avgRating}
                         />
                     ))}
                 </div>
                 <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                <p className="text-2xl font-light text-gray-900 mt-4">R$ {Number(product.price).toFixed(2)}</p>
                 <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-slate-800 text-white py-2 px-4 rounded-md hover:bg-slate-700 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
                     </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-slate-300 text-slate-600 p-2 rounded-md hover:bg-slate-100 transition flex items-center justify-center disabled:opacity-50">
+                        {isAddingToCart ? <SpinnerIcon className="text-slate-600" /> : <CartIcon className="h-6 w-6"/>}
                     </button>
                 </div>
             </div>
@@ -919,7 +914,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
     return (
         <div className="relative">
-            {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+            {title && <h2 className="text-3xl md:text-4xl font-bold text-slate-800 text-center mb-10">{title}</h2>}
             <div 
                 className="overflow-hidden cursor-grab active:cursor-grabbing"
                 onTouchStart={handleTouchStart}
@@ -945,10 +940,10 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
             {products.length > itemsPerPage && (
                 <>
-                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
+                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity backdrop-blur-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
+                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity backdrop-blur-sm">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                 </>
@@ -1014,9 +1009,9 @@ const Header = memo(({ onNavigate }) => {
 
     const navLinks = (
         <>
-            <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Início</a>
-            <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Catálogo</a>
-            <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Ajuda</a>
+            <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 text-gray-700 hover:text-amber-600 transition">Início</a>
+            <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 text-gray-700 hover:text-amber-600 transition">Catálogo</a>
+            <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 text-gray-700 hover:text-amber-600 transition">Ajuda</a>
         </>
     );
 
@@ -1026,31 +1021,31 @@ const Header = memo(({ onNavigate }) => {
     }
 
     return (
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+        <header className="bg-white/80 backdrop-blur-md text-slate-800 shadow-sm sticky top-0 z-40">
             <nav className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-600">LoveCestas</a>
                 
-                <div className="hidden md:flex items-center space-x-8">
+                <div className="hidden md:flex items-center space-x-8 font-medium">
                     {navLinks}
                 </div>
 
                 <div className="flex items-center space-x-4">
                      <div className="relative hidden md:block">
-                        <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full">
+                        <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-100 rounded-full">
                            <input 
                                 type="text" value={searchTerm} 
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                                 placeholder="Buscar..." 
-                                className="bg-transparent text-white px-4 py-1 rounded-l-full focus:outline-none w-32 md:w-40 transition-all duration-300 focus:w-48"/>
-                           <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
+                                className="bg-transparent text-gray-800 px-4 py-1 rounded-l-full focus:outline-none w-32 md:w-40 transition-all duration-300 focus:w-48"/>
+                           <button type="submit" className="p-2 text-gray-500 hover:text-gray-800 rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
                         </form>
                         {isSearchFocused && searchSuggestions.length > 0 && (
-                            <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
+                            <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-md shadow-lg z-50">
                                 {searchSuggestions.map(p => (
                                     <div key={p.id} onClick={() => handleSuggestionClick(p.name)}
-                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800"
                                     >
                                         {p.name}
                                     </div>
@@ -1060,38 +1055,38 @@ const Header = memo(({ onNavigate }) => {
                     </div>
 
                     {isAuthenticated && user.role === 'admin' && (
-                        <button onClick={() => onNavigate('admin/dashboard')} className="hidden md:flex items-center space-x-2 bg-amber-500 text-black px-3 py-1 rounded-md hover:bg-amber-400 font-bold transition">
+                        <button onClick={() => onNavigate('admin/dashboard')} className="hidden md:flex items-center space-x-2 bg-slate-200 text-slate-800 px-3 py-1 rounded-md hover:bg-slate-300 font-bold transition">
                             <AdminIcon className="h-5 w-5" />
                             <span>Admin</span>
                         </button>
                     )}
 
-                    <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
+                    <button onClick={() => onNavigate('wishlist')} className="relative text-gray-600 hover:text-amber-600 transition">
                         <HeartIcon className="h-6 w-6"/>
-                        {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
+                        {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
                     </button>
                     
-                    <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition">
+                    <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative text-gray-600 hover:text-amber-600 transition">
                         <CartIcon className="h-6 w-6"/>
-                        {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                        {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
                     </motion.button>
                     
                     <div className="hidden md:block">
                         {isAuthenticated ? (
                             <div className="relative group">
-                               <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
-                               <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
-                                   <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
-                                   <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
-                                   <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
+                               <button className="text-gray-600 hover:text-amber-600 transition p-1"><UserIcon className="h-6 w-6"/></button>
+                               <div className="absolute top-full right-0 w-48 bg-white rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-200">
+                                   <span className="block px-4 py-2 text-sm text-gray-500">Olá, {user.name}</span>
+                                   <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100">Minha Conta</a>
+                                   <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-gray-800 hover:bg-gray-100">Sair</a>
                                </div>
                             </div>
                         ) : (
-                            <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                            <button onClick={() => onNavigate('login')} className="bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-700 transition font-bold text-sm">Login</button>
                         )}
                     </div>
 
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 hover:text-amber-400">
+                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 text-gray-600 hover:text-amber-600">
                         {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
                     </button>
                 </div>
@@ -1104,31 +1099,31 @@ const Header = memo(({ onNavigate }) => {
                         initial="closed"
                         animate="open"
                         exit="closed"
-                        className="md:hidden absolute top-full left-0 w-full bg-black/95 backdrop-blur-sm z-30 px-6 pb-6 space-y-4 origin-top"
+                        className="md:hidden absolute top-full left-0 w-full bg-white/95 backdrop-blur-sm z-30 px-6 pb-6 space-y-4 origin-top shadow-lg"
                      >
                          <div className="relative">
-                            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full w-full">
-                               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Buscar..." className="bg-transparent text-white px-4 py-2 rounded-l-full focus:outline-none w-full"/>
-                               <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
+                            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-100 rounded-full w-full">
+                               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Buscar..." className="bg-transparent text-gray-800 px-4 py-2 rounded-l-full focus:outline-none w-full"/>
+                               <button type="submit" className="p-2 text-gray-500 hover:text-gray-800 rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
                             </form>
                             {isSearchFocused && searchSuggestions.length > 0 && (
-                                <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
+                                <div className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-md shadow-lg z-50">
                                     {searchSuggestions.map(p => (
-                                        <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white">{p.name}</div>
+                                        <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-800">{p.name}</div>
                                     ))}
                                 </div>
                             )}
                          </div>
                         {navLinks}
-                        <div className="border-t border-gray-800 pt-4 space-y-3">
+                        <div className="border-t border-gray-200 pt-4 space-y-3">
                             {isAuthenticated ? (
                                 <>
-                                    <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
-                                    {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
-                                    <button onClick={() => { logout(); onNavigate('home'); setIsMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
+                                    <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMenuOpen(false); }} className="block text-gray-700 hover:text-amber-600">Minha Conta</a>
+                                    {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMenuOpen(false);}} className="block text-amber-600 hover:text-amber-500 font-bold">Painel Admin</a>}
+                                    <button onClick={() => { logout(); onNavigate('home'); setIsMenuOpen(false); }} className="w-full text-left text-gray-700 hover:text-amber-600">Sair</button>
                                 </>
                             ) : (
-                                <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                                <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-left bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-700 transition font-bold">Login</button>
                             )}
                         </div>
                     </motion.div>
@@ -1157,9 +1152,9 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     const categoryCards = [
-        { name: "Masculino", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        { name: "Feminino", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
-        { name: "Unissex", image: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?q=80&w=800&auto=format&fit=crop", filter: "Unissex" }
+        { name: "Perfumes Masculinos", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
+        { name: "Perfumes Femininos", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
+        { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "roupas" }
     ];
 
     const bannerVariants = {
@@ -1181,37 +1176,37 @@ const HomePage = ({ onNavigate }) => {
 
     return (
       <>
-        <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
-          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://img.freepik.com/premium-photo/black-gold-background-with-perfume-bottle-word-perfume-it_871710-18683.jpg')"}}></div>
+        <section className="relative h-[80vh] sm:h-[70vh] flex items-center justify-center text-slate-800 bg-gray-100">
+          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://images.unsplash.com/photo-1594035918253-8a3554a1f658?q=80&w=1920&auto=format&fit=crop')"}}></div>
           <motion.div 
             className="relative z-10 text-center p-4"
             variants={bannerVariants}
             initial="hidden"
             animate="visible"
           >
-              <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg">Elegância em Cada Gota</motion.h1>
-              <motion.p variants={itemVariants} className="text-lg md:text-xl mt-4 text-gray-300">Descubra fragrâncias que definem momentos.</motion.p>
+              <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight">Elegância que Veste e Perfuma</motion.h1>
+              <motion.p variants={itemVariants} className="text-lg md:text-xl mt-4 text-gray-600 max-w-2xl mx-auto">Descubra fragrâncias e peças que definem seu estilo e marcam momentos.</motion.p>
               <motion.div variants={itemVariants}>
-                <button onClick={() => onNavigate('products')} className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">Explorar Coleção</button>
+                <button onClick={() => onNavigate('products')} className="mt-8 bg-slate-800 text-white px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-slate-700 transition-colors">Explorar Coleção</button>
               </motion.div>
           </motion.div>
         </section>
         
-        <section className="bg-black text-white py-12 md:py-16">
+        <section className="bg-white text-slate-800 py-16 md:py-20">
           <div className="container mx-auto px-4">
               <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
           </div>
         </section>
         
-        <section className="bg-gray-900 text-white py-12 md:py-16">
+        <section className="bg-gray-50 text-slate-800 py-16 md:py-20">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Navegue por Categoria</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
                     {categoryCards.map(cat => (
-                        <div key={cat.name} className="relative rounded-lg overflow-hidden h-64 md:h-80 group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                        <div key={cat.name} className="relative rounded-lg overflow-hidden h-64 md:h-80 group cursor-pointer shadow-lg" onClick={() => cat.filter !== 'roupas' && onNavigate(`products?category=${cat.filter}`)}>
                             <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <h3 className="text-2xl md:text-3xl font-bold text-white tracking-wider">{cat.name}</h3>
+                            <div className={`absolute inset-0 flex items-center justify-center p-4 ${cat.filter === 'roupas' ? 'bg-black/50' : 'bg-black/30 group-hover:bg-black/40'} transition-colors`}>
+                                <h3 className="text-2xl md:text-3xl font-bold text-white tracking-wider text-center">{cat.name}</h3>
                             </div>
                         </div>
                     ))}
@@ -1219,7 +1214,7 @@ const HomePage = ({ onNavigate }) => {
             </div>
         </section>
         
-        <section className="bg-black text-white py-12 md:py-16">
+        <section className="bg-white text-slate-800 py-16 md:py-20">
           <div className="container mx-auto px-4">
              <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} title="Mais Vendidos"/>
           </div>
@@ -1273,16 +1268,16 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
     
     const ProductSkeleton = () => (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
-            <div className="h-64 bg-gray-700"></div>
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
+            <div className="h-64 bg-gray-200"></div>
             <div className="p-5 flex-grow flex flex-col">
-                <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
-                <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
-                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+                <div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="h-5 bg-gray-200 rounded w-1/2 mb-auto"></div>
+                <div className="h-8 bg-gray-200 rounded w-1/3 mt-4"></div>
                 <div className="mt-4 flex items-stretch space-x-2">
-                    <div className="h-10 bg-gray-700 rounded flex-grow"></div>
-                    <div className="h-10 w-12 bg-gray-700 rounded"></div>
+                    <div className="h-10 bg-gray-200 rounded flex-grow"></div>
+                    <div className="h-10 w-12 bg-gray-200 rounded"></div>
                 </div>
             </div>
         </div>
@@ -1297,19 +1292,19 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     };
 
     return (
-        <div className="bg-black text-white py-12 min-h-screen">
+        <div className="bg-gray-50 text-gray-800 py-12 min-h-screen">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Nossa Coleção</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
-                        <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
+                    <aside className="lg:col-span-1 bg-white p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28 border border-gray-200">
+                        <h3 className="text-xl font-bold mb-4 text-amber-600">Filtros</h3>
                         <div className="space-y-4">
-                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-amber-500" />
+                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
                                 <option value="">Todas as Marcas</option>
                                 {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
-                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
                                 <option value="">Todas as Categorias</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
@@ -1327,14 +1322,14 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             ) : currentProducts.length > 0 ? (
                                 currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
                             ) : (
-                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
+                                <p className="col-span-full text-center text-gray-500 py-10">Nenhum produto encontrado para sua busca.</p>
                             )}
                         </motion.div>
                         {totalPages > 1 && (
                             <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
-                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
-                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
-                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
+                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-100">Anterior</button>
+                                <span className="text-sm sm:text-base text-gray-600">Página {currentPage} de {totalPages}</span>
+                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-100">Próxima</button>
                             </div>
                         )}
                     </main>
@@ -1484,7 +1479,7 @@ const ShippingCalculator = memo(({ items }) => {
                              <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
                              <div className="flex gap-2">
                                 <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
-                                <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
+                                <button type="submit" className="bg-slate-800 text-white font-bold px-4 rounded-md hover:bg-slate-700">OK</button>
                              </div>
                              {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
                         </form>
@@ -1492,34 +1487,34 @@ const ShippingCalculator = memo(({ items }) => {
                 </div>
             </Modal>
 
-            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+            <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
                 <div className="space-y-2">
                     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
+                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-500">
                             <MapPinIcon className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate">{getDestinationText()}</span>
                         </div>
-                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                        <button onClick={() => setIsModalOpen(true)} className="text-amber-600 hover:underline flex-shrink-0 text-sm font-semibold">
                             Alterar
                         </button>
                     </div>
                     
                     <div className="min-h-[44px] flex flex-col justify-center">
-                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-500" /><span className="text-gray-500">Calculando...</span></div>}
                         
                         {!isLoading && error && (
-                            <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
+                            <div><p className="text-red-600 font-semibold text-sm">{error}</p></div>
                         )}
 
                         {!isLoading && shippingResult && (
                             <div>
-                                <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
-                                <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
+                                <p className="text-green-600">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
+                                <p className="text-sm text-gray-500">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
                             </div>
                         )}
                         
                         {!isLoading && !shippingResult && !error && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
+                            <div><p className="text-gray-500 text-sm">Informe um CEP para calcular.</p></div>
                         )}
                     </div>
                 </div>
@@ -1561,8 +1556,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal: controller.signal }).catch(() => []) 
             ]);
             
-            const images = parseImages(productData.images, 'https://placehold.co/600x400/222/fff?text=Produto');
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            const images = parseImages(productData.images, 'https://placehold.co/600x400/E5E7EB/A0AEC0?text=Produto');
+            setMainImage(images[0] || 'https://placehold.co/600x400/E5E7EB/A0AEC0?text=Produto');
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -1610,7 +1605,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             fetchInstallments(product.price);
         }
     }, [product]);
-
 
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
@@ -1660,10 +1654,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const TabButton = ({ label, tabName }) => (
         <button
             onClick={() => setActiveTab(tabName)}
-            className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
+            className={`px-4 md:px-6 py-3 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
                 ${activeTab === tabName 
-                    ? 'border-amber-400 text-amber-400' 
-                    : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`
+                    ? 'border-amber-500 text-amber-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'}`
             }
         >
             {label}
@@ -1676,7 +1670,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
           <ul className="space-y-2">
             {text.split('\n').map((line, index) => (
               <li key={index} className="flex items-start">
-                <span className="text-amber-400 mr-2 mt-1">&#10003;</span>
+                <span className="text-amber-500 mr-3 mt-1">&#10003;</span>
                 <span>{line}</span>
               </li>
             ))}
@@ -1711,7 +1705,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const getInstallmentSummary = () => {
         if (isLoadingInstallments) {
-            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
+            return <div className="h-5 bg-gray-200 rounded w-3/4 animate-pulse"></div>;
         }
         if (!installments || installments.length === 0) {
             return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
@@ -1742,12 +1736,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return [{...product, qty: quantity}];
     }, [product, quantity]);
 
-    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
-    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
-    if (!product) return <div className="bg-black min-h-screen"></div>;
+    if (isLoading) return <div className="text-slate-800 text-center py-20 bg-white min-h-screen">Carregando...</div>;
+    if (product?.error) return <div className="text-slate-800 text-center py-20 bg-white min-h-screen">{product.message}</div>;
+    if (!product) return <div className="bg-white min-h-screen"></div>;
 
     return (
-        <div className="bg-black text-white min-h-screen">
+        <div className="bg-white text-slate-800 min-h-screen">
             <InstallmentModal
                 isOpen={isInstallmentModalOpen}
                 onClose={() => setIsInstallmentModalOpen(false)}
@@ -1758,7 +1752,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             )}
             <div className="container mx-auto px-4 py-8">
                  <div className="mb-4">
-                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit">
+                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-600 hover:underline flex items-center w-fit">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                         Voltar para todos os produtos
                     </a>
@@ -1772,7 +1766,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 <motion.button 
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                     onClick={() => scrollThumbs(-1)} 
-                                    className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-white/40 hover:bg-white/70 rounded-full text-gray-800 disabled:cursor-default transition-all shadow-md"
                                     disabled={!canScrollUp}
                                 >
                                     <UpArrow />
@@ -1787,7 +1781,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 >
                                     {productImages.map((img, index) => (
-                                        <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
+                                        <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-500' : 'border-gray-200 hover:border-gray-400'}`}>
                                             <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                         </div>
                                     ))}
@@ -1799,7 +1793,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 <motion.button 
                                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                     onClick={() => scrollThumbs(1)} 
-                                    className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-white/40 hover:bg-white/70 rounded-full text-gray-800 disabled:cursor-default transition-all shadow-md"
                                     disabled={!canScrollDown}
                                 >
                                     <DownArrow />
@@ -1808,32 +1802,32 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </AnimatePresence>
                         </div>
 
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in">
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in border border-gray-200">
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
                     </div>
 
                     <div className="lg:col-span-2 space-y-6">
                         <div>
-                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                            <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>
+                            <p className="text-sm text-gray-500 font-semibold tracking-wider uppercase">{product.brand}</p>
+                            <h1 className="text-3xl lg:text-4xl font-bold my-1 text-slate-900">{product.name}</h1>
+                            <h2 className="text-lg font-light text-gray-500">{product.volume}</h2>
                             <div className="flex items-center mt-2">
-                                {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
-                                {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
+                                {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-300'}`} isFilled={i < Math.round(avgRating)} />)}
+                                {reviews.length > 0 && <span className="text-sm text-gray-500 ml-3">({reviews.length} avaliações)</span>}
                             </div>
                         </div>
 
-                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        <p className="text-4xl font-light text-slate-900">R$ {Number(product.price).toFixed(2)}</p>
                         
-                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                        <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
                             <div className="flex items-start">
-                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <CreditCardIcon className="h-6 w-6 text-amber-500 mr-4 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
+                                    <p className="text-gray-600">{getInstallmentSummary()}</p>
                                     <button
                                         onClick={() => setIsInstallmentModalOpen(true)}
-                                        className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+                                        className="text-amber-600 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
                                         disabled={isLoadingInstallments || !installments || installments.length === 0}
                                     >
                                         Ver parcelas disponíveis
@@ -1843,31 +1837,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                         
                         <div className="flex items-center space-x-4">
-                            <p className="font-semibold">Quantidade:</p>
-                            <div className="flex items-center border border-gray-700 rounded-md">
-                                <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button>
+                            <p className="font-semibold text-slate-700">Quantidade:</p>
+                            <div className="flex items-center border border-gray-300 rounded-md">
+                                <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-100 rounded-l-md">-</button>
                                 <span className="px-5 py-2 font-bold text-lg">{quantity}</span>
-                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md">+</button>
+                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-100 rounded-r-md">+</button>
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            <button onClick={handleBuyNow} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold">Comprar Agora</button>
-                            <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
+                            <button onClick={handleBuyNow} className="w-full bg-slate-800 text-white py-4 rounded-md text-lg hover:bg-slate-700 transition font-bold">Comprar Agora</button>
+                            <button onClick={handleAddToCart} className="w-full bg-slate-200 text-slate-800 py-3 rounded-md text-lg hover:bg-slate-300 transition font-bold">Adicionar ao Carrinho</button>
                         </div>
                         
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
 
-                <div className="mt-16 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
+                <div className="mt-16 pt-10 border-t border-gray-200">
+                    <div className="flex justify-center border-b border-gray-200 mb-6 flex-wrap">
                         <TabButton label="Descrição" tabName="description" />
                         <TabButton label="Notas Olfativas" tabName="notes" />
                         <TabButton label="Como Usar" tabName="how_to_use" />
                         <TabButton label="Ideal Para" tabName="ideal_for" />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
+                    <div className="text-gray-600 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
                         {activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
@@ -1877,43 +1871,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
 
                 {crossSellProducts.length > 0 && (
-                    <div className="mt-20 pt-10 border-t border-gray-800">
+                    <div className="mt-20 pt-10 border-t border-gray-200">
                         <ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" />
                     </div>
                 )}
                 
                 {relatedProducts.length > 0 && (
-                    <div className="mt-20 pt-10 border-t border-gray-800">
+                    <div className="mt-20 pt-10 border-t border-gray-200">
                         <ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." />
                     </div>
                 )}
                 
-                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
+                <div className="mt-20 pt-10 border-t border-gray-200 max-w-4xl mx-auto">
                     <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-6 mb-8">
                         {reviews.length > 0 ? reviews.map((review) => (
-                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                             <div key={review.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <div className="flex items-center mb-2">
-                                    <p className="font-bold mr-4">{review.user_name}</p>
-                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                    <p className="font-bold mr-4 text-gray-800">{review.user_name}</p>
+                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-300'}`} isFilled={j < review.rating}/>)}</div>
                                 </div>
-                                <p className="text-gray-300">{review.comment}</p>
+                                <p className="text-gray-600">{review.comment}</p>
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Seja o primeiro a avaliar!</p>}
                     </div>
                      {user ? (
-                         <form onSubmit={handleReviewSubmit} className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                         <form onSubmit={handleReviewSubmit} className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                            <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
                            <div className="flex items-center space-x-1 mb-4">
                                 {[...Array(5)].map((_, i) => (
-                                    <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
+                                    <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-300 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
                                 ))}
                            </div>
-                           <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
-                           <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
+                           <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-white border border-gray-300 rounded h-28 mb-4 focus:ring-amber-500 focus:border-amber-500" required></textarea>
+                           <button type="submit" className="bg-slate-800 text-white px-6 py-2 rounded-md font-bold hover:bg-slate-700">Enviar Avaliação</button>
                         </form>
                      ) : (
-                        <p className="text-gray-400 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-400 underline">logado</a> para deixar uma avaliação.</p>
+                        <p className="text-gray-500 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-600 underline">logado</a> para deixar uma avaliação.</p>
                      )}
                 </div>
             </div>
@@ -1945,25 +1939,25 @@ const LoginPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                className="w-full max-w-md bg-white text-gray-800 p-8 rounded-xl shadow-lg border border-gray-200"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Login</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-600">Login</h2>
+                {error && <p className="text-red-600 text-center mb-4 bg-red-100 p-3 rounded-md border border-red-200">{error}</p>}
                 <form onSubmit={handleLogin} className="space-y-6">
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded-md hover:bg-slate-700 transition flex justify-center items-center disabled:opacity-60">
                          {isLoading ? <SpinnerIcon /> : 'Entrar'}
                     </button>
                 </form>
                 <div className="flex justify-between items-center mt-4">
-                    <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="text-sm text-amber-400 hover:underline">Não tem uma conta? Registre-se</a>
-                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-sm text-gray-400 hover:underline">Esqueci minha senha</a>
+                    <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="text-sm text-amber-600 hover:underline">Não tem uma conta? Registre-se</a>
+                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-sm text-gray-500 hover:underline">Esqueci minha senha</a>
                 </div>
             </motion.div>
         </div>
@@ -2010,26 +2004,26 @@ const RegisterPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                className="w-full max-w-md bg-white text-gray-800 p-8 rounded-xl shadow-lg border border-gray-200"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Criar Conta</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-600">Criar Conta</h2>
+                {error && <p className="text-red-600 text-center mb-4 bg-red-100 p-3 rounded-md border border-red-200">{error}</p>}
                 <form onSubmit={handleRegister} className="space-y-6">
-                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded-md hover:bg-slate-700 transition flex justify-center items-center disabled:opacity-60">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
                 </form>
                  <div className="text-center mt-4">
-                    <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="text-sm text-amber-400 hover:underline">Já tem uma conta? Faça o login</a>
+                    <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="text-sm text-amber-600 hover:underline">Já tem uma conta? Faça o login</a>
                 </div>
             </motion.div>
         </div>
@@ -2085,34 +2079,34 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                className="w-full max-w-md bg-white text-gray-800 p-8 rounded-xl shadow-lg border border-gray-200"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Recuperar Senha</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-600">Recuperar Senha</h2>
+                {error && <p className="text-red-600 text-center mb-4 bg-red-100 p-3 rounded-md border border-red-200">{error}</p>}
                 
                 {step === 1 ? (
                     <form onSubmit={handleValidation} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
-                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
+                        <p className="text-sm text-gray-600 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
+                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <button type="submit" className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded-md hover:bg-slate-700 transition">Verificar</button>
                     </form>
                 ) : (
                     <form onSubmit={handlePasswordReset} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
+                        <p className="text-sm text-gray-600 text-center">Usuário validado! Agora, crie sua nova senha.</p>
+                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <button type="submit" className="w-full py-3 px-4 bg-slate-800 text-white font-bold rounded-md hover:bg-slate-700 transition">Redefinir Senha</button>
                     </form>
                 )}
 
                 <div className="text-center mt-4">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-500 hover:underline">Voltar para o Login</a>
                 </div>
             </motion.div>
         </div>
@@ -2159,40 +2153,40 @@ const CartPage = ({ onNavigate }) => {
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     return (
-        <div className="bg-black text-white min-h-screen">
+        <div className="bg-gray-50 text-slate-800 min-h-screen">
             <div className="container mx-auto px-4 py-8">
                 <h1 className="text-3xl md:text-4xl font-bold mb-8">Carrinho de Compras</h1>
                 {cart.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Seu carrinho está vazio.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
+                    <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+                        <p className="text-gray-500 text-xl">Seu carrinho está vazio.</p>
+                        <button onClick={() => onNavigate('products')} className="mt-6 bg-slate-800 text-white px-6 py-2 rounded-md hover:bg-slate-700 font-bold">Ver produtos</button>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
+                            <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 space-y-4">
                                 {cart.map(item => (
-                                    <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
+                                    <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-200 pb-4 last:border-b-0 gap-4">
                                         <div className="flex items-center w-full sm:w-auto">
                                             <div 
-                                                className="w-20 h-20 bg-white rounded-md flex-shrink-0 cursor-pointer"
+                                                className="w-20 h-20 bg-gray-100 rounded-md flex-shrink-0 cursor-pointer"
                                                 onClick={() => onNavigate(`product/${item.id}`)}
                                             >
-                                                <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain p-1"/>
                                             </div>
                                             <div className="flex-grow px-4">
-                                                <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
+                                                <h3 className="font-bold text-lg cursor-pointer hover:text-amber-600 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                <p className="text-sm text-amber-600 font-semibold">R$ {Number(item.price).toFixed(2)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
                                             <div className="flex items-center space-x-2">
-                                                <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
-                                                <span className="w-8 text-center">{item.qty}</span>
-                                                <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
+                                                <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100">-</button>
+                                                <span className="w-8 text-center font-semibold">{item.qty}</span>
+                                                <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100">+</button>
                                             </div>
                                             <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
-                                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
+                                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-400 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -2200,15 +2194,15 @@ const CartPage = ({ onNavigate }) => {
                             <ShippingCalculator items={cart} />
                         </div>
 
-                        <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
+                        <div className="lg:col-span-1 bg-white rounded-lg border border-gray-200 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                                <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                 
-                                <div className="flex justify-between text-gray-300">
+                                <div className="flex justify-between text-gray-600">
                                     <span>Frete (PAC)</span>
                                     {isLoadingShipping ? (
-                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                        <SpinnerIcon className="h-5 w-5 text-amber-500" />
                                     ) : autoCalculatedShipping ? (
                                         <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                     ) : (
@@ -2216,37 +2210,37 @@ const CartPage = ({ onNavigate }) => {
                                     )}
                                 </div>
                                 
-                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
+                                {shippingError && <p className="text-red-500 text-sm text-right">{shippingError}</p>}
 
                                 {appliedCoupon && (
-                                    <div className="flex justify-between text-green-400">
+                                    <div className="flex justify-between text-green-600">
                                         <span>Desconto ({appliedCoupon.code})</span>
                                         <span>- R$ {discount.toFixed(2)}</span>
                                     </div>
                                 )}
                             </div>
-                            <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
+                            <div className="border-t border-gray-200 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
                                 <span>Total</span>
-                                <span className="text-amber-400">R$ {total.toFixed(2)}</span>
+                                <span className="text-amber-600">R$ {total.toFixed(2)}</span>
                             </div>
                             
                             {!appliedCoupon ? (
                                 <>
                                 <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                    <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                                    <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
+                                    <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                    <button type="submit" className="px-4 bg-amber-500 text-white font-bold rounded-md hover:bg-amber-600">Aplicar</button>
                                 </form>
-                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-600' : 'text-red-500'}`}>{couponMessage}</p>}
                                 </>
                             ) : (
-                                <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
-                                    <p className="text-sm text-green-400 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/>{couponMessage}</p>
-                                    <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline">Remover</button>
+                                <div className="flex justify-between items-center bg-green-50 p-3 rounded-md border border-green-200">
+                                    <p className="text-sm text-green-700 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/>{couponMessage}</p>
+                                    <button onClick={removeCoupon} className="text-xs text-red-600 hover:underline">Remover</button>
                                 </div>
                             )}
                             
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-slate-800 text-white py-3 rounded-md hover:bg-slate-700 font-bold disabled:bg-gray-400 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
+                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-500 mt-2">É necessário um endereço de entrega para continuar.</p>}
                         </div>
                     </div>
                 )}
@@ -2264,27 +2258,27 @@ const WishlistPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="bg-black text-white min-h-screen py-12">
+        <div className="bg-gray-50 text-slate-800 min-h-screen py-12">
             <div className="container mx-auto px-4">
                 <h1 className="text-3xl md:text-4xl font-bold mb-8">Lista de Desejos</h1>
                  {wishlist.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Sua lista de desejos está vazia.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
+                    <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+                        <p className="text-gray-500 text-xl">Sua lista de desejos está vazia.</p>
+                        <button onClick={() => onNavigate('products')} className="mt-6 bg-slate-800 text-white px-6 py-2 rounded-md hover:bg-slate-700 font-bold">Ver produtos</button>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         {wishlist.map(item => (
-                            <div key={item.id} className="bg-gray-900 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-gray-800 gap-4">
+                            <div key={item.id} className="bg-white p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-gray-200 gap-4">
                                 <div className="flex items-center flex-grow w-full sm:w-auto">
-                                    <div className="w-20 h-20 bg-white p-1 rounded-md flex-shrink-0">
-                                        <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                                    <div className="w-20 h-20 bg-gray-100 p-1 rounded-md flex-shrink-0">
+                                        <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain"/>
                                     </div>
-                                    <h3 className="font-bold text-lg flex-grow px-4 sm:px-6 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                    <h3 className="font-bold text-lg flex-grow px-4 sm:px-6 cursor-pointer hover:text-amber-600" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
                                 </div>
                                 <div className="flex items-center space-x-4 flex-shrink-0">
-                                    <button onClick={() => onNavigate(`product/${item.id}`)} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600">Ver Produto</button>
-                                    <button onClick={() => handleRemove(item)} className="text-gray-500 hover:text-red-500 p-2"><TrashIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => onNavigate(`product/${item.id}`)} className="bg-slate-200 text-slate-800 px-4 py-2 rounded-md hover:bg-slate-300 font-medium">Ver Produto</button>
+                                    <button onClick={() => handleRemove(item)} className="text-gray-400 hover:text-red-500 p-2"><TrashIcon className="h-5 w-5"/></button>
                                 </div>
                             </div>
                         ))}
@@ -2385,7 +2379,7 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
             </div>
             <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
+                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-slate-800 text-white rounded-md hover:bg-slate-700 disabled:bg-gray-400 flex items-center justify-center">
                     {isSaving ? <SpinnerIcon /> : 'Salvar Endereço'}
                 </button>
             </div>
@@ -2570,65 +2564,65 @@ const CheckoutPage = ({ onNavigate }) => {
                 <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
             </Modal>
 
-            <div className="bg-black text-white min-h-screen">
+            <div className="bg-gray-50 text-slate-800 min-h-screen">
                 <div className="container mx-auto px-4 py-8">
                     <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
+                            <div className="bg-white p-6 rounded-lg border border-gray-200">
+                                <h2 className="text-2xl font-bold text-amber-600 mb-4">1. Endereço de Entrega</h2>
                                 {isAddressLoading ? (
-                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    <div className="p-4 bg-gray-100 rounded-md animate-pulse h-24"></div>
                                 ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
+                                    <div className="p-4 bg-gray-100 rounded-md">
+                                        <p className="font-bold text-lg text-gray-800">{selectedAddress.alias}</p>
+                                        <p className="text-gray-700">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
+                                        <p className="text-gray-600">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
+                                        <p className="text-gray-600">{selectedAddress.cep}</p>
+                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-600 hover:underline mt-3 font-semibold">
                                             Alterar Endereço
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                    <div className="text-center p-4 bg-gray-100 rounded-md">
+                                        <p className="text-gray-500 mb-3">Nenhum endereço cadastrado.</p>
+                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-white px-4 py-2 rounded-md hover:bg-amber-600 font-bold">
                                             Adicionar Endereço
                                         </button>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
+                            <div className="bg-white p-6 rounded-lg border border-gray-200">
+                                <h2 className="text-2xl font-bold mb-4 text-amber-600">2. Forma de Pagamento</h2>
                                 <div className="space-y-3">
-                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
-                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
+                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-500 bg-amber-50' : 'border-gray-300 hover:border-gray-400'}`}>
+                                        <CreditCardIcon className="h-6 w-6 text-amber-500"/>
+                                        <span className="font-bold text-gray-800">Cartão, Pix e Boleto via Mercado Pago</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
                         <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                            <div className="bg-white rounded-lg border border-gray-200 p-6 h-fit md:sticky md:top-28">
                                 <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
-                                <div className="border-t border-gray-700 mt-4 pt-4">
-                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-600 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
+                                <div className="border-t border-gray-200 mt-4 pt-4">
+                                    {appliedCoupon && <div className="flex justify-between text-green-600 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-300 py-1">
+                                        <div className="flex justify-between text-gray-600 py-1">
                                             <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
+                                        <div className="text-gray-500 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
                                     )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-600">R$ {total.toFixed(2)}</span></div>
                                 </div>
                                 
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-slate-800 text-white py-3 rounded-md hover:bg-slate-700 font-bold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
-                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
+                                        <div className="w-6 h-6 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
                                     ) : (
                                         'Finalizar e Pagar'
                                     )}
@@ -2727,7 +2721,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                     icon: (
                         <div className="relative mb-6">
                             <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
-                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
+                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-gray-700" />
                         </div>
                     ),
                     title: "Confirmando Pagamento...",
@@ -2739,14 +2733,14 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { icon, title, message } = renderContent();
 
     return (
-        <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
-            <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
+        <div className="bg-gray-50 text-slate-800 min-h-screen flex items-center justify-center p-4">
+            <div className="text-center p-8 bg-white rounded-lg shadow-lg border border-gray-200 max-w-lg w-full">
                 {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
-                <p className="text-gray-300 mb-6">{message}</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-600 mb-2">{title}</h1>
+                <p className="text-gray-600 mb-6">{message}</p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
-                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
+                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-white px-6 py-2 rounded-md font-bold hover:bg-amber-600">Ver Meus Pedidos</button>
+                    <button onClick={() => onNavigate('home')} className="bg-slate-200 text-slate-800 px-6 py-2 rounded-md font-bold hover:bg-slate-300">Voltar à Página Inicial</button>
                 </div>
             </div>
         </div>
@@ -2767,11 +2761,11 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     }), []);
 
     const colorClasses = useMemo(() => ({
-        amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
-        green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
-        blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
-        red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
-        gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+        amber: { bg: 'bg-amber-500', text: 'text-amber-600', border: 'border-amber-500' },
+        green: { bg: 'bg-green-500', text: 'text-green-600', border: 'border-green-500' },
+        blue:  { bg: 'bg-blue-500', text: 'text-blue-600', border: 'border-blue-500' },
+        red:   { bg: 'bg-red-500', text: 'text-red-600', border: 'border-red-500' },
+        gray:  { bg: 'bg-gray-500', text: 'text-gray-600', border: 'border-gray-500' }
     }), []);
     
     const timelineOrder = useMemo(() => [
@@ -2785,14 +2779,14 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
         return (
-            <div className="p-4 bg-gray-800 rounded-lg">
+            <div className="p-4 bg-gray-100 rounded-lg">
                 <div onClick={() => onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
                         {React.cloneElement(specialStatus.icon, { className: 'h-7 w-7'})}
                     </div>
                     <div>
                         <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
-                        <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
+                        <p className="text-sm text-gray-500">Clique para ver mais detalhes</p>
                     </div>
                 </div>
             </div>
@@ -2899,26 +2893,26 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
     ];
 
     return (
-        <div className="bg-black text-white min-h-screen py-8 sm:py-12">
+        <div className="bg-gray-50 text-slate-800 min-h-screen py-8 sm:py-12">
             <div className="container mx-auto px-4">
                 <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1">
-                        <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
+                        <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-2 shadow-sm">
                             {tabs.map(tab => (
-                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}>
+                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-100 text-amber-700 font-bold' : 'hover:bg-gray-100'}`}>
                                     {tab.icon}
                                     <span>{tab.label}</span>
                                 </button>
                             ))}
-                            <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
+                            <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-100">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 <span>Sair</span>
                             </button>
                         </div>
                     </aside>
                     <main className="lg:col-span-3">
-                        <div className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
+                        <div className="bg-white p-4 sm:p-6 rounded-lg border border-gray-200 shadow-sm">
                             {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
                             {activeTab === 'addresses' && <MyAddressesSection />}
                             {activeTab === 'profile' && <MyProfileSection user={user} />}
@@ -2932,12 +2926,12 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
 
 const EmptyState = ({ icon, title, message, buttonText, onButtonClick }) => (
     <div className="text-center py-10 sm:py-16 px-4">
-        <div className="mx-auto w-fit p-4 bg-gray-800 rounded-full text-amber-400 mb-4">
+        <div className="mx-auto w-fit p-4 bg-gray-100 rounded-full text-amber-500 mb-4">
             {icon}
         </div>
-        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-gray-400 mb-6">{message}</p>
-        <button onClick={onButtonClick} className="bg-amber-500 text-black px-6 py-2 rounded-md hover:bg-amber-400 font-bold">
+        <h3 className="text-xl font-bold text-slate-800 mb-2">{title}</h3>
+        <p className="text-gray-500 mb-6">{message}</p>
+        <button onClick={onButtonClick} className="bg-slate-800 text-white px-6 py-2 rounded-md hover:bg-slate-700 font-bold">
             {buttonText}
         </button>
     </div>
@@ -2983,41 +2977,41 @@ const MyOrdersSection = ({ onNavigate }) => {
         setIsStatusModalOpen(true);
     };
     
-    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
+    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>;
 
     return (
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} trackingCode={currentTrackingCode} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
+            <h2 className="text-2xl font-bold text-amber-600 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
                 <div className="space-y-6">
                     {orders.map(order => (
-                        <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                        <div key={order.id} className="border border-gray-200 rounded-lg p-4 sm:p-6">
                             <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                                 <div>
-                                    <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                    <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
+                                    <p className="text-lg">Pedido <span className="font-bold text-amber-600">#{order.id}</span></p>
+                                    <p className="text-sm text-gray-500">{new Date(order.date).toLocaleString('pt-BR')}</p>
                                 </div>
                                 <div className="text-left sm:text-right">
-                                    <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                    <p><strong>Total:</strong> <span className="text-amber-600 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
                                 </div>
                             </div>
                             <div className="my-6">
                                 <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
                             </div>
-                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
-                            <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
+                            {order.tracking_code && <p className="my-4 p-3 bg-gray-100 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            <div className="space-y-2 mb-4 border-t border-gray-200 pt-4">
                                 {order.items.map(item => (
                                     <div key={item.id} className="flex items-center text-sm">
-                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-gray-100 rounded"/>
                                         <span>{item.quantity}x {item.name}</span>
                                         <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
-                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-200">
+                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-200 text-gray-800 text-sm px-4 py-1 rounded-md hover:bg-gray-300">Repetir Pedido</button>
                                 {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
                             </div>
                         </div>
@@ -3036,7 +3030,6 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
@@ -3063,7 +3056,7 @@ const MyAddressesSection = () => {
                 notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation(); 
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3076,7 +3069,7 @@ const MyAddressesSection = () => {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
                 await fetchAddresses();
-                determineShippingLocation(); // Força a reavaliação da localização
+                determineShippingLocation();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3088,7 +3081,7 @@ const MyAddressesSection = () => {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation();
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
@@ -3104,18 +3097,18 @@ const MyAddressesSection = () => {
                 )}
             </AnimatePresence>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h2 className="text-2xl font-bold text-amber-400">Meus Endereços</h2>
+                <h2 className="text-2xl font-bold text-amber-600">Meus Endereços</h2>
                 <button 
                     onClick={() => handleOpenModal()} 
                     disabled={addresses.length >= 5}
-                    className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold text-sm disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="bg-slate-800 text-white px-4 py-2 rounded-md hover:bg-slate-700 font-bold text-sm disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                     <PlusIcon className="h-5 w-5" />
                     Adicionar Novo
                 </button>
             </div>
              {addresses.length >= 5 && (
-                <div className="bg-yellow-900/50 border border-yellow-700 text-yellow-300 text-sm p-3 rounded-md mb-6 flex items-center gap-2">
+                <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 text-sm p-3 rounded-md mb-6 flex items-center gap-2">
                     <ExclamationCircleIcon className="h-5 w-5" />
                     Você atingiu o limite de 5 endereços. Para adicionar um novo, por favor, exclua um existente.
                 </div>
@@ -3123,23 +3116,23 @@ const MyAddressesSection = () => {
             {addresses.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {addresses.map(addr => (
-                        <div key={addr.id} className="bg-gray-800 p-5 rounded-lg border border-gray-700 flex flex-col">
+                        <div key={addr.id} className="bg-gray-50 p-5 rounded-lg border border-gray-200 flex flex-col">
                             <div className="flex justify-between items-start mb-2">
                                 <h3 className="font-bold text-lg">{addr.alias}</h3>
                                 {addr.is_default ? (
-                                    <span className="text-xs bg-amber-400 text-black px-3 py-1 rounded-full font-semibold flex items-center gap-1"><CheckIcon className="h-3 w-3"/> Padrão</span>
+                                    <span className="text-xs bg-amber-200 text-amber-800 px-3 py-1 rounded-full font-semibold flex items-center gap-1"><CheckIcon className="h-3 w-3"/> Padrão</span>
                                 ) : (
-                                    <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-amber-400 hover:underline">Tornar Padrão</button>
+                                    <button onClick={() => handleSetDefault(addr.id)} className="text-xs text-amber-600 hover:underline">Tornar Padrão</button>
                                 )}
                             </div>
-                            <div className="text-sm text-gray-300 flex-grow">
+                            <div className="text-sm text-gray-600 flex-grow">
                                 <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
                                 <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
                                 <p>{addr.cep}</p>
                             </div>
-                            <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-700">
-                                <button onClick={() => handleOpenModal(addr)} className="p-2 text-gray-400 hover:text-white"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 text-gray-400 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
+                            <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
+                                <button onClick={() => handleOpenModal(addr)} className="p-2 text-gray-500 hover:text-slate-800"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDeleteAddress(addr.id)} className="p-2 text-gray-500 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
                             </div>
                         </div>
                     ))}
@@ -3188,51 +3181,51 @@ const MyProfileSection = ({ user }) => {
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
                                 <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500" />
                             </div>
-                            <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
+                            <button type="submit" className="w-full bg-slate-800 text-white font-bold py-2 rounded-md hover:bg-slate-700">Confirmar Alteração</button>
                         </form>
                     </Modal>
                 )}
             </AnimatePresence>
 
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
-            <div className="bg-gray-800 p-6 rounded-lg space-y-4">
+            <h2 className="text-2xl font-bold text-amber-600 mb-6">Meus Dados</h2>
+            <div className="bg-gray-50 p-6 rounded-lg space-y-4 border border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong>
-                    <span className="text-white">{user?.name}</span>
+                    <strong className="w-24 text-gray-500 flex-shrink-0">Nome:</strong>
+                    <span className="text-slate-800">{user?.name}</span>
                 </div>
                  <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong>
-                    <span className="text-white">{user?.email}</span>
+                    <strong className="w-24 text-gray-500 flex-shrink-0">Email:</strong>
+                    <span className="text-slate-800">{user?.email}</span>
                 </div>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
+            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-200 text-gray-800 font-bold py-2 px-6 rounded-md hover:bg-gray-300">Alterar Senha</button>
         </>
     );
 };
 
 
 const AjudaPage = ({ onNavigate }) => (
-    <div className="bg-black text-white min-h-screen py-12">
+    <div className="bg-gray-50 text-slate-800 min-h-screen py-12">
         <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold mb-8 text-amber-400">Central de Ajuda</h1>
-            <div className="max-w-md mx-auto bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6">
+            <h1 className="text-4xl font-bold mb-8 text-amber-600">Central de Ajuda</h1>
+            <div className="max-w-md mx-auto bg-white p-8 rounded-lg border border-gray-200 shadow-lg space-y-6">
                 <div>
                     <h2 className="text-2xl font-bold mb-2">Fale Conosco</h2>
-                    <p className="text-gray-400">Tem alguma dúvida ou precisa de ajuda com seu pedido? Entre em contato pelos nossos canais oficiais.</p>
+                    <p className="text-gray-600">Tem alguma dúvida ou precisa de ajuda com seu pedido? Entre em contato pelos nossos canais oficiais.</p>
                 </div>
-                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
-                    <InstagramIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">@lovecestaseperfumesjp</span>
+                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition">
+                    <InstagramIcon className="h-8 w-8 text-amber-600" />
+                    <span className="text-lg font-medium text-gray-700">@lovecestaseperfumesjp</span>
                 </a>
-                 <div className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg">
-                    <WhatsappIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">83 98787-8878</span>
+                 <div className="flex items-center justify-center space-x-3 bg-gray-100 p-4 rounded-lg">
+                    <WhatsappIcon className="h-8 w-8 text-amber-600" />
+                    <span className="text-lg font-medium text-gray-700">83 98787-8878</span>
                 </div>
             </div>
         </div>
     </div>
 );
-// --- PAINEL DO ADMINISTRADOR ---
+// --- PAINEL DO ADMINISTRADOR (Sem alterações de estilo) ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -3272,7 +3265,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
              {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4 flex-shrink-0">
                      <button onClick={() => setIsSidebarOpen(true)} className="p-2">
@@ -4629,16 +4621,16 @@ function AppContent() {
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
   
-  if (isLoading) return <div className="h-screen flex items-center justify-center bg-black"><p className="text-xl text-white">Carregando...</p></div>;
+  if (isLoading) return <div className="h-screen flex items-center justify-center bg-white"><p className="text-xl text-slate-800">Carregando...</p></div>;
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
   return (
-    <div className="bg-black min-h-screen flex flex-col">
+    <div className="bg-white min-h-screen flex flex-col font-sans">
       {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-white mt-auto py-8 text-center border-t border-gray-800">
+        <footer className="bg-gray-100 text-slate-800 mt-auto py-8 text-center border-t border-gray-200">
           <p className="text-gray-500">© 2025 LovecestasePerfumes</p>
         </footer>
       )}
