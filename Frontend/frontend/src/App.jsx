@@ -312,9 +312,9 @@ const ShopProvider = ({ children }) => {
                 state: defaultAddr.uf,
                 alias: defaultAddr.alias
             });
-            return true; // Retorna true se um endereço foi definido
+            return true; 
         }
-        return false; // Retorna false se nenhum endereço foi encontrado
+        return false; 
     }, []);
 
     const determineShippingLocation = useCallback(async () => {
@@ -355,7 +355,6 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            // Limpa o estado ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
@@ -514,7 +513,6 @@ const ShopProvider = ({ children }) => {
             updateQuantity, removeFromCart,
             userName: user?.name,
             
-            // Endereços e Frete
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
@@ -523,7 +521,6 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation,
             determineShippingLocation,
 
-            // Cupons
             couponCode, setCouponCode,
             couponMessage,
             applyCoupon,
@@ -739,7 +736,7 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
-// ATUALIZAÇÃO: Componente ProductCard corrigido para ter altura padronizada e imagem responsiva.
+// ATUALIZAÇÃO: Componente ProductCard ajustado para um layout mais robusto e controlado.
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -817,18 +814,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
             className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white"
         >
-            {/* CORREÇÃO: 'h-64' trocado por 'aspect-square' para manter a proporção da imagem e evitar distorção */}
-            <div className="relative aspect-square bg-white">
+            {/* CORREÇÃO: Altura da imagem definida de forma responsiva para controlar melhor o tamanho do card. */}
+            <div className="relative h-56 sm:h-64 bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
             </div>
 
-            {/* CORREÇÃO: Adicionado 'flex-grow' para a área de conteúdo se expandir e padronizar a altura do card */}
+            {/* CORREÇÃO: 'flex-grow' garante que a área de conteúdo se expanda, padronizando a altura total do card. */}
             <div className="p-5 flex flex-col flex-grow">
-                 {/* Área de texto que se expande */}
-                <div className="flex-grow">
+                <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    {/* CORREÇÃO: Título com altura mínima e truncamento para padronizar o layout */}
                     <h4 
                         title={product.name}
                         className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[56px] line-clamp-2" 
@@ -847,7 +842,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
                 
-                {/* CORREÇÃO: Área de preço e botões alinhada na parte inferior com 'mt-auto' */}
+                {/* CORREÇÃO: 'mt-auto' empurra o preço e os botões para a base do card, alinhando-os perfeitamente. */}
                 <div className="mt-auto pt-4">
                     <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                     <div className="mt-4 flex items-stretch space-x-2">
