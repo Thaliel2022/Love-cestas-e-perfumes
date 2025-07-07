@@ -1158,7 +1158,7 @@ const HomePage = ({ onNavigate }) => {
 
     const categoryCards = [
         { name: "Perfumes Masculinos", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
-        { name: "Perfumes Femininos", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
+        { name: "Perfumes Femininos", image: "https://sdmntprwestus.oaiusercontent.com/files/00000000-6250-6230-b3ff-3ce2c2ed9737/raw?se=2025-07-07T06%3A55%3A02Z&sp=r&sv=2024-08-04&sr=b&scid=55e98598-fe34-5fdd-a5dc-e0ba3b590183&skoid=7399a3a4-0259-4d43-bcd6-a56ceeb4c28b&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-07T01%3A36%3A05Z&ske=2025-07-08T01%3A36%3A05Z&sks=b&skv=2024-08-04&sig=cT8BrzQtqnQFTagZLg/FHcEwNd3jk0Y%2BgdDXsQ73KBs%3D", filter: "Feminino" },
         { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
     ];
 
