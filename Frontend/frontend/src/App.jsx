@@ -1157,8 +1157,8 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     const categoryCards = [
-        { name: "Perfumes Masculinos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751868173/furg2aivlksdqxgmoqbk.png", filter: "Masculino" },
-        { name: "Perfumes Femininos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867985/snqqq1qpjbw1s7njfvwx.png", filter: "Feminino" },
+        { name: "Perfumes Masculinos", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop", filter: "Masculino" },
+        { name: "Perfumes Femininos", image: "https://images.unsplash.com/photo-1523293182-850d1h591448?q=80&w=800&auto=format&fit=crop", filter: "Feminino" },
         { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
     ];
 
@@ -1182,7 +1182,7 @@ const HomePage = ({ onNavigate }) => {
     return (
       <>
         <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
-          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png')"}}></div>
+          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://sdmntprsouthcentralus.oaiusercontent.com/files/00000000-5e78-61f7-8781-cf6b3f176f41/raw?se=2025-07-07T06%3A24%3A14Z&sp=r&sv=2024-08-04&sr=b&scid=88dbdc16-5091-54f6-9502-975e4300e8bd&skoid=71e8fa5c-90a9-4c17-827b-14c3005164d6&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-07-06T12%3A12%3A02Z&ske=2025-07-07T12%3A12%3A02Z&sks=b&skv=2024-08-04&sig=ZNsBZZKlPliRRO/d181Xoqrd02/4OIiXPaorKZNp61Y%3D')"}}></div>
           <motion.div 
             className="relative z-10 text-center p-4"
             variants={bannerVariants}
@@ -2864,18 +2864,24 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
-    const modalColor = details.color || 'gray';
-    const bgColor = `bg-${modalColor}-100`;
-    const textColor = `text-${modalColor}-600`;
-    const titleColor = `text-${modalColor}-700`;
+    // CORREÇÃO: Mapeamento de cores para garantir contraste no modal.
+    const colorMap = {
+        amber: { bg: 'bg-amber-100', icon: 'text-amber-600', title: 'text-amber-800' },
+        green: { bg: 'bg-green-100', icon: 'text-green-600', title: 'text-green-800' },
+        blue:  { bg: 'bg-blue-100', icon: 'text-blue-600', title: 'text-blue-800' },
+        red:   { bg: 'bg-red-100', icon: 'text-red-600', title: 'text-red-800' },
+        gray:  { bg: 'bg-gray-100', icon: 'text-gray-600', title: 'text-gray-800' }
+    };
+
+    const theme = colorMap[details.color] || colorMap.gray;
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Detalhes do Status">
              <div className="flex flex-col items-center text-center">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${bgColor} ${textColor} mb-4`}>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center ${theme.bg} ${theme.icon} mb-4`}>
                     {React.cloneElement(details.icon, { className: 'h-8 w-8' })}
                 </div>
-                <h3 className={`text-xl font-bold ${titleColor} mb-2`}>{details.title}</h3>
+                <h3 className={`text-xl font-bold ${theme.title} mb-2`}>{details.title}</h3>
                 <p className="text-gray-600">{details.description}</p>
             </div>
         </Modal>
