@@ -15,7 +15,6 @@ const stream = require('stream');
 const crypto = require('crypto');
 const { Resend } = require('resend');
 const React = require('react');
-const ReactDOMServer = require('react-dom/server');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -35,28 +34,30 @@ const ORDER_STATUS = {
 
 // --- TEMPLATES DE E-MAIL COM REACT ---
 
-// Componente base para o layout dos e-mails
-const EmailWrapper = ({ title, children }) => (
+const OrderStatusUpdateEmail = ({ customerName, orderId, newStatus, statusDescription, shopName = "Love Cestas e Perfumes" }) => (
     React.createElement('html', null,
         React.createElement('body', { style: { fontFamily: 'Arial, sans-serif', margin: 0, padding: 0, backgroundColor: '#f4f4f4' } },
-            React.createElement('table', { width: '100%', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#f4f4f4', padding: '20px 0' } },
+            React.createElement('table', { width: '100%', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#f4f4f4' } },
                 React.createElement('tr', null,
                     React.createElement('td', { align: 'center' },
-                        React.createElement('table', { width: '600', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#ffffff', margin: '0', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' } },
-                            // Cabeçalho
+                        React.createElement('table', { width: '600', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#ffffff', margin: '20px 0', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden' } },
                             React.createElement('tr', null,
                                 React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center' } },
-                                    React.createElement('h1', { style: { color: '#D4AF37', margin: 0, fontSize: '24px', letterSpacing: '1px' } }, "Love Cestas e Perfumes")
+                                    React.createElement('h1', { style: { color: '#D4AF37', margin: 0, fontSize: '24px' } }, shopName)
                                 )
                             ),
-                            // Conteúdo
                             React.createElement('tr', null,
-                                React.createElement('td', { style: { padding: '40px 30px', color: '#333' } }, children)
+                                React.createElement('td', { style: { padding: '40px 30px' } },
+                                    React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Olá, ${customerName},`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `O status do seu pedido #${orderId} foi atualizado para:`),
+                                    React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px' } }, newStatus),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, statusDescription),
+                                    React.createElement('a', { href: `${process.env.APP_URL}/#account/orders`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Ver Detalhes do Pedido')
+                                )
                             ),
-                            // Rodapé
                             React.createElement('tr', null,
                                 React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '12px' } },
-                                    React.createElement('p', { style: { margin: 0 } }, `© ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.`)
+                                    React.createElement('p', { style: { margin: 0 } }, `© ${new Date().getFullYear()} ${shopName}. Todos os direitos reservados.`)
                                 )
                             )
                         )
@@ -67,56 +68,39 @@ const EmailWrapper = ({ title, children }) => (
     )
 );
 
-// Template para confirmação de pedido
-const OrderConfirmationEmail = ({ customerName, orderId, items, total }) => (
-    React.createElement(EmailWrapper, { title: `Confirmação do Pedido #${orderId}` },
-        React.createElement(React.Fragment, null,
-            React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Obrigado pela sua compra, ${customerName}!`),
-            React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `Recebemos o seu pedido #${orderId} e ele já está sendo processado. Você receberá novas notificações por e-mail assim que o status do seu pedido for atualizado.`),
-            React.createElement('div', { style: { margin: '30px 0', borderTop: '1px solid #eee', borderBottom: '1px solid #eee', paddingTop: '20px', paddingBottom: '20px' } },
-                React.createElement('h3', { style: { color: '#333', fontSize: '18px', marginBottom: '15px' } }, 'Resumo do Pedido'),
-                items.map(item =>
-                    React.createElement('div', { key: item.name, style: { display: 'flex', justifyContent: 'space-between', padding: '5px 0', color: '#555' } },
-                        React.createElement('span', null, `${item.quantity}x ${item.name}`),
-                        React.createElement('span', null, `R$ ${(item.price * item.quantity).toFixed(2)}`)
+const OrderShippedEmail = ({ customerName, orderId, trackingCode, shopName = "Love Cestas e Perfumes" }) => (
+    React.createElement('html', null,
+        React.createElement('body', { style: { fontFamily: 'Arial, sans-serif', margin: 0, padding: 0, backgroundColor: '#f4f4f4' } },
+            React.createElement('table', { width: '100%', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#f4f4f4' } },
+                React.createElement('tr', null,
+                    React.createElement('td', { align: 'center' },
+                        React.createElement('table', { width: '600', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#ffffff', margin: '20px 0', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden' } },
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center' } },
+                                    React.createElement('h1', { style: { color: '#D4AF37', margin: 0, fontSize: '24px' } }, shopName)
+                                )
+                            ),
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { padding: '40px 30px' } },
+                                    React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Ótima notícia, ${customerName}!`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `Seu pedido #${orderId} foi enviado e já está a caminho!`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6', marginTop: '20px' } }, 'Você pode acompanhar a entrega usando o código de rastreio abaixo:'),
+                                    React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px', letterSpacing: '2px' } }, trackingCode),
+                                    React.createElement('a', { href: `https://linketrack.com/track?codigo=${trackingCode}`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Rastrear Meu Pedido')
+                                )
+                            ),
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '12px' } },
+                                    React.createElement('p', { style: { margin: 0 } }, `© ${new Date().getFullYear()} ${shopName}. Todos os direitos reservados.`)
+                                )
+                            )
+                        )
                     )
-                ),
-                React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', padding: '10px 0', marginTop: '10px', borderTop: '1px solid #eee', fontWeight: 'bold', color: '#333' } },
-                    React.createElement('span', null, 'Total'),
-                    React.createElement('span', null, `R$ ${total.toFixed(2)}`)
                 )
-            ),
-            React.createElement('a', { href: `${process.env.APP_URL}/#account/orders`, style: { display: 'block', width: 'fit-content', margin: '0 auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Ver Detalhes do Pedido')
+            )
         )
     )
 );
-
-// Template para atualização geral de status
-const OrderStatusUpdateEmail = ({ customerName, orderId, newStatus, statusDescription }) => (
-    React.createElement(EmailWrapper, { title: `Atualização do Pedido #${orderId}` },
-        React.createElement(React.Fragment, null,
-            React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Olá, ${customerName},`),
-            React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `O status do seu pedido #${orderId} foi atualizado para:`),
-            React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px' } }, newStatus),
-            React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, statusDescription),
-            React.createElement('a', { href: `${process.env.APP_URL}/#account/orders`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Ver Detalhes do Pedido')
-        )
-    )
-);
-
-// Template para notificação de envio
-const OrderShippedEmail = ({ customerName, orderId, trackingCode }) => (
-    React.createElement(EmailWrapper, { title: `Seu Pedido #${orderId} Foi Enviado!` },
-        React.createElement(React.Fragment, null,
-            React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Ótima notícia, ${customerName}!`),
-            React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `Seu pedido #${orderId} foi enviado e já está a caminho!`),
-            React.createElement('p', { style: { color: '#555', lineHeight: '1.6', marginTop: '20px' } }, 'Você pode acompanhar a entrega usando o código de rastreio abaixo:'),
-            React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px', letterSpacing: '2px' } }, trackingCode),
-            React.createElement('a', { href: `https://linketrack.com/track?codigo=${trackingCode}`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Rastrear Meu Pedido')
-        )
-    )
-);
-
 
 // Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = () => {
@@ -124,7 +108,7 @@ const checkRequiredEnvVars = () => {
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY'
+        'RESEND_API_KEY', 'FROM_EMAIL'
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -137,11 +121,11 @@ const checkRequiredEnvVars = () => {
 };
 checkRequiredEnvVars();
 
-
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
 const saltRounds = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
+const FROM_EMAIL = process.env.FROM_EMAIL;
 
 // --- CONFIGURAÇÕES DE SEGURANÇA ---
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -178,7 +162,9 @@ const db = mysql.createPool({
     port: process.env.DB_PORT || 3306,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    keepAliveInitialDelay: 10000,
+    enableKeepAlive: true
 });
 
 db.getConnection()
@@ -242,18 +228,10 @@ const sendNotificationEmail = async (orderId, newStatus) => {
         );
 
         if (orderData.length === 0) {
-            console.error(`[E-mail] Pedido #${orderId} não encontrado.`);
+            console.error(`[E-mail] Pedido #${orderId} não encontrado para envio de e-mail.`);
             return;
         }
         const order = orderData[0];
-
-        const [items] = await db.query(
-            `SELECT p.name, oi.quantity, oi.price 
-             FROM order_items oi 
-             JOIN products p ON oi.product_id = p.id 
-             WHERE oi.order_id = ?`,
-            [orderId]
-        );
 
         let subject = '';
         let emailComponent;
@@ -266,16 +244,8 @@ const sendNotificationEmail = async (orderId, newStatus) => {
             [ORDER_STATUS.CANCELLED]: "Seu pedido foi cancelado. Se tiver alguma dúvida, por favor, entre em contato com nosso suporte.",
             [ORDER_STATUS.REFUNDED]: "O estorno do seu pedido foi processado. O valor deve aparecer na sua fatura em breve, dependendo da operadora do seu cartão.",
         };
-        
-        if (newStatus === ORDER_STATUS.PENDING) {
-            subject = `Confirmação do seu pedido #${orderId}`;
-            emailComponent = React.createElement(OrderConfirmationEmail, {
-                customerName: order.customerName,
-                orderId: order.id,
-                items: items,
-                total: order.total
-            });
-        } else if (newStatus === ORDER_STATUS.SHIPPED) {
+
+        if (newStatus === ORDER_STATUS.SHIPPED) {
             subject = `Seu pedido #${orderId} foi enviado!`;
             emailComponent = React.createElement(OrderShippedEmail, {
                 customerName: order.customerName,
@@ -295,13 +265,11 @@ const sendNotificationEmail = async (orderId, newStatus) => {
             return;
         }
 
-        const emailHtml = ReactDOMServer.renderToStaticMarkup(emailComponent);
-
         await resend.emails.send({
-            from: 'Love Cestas e Perfumes <nao-responda@lovecestaseperfumes.com.br>',
+            from: `Love Cestas e Perfumes <${FROM_EMAIL}>`,
             to: [order.customerEmail],
             subject: subject,
-            html: emailHtml,
+            react: emailComponent,
         });
 
         console.log(`[E-mail] E-mail de status "${newStatus}" enviado com sucesso para ${order.customerEmail} para o pedido #${orderId}.`);
@@ -309,20 +277,6 @@ const sendNotificationEmail = async (orderId, newStatus) => {
     } catch (error) {
         console.error(`[E-mail] FALHA CRÍTICA ao enviar e-mail para o pedido #${orderId}:`, error);
     }
-};
-
-// --- Função Auxiliar para atualizar status e registrar histórico ---
-const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
-    await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
-    await connection.query(
-        "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
-        [orderId, newStatus, notes]
-    );
-    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
-
-    sendNotificationEmail(orderId, newStatus).catch(emailError => {
-        console.error(`[E-mail Trigger] Erro ao enviar e-mail para o pedido #${orderId}. O erro foi capturado e o processo principal continua. Erro:`, emailError);
-    });
 };
 
 
@@ -455,24 +409,20 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
     }
 });
-// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
+
+// --- ROTA DE RASTREIO ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
-    
     const LT_USER = process.env.LT_USER || 'teste';
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
-    console.log(`Iniciando rastreio para o código: ${code}`);
     try {
         const apiResponse = await fetch(LT_API_URL);
-        const responseText = await apiResponse.text();
-        
-        const data = JSON.parse(responseText);
+        const data = await apiResponse.json();
 
         if (!apiResponse.ok || data.erro) {
-            const errorMessage = data.erro || 'Não foi possível rastrear o objeto. Verifique o código.';
-            return res.status(404).json({ message: errorMessage });
+            return res.status(404).json({ message: data.erro || 'Não foi possível rastrear o objeto.' });
         }
         
         const formattedHistory = data.eventos.map(event => ({
@@ -483,7 +433,6 @@ app.get('/api/track/:code', async (req, res) => {
 
         res.json(formattedHistory);
     } catch (error) {
-        console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
     }
 });
@@ -500,21 +449,17 @@ app.post('/api/shipping/calculate', async (req, res) => {
         const cepCheckResponse = await fetch(`https://viacep.com.br/ws/${cep_destino.replace(/\D/g, '')}/json/`);
         const cepCheckData = await cepCheckResponse.json();
         if (cepCheckData.erro) {
-            return res.status(404).json({ message: "CEP não encontrado. Por favor, verifique o CEP digitado." });
+            return res.status(404).json({ message: "CEP não encontrado." });
         }
     } catch (cepError) {
-        console.warn("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
+        console.warn("Aviso: Falha ao pré-validar CEP com ViaCEP.");
     }
     
     const ME_TOKEN = process.env.ME_TOKEN;
-    
     const productIds = products.map(p => p.id);
     const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
     
-    const productsWithDetails = products.map(p => {
-        const dbProduct = dbProducts.find(dbp => dbp.id == p.id);
-        return {...p, ...dbProduct};
-    });
+    const productsWithDetails = products.map(p => ({...p, ...dbProducts.find(dbp => dbp.id == p.id)}));
 
     const payload = {
         from: { postal_code: process.env.ORIGIN_CEP },
@@ -547,8 +492,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
         const data = await apiResponse.json();
 
         if (!apiResponse.ok) {
-            const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
-            return res.status(apiResponse.status).json({ message: errorMessage });
+            return res.status(apiResponse.status).json({ message: data.message || JSON.stringify(data.errors) });
         }
         
         const filteredOptions = data
@@ -562,7 +506,6 @@ app.post('/api/shipping/calculate', async (req, res) => {
         
         res.json(filteredOptions);
     } catch (error) {
-        console.error("Erro ao calcular frete com Melhor Envio:", error);
         res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
     }
 });
@@ -582,7 +525,6 @@ app.get('/api/products', async (req, res) => {
         const [products] = await db.query(sql);
         res.json(products);
     } catch (err) { 
-        console.error("Erro ao buscar produtos:", err);
         res.status(500).json({ message: "Erro ao buscar produtos." }); 
     }
 });
@@ -605,23 +547,19 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
         const [products] = await db.query(sql, params);
         res.json(products);
     } catch (err) {
-        console.error("Erro ao buscar todos os produtos:", err);
         res.status(500).json({ message: "Erro ao buscar todos os produtos." });
     }
 });
 
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
-    if (!q || q.length < 2) {
-        return res.json([]);
-    }
+    if (!q || q.length < 2) return res.json([]);
     try {
         const searchTerm = `%${q}%`;
         const sql = "SELECT id, name FROM products WHERE is_active = 1 AND (name LIKE ? OR brand LIKE ?) LIMIT 10";
         const [suggestions] = await db.query(sql, [searchTerm, searchTerm]);
         res.json(suggestions);
     } catch (err) {
-        console.error("Erro ao buscar sugestões de pesquisa:", err);
         res.status(500).json({ message: "Erro ao buscar sugestões." });
     }
 });
@@ -633,7 +571,6 @@ app.get('/api/products/:id', async (req, res) => {
         if (products.length === 0) return res.status(404).json({ message: "Produto não encontrado." });
         res.json(products[0]);
     } catch (err) { 
-        console.error("Erro ao buscar produto por ID:", err);
         res.status(500).json({ message: "Erro ao buscar produto." }); 
     }
 });
@@ -643,31 +580,17 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
     try {
         const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
         const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
-        
-        if (ordersWithProduct.length === 0) {
-            return res.json([]);
-        }
-
+        if (ordersWithProduct.length === 0) return res.json([]);
         const orderIds = ordersWithProduct.map(o => o.order_id);
-
         const sqlFindRelated = `
-            SELECT 
-                p.*,
-                COUNT(oi.product_id) AS purchase_frequency
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id IN (?)
-            AND oi.product_id != ?
-            AND p.is_active = 1
-            GROUP BY oi.product_id
-            ORDER BY purchase_frequency DESC
-            LIMIT 8;
+            SELECT p.*, COUNT(oi.product_id) AS purchase_frequency
+            FROM order_items oi JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id IN (?) AND oi.product_id != ? AND p.is_active = 1
+            GROUP BY oi.product_id ORDER BY purchase_frequency DESC LIMIT 8;
         `;
         const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
         res.json(relatedProducts);
-
     } catch (err) {
-        console.error("Erro ao buscar produtos relacionados por compra:", err);
         res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
     }
 });
@@ -680,7 +603,6 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         const [result] = await db.query(sql, params);
         res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
     } catch (err) { 
-        console.error("Erro ao criar produto:", err);
         res.status(500).json({ message: "Erro interno ao criar produto." }); 
     }
 });
@@ -694,7 +616,6 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
         await db.query(sql, params);
         res.json({ message: "Produto atualizado com sucesso!" });
     } catch (err) { 
-        console.error("Erro ao atualizar produto:", err);
         res.status(500).json({ message: "Erro interno ao atualizar produto." }); 
     }
 });
@@ -704,7 +625,6 @@ app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
         await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
         res.json({ message: "Produto deletado com sucesso." });
     } catch (err) {
-        console.error("Erro ao deletar produto:", err);
         res.status(500).json({ message: "Erro interno ao deletar produto." });
     }
 });
@@ -734,10 +654,8 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     } catch (err) {
         await connection.rollback();
         if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
-            console.error("Tentativa de deletar produto referenciado em pedidos:", err);
-            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes. Considere desativá-los em vez de excluir." });
+            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes." });
         }
-        console.error("Erro ao deletar múltiplos produtos:", err);
         res.status(500).json({ message: "Erro interno ao deletar produtos." });
     } finally {
         connection.release();
@@ -745,20 +663,14 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('file'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
-    }
+    if (!req.file) return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
 
     const products = [];
     const connection = await db.getConnection();
 
     try {
         await new Promise((resolve, reject) => {
-            const bufferStream = new stream.PassThrough();
-            bufferStream.end(req.file.buffer);
-
-            bufferStream
-                .pipe(csv())
+            stream.Readable.from(req.file.buffer).pipe(csv())
                 .on('data', (row) => {
                     if (!row.name || !row.price) return;
                         products.push([
@@ -785,7 +697,6 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
         }
     } catch (err) {
         await connection.rollback();
-        console.error("Erro durante a importação de CSV:", err);
         res.status(500).json({ message: `Erro ao processar o arquivo: ${err.message}` });
     } finally {
         connection.release();
@@ -799,7 +710,6 @@ app.get('/api/products/:id/reviews', async (req, res) => {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
         res.json(reviews);
     } catch (err) { 
-        console.error("Erro ao buscar avaliações:", err);
         res.status(500).json({ message: "Erro ao buscar avaliações." }); 
     }
 });
@@ -811,7 +721,6 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
         await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
     } catch (err) { 
-        console.error("Erro ao adicionar avaliação:", err);
         res.status(500).json({ message: "Erro interno ao adicionar avaliação." }); 
     }
 });
@@ -823,14 +732,12 @@ app.get('/api/cart', verifyToken, async (req, res) => {
     try {
         const sql = `
             SELECT p.*, uc.quantity as qty
-            FROM user_carts uc
-            JOIN products p ON uc.product_id = p.id
+            FROM user_carts uc JOIN products p ON uc.product_id = p.id
             WHERE uc.user_id = ?
         `;
         const [cartItems] = await db.query(sql, [userId]);
         res.json(cartItems);
     } catch (error) {
-        console.error("Erro ao buscar carrinho do usuário:", error);
         res.status(500).json({ message: "Erro ao buscar carrinho." });
     }
 });
@@ -838,21 +745,12 @@ app.get('/api/cart', verifyToken, async (req, res) => {
 app.post('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { productId, quantity } = req.body;
-
-    if (!productId || !quantity || quantity < 1) {
-        return res.status(400).json({ message: "ID do produto e quantidade são obrigatórios." });
-    }
-
+    if (!productId || !quantity || quantity < 1) return res.status(400).json({ message: "ID do produto e quantidade são obrigatórios." });
     try {
-        const sql = `
-            INSERT INTO user_carts (user_id, product_id, quantity)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE quantity = ?;
-        `;
+        const sql = `INSERT INTO user_carts (user_id, product_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = ?;`;
         await db.query(sql, [userId, productId, quantity, quantity]);
         res.status(200).json({ message: "Carrinho atualizado com sucesso." });
     } catch (error) {
-        console.error("Erro ao atualizar o carrinho:", error);
         res.status(500).json({ message: "Erro ao atualizar carrinho." });
     }
 });
@@ -860,12 +758,10 @@ app.post('/api/cart', verifyToken, async (req, res) => {
 app.delete('/api/cart/:productId', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { productId } = req.params;
-
     try {
         await db.query("DELETE FROM user_carts WHERE user_id = ? AND product_id = ?", [userId, productId]);
         res.status(200).json({ message: "Item removido do carrinho." });
     } catch (error) {
-        console.error("Erro ao remover item do carrinho:", error);
         res.status(500).json({ message: "Erro ao remover item do carrinho." });
     }
 });
@@ -876,7 +772,6 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
         await db.query("DELETE FROM user_carts WHERE user_id = ?", [userId]);
         res.status(200).json({ message: "Carrinho esvaziado com sucesso." });
     } catch (error) {
-        console.error("Erro ao esvaziar o carrinho:", error);
         res.status(500).json({ message: "Erro ao esvaziar o carrinho." });
     }
 });
@@ -893,7 +788,6 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         }));
         res.json(detailedOrders);
     } catch (err) {
-        console.error("Erro ao buscar histórico de pedidos:", err);
         res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
     }
 });
@@ -904,7 +798,6 @@ app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
         const [orders] = await db.query("SELECT o.*, u.name as user_name FROM orders o JOIN users u ON o.user_id = u.id ORDER BY o.date DESC");
         res.json(orders);
     } catch (err) { 
-        console.error("Erro ao buscar pedidos (admin):", err);
         res.status(500).json({ message: "Erro ao buscar pedidos." }); 
     }
 });
@@ -913,16 +806,11 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     try {
         const [orders] = await db.query("SELECT o.*, u.name as user_name FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?", [id]);
-        if (orders.length === 0) {
-            return res.status(404).json({ message: "Pedido não encontrado." });
-        }
+        if (orders.length === 0) return res.status(404).json({ message: "Pedido não encontrado." });
         const order = orders[0];
         const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
-        
-        const detailedOrder = { ...order, items };
-        res.json(detailedOrder);
+        res.json({ ...order, items });
     } catch (err) {
-        console.error("Erro ao buscar detalhes do pedido:", err);
         res.status(500).json({ message: "Erro ao buscar detalhes do pedido." });
     }
 });
@@ -938,21 +826,16 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
             const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ? FOR UPDATE", [coupon_code]);
             if (coupons.length === 0) throw new Error("Cupom inválido ou não existe.");
-            
             const coupon = coupons[0];
             if (!coupon.is_active) throw new Error("Este cupom não está mais ativo.");
-
             if (coupon.validity_days) {
-                const createdAt = new Date(coupon.created_at);
-                const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
+                const expiryDate = new Date(new Date(coupon.created_at).setDate(new Date(coupon.created_at).getDate() + coupon.validity_days));
                 if (new Date() > expiryDate) throw new Error("Este cupom expirou.");
             }
-
             if (coupon.is_first_purchase) {
                 const [orders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
                 if (orders.length > 0) throw new Error("Este cupom é válido apenas para a primeira compra.");
             }
-
             if (coupon.is_single_use_per_user) {
                 const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
                 if (usage.length > 0) throw new Error("Você já utilizou este cupom.");
@@ -971,8 +854,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
 
-        // A chamada aqui já dispara o e-mail de confirmação
-        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
+        // A lógica de e-mail para 'Pendente' é ignorada na função sendNotificationEmail
+        await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, ORDER_STATUS.PENDING, "Pedido criado pelo cliente."]);
         
         const itemPromises = items.map(item => Promise.all([
             connection.query("INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)", [orderId, item.id, item.qty, item.price]),
@@ -983,11 +866,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
             const [coupons] = await connection.query("SELECT id FROM coupons WHERE code = ?", [coupon_code]);
             if (coupons.length > 0) {
-                const couponId = coupons[0].id;
-                await connection.query(
-                    "INSERT INTO coupon_usage (coupon_id, user_id, order_id) VALUES (?, ?, ?)",
-                    [couponId, req.user.id, orderId]
-                );
+                await connection.query("INSERT INTO coupon_usage (coupon_id, user_id, order_id) VALUES (?, ?, ?)", [coupons[0].id, req.user.id, orderId]);
             }
         }
         
@@ -997,110 +876,85 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao criar pedido:", err);
         res.status(500).json({ message: err.message || "Falha ao criar o pedido." });
     } finally {
         connection.release();
     }
 });
 
-
-app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
-    const { id } = req.params;
-    const { address } = req.body;
-    const userId = req.user.id;
-
-    try {
-        const [order] = await db.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [id, userId]);
-        if (order.length === 0) {
-            return res.status(404).json({ message: "Pedido não encontrado ou não pertence a este usuário." });
-        }
-        if (order[0].status !== ORDER_STATUS.PENDING && order[0].status !== ORDER_STATUS.PAYMENT_APPROVED) {
-            return res.status(403).json({ message: "Endereço não pode ser alterado para este pedido." });
-        }
-        await db.query("UPDATE orders SET shipping_address = ? WHERE id = ?", [JSON.stringify(address), id]);
-        res.json({ message: "Endereço do pedido atualizado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao atualizar endereço do pedido:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar endereço." });
-    }
-});
-
-// CORREÇÃO: Rota de atualização de pedidos foi revisada para garantir a atomicidade e o tratamento de erros
+// ROTA DE ATUALIZAÇÃO DE PEDIDO (CORRIGIDA E OTIMIZADA)
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
-    
+
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
-        const [currentOrderResult] = await connection.query("SELECT status, payment_gateway_id, payment_status FROM orders WHERE id = ? FOR UPDATE", [id]);
+        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
-        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
+        const currentOrder = currentOrderResult[0];
+        
+        let newStatus = currentOrder.status;
+        const statusWasExplicitlyChanged = status && status !== currentOrder.status;
 
-        let hasChanges = false;
-
-        // 1. Atualiza o código de rastreio se fornecido
-        if (tracking_code !== undefined) { 
-            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
-            console.log(`Código de rastreio do pedido #${id} atualizado para: ${tracking_code}`);
-            hasChanges = true;
-            
-            // Se o status for apropriado, muda para "Enviado"
-            if (tracking_code && currentStatus !== ORDER_STATUS.SHIPPED && currentStatus !== ORDER_STATUS.DELIVERED && currentStatus !== ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.REFUNDED) {
-                await updateOrderStatus(id, ORDER_STATUS.SHIPPED, connection, "Código de rastreio adicionado pelo administrador.");
+        if (statusWasExplicitlyChanged) {
+            newStatus = status;
+        } 
+        else if (tracking_code && !currentOrder.tracking_code) {
+            const isTerminal = [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(currentOrder.status);
+            if (!isTerminal) {
+                newStatus = ORDER_STATUS.SHIPPED;
             }
         }
+        
+        const finalStatusChanged = newStatus !== currentOrder.status;
 
-        // 2. Atualiza o status se um novo status for fornecido.
-        if (status) {
-            if (status === ORDER_STATUS.REFUNDED) {
-                if (!payment_gateway_id) throw new Error("Reembolso falhou: Este pedido não possui um ID de pagamento registrado.");
-                if (currentPaymentStatus !== 'approved') throw new Error(`Reembolso falhou: O pagamento não pode ser reembolsado pois seu status é '${currentPaymentStatus}'.`);
-
-                console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
-                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': crypto.randomUUID() }
-                });
+        if (finalStatusChanged) {
+            if (newStatus === ORDER_STATUS.REFUNDED) {
+                if (!currentOrder.payment_gateway_id) throw new Error("Reembolso falhou: Pedido sem ID de pagamento.");
+                if (currentOrder.payment_status !== 'approved') throw new Error(`Reembolso falhou: Status do pagamento é '${currentOrder.payment_status}'.`);
                 
+                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${currentOrder.payment_gateway_id}/refunds`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'X-Idempotency-Key': crypto.randomUUID(), 'Content-Type': 'application/json' }
+                });
                 const refundData = await refundResponse.json();
-                if (!refundResponse.ok) {
-                    console.error("[Reembolso] Erro da API do Mercado Pago:", refundData);
-                    throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
-                }
-                console.log(`[Reembolso] Reembolso para o pagamento ${payment_gateway_id} processado com sucesso no Mercado Pago.`);
+                if (!refundResponse.ok) throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
             }
-            
-            // Sempre registra o novo status e envia o e-mail
-            await updateOrderStatus(id, status, connection, "Status alterado pelo administrador (via painel).");
-            hasChanges = true;
-            
-            // Reverte estoque apenas se o status estiver mudando para um estado de cancelamento
-            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED);
-            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED);
+
+            const isRevertingStock = [ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(newStatus);
+            const wasAlreadyReverted = [ORDER_STATUS.CANCELLED, ORDER_STATUS.REFUNDED].includes(currentOrder.status);
 
             if (isRevertingStock && !wasAlreadyReverted) {
                 const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
-                if (itemsToAdjust.length > 0) {
-                    for (const item of itemsToAdjust) {
-                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                    }
-                    console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
+                for (const item of itemsToAdjust) {
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                 }
             }
         }
 
-        await connection.commit();
-        
-        if (!hasChanges) {
-             res.json({ message: "Nenhuma alteração foi feita no pedido." });
-        } else {
-             res.json({ message: "Pedido atualizado com sucesso." });
+        await connection.query(
+            "UPDATE orders SET status = ?, tracking_code = ? WHERE id = ?",
+            [
+                newStatus,
+                tracking_code !== undefined ? tracking_code : currentOrder.tracking_code,
+                id
+            ]
+        );
+
+        if (finalStatusChanged) {
+            await connection.query(
+                "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
+                [id, newStatus, "Status alterado pelo administrador."]
+            );
+            sendNotificationEmail(id, newStatus);
         }
+
+        await connection.commit();
+        res.json({ message: "Pedido atualizado com sucesso." });
 
     } catch (err) { 
         await connection.rollback();
@@ -1119,15 +973,12 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
         const [orderResult] = await db.query("SELECT status, user_id FROM orders WHERE id = ?", [id]);
-        if (orderResult.length === 0) {
-            return res.status(404).json({ message: 'Pedido não encontrado.' });
-        }
+        if (orderResult.length === 0) return res.status(404).json({ message: 'Pedido não encontrado.' });
         if (orderResult[0].user_id !== userId && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Acesso negado a este pedido.' });
         }
         res.json({ status: orderResult[0].status });
     } catch(err) {
-        console.error(`Erro ao buscar status do pedido ${id}:`, err);
         res.status(500).json({ message: 'Erro ao consultar o status do pedido.' });
     }
 });
@@ -1135,26 +986,17 @@ app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
 app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     try {
         const { orderId } = req.body;
+        if (!orderId) return res.status(400).json({ message: "ID do pedido é obrigatório." });
         
-        if (!orderId) {
-            return res.status(400).json({ message: "ID do pedido é obrigatório." });
-        }
         const appUrl = process.env.APP_URL;
         const backendUrl = process.env.BACKEND_URL;
 
         const [orderResult] = await db.query("SELECT * FROM orders WHERE id = ?", [orderId]);
-        if (!orderResult.length) {
-            return res.status(404).json({ message: "Pedido não encontrado."});
-        }
+        if (!orderResult.length) return res.status(404).json({ message: "Pedido não encontrado."});
         const order = orderResult[0];
 
-        const [orderItems] = await db.query(
-            `SELECT oi.quantity, oi.price, p.name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?`, 
-            [orderId]
-        );
-        if (!orderItems.length) {
-            return res.status(400).json({ message: "Nenhum item encontrado para este pedido." });
-        }
+        const [orderItems] = await db.query(`SELECT oi.quantity, oi.price, p.name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?`, [orderId]);
+        if (!orderItems.length) return res.status(400).json({ message: "Nenhum item encontrado para este pedido." });
         
         const subtotal = orderItems.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0);
         const shipping = Number(order.shipping_cost || 0);
@@ -1181,41 +1023,16 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 
         finalItemPriceForMP = Math.max(0.01, finalItemPriceForMP);
         
-        let description = `Subtotal: R$ ${subtotal.toFixed(2)}.`;
-        
-        if (isFreeShippingCoupon) {
-            description += ` Frete: GRÁTIS.`;
-        } else {
-            description += ` Frete: R$ ${shipping.toFixed(2)}.`;
-        }
-
-        if (!isFreeShippingCoupon && discount > 0) {
-            description += ` Desconto: -R$ ${discount.toFixed(2)}.`;
-        }
-        
-        description += ` Total: R$ ${total.toFixed(2)}.`;
-        
-        let maxInstallments;
-        if (total > 100) {
-            maxInstallments = 10;
-        } else {
-            maxInstallments = 1;
-        }
-
         const preferenceBody = {
-            items: [
-                {
-                    title: `Pedido #${order.id} - Love Cestas e Perfumes`,
-                    description: description,
-                    quantity: 1,
-                    currency_id: 'BRL',
-                    unit_price: Number(finalItemPriceForMP.toFixed(2))
-                }
-            ],
+            items: [{
+                title: `Pedido #${order.id} - Love Cestas e Perfumes`,
+                description: `Produtos do seu pedido. Total: R$ ${total.toFixed(2)}`,
+                quantity: 1,
+                currency_id: 'BRL',
+                unit_price: Number(finalItemPriceForMP.toFixed(2))
+            }],
             payment_methods: {
-                excluded_payment_methods: [],
-                excluded_payment_types: [],
-                installments: maxInstallments,
+                installments: total > 100 ? 10 : 1,
                 default_installments: 1
             },
             external_reference: orderId.toString(),
@@ -1234,51 +1051,32 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             };
         }
         
-        console.log(`[Webhook URL Gerada]: ${preferenceBody.notification_url}`);
-
         const result = await preference.create({ body: preferenceBody });
-
-        res.json({
-            preferenceId: result.id,
-            init_point: result.init_point,
-        });
+        res.json({ preferenceId: result.id, init_point: result.init_point });
 
     } catch (error) {
-        console.error('Erro ao criar preferência do Mercado Pago:', error?.cause || error);
-        const errorMessage = error?.cause?.error || error.message || 'Falha ao gerar link de pagamento.';
-        res.status(500).json({ message: errorMessage });
+        res.status(500).json({ message: error?.cause?.error || error.message || 'Falha ao gerar link de pagamento.' });
     }
 });
 
 
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
-
-    if (!amount) {
-        return res.status(400).json({ message: "O valor (amount) é obrigatório." });
-    }
+    if (!amount) return res.status(400).json({ message: "O valor (amount) é obrigatório." });
     
     try {
         const bin = '411111'; 
         const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
-
-        if (!installmentsResponse.ok) {
-            const errorData = await installmentsResponse.json();
-            throw new Error(errorData.message || 'Não foi possível obter os parcelamentos.');
-        }
-
+        if (!installmentsResponse.ok) throw new Error('Não foi possível obter os parcelamentos.');
         const installmentsData = await installmentsResponse.json();
-        
         if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
             res.json(installmentsData[0].payer_costs);
         } else {
             res.status(404).json({ message: 'Não foram encontradas opções de parcelamento.' });
         }
-
     } catch (error) {
-        console.error("Erro ao buscar parcelas do Mercado Pago:", error);
         res.status(500).json({ message: error.message || "Erro interno do servidor ao buscar parcelas." });
     }
 });
@@ -1290,73 +1088,52 @@ const processPaymentWebhook = async (paymentId) => {
             return;
         }
 
-        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
         const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
-        if (!paymentResponse.ok) {
-            const errorText = await paymentResponse.text();
-            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
-            return;
-        }
+        if (!paymentResponse.ok) return console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP.`);
         
         const payment = await paymentResponse.json();
         const orderId = payment.external_reference;
         const paymentStatus = payment.status;
 
-        if (!orderId) {
-            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
-            return;
-        }
+        if (!orderId) return console.log(`[Webhook] Pagamento ${paymentId} sem ID de pedido.`);
 
-        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
-        
         const connection = await db.getConnection();
         try {
             await connection.beginTransaction();
-
-            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [orderId]);
-            if (currentOrderResult.length === 0) {
-                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
+            const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [orderId]);
+            if (orderResult.length === 0) {
                 await connection.commit();
-                return;
+                return console.log(`[Webhook] Pedido ${orderId} não encontrado.`);
             }
-            const currentDBStatus = currentOrderResult[0].status;
-            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
+            const currentOrder = orderResult[0];
 
-            await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?", 
-                [paymentStatus, payment.id, orderId]
-            );
+            await connection.query("UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?", [paymentStatus, payment.id, orderId]);
             
-            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
-                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
+            if (paymentStatus === 'approved' && currentOrder.status === ORDER_STATUS.PENDING) {
+                await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, ORDER_STATUS.PAYMENT_APPROVED, "Pagamento confirmado via webhook."]);
+                await connection.query("UPDATE orders SET status = ? WHERE id = ?", [ORDER_STATUS.PAYMENT_APPROVED, orderId]);
+                await sendNotificationEmail(orderId, ORDER_STATUS.PAYMENT_APPROVED);
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentOrder.status !== ORDER_STATUS.CANCELLED) {
+                await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, ORDER_STATUS.CANCELLED, "Pagamento recusado pela operadora."]);
+                await connection.query("UPDATE orders SET status = ? WHERE id = ?", [ORDER_STATUS.CANCELLED, orderId]);
                 
                 const [itemsToReturn] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [orderId]);
-                if (itemsToReturn.length > 0) {
-                    for (const item of itemsToReturn) {
-                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                    }
-                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
+                for (const item of itemsToReturn) {
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                 }
-            } else {
-                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
+                await sendNotificationEmail(orderId, ORDER_STATUS.CANCELLED);
             }
             
             await connection.commit();
-            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
-
         } catch(dbError) {
+            await connection.rollback();
             console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
-            if (connection) await connection.rollback();
         } finally {
-            if (connection) connection.release();
+            connection.release();
         }
-
     } catch (error) {
         console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
     }
@@ -1365,22 +1142,10 @@ const processPaymentWebhook = async (paymentId) => {
 
 app.post('/api/mercadopago-webhook', (req, res) => {
     res.sendStatus(200);
-
-    const notification = req.body;
     const topic = req.query.topic || req.query.type;
-
-    console.log('[Webhook] Notificação recebida. Query:', req.query, 'Body:', notification);
-
-    if (notification && topic === 'payment') {
-        const paymentId = req.query.id || notification.data?.id;
-        console.log(`[Webhook] Tópico 'payment' detectado. ID do pagamento: ${paymentId}.`);
-        if (paymentId) {
-            processPaymentWebhook(paymentId);
-        } else {
-            console.log('[Webhook] Tópico "payment", mas sem ID de pagamento encontrado na notificação.');
-        }
-    } else {
-         console.log(`[Webhook] Tópico não é 'payment' ou notificação está vazia. Tópico: ${topic}. Ignorando.`);
+    if (req.body && topic === 'payment') {
+        const paymentId = req.query.id || req.body.data?.id;
+        if (paymentId) processPaymentWebhook(paymentId);
     }
 });
 
@@ -1391,7 +1156,6 @@ app.get('/api/users', verifyToken, verifyAdmin, async (req, res) => {
         const [users] = await db.query("SELECT id, name, email, cpf, role, created_at FROM users");
         res.json(users);
     } catch (err) { 
-        console.error("Erro ao buscar usuários:", err);
         res.status(500).json({ message: "Erro ao buscar usuários." }); 
     }
 });
@@ -1402,7 +1166,6 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         res.json(rows[0]);
     } catch (err) {
-        console.error("Erro ao buscar dados do usuário:", err);
         res.status(500).json({ message: "Erro ao buscar dados do usuário." });
     }
 });
@@ -1410,39 +1173,23 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, email, role, password } = req.body;
-
-    if (!name || !email || !role) {
-        return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
-    }
+    if (!name || !email || !role) return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
 
     try {
         let queryParams = [name, email, role];
         let sql = "UPDATE users SET name = ?, email = ?, role = ?";
-
         if (password && password.trim() !== '') {
-            if (password.length < 6) {
-                return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
-            }
             const hashedPassword = await bcrypt.hash(password, saltRounds);
             sql += ", password = ?";
             queryParams.push(hashedPassword);
         }
-
         sql += " WHERE id = ?";
         queryParams.push(id);
-
         const [result] = await db.query(sql, queryParams);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         res.json({ message: "Usuário atualizado com sucesso!" });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este e-mail já está em uso por outro usuário." });
-        }
-        console.error("Erro ao atualizar usuário:", err);
+        if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: "Este e-mail já está em uso." });
         res.status(500).json({ message: "Erro interno ao atualizar usuário." });
     }
 });
@@ -1450,16 +1197,13 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { password } = req.body;
-    if (!password || password.length < 6) {
-        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
-    }
+    if (!password || password.length < 6) return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres." });
 
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
         res.json({ message: "Senha atualizada com sucesso." });
     } catch(err) {
-        console.error("Erro ao atualizar senha do usuário:", err);
         res.status(500).json({ message: "Erro ao atualizar a senha." });
     }
 });
@@ -1469,7 +1213,6 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
         res.json({ message: "Usuário deletado com sucesso." });
     } catch (err) { 
-        console.error("Erro ao deletar usuário:", err);
         res.status(500).json({ message: "Erro interno ao deletar usuário." }); 
     }
 });
@@ -1480,7 +1223,6 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
         const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
         res.json(coupons);
     } catch (err) { 
-        console.error("Erro ao buscar cupons:", err);
         res.status(500).json({ message: "Erro ao buscar cupons." }); 
     }
 });
@@ -1490,58 +1232,30 @@ app.post('/api/coupons/validate', async (req, res) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     let user = null;
-
-    if (token) {
-        try {
-            user = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            console.log("Token de validação de cupom inválido ou expirado, tratando como deslogado.");
-        }
-    }
+    if (token) try { user = jwt.verify(token, JWT_SECRET); } catch (err) {}
     
     try {
         const [coupons] = await db.query("SELECT * FROM coupons WHERE code = ?", [code.toUpperCase()]);
-        if (coupons.length === 0) {
-            return res.status(404).json({ message: "Cupom inválido ou não existe." });
-        }
+        if (coupons.length === 0) return res.status(404).json({ message: "Cupom inválido." });
         const coupon = coupons[0];
-
-        if (!coupon.is_active) {
-            return res.status(400).json({ message: "Este cupom não está mais ativo." });
-        }
-
+        if (!coupon.is_active) return res.status(400).json({ message: "Cupom não está ativo." });
         if (coupon.validity_days) {
-            const createdAt = new Date(coupon.created_at);
-            const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
-            if (new Date() > expiryDate) {
-                return res.status(400).json({ message: "Este cupom expirou." });
-            }
+            const expiryDate = new Date(new Date(coupon.created_at).setDate(new Date(coupon.created_at).getDate() + coupon.validity_days));
+            if (new Date() > expiryDate) return res.status(400).json({ message: "Cupom expirou." });
         }
-        
         if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
-            if (!user) {
-                return res.status(403).json({ message: "Você precisa estar logado para usar este cupom." });
-            }
+            if (!user) return res.status(403).json({ message: "Você precisa estar logado para usar este cupom." });
         }
-        
         if (user && coupon.is_first_purchase) {
             const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
-            if (orders.length > 0) {
-                return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
-            }
+            if (orders.length > 0) return res.status(403).json({ message: "Cupom válido apenas para a primeira compra." });
         }
-        
         if (user && coupon.is_single_use_per_user) {
             const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
-            if (usage.length > 0) {
-                return res.status(403).json({ message: "Você já utilizou este cupom." });
-            }
+            if (usage.length > 0) return res.status(403).json({ message: "Você já utilizou este cupom." });
         }
-        
         res.json({ coupon });
-
     } catch (err) {
-        console.error("Erro ao validar cupom:", err);
         res.status(500).json({ message: "Erro interno ao validar cupom." });
     }
 });
@@ -1549,23 +1263,14 @@ app.post('/api/coupons/validate', async (req, res) => {
 
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
-        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
-    }
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) return res.status(400).json({ message: "Dados incompletos." });
     try {
         const sql = "INSERT INTO coupons (code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        const params = [
-            code.toUpperCase(), type, type === 'free_shipping' ? null : value, 
-            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, 
-            is_single_use_per_user ? 1 : 0
-        ];
+        const params = [code.toUpperCase(), type, type === 'free_shipping' ? null : value, is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, is_single_use_per_user ? 1 : 0];
         const [result] = await db.query(sql, params);
-        res.status(201).json({ message: "Cupom criado com sucesso!", couponId: result.insertId });
+        res.status(201).json({ message: "Cupom criado!", couponId: result.insertId });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este código de cupom já existe." });
-        }
-        console.error("Erro ao criar cupom:", err);
+        if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: "Este código de cupom já existe." });
         res.status(500).json({ message: "Erro interno ao criar cupom." });
     }
 });
@@ -1573,23 +1278,14 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
 app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
-        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
-    }
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) return res.status(400).json({ message: "Dados incompletos." });
     try {
         const sql = "UPDATE coupons SET code = ?, type = ?, value = ?, is_active = ?, validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ? WHERE id = ?";
-        const params = [
-            code.toUpperCase(), type, type === 'free_shipping' ? null : value, 
-            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, 
-            is_single_use_per_user ? 1 : 0, id
-        ];
+        const params = [code.toUpperCase(), type, type === 'free_shipping' ? null : value, is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0, is_single_use_per_user ? 1 : 0, id];
         await db.query(sql, params);
-        res.json({ message: "Cupom atualizado com sucesso." });
+        res.json({ message: "Cupom atualizado." });
     } catch (err) {
-         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este código de cupom já existe." });
-         }
-        console.error("Erro ao atualizar cupom:", err);
+         if (err.code === 'ER_DUP_ENTRY') return res.status(409).json({ message: "Este código de cupom já existe." });
         res.status(500).json({ message: "Erro interno ao atualizar cupom." });
     }
 });
@@ -1597,34 +1293,28 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM coupons WHERE id = ?", [req.params.id]);
-        res.json({ message: "Cupom deletado com sucesso." });
+        res.json({ message: "Cupom deletado." });
     } catch (err) { 
-        console.error("Erro ao deletar cupom:", err);
         res.status(500).json({ message: "Erro interno ao deletar cupom." }); 
     }
 });
 
 // --- ROTAS DA LISTA DE DESEJOS (WISHLIST) ---
 app.get('/api/wishlist', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     try {
         const sql = "SELECT p.* FROM products p JOIN wishlist w ON p.id = w.product_id WHERE w.user_id = ?";
-        const [wishlistItems] = await db.query(sql, [userId]);
+        const [wishlistItems] = await db.query(sql, [req.user.id]);
         res.json(wishlistItems);
     } catch (err) {
-        console.error("Erro ao buscar lista de desejos:", err);
         res.status(500).json({ message: "Erro ao buscar lista de desejos." });
     }
 });
 
 app.post('/api/wishlist', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { productId } = req.body;
     if (!productId) return res.status(400).json({ message: "ID do produto é obrigatório." });
-
     try {
-        const sql = "INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)";
-        await db.query(sql, [userId, productId]);
+        await db.query("INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)", [req.user.id, productId]);
         const [product] = await db.query("SELECT * FROM products WHERE id = ?", [productId]);
         res.status(201).json(product[0]);
     } catch (err) {
@@ -1632,64 +1322,46 @@ app.post('/api/wishlist', verifyToken, async (req, res) => {
             const [product] = await db.query("SELECT * FROM products WHERE id = ?", [productId]);
             return res.status(200).json(product[0]);
         }
-        console.error("Erro ao adicionar à lista de desejos:", err);
         res.status(500).json({ message: "Erro ao adicionar à lista de desejos." });
     }
 });
 
 app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { productId } = req.params;
     if (!productId) return res.status(400).json({ message: "ID do produto é obrigatório." });
-
     try {
-        const sql = "DELETE FROM wishlist WHERE user_id = ? AND product_id = ?";
-        const [result] = await db.query(sql, [userId, productId]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Produto não encontrado na lista de desejos." });
-        }
+        const [result] = await db.query("DELETE FROM wishlist WHERE user_id = ? AND product_id = ?", [req.user.id, productId]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Produto não encontrado na lista de desejos." });
         res.status(200).json({ message: "Produto removido da lista de desejos." });
     } catch (err) {
-        console.error("Erro ao remover da lista de desejos:", err);
         res.status(500).json({ message: "Erro ao remover da lista de desejos." });
     }
 });
 
-// --- ROTAS: GERENCIAMENTO DE ENDEREÇOS ---
+// --- ROTAS DE GERENCIAMENTO DE ENDEREÇOS ---
 app.get('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     try {
-        const [addresses] = await db.query("SELECT * FROM user_addresses WHERE user_id = ? ORDER BY is_default DESC, alias ASC", [userId]);
+        const [addresses] = await db.query("SELECT * FROM user_addresses WHERE user_id = ? ORDER BY is_default DESC, alias ASC", [req.user.id]);
         res.json(addresses);
     } catch (err) {
-        console.error("Erro ao buscar endereços:", err);
         res.status(500).json({ message: "Erro ao buscar endereços." });
     }
 });
 
 app.post('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-        
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
+        if (is_default) await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [req.user.id]);
         const sql = "INSERT INTO user_addresses (user_id, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [userId, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0];
+        const params = [req.user.id, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0];
         const [result] = await connection.query(sql, params);
-        
         const [newAddress] = await connection.query("SELECT * FROM user_addresses WHERE id = ?", [result.insertId]);
-
         await connection.commit();
         res.status(201).json(newAddress[0]);
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao adicionar endereço:", err);
         res.status(500).json({ message: err.message || "Erro ao adicionar endereço." });
     } finally {
         connection.release();
@@ -1697,31 +1369,20 @@ app.post('/api/addresses', verifyToken, async (req, res) => {
 });
 
 app.put('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { id } = req.params;
     const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-    
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
+        if (is_default) await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [req.user.id]);
         const sql = "UPDATE user_addresses SET alias = ?, cep = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?, localidade = ?, uf = ?, is_default = ? WHERE id = ? AND user_id = ?";
-        const params = [alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0, id, userId];
+        const params = [alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0, id, req.user.id];
         const [result] = await connection.query(sql, params);
-
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-
+        if (result.affectedRows === 0) throw new Error("Endereço não encontrado ou não pertence a este usuário.");
         await connection.commit();
         res.json({ message: "Endereço atualizado com sucesso." });
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao atualizar endereço:", err);
         res.status(500).json({ message: err.message || "Erro ao atualizar endereço." });
     } finally {
         connection.release();
@@ -1729,24 +1390,17 @@ app.put('/api/addresses/:id', verifyToken, async (req, res) => {
 });
 
 app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { id } = req.params;
-
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
-        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        const [result] = await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [id, userId]);
-        
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-        
+        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [req.user.id]);
+        const [result] = await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [id, req.user.id]);
+        if (result.affectedRows === 0) throw new Error("Endereço não encontrado ou não pertence a este usuário.");
         await connection.commit();
         res.json({ message: "Endereço padrão definido com sucesso." });
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao definir endereço padrão:", err);
         res.status(500).json({ message: err.message || "Erro ao definir endereço padrão." });
     } finally {
         connection.release();
@@ -1754,17 +1408,12 @@ app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
 });
 
 app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
     const { id } = req.params;
-
     try {
-        const [result] = await db.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [id, userId]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Endereço não encontrado ou não pertence a este usuário." });
-        }
+        const [result] = await db.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [id, req.user.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Endereço não encontrado ou não pertence a este usuário." });
         res.json({ message: "Endereço deletado com sucesso." });
     } catch (err) {
-        console.error("Erro ao deletar endereço:", err);
         res.status(500).json({ message: "Erro ao deletar endereço." });
     }
 });
