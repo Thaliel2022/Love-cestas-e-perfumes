@@ -1,7 +1,7 @@
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
-const cors =require('cors');
+const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -13,6 +13,10 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
+// NOVO: Importação do Resend para envio de e-mails
+const { Resend } = require('resend');
+// NOVO: Importação do React para renderizar os templates de e-mail
+const React = require('react');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -30,13 +34,93 @@ const ORDER_STATUS = {
     REFUNDED: 'Reembolsado'
 };
 
+// --- NOVO: TEMPLATES DE E-MAIL COM REACT ---
+// Estes componentes React são renderizados como HTML para o corpo do e-mail.
+
+// Template para atualização geral de status
+const OrderStatusUpdateEmail = ({ customerName, orderId, newStatus, statusDescription, items, total, shopName = "Love Cestas e Perfumes" }) => (
+    React.createElement('html', null,
+        React.createElement('body', { style: { fontFamily: 'Arial, sans-serif', margin: 0, padding: 0, backgroundColor: '#f4f4f4' } },
+            React.createElement('table', { width: '100%', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#f4f4f4' } },
+                React.createElement('tr', null,
+                    React.createElement('td', { align: 'center' },
+                        React.createElement('table', { width: '600', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#ffffff', margin: '20px 0', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden' } },
+                            // Cabeçalho
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center' } },
+                                    React.createElement('h1', { style: { color: '#D4AF37', margin: 0, fontSize: '24px' } }, shopName)
+                                )
+                            ),
+                            // Conteúdo Principal
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { padding: '40px 30px' } },
+                                    React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Olá, ${customerName},`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `O status do seu pedido #${orderId} foi atualizado para:`),
+                                    React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px' } }, newStatus),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, statusDescription),
+                                    React.createElement('a', { href: `${process.env.APP_URL}/#account/orders`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Ver Detalhes do Pedido')
+                                )
+                            ),
+                            // Rodapé
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '12px' } },
+                                    React.createElement('p', { style: { margin: 0 } }, `© ${new Date().getFullYear()} ${shopName}. Todos os direitos reservados.`)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+);
+
+// Template para notificação de envio
+const OrderShippedEmail = ({ customerName, orderId, trackingCode, items, total, shopName = "Love Cestas e Perfumes" }) => (
+    React.createElement('html', null,
+        React.createElement('body', { style: { fontFamily: 'Arial, sans-serif', margin: 0, padding: 0, backgroundColor: '#f4f4f4' } },
+            React.createElement('table', { width: '100%', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#f4f4f4' } },
+                React.createElement('tr', null,
+                    React.createElement('td', { align: 'center' },
+                        React.createElement('table', { width: '600', cellPadding: 0, cellSpacing: 0, style: { backgroundColor: '#ffffff', margin: '20px 0', borderCollapse: 'collapse', borderRadius: '8px', overflow: 'hidden' } },
+                            // Cabeçalho
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center' } },
+                                    React.createElement('h1', { style: { color: '#D4AF37', margin: 0, fontSize: '24px' } }, shopName)
+                                )
+                            ),
+                            // Conteúdo Principal
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { padding: '40px 30px' } },
+                                    React.createElement('h2', { style: { color: '#333', fontSize: '20px' } }, `Ótima notícia, ${customerName}!`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6' } }, `Seu pedido #${orderId} foi enviado e já está a caminho!`),
+                                    React.createElement('p', { style: { color: '#555', lineHeight: '1.6', marginTop: '20px' } }, 'Você pode acompanhar a entrega usando o código de rastreio abaixo:'),
+                                    React.createElement('p', { style: { fontSize: '22px', fontWeight: 'bold', color: '#D4AF37', margin: '20px 0', textAlign: 'center', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '5px', letterSpacing: '2px' } }, trackingCode),
+                                    React.createElement('a', { href: `https://linketrack.com/track?codigo=${trackingCode}`, style: { display: 'block', width: 'fit-content', margin: '30px auto', padding: '12px 25px', backgroundColor: '#D4AF37', color: '#000000', textDecoration: 'none', borderRadius: '5px', fontWeight: 'bold' } }, 'Rastrear Meu Pedido')
+                                )
+                            ),
+                            // Rodapé
+                            React.createElement('tr', null,
+                                React.createElement('td', { style: { backgroundColor: '#2c2c2c', padding: '20px', textAlign: 'center', color: '#aaa', fontSize: '12px' } },
+                                    React.createElement('p', { style: { margin: 0 } }, `© ${new Date().getFullYear()} ${shopName}. Todos os direitos reservados.`)
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    )
+);
+
 
 // Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = () => {
     const requiredVars = [
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
-        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP'
+        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
+        'RESEND_API_KEY' // NOVO: Chave da API da Resend
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -118,6 +202,8 @@ cloudinary.config({
 const memoryStorage = multer.memoryStorage();
 const memoryUpload = multer({ storage: memoryStorage });
 
+// --- NOVO: CONFIGURAÇÃO DO RESEND ---
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
 const verifyToken = (req, res, next) => {
@@ -139,7 +225,86 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- Função Auxiliar para atualizar status e registrar histórico
+// --- NOVO: Função Auxiliar para Envio de Email ---
+const sendNotificationEmail = async (orderId, newStatus) => {
+    console.log(`[E-mail] Iniciando processo de envio para pedido #${orderId}, status: ${newStatus}`);
+    try {
+        // Busca os dados completos do pedido e do usuário
+        const [orderData] = await db.query(
+            `SELECT o.*, u.name as customerName, u.email as customerEmail 
+             FROM orders o 
+             JOIN users u ON o.user_id = u.id 
+             WHERE o.id = ?`,
+            [orderId]
+        );
+
+        if (orderData.length === 0) {
+            console.error(`[E-mail] Pedido #${orderId} não encontrado para envio de e-mail.`);
+            return;
+        }
+        const order = orderData[0];
+
+        const [items] = await db.query(
+            `SELECT p.name, oi.quantity, oi.price 
+             FROM order_items oi 
+             JOIN products p ON oi.product_id = p.id 
+             WHERE oi.order_id = ?`,
+            [orderId]
+        );
+
+        let subject = '';
+        let emailComponent;
+
+        const statusDescriptions = {
+            [ORDER_STATUS.PAYMENT_APPROVED]: "Seu pagamento foi confirmado! Já estamos separando seus produtos com todo o carinho para o envio.",
+            [ORDER_STATUS.PROCESSING]: "Seus itens estão sendo cuidadosamente separados e embalados. Em breve, eles estarão a caminho!",
+            [ORDER_STATUS.OUT_FOR_DELIVERY]: "Boas notícias! Sua encomenda saiu para entrega e deve chegar em seu endereço em breve.",
+            [ORDER_STATUS.DELIVERED]: "Seu pedido foi entregue! Esperamos que você ame seus novos produtos. Obrigado por comprar conosco!",
+            [ORDER_STATUS.CANCELLED]: "Seu pedido foi cancelado. Se tiver alguma dúvida, por favor, entre em contato com nosso suporte.",
+            [ORDER_STATUS.REFUNDED]: "O estorno do seu pedido foi processado. O valor deve aparecer na sua fatura em breve, dependendo da operadora do seu cartão.",
+        };
+
+        if (newStatus === ORDER_STATUS.SHIPPED) {
+            subject = `Seu pedido #${orderId} foi enviado!`;
+            emailComponent = React.createElement(OrderShippedEmail, {
+                customerName: order.customerName,
+                orderId: order.id,
+                trackingCode: order.tracking_code,
+                items: items,
+                total: order.total
+            });
+        } else if (statusDescriptions[newStatus]) {
+            subject = `Atualização do seu pedido #${orderId}: ${newStatus}`;
+            emailComponent = React.createElement(OrderStatusUpdateEmail, {
+                customerName: order.customerName,
+                orderId: order.id,
+                newStatus: newStatus,
+                statusDescription: statusDescriptions[newStatus],
+                items: items,
+                total: order.total
+            });
+        } else {
+            // Não envia e-mail para status como 'Pendente' ou 'Pagamento Recusado'
+            console.log(`[E-mail] Nenhum e-mail configurado para o status "${newStatus}". Envio ignorado.`);
+            return;
+        }
+
+        await resend.emails.send({
+            from: 'Love Cestas e Perfumes <nao-responda@lovecestaseperfumes.com.br>',
+            to: [order.customerEmail],
+            subject: subject,
+            react: emailComponent,
+        });
+
+        console.log(`[E-mail] E-mail de status "${newStatus}" enviado com sucesso para ${order.customerEmail} para o pedido #${orderId}.`);
+
+    } catch (error) {
+        console.error(`[E-mail] FALHA CRÍTICA ao enviar e-mail para o pedido #${orderId}:`, error);
+        // A falha aqui é apenas registrada, não impede o fluxo principal.
+    }
+};
+
+// --- Função Auxiliar para atualizar status e registrar histórico (MODIFICADA) ---
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
     await connection.query(
@@ -147,6 +312,15 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
         [orderId, newStatus, notes]
     );
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+
+    // NOVO: Dispara o envio do e-mail de forma assíncrona
+    // Envolvemos em um try/catch para que uma falha no envio de e-mail não reverta a transação do banco.
+    try {
+        // Não precisamos esperar a conclusão (await), o envio pode ocorrer em segundo plano.
+        sendNotificationEmail(orderId, newStatus);
+    } catch (emailError) {
+        console.error(`[E-mail Trigger] Erro ao iniciar o envio de e-mail para o pedido #${orderId}. O erro foi capturado e o processo principal continua. Erro:`, emailError);
+    }
 };
 
 
@@ -279,12 +453,11 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
     }
 });
-
-
 // --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     
+    // As credenciais de teste da Link&Track são usadas como fallback se não estiverem no .env
     const LT_USER = process.env.LT_USER || 'teste';
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
@@ -329,7 +502,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
             return res.status(404).json({ message: "CEP não encontrado. Por favor, verifique o CEP digitado." });
         }
     } catch (cepError) {
-        console.error("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
+        console.warn("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
     }
     
     const ME_TOKEN = process.env.ME_TOKEN;
@@ -914,6 +1087,12 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         
         if (tracking_code !== undefined) { 
             await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
+            // Se o status ainda não for "Enviado", mas um código de rastreio for adicionado,
+            // o sistema automaticamente muda o status para "Enviado".
+            const [updatedOrder] = await connection.query("SELECT status FROM orders WHERE id = ?", [id]);
+            if (updatedOrder[0].status !== ORDER_STATUS.SHIPPED) {
+                await updateOrderStatus(id, ORDER_STATUS.SHIPPED, connection, "Código de rastreio adicionado pelo administrador.");
+            }
         }
 
         await connection.commit();
