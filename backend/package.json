@@ -21,6 +21,7 @@
     "mercadopago": "^2.8.0",
     "multer": "^2.0.1",
     "mysql2": "^3.14.1",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "resend": "^4.6.0"
   }
 }
