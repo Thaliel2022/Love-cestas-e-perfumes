@@ -67,7 +67,7 @@ const EmailWrapper = ({ title, children }) => (
     )
 );
 
-// MELHORIA: Novo template para confirmação de pedido
+// Template para confirmação de pedido
 const OrderConfirmationEmail = ({ customerName, orderId, items, total }) => (
     React.createElement(EmailWrapper, { title: `Confirmação do Pedido #${orderId}` },
         React.createElement(React.Fragment, null,
@@ -229,7 +229,7 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- Função Auxiliar para Envio de Email (MODIFICADA) ---
+// --- Função Auxiliar para Envio de Email ---
 const sendNotificationEmail = async (orderId, newStatus) => {
     console.log(`[E-mail] Iniciando processo de envio para pedido #${orderId}, status: ${newStatus}`);
     try {
@@ -267,7 +267,6 @@ const sendNotificationEmail = async (orderId, newStatus) => {
             [ORDER_STATUS.REFUNDED]: "O estorno do seu pedido foi processado. O valor deve aparecer na sua fatura em breve, dependendo da operadora do seu cartão.",
         };
         
-        // MELHORIA: Lógica para enviar e-mail de confirmação do pedido
         if (newStatus === ORDER_STATUS.PENDING) {
             subject = `Confirmação do seu pedido #${orderId}`;
             emailComponent = React.createElement(OrderConfirmationEmail, {
@@ -296,14 +295,13 @@ const sendNotificationEmail = async (orderId, newStatus) => {
             return;
         }
 
-        // Renderiza o componente React para uma string HTML
         const emailHtml = ReactDOMServer.renderToStaticMarkup(emailComponent);
 
         await resend.emails.send({
             from: 'Love Cestas e Perfumes <nao-responda@lovecestaseperfumes.com.br>',
             to: [order.customerEmail],
             subject: subject,
-            html: emailHtml, // Usa a string HTML renderizada
+            html: emailHtml,
         });
 
         console.log(`[E-mail] E-mail de status "${newStatus}" enviado com sucesso para ${order.customerEmail} para o pedido #${orderId}.`);
@@ -313,8 +311,9 @@ const sendNotificationEmail = async (orderId, newStatus) => {
     }
 };
 
-// --- Função Auxiliar para atualizar status e registrar histórico (MODIFICADA) ---
+// --- Função Auxiliar para atualizar status e registrar histórico ---
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
+    // CORREÇÃO: Usar a conexão da transação para todas as queries
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
     await connection.query(
         "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
@@ -322,12 +321,11 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
     );
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
 
-    // Dispara o envio do e-mail de forma assíncrona
-    try {
-        sendNotificationEmail(orderId, newStatus);
-    } catch (emailError) {
-        console.error(`[E-mail Trigger] Erro ao iniciar o envio de e-mail para o pedido #${orderId}. O erro foi capturado e o processo principal continua. Erro:`, emailError);
-    }
+    // Dispara o envio do e-mail de forma assíncrona, sem `await` para não bloquear a resposta
+    sendNotificationEmail(orderId, newStatus).catch(emailError => {
+        // Apenas loga o erro, não interfere no fluxo principal
+        console.error(`[E-mail Trigger] Erro ao enviar e-mail para o pedido #${orderId}. O erro foi capturado e o processo principal continua. Erro:`, emailError);
+    });
 };
 
 
@@ -464,7 +462,6 @@ app.post('/api/reset-password', async (req, res) => {
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     
-    // As credenciais de teste da Link&Track são usadas como fallback se não estiverem no .env
     const LT_USER = process.env.LT_USER || 'teste';
     const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
     const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
@@ -1032,6 +1029,7 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+// CORREÇÃO: Rota de atualização de pedidos foi revisada para garantir a atomicidade e o tratamento de erros
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -1046,8 +1044,21 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         }
         const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
+        let statusHasChanged = false;
+
+        // 1. Atualiza o código de rastreio se fornecido
+        if (tracking_code !== undefined) { 
+            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
+            console.log(`Código de rastreio do pedido #${id} atualizado para: ${tracking_code}`);
+            // Se o status for apropriado, muda para "Enviado"
+            if (tracking_code && currentStatus !== ORDER_STATUS.SHIPPED && currentStatus !== ORDER_STATUS.DELIVERED && currentStatus !== ORDER_STATUS.CANCELLED && currentStatus !== ORDER_STATUS.REFUNDED) {
+                await updateOrderStatus(id, ORDER_STATUS.SHIPPED, connection, "Código de rastreio adicionado pelo administrador.");
+                statusHasChanged = true;
+            }
+        }
+
+        // 2. Atualiza o status se um novo status for fornecido e for diferente do atual
         if (status && status !== currentStatus) {
-            
             if (status === ORDER_STATUS.REFUNDED) {
                 if (!payment_gateway_id) {
                     throw new Error("Reembolso falhou: Este pedido não possui um ID de pagamento registrado.");
@@ -1057,7 +1068,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 }
 
                 console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
-
                 const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
                     method: 'POST',
                     headers: {
@@ -1068,16 +1078,15 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 });
                 
                 const refundData = await refundResponse.json();
-
                 if (!refundResponse.ok) {
                     console.error("[Reembolso] Erro da API do Mercado Pago:", refundData);
                     throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
                 }
-                
                 console.log(`[Reembolso] Reembolso para o pagamento ${payment_gateway_id} processado com sucesso no Mercado Pago.`);
             }
             
             await updateOrderStatus(id, status, connection, "Status alterado pelo administrador.");
+            statusHasChanged = true;
             
             const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED);
             const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED);
@@ -1092,19 +1101,15 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 }
             }
         }
-        
-        if (tracking_code !== undefined) { 
-            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
-            // Se o status ainda não for "Enviado", mas um código de rastreio for adicionado,
-            // o sistema automaticamente muda o status para "Enviado".
-            const [updatedOrder] = await connection.query("SELECT status FROM orders WHERE id = ?", [id]);
-            if (updatedOrder[0].status !== ORDER_STATUS.SHIPPED) {
-                await updateOrderStatus(id, ORDER_STATUS.SHIPPED, connection, "Código de rastreio adicionado pelo administrador.");
-            }
-        }
 
         await connection.commit();
-        res.json({ message: "Pedido atualizado com sucesso." });
+        
+        // Se nada mudou, informa, senão, sucesso.
+        if (!statusHasChanged && tracking_code === undefined) {
+             res.json({ message: "Nenhuma alteração foi feita no pedido." });
+        } else {
+             res.json({ message: "Pedido atualizado com sucesso." });
+        }
 
     } catch (err) { 
         await connection.rollback();
@@ -1679,7 +1684,6 @@ app.post('/api/addresses', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
         
-        // Se o novo endereço for padrão, desmarca qualquer outro que seja
         if (is_default) {
             await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
         }
