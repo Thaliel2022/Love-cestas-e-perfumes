@@ -2781,6 +2781,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
+    // Lógica para status especiais (Cancelado, etc.) permanece a mesma
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
@@ -2801,11 +2802,10 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
+            {/* --- VISTA DESKTOP --- */}
             <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
-                    // --- CORREÇÃO APLICADA AQUI ---
-                    // A lógica agora se baseia apenas na ordem da linha do tempo e no status atual.
                     const isStepActive = index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
@@ -2815,13 +2815,15 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
-                                className={`flex flex-col items-center ${statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
-                                onClick={statusInfo ? () => onStatusClick(definition) : undefined}>
+                                // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
+                                className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
                                 <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {statusInfo && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
+                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
+                                {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
                             </div>
                             {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
                         </React.Fragment>
@@ -2829,10 +2831,10 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                 })}
             </div>
 
+            {/* --- VISTA MOBILE --- */}
             <div className="md:hidden flex flex-col">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
-                    // --- CORREÇÃO APLICADA AQUI TAMBÉM ---
                     const isStepActive = index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
@@ -2843,17 +2845,19 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                         <div key={statusKey} className="flex">
                             <div className="flex flex-col items-center mr-4">
                                 <div 
-                                    className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}
-                                    onClick={statusInfo ? () => onStatusClick(definition) : undefined}>
+                                    // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
+                                    className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
                                 {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${index < currentStatusIndex ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
                             </div>
                             <div 
-                                className={`pt-1.5 pb-8 ${statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
-                                onClick={statusInfo ? () => onStatusClick(definition) : undefined}>
+                                className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <p className={`font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {statusInfo && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
+                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
+                                {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
                             </div>
                         </div>
                     );
