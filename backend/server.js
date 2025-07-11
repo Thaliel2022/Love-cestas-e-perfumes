@@ -13,14 +13,13 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
-const { Resend } = require('resend'); // --- NOVO: Importação do Resend ---
+const { Resend } = require('resend'); // --- Importação do Resend ---
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
 
-// --- NOVO: Configuração do Resend ---
-// As chaves são carregadas das suas variáveis de ambiente
+// --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
 
@@ -45,7 +44,7 @@ const checkRequiredEnvVars = () => {
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL' // --- NOVO: Variáveis do Resend adicionadas à verificação
+        'RESEND_API_KEY', 'FROM_EMAIL'
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -159,15 +158,32 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
 };
 
 
-// --- NOVO: Funções para criar os e-mails HTML ---
+// --- Funções para criar os e-mails HTML ---
+
+// Função auxiliar para obter a primeira imagem de um JSON
+const getFirstImage = (imagesJsonString) => {
+    try {
+        if (!imagesJsonString) return 'https://placehold.co/80x80/eee/ccc?text=Produto';
+        const images = JSON.parse(imagesJsonString);
+        return (Array.isArray(images) && images.length > 0) ? images[0] : 'https://placehold.co/80x80/eee/ccc?text=Produto';
+    } catch (e) {
+        return 'https://placehold.co/80x80/eee/ccc?text=Produto';
+    }
+};
 
 /**
- * Cria um template de e-mail para atualização geral de status.
+ * NOVO: Cria um template de e-mail de boas-vindas para novos usuários.
  * @param {string} customerName - Nome do cliente.
- * @param {number} orderId - ID do pedido.
- * @param {string} newStatus - O novo status do pedido.
  * @returns {string} - O conteúdo HTML do e-mail.
  */
+const createWelcomeEmail = (customerName) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    return `
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Seja muito bem-vindo(a) à nossa loja! Sua conta foi criada com sucesso.</p><p>Estamos felizes em ter você conosco. Explore nossas coleções exclusivas e encontre os produtos perfeitos para você.</p><a href="${appUrl}" class="button">Visitar a Loja</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+    `;
+};
+
+
 const createGeneralUpdateEmail = (customerName, orderId, newStatus) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     return `
@@ -176,18 +192,29 @@ const createGeneralUpdateEmail = (customerName, orderId, newStatus) => {
 };
 
 /**
- * Cria um template de e-mail específico para quando o pedido é enviado.
+ * ATUALIZADO: Cria um template de e-mail para pedido enviado, agora com a lista de itens.
  * @param {string} customerName - Nome do cliente.
  * @param {number} orderId - ID do pedido.
  * @param {string} trackingCode - Código de rastreio.
+ * @param {Array} items - Lista de itens do pedido.
  * @returns {string} - O conteúdo HTML do e-mail.
  */
-const createShippedEmail = (customerName, orderId, trackingCode) => {
+const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    // Link direto para o rastreio, usando o mesmo serviço do frontend
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
+    
+    const itemsHtml = items.map(item => `
+        <div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eeeeee;">
+            <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" style="border-radius: 4px; margin-right: 15px;">
+            <div style="flex-grow: 1;">
+                <p style="margin: 0; font-weight: bold; color: #333;">${item.name}</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #777;">Quantidade: ${item.quantity}</p>
+            </div>
+        </div>
+    `).join('');
+
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a><p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .items-list{margin-top: 25px;} .items-list h3{color: #555; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a><div class="items-list"><h3>Itens enviados:</h3>${itemsHtml}</div><p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
@@ -234,7 +261,22 @@ app.post('/api/register', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`) VALUES (?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword]);
+        
+        // --- NOVO: Envio de e-mail de boas-vindas ---
+        try {
+            await resend.emails.send({
+                from: FROM_EMAIL,
+                to: email,
+                subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
+                html: createWelcomeEmail(name),
+            });
+            console.log(`E-mail de boas-vindas enviado para ${email}.`);
+        } catch (emailError) {
+            console.error(`FALHA AO ENVIAR E-MAIL de boas-vindas para ${email}:`, emailError);
+        }
+
         res.status(201).json({ message: "Usuário registrado com sucesso!", userId: result.insertId });
+
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
             const message = err.message.includes('email') 
@@ -984,14 +1026,15 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     let emailHtml;
                     let emailSubject;
                     
-                    // Usa a variável `tracking_code` do corpo da requisição, pois ela pode ter sido atualizada agora.
                     const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
 
                     if (status === ORDER_STATUS.SHIPPED) {
                         if (!finalTrackingCode) {
                              console.log(`AVISO: Pedido #${id} marcado como "Enviado" mas sem código de rastreio. E-mail não enviado.`);
                         } else {
-                            emailHtml = createShippedEmail(customerName, id, finalTrackingCode);
+                            // ATUALIZADO: Busca os itens do pedido para incluir no e-mail
+                            const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
+                            emailHtml = createShippedEmail(customerName, id, finalTrackingCode, orderItems);
                             emailSubject = `Seu Pedido #${id} foi enviado!`;
                         }
                     } else {
