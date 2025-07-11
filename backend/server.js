@@ -46,7 +46,6 @@ const checkRequiredEnvVars = () => {
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
         'RESEND_API_KEY', 'FROM_EMAIL'
-        // ---> ATUALIZAÇÃO <--- 'GOOGLE_MAPS_API_KEY' foi removida da lista de variáveis obrigatórias para permitir que o servidor inicie sem ela.
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -273,7 +272,6 @@ const createWelcomeEmail = (customerName) => {
     return createEmailBase(content);
 };
 
-// ---> ATUALIZAÇÃO <--- Adicionada verificação para a chave da API do Google Maps.
 const createReadyForPickupEmail = (customerName, orderId, orderNotes) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const pickupPerson = orderNotes ? `A retirada será feita por: <strong>${orderNotes}</strong>.` : 'A retirada deve ser feita pelo titular da compra.';
@@ -545,6 +543,7 @@ app.get('/api/track/:code', async (req, res) => {
 
 
 // --- ROTA DE CÁLCULO DE FRETE ---
+// ---> ATUALIZAÇÃO <--- Rota de cálculo de frete modificada para priorizar e isolar o PAC.
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body; 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
@@ -581,6 +580,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     const payload = {
         from: { postal_code: process.env.ORIGIN_CEP },
         to: { postal_code: cep_destino.replace(/\D/g, '') },
+        services: "2", // Solicita apenas o serviço PAC (ID 2 é o padrão para PAC nos Correios via Melhor Envio)
         products: productsWithDetails.map(product => ({ 
             id: String(product.id),
             width: Number(product.width),
@@ -607,24 +607,24 @@ app.post('/api/shipping/calculate', async (req, res) => {
         });
 
         const data = await apiResponse.json();
-        let shippingOptions = [storePickupOption]; 
+        let finalOptions = [storePickupOption]; 
 
-        if (apiResponse.ok && !data.error) {
-            const filteredOptions = data
-                .filter(option => !option.error)
-                .map(option => ({
-                    name: option.name,
-                    price: parseFloat(option.price),
-                    delivery_time: option.delivery_time,
-                    company: { name: option.company.name, picture: option.company.picture }
-                }));
-            shippingOptions.push(...filteredOptions);
+        if (apiResponse.ok && Array.isArray(data)) {
+            const pacOption = data.find(option => !option.error && option.name.toLowerCase().includes('pac'));
+            if (pacOption) {
+                finalOptions.push({
+                    name: pacOption.name,
+                    price: parseFloat(pacOption.price),
+                    delivery_time: pacOption.delivery_time,
+                    company: { name: pacOption.company.name, picture: pacOption.company.picture }
+                });
+            }
         } else {
             const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro no cálculo de frete.');
             console.warn("Melhor Envio API error:", errorMessage);
         }
         
-        res.json(shippingOptions);
+        res.json(finalOptions);
 
     } catch (error) {
         console.error("Erro ao calcular frete com Melhor Envio:", error);
