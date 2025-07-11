@@ -30,6 +30,7 @@ const ORDER_STATUS = {
     PAYMENT_APPROVED: 'Pagamento Aprovado',
     PAYMENT_REJECTED: 'Pagamento Recusado',
     PROCESSING: 'Separando Pedido',
+    READY_FOR_PICKUP: 'Pronto para Retirada', 
     SHIPPED: 'Enviado',
     OUT_FOR_DELIVERY: 'Saiu para Entrega',
     DELIVERED: 'Entregue',
@@ -52,6 +53,9 @@ const checkRequiredEnvVars = () => {
         missingVars.forEach(varName => console.error(`- ${varName}`));
         console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
         process.exit(1);
+    }
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+        console.warn('AVISO: A variável de ambiente GOOGLE_MAPS_API_KEY não está definida. A funcionalidade de mapa nos e-mails estará desativada.');
     }
     console.log('Verificação de variáveis de ambiente concluída com sucesso.');
 };
@@ -171,7 +175,6 @@ const getFirstImage = (imagesJsonString) => {
     }
 };
 
-// ATUALIZADO: Template base para todos os e-mails, garantindo responsividade e padrão visual
 const createEmailBase = (content) => {
     return `
     <!DOCTYPE html>
@@ -269,6 +272,44 @@ const createWelcomeEmail = (customerName) => {
     return createEmailBase(content);
 };
 
+const createReadyForPickupEmail = (customerName, orderId, orderNotes) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const pickupPerson = orderNotes ? `A retirada será feita por: <strong>${orderNotes}</strong>.` : 'A retirada deve ser feita pelo titular da compra.';
+    
+    const lat = -7.175478;
+    const lng = -34.833939;
+    const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
+
+    let mapHtml = '';
+    if (googleApiKey) {
+        const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&maptype=roadmap&markers=color:red%7Clabel:L%7C${lat},${lng}&key=${googleApiKey}`;
+        mapHtml = `
+            <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank">
+                <img src="${mapUrl}" width="100%" style="max-width: 520px; height: auto; border-radius: 4px;" alt="Mapa da localização da loja">
+            </a>
+        `;
+    }
+    
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido está Pronto!</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 25px;">Seu pedido <strong>#${orderId}</strong> já está separado e pronto para ser retirado em nossa loja.</p>
+        
+        <div style="border: 1px solid #4B5563; padding: 20px; text-align: left; margin: 20px 0; border-radius: 8px; color: #E5E7EB; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.7;">
+            <h3 style="color: #D4AF37; margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #4B5563; padding-bottom: 10px;">Informações para Retirada</h3>
+            <p style="margin:0 0 5px 0;"><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+            <p style="margin:0 0 15px 0;"><strong>Horário:</strong> Seg. a Sáb., das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+            <p style="margin:0 0 5px 0;"><strong>Documentos Necessários:</strong> Documento com foto (RG ou CNH) e o número do pedido.</p>
+            <p style="margin:0 0 20px 0;">${pickupPerson}</p>
+            ${mapHtml}
+        </div>
+
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
+    `;
+    return createEmailBase(content);
+};
+
+
 const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const itemsHtml = createItemsListHtml(items, "Itens no seu pedido:");
@@ -319,6 +360,13 @@ const createShippedEmail = (customerName, orderId, trackingCode, items) => {
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/orders/pickup-info', (req, res) => {
+    res.status(200).json({
+        address: 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123',
+        hours: 'Segunda a sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).'
+    });
 });
 
 app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
@@ -495,17 +543,25 @@ app.get('/api/track/:code', async (req, res) => {
 
 
 // --- ROTA DE CÁLCULO DE FRETE ---
+// ---> ATUALIZAÇÃO <--- Rota de cálculo de frete modificada para priorizar e isolar o PAC.
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body; 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
         return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
     }
     
+    const storePickupOption = {
+        name: 'Retirar na loja',
+        price: 0,
+        delivery_time: 0, 
+        company: { name: 'Love Cestas e Perfumes', picture: '' }
+    };
+
     try {
         const cepCheckResponse = await fetch(`https://viacep.com.br/ws/${cep_destino.replace(/\D/g, '')}/json/`);
         const cepCheckData = await cepCheckResponse.json();
         if (cepCheckData.erro) {
-            return res.status(404).json({ message: "CEP não encontrado. Por favor, verifique o CEP digitado." });
+            return res.json([storePickupOption]);
         }
     } catch (cepError) {
         console.error("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
@@ -524,6 +580,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     const payload = {
         from: { postal_code: process.env.ORIGIN_CEP },
         to: { postal_code: cep_destino.replace(/\D/g, '') },
+        services: "1,2", // ---> ATUALIZAÇÃO <--- Solicita SEDEX (1) e PAC (2).
         products: productsWithDetails.map(product => ({ 
             id: String(product.id),
             width: Number(product.width),
@@ -550,25 +607,33 @@ app.post('/api/shipping/calculate', async (req, res) => {
         });
 
         const data = await apiResponse.json();
+        let finalOptions = [storePickupOption]; 
 
-        if (!apiResponse.ok) {
-            const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
-            return res.status(apiResponse.status).json({ message: errorMessage });
+        if (apiResponse.ok && Array.isArray(data)) {
+            // ---> ATUALIZAÇÃO <--- Lógica para selecionar PAC ou SEDEX.
+            const pacOption = data.find(option => !option.error && option.id === 2);
+            const sedexOption = data.find(option => !option.error && option.id === 1);
+
+            const chosenOption = pacOption || sedexOption; // Prioriza PAC, se não houver, usa SEDEX.
+
+            if (chosenOption) {
+                 finalOptions.push({
+                    name: chosenOption.name,
+                    price: parseFloat(chosenOption.price),
+                    delivery_time: chosenOption.delivery_time,
+                    company: { name: chosenOption.company.name, picture: chosenOption.company.picture }
+                });
+            }
+        } else {
+            const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro no cálculo de frete.');
+            console.warn("Melhor Envio API error:", errorMessage);
         }
         
-        const filteredOptions = data
-            .filter(option => !option.error)
-            .map(option => ({
-                name: option.name,
-                price: parseFloat(option.price),
-                delivery_time: option.delivery_time,
-                company: { name: option.company.name, picture: option.company.picture }
-            }));
-        
-        res.json(filteredOptions);
+        res.json(finalOptions);
+
     } catch (error) {
         console.error("Erro ao calcular frete com Melhor Envio:", error);
-        res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
+        res.status(200).json([storePickupOption]);
     }
 });
 
@@ -933,7 +998,7 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.post('/api/orders', verifyToken, async (req, res) => {
-    const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount } = req.body;
+    const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount, order_notes } = req.body;
     if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
@@ -971,8 +1036,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             }
         }
         
-        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const orderParams = [req.user.id, total, ORDER_STATUS.PENDING, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0];
+        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, order_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const orderParams = [req.user.id, total, ORDER_STATUS.PENDING, JSON.stringify(shippingAddress), paymentMethod, shipping_method, shipping_cost, coupon_code || null, discount_amount || 0, order_notes || null];
         const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
 
@@ -1009,6 +1074,11 @@ app.post('/api/orders', verifyToken, async (req, res) => {
 });
 
 
+// =================================================================================================
+// ROTA REMOVIDA POR FALHA DE SEGURANÇA E LOGÍSTICA
+// Motivo: Permitir a alteração do endereço após o pagamento invalida o cálculo de frete
+// e abre brechas para fraude e erros de envio. O endereço deve ser definitivo no checkout.
+/*
 app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     const { id } = req.params;
     const { address } = req.body;
@@ -1029,24 +1099,28 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao atualizar endereço." });
     }
 });
+*/
+// =================================================================================================
+
 
 // Rota de atualização de pedido com envio de e-mail integrado
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { status, tracking_code } = req.body;
+    const { status, tracking_code, order_notes } = req.body;
 
     const STATUS_PROGRESSION = [
         ORDER_STATUS.PENDING,
         ORDER_STATUS.PAYMENT_APPROVED,
         ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.READY_FOR_PICKUP,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
         ORDER_STATUS.DELIVERED
     ];
     
-    // ATUALIZADO: Adicionado Cancelado e Reembolsado
     const statusesThatTriggerEmail = [
         ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.READY_FOR_PICKUP,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
         ORDER_STATUS.DELIVERED,
@@ -1062,7 +1136,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
-        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
+        const currentOrder = currentOrderResult[0];
+        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrder;
 
         if (status && status !== currentStatus) {
             const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
@@ -1110,6 +1185,9 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (tracking_code !== undefined) { 
             await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
         }
+        if (order_notes !== undefined) {
+             await connection.query("UPDATE orders SET order_notes = ? WHERE id = ?", [order_notes, id]);
+        }
 
         await connection.commit();
         
@@ -1124,7 +1202,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     let emailHtml;
                     let emailSubject;
                     
-                    const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
+                    const finalTrackingCode = tracking_code || currentOrder.tracking_code;
+                    const finalOrderNotes = order_notes !== undefined ? order_notes : currentOrder.order_notes;
                     
                     const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
 
@@ -1135,6 +1214,9 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                             emailHtml = createShippedEmail(customerName, id, finalTrackingCode, orderItems);
                             emailSubject = `Seu Pedido #${id} foi enviado!`;
                         }
+                    } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
+                        emailHtml = createReadyForPickupEmail(customerName, id, finalOrderNotes);
+                        emailSubject = `Seu Pedido #${id} está pronto para retirada!`;
                     } else {
                         emailHtml = createGeneralUpdateEmail(customerName, id, status, orderItems);
                         emailSubject = `Atualização sobre seu Pedido #${id}`;
