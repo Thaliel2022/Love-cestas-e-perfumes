@@ -171,40 +171,101 @@ const getFirstImage = (imagesJsonString) => {
     }
 };
 
-// Função auxiliar para gerar a lista de itens em HTML
+// ATUALIZADO: Template base para todos os e-mails, garantindo responsividade e padrão visual
+const createEmailBase = (content) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Love Cestas e Perfumes</title>
+        <style>
+            body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #111827; }
+            .container { width: 100%; max-width: 600px; margin: 0 auto; }
+            .content-cell { padding: 35px; background-color: #1F2937; border-radius: 8px; }
+            h1 { color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px; }
+            p { color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px; }
+            .button { display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif; }
+            .footer p { color: #9CA3AF; font-size: 12px; }
+            .items-list-title { color: #E5E7EB; border-bottom: 1px solid #4B5563; padding-bottom: 5px; margin-bottom: 10px; font-family: Arial, sans-serif; font-size: 18px; }
+            .item-row { padding: 10px 0; border-bottom: 1px solid #4B5563; }
+            .item-image { width: 60px; border-radius: 4px; margin-right: 15px; }
+            .item-name { margin: 0; font-weight: bold; color: #E5E7EB; font-family: Arial, sans-serif; }
+            .item-quantity { margin: 5px 0 0 0; font-size: 14px; color: #9CA3AF; font-family: Arial, sans-serif; }
+        </style>
+    </head>
+    <body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #111827;">
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #111827;">
+            <tr>
+                <td align="center">
+                    <table class="container" width="600" border="0" cellpadding="0" cellspacing="0" role="presentation">
+                        <!-- Header -->
+                        <tr>
+                            <td align="center" style="padding: 20px 0;">
+                                <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 28px; margin: 0;">Love Cestas e Perfumes</h1>
+                            </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                            <td class="content-cell" style="padding: 35px; background-color: #1F2937; border-radius: 8px;">
+                                ${content}
+                            </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                            <td align="center" style="padding: 20px 0;">
+                                <p style="color: #9CA3AF; font-size: 12px; font-family: Arial, sans-serif;">&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    `;
+};
+
 const createItemsListHtml = (items) => {
     if (!items || items.length === 0) return '';
     
     const itemsHtml = items.map(item => `
-        <div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eeeeee; max-width: 100%;">
-            <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" style="border-radius: 4px; margin-right: 15px; object-fit: contain;">
-            <div style="flex-grow: 1;">
-                <p style="margin: 0; font-weight: bold; color: #333;">${item.name}</p>
-                <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #777;">Quantidade: ${item.quantity}</p>
-            </div>
-        </div>
+        <tr class="item-row" style="padding: 10px 0; border-bottom: 1px solid #4B5563;">
+            <td valign="top" style="padding: 10px 0;">
+                <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" class="item-image" style="border-radius: 4px; margin-right: 15px;">
+            </td>
+            <td valign="top" style="padding: 10px 0;">
+                <p class="item-name" style="margin: 0; font-weight: bold; color: #E5E7EB; font-family: Arial, sans-serif;">${item.name}</p>
+                <p class="item-quantity" style="margin: 5px 0 0 0; font-size: 14px; color: #9CA3AF; font-family: Arial, sans-serif;">Quantidade: ${item.quantity}</p>
+            </td>
+        </tr>
     `).join('');
 
-    return `<div class="items-list" style="margin-top: 25px;">
-                <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Itens no seu pedido:</h3>
-                ${itemsHtml}
-            </div>`;
-};
-
-
-const createWelcomeEmail = (customerName) => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
     return `
-      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Seja muito bem-vindo(a) à nossa loja! Sua conta foi criada com sucesso.</p><p>Estamos felizes em ter você conosco. Explore nossas coleções exclusivas e encontre os produtos perfeitos para você.</p><a href="${appUrl}" class="button">Visitar a Loja</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+        <h3 class="items-list-title" style="color: #E5E7EB; border-bottom: 1px solid #4B5563; padding-bottom: 5px; margin: 25px 0 10px; font-family: Arial, sans-serif; font-size: 18px;">Itens no seu pedido:</h3>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+            ${itemsHtml}
+        </table>
     `;
 };
 
+const createWelcomeEmail = (customerName) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seja Bem-Vindo(a)!</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Sua conta em nossa loja foi criada com sucesso. Estamos felizes em ter você conosco!</p>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Visitar a Loja</a></td></tr></table>
+    `;
+    return createEmailBase(content);
+};
 
 const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const itemsHtml = createItemsListHtml(items);
     
-    // ATUALIZADO: Mensagem personalizada para cada tipo de status
     let introMessage;
     switch(newStatus) {
         case ORDER_STATUS.CANCELLED:
@@ -214,22 +275,36 @@ const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
             introMessage = `Temos uma atualização sobre o seu pedido #${orderId}. O reembolso foi processado com sucesso.`;
             break;
         default:
-            introMessage = `Boas notícias! O status do seu pedido #${orderId} foi atualizado.`;
+            introMessage = `Boas notícias! O status do seu pedido #${orderId} foi atualizado para:`;
     }
 
-    return `
-      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>${introMessage}</p><div class="status">${newStatus}</div>${itemsHtml}<p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Atualização do Pedido #${orderId}</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">${introMessage}</p>
+        <div style="font-size: 18px; font-weight: bold; color: #1F2937; padding: 12px; background-color: #D4AF37; border-radius: 5px; text-align: center; margin: 20px 0; font-family: Arial, sans-serif;">${newStatus}</div>
+        ${itemsHtml}
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
     `;
+    return createEmailBase(content);
 };
 
 const createShippedEmail = (customerName, orderId, trackingCode, items) => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
     const itemsHtml = createItemsListHtml(items);
 
-    return `
-      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a>${itemsHtml}<p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido Foi Enviado!</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Ótima notícia! Seu pedido #${orderId} já está a caminho!</p>
+        <div style="border: 1px dashed #4B5563; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;">
+            <p style="margin: 0 0 10px 0; color: #E5E7EB; font-family: Arial, sans-serif;">Use o código de rastreio abaixo:</p>
+            <div style="font-size: 18px; font-weight: bold; color: #E5E7EB; letter-spacing: 2px; font-family: 'Courier New', Courier, monospace;">${trackingCode}</div>
+        </div>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${trackingUrl}" target="_blank" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Rastrear Pedido</a></td></tr></table>
+        ${itemsHtml}
     `;
+    return createEmailBase(content);
 };
 
 
