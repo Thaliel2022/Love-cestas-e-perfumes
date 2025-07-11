@@ -39,7 +39,6 @@ const MapPinIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const StoreIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -272,10 +271,7 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    
-    const [shippingOptions, setShippingOptions] = useState([]);
-    const [selectedShipping, setSelectedShipping] = useState(null);
-    
+    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     
@@ -316,11 +312,12 @@ const ShopProvider = ({ children }) => {
                 state: defaultAddr.uf,
                 alias: defaultAddr.alias
             });
-            return true;
+            return true; // Retorna true se um endereço foi definido
         }
-        return false;
+        return false; // Retorna false se nenhum endereço foi encontrado
     }, []);
 
+    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
 
@@ -359,12 +356,12 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
+            // Limpa o estado ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
             setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setShippingOptions([]);
-            setSelectedShipping(null);
+            setAutoCalculatedShipping(null);
             setCouponCode('');
             setAppliedCoupon(null);
             setCouponMessage('');
@@ -372,14 +369,13 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    // ---> ATUALIZAÇÃO <--- Lógica de cálculo e seleção automática de frete restaurada e aprimorada.
     useEffect(() => {
         const debounceTimer = setTimeout(() => {
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
                 
-                const calculateShipping = async () => {
+                const calculateAutoShipping = async () => {
                     try {
                         const productsPayload = cart.map(item => ({
                             id: String(item.id),
@@ -391,46 +387,24 @@ const ShopProvider = ({ children }) => {
                             products: productsPayload,
                         });
                         
-                        setShippingOptions(options || []);
-                        
-                        // Lógica de seleção automática restaurada e aprimorada
-                        // 1. Tenta selecionar a opção salva anteriormente, se ainda for válida.
-                        const previouslySelected = selectedShipping && options.find(opt => opt.name === selectedShipping.name);
-                        if (previouslySelected) {
-                            setSelectedShipping(previouslySelected);
-                            return;
-                        }
-
-                        // 2. Se não houver seleção prévia, prioriza PAC.
                         const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        
                         if (pacOption) {
-                            setSelectedShipping(pacOption);
-                            return;
+                            setAutoCalculatedShipping(pacOption);
+                        } else {
+                            setShippingError('Frete PAC não disponível para este CEP.');
+                            setAutoCalculatedShipping(null);
                         }
-
-                        // 3. Se não houver PAC, pega a primeira opção de entrega (que será SEDEX).
-                        const deliveryOption = options.find(opt => opt.name.toLowerCase() !== 'retirar na loja');
-                        if (deliveryOption) {
-                            setSelectedShipping(deliveryOption);
-                            return;
-                        }
-
-                        // 4. Se não houver nenhuma opção de entrega, seleciona Retirada na Loja.
-                        const pickupOption = options.find(opt => opt.name.toLowerCase() === 'retirar na loja');
-                        setSelectedShipping(pickupOption || null);
-
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        setShippingOptions([]);
-                        setSelectedShipping(null);
+                        setAutoCalculatedShipping(null);
                     } finally {
                         setIsLoadingShipping(false);
                     }
                 };
-                calculateShipping();
+                calculateAutoShipping();
             } else {
-                setShippingOptions([]);
-                setSelectedShipping(null);
+                setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
@@ -539,18 +513,16 @@ const ShopProvider = ({ children }) => {
             wishlist, addToCart, 
             addToWishlist, removeFromWishlist,
             updateQuantity, removeFromCart,
-            user,
+            userName: user?.name,
             
             // Endereços e Frete
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
-            
-            shippingOptions, setShippingOptions,
-            selectedShipping, setSelectedShipping,
-
+            autoCalculatedShipping,
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
+            // CORREÇÃO: Expondo a função para ser usada em outros componentes
             determineShippingLocation,
 
             // Cupons
@@ -714,19 +686,19 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   );
 });
 
-const TrackingModal = memo(({ isOpen, onClose, order }) => {
+const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     const [trackingInfo, setTrackingInfo] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        if (isOpen && order && order.shipping_method !== 'Retirar na loja' && order.tracking_code) {
+        if (isOpen && trackingCode) {
             const fetchTracking = async () => {
                 setIsLoading(true);
                 setError('');
                 setTrackingInfo([]);
                 try {
-                    const data = await apiService(`/track/${order.tracking_code}`);
+                    const data = await apiService(`/track/${trackingCode}`);
                     setTrackingInfo(data);
                 } catch (err) {
                     setError(err.message || "Não foi possível obter informações de rastreio.");
@@ -736,63 +708,33 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
             };
             fetchTracking();
         }
-    }, [isOpen, order]);
-
-    const renderContent = () => {
-        if (order.shipping_method === 'Retirar na loja') {
-            return (
-                <div className="space-y-4 text-gray-800">
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                        <h4 className="font-bold text-amber-800 mb-2">Instruções para Retirada</h4>
-                        <p className="text-sm">Seu pedido estará disponível para retirada quando o status for atualizado para "Pronto para Retirada".</p>
-                    </div>
-                    <div>
-                        <p className="font-semibold">Endereço:</p>
-                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                    </div>
-                    <div>
-                        <p className="font-semibold">Horário:</p>
-                        <p>Segunda a sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
-                    </div>
-                    {order.order_notes && (
-                        <div>
-                            <p className="font-semibold">Autorizado a retirar:</p>
-                            <p>{order.order_notes}</p>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        if (isLoading) return <p>Buscando informações...</p>;
-        if (error) return <p className="text-red-500">{error}</p>;
-        
-        return (
-            <div className="space-y-6">
-                {trackingInfo.map((event, index) => (
-                    <div key={index} className="flex space-x-4">
-                        <div className="flex flex-col items-center">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
-                                {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                            </div>
-                            {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
-                        </div>
-                        <div>
-                            <p className="font-bold text-gray-800">{event.status}</p>
-                            <p className="text-sm text-gray-600">{event.location}</p>
-                            <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-    };
+    }, [isOpen, trackingCode]);
 
     return (
         <AnimatePresence>
             {isOpen && (
-                <Modal isOpen={isOpen} onClose={onClose} title={`Acompanhamento do Pedido #${order?.id}`}>
-                    {renderContent()}
+                <Modal isOpen={isOpen} onClose={onClose} title={`Rastreio do Pedido: ${trackingCode}`}>
+                    {isLoading && <p>Buscando informações...</p>}
+                    {error && <p className="text-red-500">{error}</p>}
+                    {!isLoading && !error && (
+                        <div className="space-y-6">
+                            {trackingInfo.map((event, index) => (
+                                <div key={index} className="flex space-x-4">
+                                    <div className="flex flex-col items-center">
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                                            {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                        </div>
+                                        {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-800">{event.status}</p>
+                                        <p className="text-sm text-gray-600">{event.location}</p>
+                                        <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </Modal>
             )}
         </AnimatePresence>
@@ -1427,25 +1369,52 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-// ATUALIZAÇÃO: Componente de cálculo de frete agora é um seletor de opções.
-const ShippingOptions = memo(({ items }) => {
-    const { 
-        addresses, 
-        shippingLocation, 
-        setShippingLocation,
-        shippingOptions,
-        selectedShipping,
-        setSelectedShipping,
-        isLoadingShipping,
-        shippingError
-    } = useShop();
-    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+const ShippingCalculator = memo(({ items }) => {
+    const { addresses, shippingLocation, setShippingLocation } = useShop();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [shippingResult, setShippingResult] = useState(null);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
 
+    const calculateShipping = useCallback(async (location) => {
+        if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
+            setShippingResult(null);
+            return;
+        }
+        setIsLoading(true);
+        setError('');
+        try {
+            const productsPayload = items.map(item => ({
+                id: String(item.id),
+                price: item.price,
+                quantity: item.qty || 1,
+            }));
+            const options = await apiService('/shipping/calculate', 'POST', {
+                cep_destino: location.cep,
+                products: productsPayload,
+            });
+            const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+            if (pacOption) {
+                setShippingResult(pacOption);
+            } else {
+                setError('Frete PAC não disponível para este CEP.');
+            }
+        } catch (err) {
+            setError(err.message || 'Erro ao calcular o frete.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [items]);
+
+    useEffect(() => {
+        calculateShipping(shippingLocation);
+    }, [shippingLocation, items, calculateShipping]);
+
     const handleSelectAddress = (addr) => {
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
-        setIsAddressModalOpen(false);
+        setIsModalOpen(false);
     };
 
     const handleManualCepSubmit = async (e) => {
@@ -1463,7 +1432,7 @@ const ShippingOptions = memo(({ items }) => {
                 setApiError("CEP não encontrado.");
             } else {
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
-                setIsAddressModalOpen(false);
+                setIsModalOpen(false);
                 setManualCep('');
             }
         } catch {
@@ -1479,7 +1448,6 @@ const ShippingOptions = memo(({ items }) => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
-        if (deliveryTime === 0) return 'Pronto para retirada (após confirmação)';
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
@@ -1488,22 +1456,22 @@ const ShippingOptions = memo(({ items }) => {
                 addedDays++;
             }
         }
-        return `Entrega até ${date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+        return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     };
 
     const getDestinationText = () => {
         if (shippingLocation.alias) {
-             return `Calcular frete para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.city}, ${shippingLocation.cep}`;
+             return `Enviar para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.city}, ${shippingLocation.cep}`;
         }
         if (shippingLocation.city) {
-            return `Calcular frete para ${shippingLocation.city}, ${shippingLocation.cep}`;
+            return `Entregar em ${shippingLocation.city}, ${shippingLocation.cep}`;
         }
         return 'Calcular frete e prazo';
     };
 
     return (
         <>
-            <Modal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} title="Alterar Local de Entrega" size="md">
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Alterar Local de Entrega" size="md">
                 <div className="space-y-4">
                     {addresses.map(addr => (
                          <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
@@ -1531,41 +1499,27 @@ const ShippingOptions = memo(({ items }) => {
                             <MapPinIcon className="h-4 w-4 flex-shrink-0" />
                             <span className="truncate">{getDestinationText()}</span>
                         </div>
-                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
                             Alterar
                         </button>
                     </div>
                     
                     <div className="min-h-[44px] flex flex-col justify-center">
-                        {isLoadingShipping && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
                         
-                        {!isLoadingShipping && shippingError && (
-                            <div><p className="text-red-400 font-semibold text-sm">{shippingError}</p></div>
+                        {!isLoading && error && (
+                            <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
                         )}
 
-                        {!isLoadingShipping && shippingOptions.length > 0 && (
-                            <div className="space-y-2 pt-2">
-                                {shippingOptions.map((option, index) => (
-                                    <div 
-                                        key={index}
-                                        onClick={() => setSelectedShipping(option)}
-                                        className={`p-3 border-2 rounded-lg cursor-pointer transition-all flex items-center gap-4 ${selectedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-800 hover:border-gray-700'}`}
-                                    >
-                                        <div className="flex-shrink-0">
-                                            {option.name === 'Retirar na loja' ? <StoreIcon className="h-6 w-6 text-amber-400" /> : <TruckIcon className="h-6 w-6 text-amber-400" />}
-                                        </div>
-                                        <div className="flex-grow">
-                                            <p className="font-bold text-white">{option.name}</p>
-                                            <p className="text-xs text-gray-400">{getDeliveryDate(option.delivery_time)}</p>
-                                        </div>
-                                        <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
-                                    </div>
-                                ))}
+                        {!isLoading && shippingResult && (
+                            <div>
+                                <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
+                                <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
                             </div>
                         )}
                         
-                        {!isLoadingShipping && shippingOptions.length === 0 && !shippingError && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções.</p></div>
+                        {!isLoading && !shippingResult && !error && (
+                            <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
                         )}
                     </div>
                 </div>
@@ -1902,7 +1856,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
                         </div>
                         
-                        <ShippingOptions items={itemsForShipping} />
+                        <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
 
@@ -2165,20 +2119,21 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     );
 };
 
-// ATUALIZAÇÃO: Página do carrinho agora usa o seletor de frete
 const CartPage = ({ onNavigate }) => {
     const { 
         cart,
         updateQuantity,
         removeFromCart,
-        selectedShipping,
+        autoCalculatedShipping,
+        isLoadingShipping,
+        shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon
     } = useShop();
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
+    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -2242,7 +2197,7 @@ const CartPage = ({ onNavigate }) => {
                                     </div>
                                 ))}
                             </div>
-                            <ShippingOptions items={cart} />
+                            <ShippingCalculator items={cart} />
                         </div>
 
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
@@ -2250,13 +2205,19 @@ const CartPage = ({ onNavigate }) => {
                             <div className="space-y-2 mb-4">
                                 <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                 
-                                {selectedShipping && (
-                                    <div className="flex justify-between text-gray-300">
-                                        <span>Frete ({selectedShipping.name})</span>
+                                <div className="flex justify-between text-gray-300">
+                                    <span>Frete (PAC)</span>
+                                    {isLoadingShipping ? (
+                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                    ) : autoCalculatedShipping ? (
                                         <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                    </div>
-                                )}
+                                    ) : (
+                                        <span className="text-xs text-gray-500">Informe o CEP</span>
+                                    )}
+                                </div>
                                 
+                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
+
                                 {appliedCoupon && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Desconto ({appliedCoupon.code})</span>
@@ -2284,8 +2245,8 @@ const CartPage = ({ onNavigate }) => {
                                 </div>
                             )}
                             
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!selectedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!selectedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário selecionar uma forma de entrega.</p>}
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
+                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
                         </div>
                     </div>
                 )}
@@ -2461,21 +2422,21 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
         </Modal>
     );
 };
-// ATUALIZAÇÃO: Página de Checkout com lógica para "Retirar na Loja"
+
+
 const CheckoutPage = ({ onNavigate }) => {
     const { 
         cart, 
-        selectedShipping, 
+        autoCalculatedShipping, 
         appliedCoupon, 
         clearOrderState,
         addresses,
         fetchAddresses,
-        user
+        setShippingLocation
     } = useShop();
     const notification = useNotification();
     
     const [selectedAddress, setSelectedAddress] = useState(null);
-    const [pickupPersonName, setPickupPersonName] = useState('');
     
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
@@ -2483,27 +2444,28 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     
-    const isStorePickup = selectedShipping?.name === 'Retirar na loja';
+    useEffect(() => {
+        setIsAddressLoading(true);
+        fetchAddresses().then(userAddresses => {
+            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
+            if (defaultAddress) {
+                setSelectedAddress(defaultAddress);
+            }
+        }).finally(() => {
+            setIsAddressLoading(false);
+        });
+    }, [fetchAddresses]);
 
     useEffect(() => {
-        if (isStorePickup) {
-            // Para retirada na loja, não precisamos de um endereço de entrega selecionado.
-            setIsAddressLoading(false);
-            setSelectedAddress({ alias: 'Retirada na Loja' }); // Objeto placeholder
-        } else {
-            setIsAddressLoading(true);
-            fetchAddresses().then(userAddresses => {
-                const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
-                if (defaultAddress) {
-                    setSelectedAddress(defaultAddress);
-                } else {
-                    setSelectedAddress(null); // Nenhum endereço disponível
-                }
-            }).finally(() => {
-                setIsAddressLoading(false);
+        if (selectedAddress) {
+            setShippingLocation({
+                cep: selectedAddress.cep,
+                city: selectedAddress.localidade,
+                state: selectedAddress.uf,
+                alias: selectedAddress.alias
             });
         }
-    }, [fetchAddresses, isStorePickup]);
+    }, [selectedAddress, setShippingLocation]);
 
     const handleAddressSelection = (address) => {
         setSelectedAddress(address);
@@ -2528,7 +2490,7 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => selectedShipping ? selectedShipping.price : 0, [selectedShipping]);
+    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
     
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -2537,17 +2499,17 @@ const CheckoutPage = ({ onNavigate }) => {
             discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
             discountValue = parseFloat(appliedCoupon.value);
-        } else if (appliedCoupon.type === 'free_shipping' && !isStorePickup) {
+        } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
         return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost, isStorePickup]);
+    }, [appliedCoupon, subtotal, shippingCost]);
     
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     const handlePlaceOrderAndPay = async () => {
-        if (!selectedAddress || !paymentMethod || !selectedShipping) {
-            notification.show("Por favor, selecione uma forma de entrega e pagamento.", 'error');
+        if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
+            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
             return;
         }
         setIsLoading(true);
@@ -2556,13 +2518,12 @@ const CheckoutPage = ({ onNavigate }) => {
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
                 total: total,
-                shippingAddress: isStorePickup ? { type: 'pickup', address: 'Retirada na Loja' } : selectedAddress,
+                shippingAddress: selectedAddress,
                 paymentMethod: paymentMethod,
-                shipping_method: selectedShipping.name,
+                shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
-                discount_amount: discount,
-                order_notes: isStorePickup ? (pickupPersonName || user.name) : null
+                discount_amount: discount
             };
             const orderResult = await apiService('/orders', 'POST', orderPayload);
             const { orderId } = orderResult;
@@ -2586,6 +2547,16 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
     
+    const getShippingName = (name) => {
+        if (name) {
+            const lowerCaseName = name.toLowerCase();
+            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
+                return 'PAC';
+            }
+        }
+        return name || 'N/A';
+    };
+
     return (
         <>
             <AddressSelectionModal 
@@ -2605,32 +2576,8 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Entrega</h2>
-                                {isStorePickup ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <StoreIcon className="h-8 w-8 text-amber-400"/>
-                                            <div>
-                                                <p className="font-bold text-lg">Retirar na Loja</p>
-                                                <p className="text-sm text-gray-400">R. Leopoldo Pereira Lima, 378 - Mangabeira</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-xs text-amber-200 bg-amber-900/50 p-3 rounded-md">
-                                            Você receberá uma notificação quando o pedido estiver pronto para retirada.
-                                        </div>
-                                        <div className="mt-4">
-                                            <label className="block text-sm font-medium text-gray-300 mb-1">Nome de quem vai retirar (opcional)</label>
-                                            <input 
-                                                type="text"
-                                                value={pickupPersonName}
-                                                onChange={(e) => setPickupPersonName(e.target.value)}
-                                                placeholder="Deixe em branco se for você mesmo"
-                                                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Se outra pessoa for retirar, informe o nome completo dela aqui.</p>
-                                        </div>
-                                    </div>
-                                ) : isAddressLoading ? (
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
+                                {isAddressLoading ? (
                                     <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
                                 ) : selectedAddress ? (
                                     <div className="p-4 bg-gray-800 rounded-md">
@@ -2644,7 +2591,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 ) : (
                                     <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço de entrega cadastrado.</p>
+                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
                                         <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
                                             Adicionar Endereço
                                         </button>
@@ -2668,16 +2615,18 @@ const CheckoutPage = ({ onNavigate }) => {
                                 {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
                                 <div className="border-t border-gray-700 mt-4 pt-4">
                                     {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                                    {selectedShipping && (
+                                    {autoCalculatedShipping ? (
                                         <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Entrega ({selectedShipping.name})</span>
+                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
+                                    ) : (
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
                                     )}
                                     <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
                                 
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !selectedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
                                         <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
@@ -2764,7 +2713,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 return {
                     icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
                     title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio ou retirada!`
+                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
                 };
             case 'timeout':
                 return {
@@ -2804,14 +2753,12 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     );
 };
 
-// ATUALIZAÇÃO: Timeline de status com novo ícone e lógica para "Pronto para Retirada".
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
         'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
         'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
         'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-        'Pronto para Retirada': { title: 'Pronto para Retirada', description: 'Seu pedido está pronto para ser retirado em nossa loja! Verifique os horários e documentos necessários.', icon: <StoreIcon className="h-6 w-6" />, color: 'green' },
         'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
         'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
         'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
@@ -2828,12 +2775,13 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     }), []);
     
     const timelineOrder = useMemo(() => [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 'Entregue'
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
     ], []);
 
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
+    // Lógica para status especiais (Cancelado, etc.) permanece a mesma
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
@@ -2867,12 +2815,14 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
+                                // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                 className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
                                 <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
+                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
                             </div>
                             {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
@@ -2895,6 +2845,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                         <div key={statusKey} className="flex">
                             <div className="flex flex-col items-center mr-4">
                                 <div 
+                                    // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                     className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                     onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
@@ -2905,6 +2856,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <p className={`font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
+                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
                             </div>
                         </div>
@@ -2919,6 +2871,7 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
+    // CORREÇÃO: Mapeamento de cores para garantir contraste no modal.
     const colorMap = {
         amber: { bg: 'bg-amber-100', icon: 'text-amber-600', title: 'text-amber-800' },
         green: { bg: 'bg-green-100', icon: 'text-green-600', title: 'text-green-800' },
@@ -3010,7 +2963,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-    const [currentOrderForModal, setCurrentOrderForModal] = useState(null);
+    const [currentTrackingCode, setCurrentTrackingCode] = useState('');
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
@@ -3033,8 +2986,8 @@ const MyOrdersSection = ({ onNavigate }) => {
         onNavigate('cart');
     };
 
-    const handleOpenTrackingModal = (order) => {
-        setCurrentOrderForModal(order);
+    const handleOpenTrackingModal = (trackingCode) => {
+        setCurrentTrackingCode(trackingCode);
         setIsTrackingModalOpen(true);
     };
 
@@ -3047,7 +3000,7 @@ const MyOrdersSection = ({ onNavigate }) => {
 
     return (
         <>
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={currentOrderForModal} />
+            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} trackingCode={currentTrackingCode} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
@@ -3066,14 +3019,7 @@ const MyOrdersSection = ({ onNavigate }) => {
                             <div className="my-6">
                                 <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
                             </div>
-                            
-                            <div className="my-4 p-3 bg-gray-800 rounded-md text-sm">
-                                <strong>Forma de Entrega:</strong> {order.shipping_method}
-                                {order.shipping_method !== 'Retirar na loja' && order.tracking_code && (
-                                    <span className="ml-4"><strong>Cód. Rastreio:</strong> {order.tracking_code}</span>
-                                )}
-                            </div>
-
+                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
                             <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
                                 {order.items.map(item => (
                                     <div key={item.id} className="flex items-center text-sm">
@@ -3085,7 +3031,7 @@ const MyOrdersSection = ({ onNavigate }) => {
                             </div>
                             <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
                                 <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                <button onClick={() => handleOpenTrackingModal(order)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Acompanhar Pedido</button>
+                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
                             </div>
                         </div>
                     ))}
@@ -3103,6 +3049,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
+// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
@@ -3129,7 +3076,7 @@ const MyAddressesSection = () => {
                 notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
-            determineShippingLocation(); 
+            determineShippingLocation(); // Força a reavaliação da localização
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3142,7 +3089,7 @@ const MyAddressesSection = () => {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
                 await fetchAddresses();
-                determineShippingLocation();
+                determineShippingLocation(); // Força a reavaliação da localização
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3154,7 +3101,7 @@ const MyAddressesSection = () => {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
-            determineShippingLocation();
+            determineShippingLocation(); // Força a reavaliação da localização
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
@@ -4244,13 +4191,12 @@ const AdminCoupons = () => {
     );
 };
 
-// ATUALIZAÇÃO: Painel de Pedidos com novo status e campo de anotações.
 const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState(null);
-    const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '', order_notes: '' });
+    const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
     const notification = useNotification();
     const [filters, setFilters] = useState({
         startDate: '',
@@ -4262,7 +4208,7 @@ const AdminOrders = () => {
     });
     const statuses = [
         'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
-        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
+        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
     ];
 
     const fetchOrders = useCallback(() => {
@@ -4285,8 +4231,7 @@ const AdminOrders = () => {
             setEditingOrder(fullOrderDetails);
             setEditFormData({
                 status: fullOrderDetails.status,
-                tracking_code: fullOrderDetails.tracking_code || '',
-                order_notes: fullOrderDetails.order_notes || ''
+                tracking_code: fullOrderDetails.tracking_code || ''
             });
             setIsEditModalOpen(true);
         } catch (error) {
@@ -4351,24 +4296,6 @@ const AdminOrders = () => {
         setFilteredOrders(orders);
     }
 
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'Entregue':
-            case 'Pronto para Retirada':
-            case 'Pagamento Aprovado':
-                return 'bg-green-100 text-green-800';
-            case 'Cancelado':
-            case 'Pagamento Recusado':
-                return 'bg-red-100 text-red-800';
-            case 'Enviado':
-            case 'Saiu para Entrega':
-            case 'Separando Pedido':
-                return 'bg-blue-100 text-blue-800';
-            default:
-                return 'bg-yellow-100 text-yellow-800';
-        }
-    };
-
     return (
         <div>
             <AnimatePresence>
@@ -4387,11 +4314,9 @@ const AdminOrders = () => {
                             </div>
 
                             <div>
-                                 <h4 className="font-bold text-gray-700 mb-1">Entrega</h4>
+                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
                                  <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                     {editingOrder.shipping_method === 'Retirar na loja' ? (
-                                        <p className="font-semibold">Retirar na Loja</p>
-                                     ) : (() => {
+                                     {(() => {
                                          try {
                                              const addr = JSON.parse(editingOrder.shipping_address);
                                              return (
@@ -4405,13 +4330,6 @@ const AdminOrders = () => {
                                      })()}
                                  </div>
                             </div>
-                            
-                            {editingOrder.order_notes && (
-                                <div>
-                                    <h4 className="font-bold text-gray-700 mb-1">Observações (Retirada)</h4>
-                                    <p className="text-sm bg-yellow-100 p-3 rounded-md">{editingOrder.order_notes}</p>
-                                </div>
-                            )}
 
                             <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
@@ -4450,18 +4368,10 @@ const AdminOrders = () => {
                                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                  </div>
-                                 {editingOrder.shipping_method !== 'Retirar na loja' && (
-                                     <div>
-                                         <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                         <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
-                                     </div>
-                                 )}
-                                 {editingOrder.shipping_method === 'Retirar na loja' && (
-                                     <div>
-                                         <label className="block text-sm font-medium text-gray-700">Nome de quem vai retirar</label>
-                                         <input type="text" name="order_notes" value={editFormData.order_notes} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
-                                     </div>
-                                 )}
+                                 <div>
+                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                 </div>
                                  <div className="flex justify-end space-x-3 pt-4">
                                     <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
                                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
@@ -4502,8 +4412,8 @@ const AdminOrders = () => {
                                 <th className="p-4 font-semibold">Cliente</th>
                                 <th className="p-4 font-semibold">Data</th>
                                 <th className="p-4 font-semibold">Total</th>
-                                <th className="p-4 font-semibold">Entrega</th>
                                 <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Cód. Rastreio</th>
                                 <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
@@ -4514,13 +4424,8 @@ const AdminOrders = () => {
                                     <td className="p-4">{o.user_name}</td>
                                     <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
                                     <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        <span className={`inline-flex items-center gap-2 px-2 py-1 text-xs rounded-full ${o.shipping_method === 'Retirar na loja' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                                            {o.shipping_method === 'Retirar na loja' ? <StoreIcon className="h-4 w-4"/> : <TruckIcon className="h-4 w-4"/>}
-                                            {o.shipping_method}
-                                        </span>
-                                    </td>
-                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(o.status)}`}>{o.status}</span></td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
                                     <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
                                 </tr>
                             ))}
@@ -4535,12 +4440,12 @@ const AdminOrders = () => {
                                     <p className="font-bold">Pedido #{o.id}</p>
                                     <p className="text-sm text-gray-600">{o.user_name}</p>
                                 </div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(o.status)}`}>{o.status}</span>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                 <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
                                 <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                <div className="col-span-2"><strong className="text-gray-500 block">Entrega</strong> {o.shipping_method}</div>
+                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
                             </div>
                             <div className="flex justify-end mt-4 pt-2 border-t">
                                 <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
