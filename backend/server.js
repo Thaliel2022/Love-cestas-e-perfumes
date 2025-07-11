@@ -171,7 +171,7 @@ const getFirstImage = (imagesJsonString) => {
     }
 };
 
-// ATUALIZADO: Função auxiliar para gerar a lista de itens em HTML
+// Função auxiliar para gerar a lista de itens em HTML
 const createItemsListHtml = (items) => {
     if (!items || items.length === 0) return '';
     
@@ -195,27 +195,40 @@ const createItemsListHtml = (items) => {
 const createWelcomeEmail = (customerName) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Seja muito bem-vindo(a) à nossa loja! Sua conta foi criada com sucesso.</p><p>Estamos felizes em ter você conosco. Explore nossas coleções exclusivas e encontre os produtos perfeitos para você.</p><a href="${appUrl}" class="button">Visitar a Loja</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Seja muito bem-vindo(a) à nossa loja! Sua conta foi criada com sucesso.</p><p>Estamos felizes em ter você conosco. Explore nossas coleções exclusivas e encontre os produtos perfeitos para você.</p><a href="${appUrl}" class="button">Visitar a Loja</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
 
-// ATUALIZADO: Agora aceita os itens para incluir no corpo do e-mail
 const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const itemsHtml = createItemsListHtml(items); // Gera a lista de itens
+    const itemsHtml = createItemsListHtml(items);
+    
+    // ATUALIZADO: Mensagem personalizada para cada tipo de status
+    let introMessage;
+    switch(newStatus) {
+        case ORDER_STATUS.CANCELLED:
+            introMessage = `Temos uma atualização sobre o seu pedido #${orderId}. Ele foi cancelado. Se você não solicitou o cancelamento, por favor, entre em contato conosco.`;
+            break;
+        case ORDER_STATUS.REFUNDED:
+            introMessage = `Temos uma atualização sobre o seu pedido #${orderId}. O reembolso foi processado com sucesso.`;
+            break;
+        default:
+            introMessage = `Boas notícias! O status do seu pedido #${orderId} foi atualizado.`;
+    }
+
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Boas notícias! O status do seu pedido #${orderId} foi atualizado.</p><div class="status">${newStatus}</div>${itemsHtml}<p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>${introMessage}</p><div class="status">${newStatus}</div>${itemsHtml}<p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
 const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
-    const itemsHtml = createItemsListHtml(items); // Reutiliza a função para gerar a lista de itens
+    const itemsHtml = createItemsListHtml(items);
 
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a>${itemsHtml}<p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a>${itemsHtml}<p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
@@ -949,11 +962,14 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         ORDER_STATUS.DELIVERED
     ];
     
+    // ATUALIZADO: Adicionado Cancelado e Reembolsado
     const statusesThatTriggerEmail = [
         ORDER_STATUS.PROCESSING,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
-        ORDER_STATUS.DELIVERED
+        ORDER_STATUS.DELIVERED,
+        ORDER_STATUS.CANCELLED,
+        ORDER_STATUS.REFUNDED
     ];
 
     const connection = await db.getConnection();
@@ -1028,7 +1044,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     
                     const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
                     
-                    // ATUALIZADO: Busca os itens do pedido para todos os e-mails de status
                     const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
 
                     if (status === ORDER_STATUS.SHIPPED) {
