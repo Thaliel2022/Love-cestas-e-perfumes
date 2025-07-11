@@ -1,7 +1,7 @@
 // Importa os pacotes necessários
 const express = require('express');
 const mysql = require('mysql2/promise');
-const cors =require('cors');
+const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
@@ -13,9 +13,17 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
+const { Resend } = require('resend'); // --- NOVO: Importação do Resend ---
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
+
+
+// --- NOVO: Configuração do Resend ---
+// As chaves são carregadas das suas variáveis de ambiente
+const resend = new Resend(process.env.RESEND_API_KEY);
+const FROM_EMAIL = process.env.FROM_EMAIL;
+
 
 // ---> Constantes para status de pedidos
 const ORDER_STATUS = {
@@ -36,7 +44,8 @@ const checkRequiredEnvVars = () => {
     const requiredVars = [
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
-        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP'
+        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
+        'RESEND_API_KEY', 'FROM_EMAIL' // --- NOVO: Variáveis do Resend adicionadas à verificação
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -147,6 +156,39 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
         [orderId, newStatus, notes]
     );
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+};
+
+
+// --- NOVO: Funções para criar os e-mails HTML ---
+
+/**
+ * Cria um template de e-mail para atualização geral de status.
+ * @param {string} customerName - Nome do cliente.
+ * @param {number} orderId - ID do pedido.
+ * @param {string} newStatus - O novo status do pedido.
+ * @returns {string} - O conteúdo HTML do e-mail.
+ */
+const createGeneralUpdateEmail = (customerName, orderId, newStatus) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    return `
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Boas notícias! O status do seu pedido #${orderId} foi atualizado.</p><div class="status">${newStatus}</div><p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+    `;
+};
+
+/**
+ * Cria um template de e-mail específico para quando o pedido é enviado.
+ * @param {string} customerName - Nome do cliente.
+ * @param {number} orderId - ID do pedido.
+ * @param {string} trackingCode - Código de rastreio.
+ * @returns {string} - O conteúdo HTML do e-mail.
+ */
+const createShippedEmail = (customerName, orderId, trackingCode) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    // Link direto para o rastreio, usando o mesmo serviço do frontend
+    const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
+    return `
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a><p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+    `;
 };
 
 
@@ -851,17 +893,21 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
-// Substitua a sua rota app.put('/api/orders/:id', ...) inteira por esta.
-
+// Rota de atualização de pedido com envio de e-mail integrado
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
-    
-    // --- LÓGICA ADICIONADA ---
-    // Define a progressão linear dos status.
+
     const STATUS_PROGRESSION = [
         ORDER_STATUS.PENDING,
         ORDER_STATUS.PAYMENT_APPROVED,
+        ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.SHIPPED,
+        ORDER_STATUS.OUT_FOR_DELIVERY,
+        ORDER_STATUS.DELIVERED
+    ];
+    
+    const statusesThatTriggerEmail = [
         ORDER_STATUS.PROCESSING,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
@@ -872,36 +918,38 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const [currentOrderResult] = await connection.query("SELECT status, payment_gateway_id, payment_status FROM orders WHERE id = ? FOR UPDATE", [id]);
+        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
         const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
-        // Se o status principal foi alterado
         if (status && status !== currentStatus) {
             const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
             const newIndex = STATUS_PROGRESSION.indexOf(status);
 
-            // --- LÓGICA ADICIONADA: Preenche o histórico ao pular status ---
             if (newIndex > currentIndex) {
-                // Se for um avanço na linha do tempo, preenche os status intermediários
                 const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
                 for (const intermediateStatus of statusesToInsert) {
                     await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
                 }
             } else {
-                // Se for uma reversão ou um status fora da linha do tempo (ex: Cancelado), insere apenas o status final.
                 await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
             }
             
-            // Lógica de reembolso e estorno de estoque permanece a mesma
             if (status === ORDER_STATUS.REFUNDED) {
                 if (!payment_gateway_id) throw new Error("Reembolso falhou: ID de pagamento não encontrado.");
                 if (currentPaymentStatus !== 'approved') throw new Error(`Reembolso falhou: Status do pagamento é '${currentPaymentStatus}'.`);
                 
                 console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
-                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, { /* ...headers... */ });
+                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, { 
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'X-Idempotency-Key': crypto.randomUUID()
+                    }
+                });
                 const refundData = await refundResponse.json();
                 if (!refundResponse.ok) throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
                 console.log(`[Reembolso] Sucesso para pagamento ${payment_gateway_id}.`);
@@ -919,12 +967,53 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
             }
         }
         
-        // Se o código de rastreio foi alterado (ou adicionado)
         if (tracking_code !== undefined) { 
             await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
         }
 
         await connection.commit();
+        
+        try {
+            if (status && statusesThatTriggerEmail.includes(status)) {
+                
+                const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
+
+                if (userResult.length > 0) {
+                    const customerEmail = userResult[0].email;
+                    const customerName = userResult[0].name;
+                    let emailHtml;
+                    let emailSubject;
+                    
+                    // Usa a variável `tracking_code` do corpo da requisição, pois ela pode ter sido atualizada agora.
+                    const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
+
+                    if (status === ORDER_STATUS.SHIPPED) {
+                        if (!finalTrackingCode) {
+                             console.log(`AVISO: Pedido #${id} marcado como "Enviado" mas sem código de rastreio. E-mail não enviado.`);
+                        } else {
+                            emailHtml = createShippedEmail(customerName, id, finalTrackingCode);
+                            emailSubject = `Seu Pedido #${id} foi enviado!`;
+                        }
+                    } else {
+                        emailHtml = createGeneralUpdateEmail(customerName, id, status);
+                        emailSubject = `Atualização sobre seu Pedido #${id}`;
+                    }
+                    
+                    if (emailHtml && emailSubject) {
+                        await resend.emails.send({
+                            from: FROM_EMAIL,
+                            to: customerEmail,
+                            subject: emailSubject,
+                            html: emailHtml,
+                        });
+                        console.log(`E-mail de atualização de status "${status}" enviado para ${customerEmail} para o pedido #${id}.`);
+                    }
+                }
+            }
+        } catch (emailError) {
+            console.error(`FALHA AO ENVIAR E-MAIL para o pedido #${id}:`, emailError);
+        }
+
         res.json({ message: "Pedido atualizado com sucesso." });
 
     } catch (err) { 
@@ -1500,7 +1589,6 @@ app.post('/api/addresses', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
         
-        // Se o novo endereço for padrão, desmarca qualquer outro que seja
         if (is_default) {
             await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
         }
