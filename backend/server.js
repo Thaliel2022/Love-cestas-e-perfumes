@@ -171,11 +171,27 @@ const getFirstImage = (imagesJsonString) => {
     }
 };
 
-/**
- * NOVO: Cria um template de e-mail de boas-vindas para novos usuários.
- * @param {string} customerName - Nome do cliente.
- * @returns {string} - O conteúdo HTML do e-mail.
- */
+// ATUALIZADO: Função auxiliar para gerar a lista de itens em HTML
+const createItemsListHtml = (items) => {
+    if (!items || items.length === 0) return '';
+    
+    const itemsHtml = items.map(item => `
+        <div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eeeeee; max-width: 100%;">
+            <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" style="border-radius: 4px; margin-right: 15px; object-fit: contain;">
+            <div style="flex-grow: 1;">
+                <p style="margin: 0; font-weight: bold; color: #333;">${item.name}</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #777;">Quantidade: ${item.quantity}</p>
+            </div>
+        </div>
+    `).join('');
+
+    return `<div class="items-list" style="margin-top: 25px;">
+                <h3 style="color: #555; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">Itens no seu pedido:</h3>
+                ${itemsHtml}
+            </div>`;
+};
+
+
 const createWelcomeEmail = (customerName) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     return `
@@ -184,37 +200,22 @@ const createWelcomeEmail = (customerName) => {
 };
 
 
-const createGeneralUpdateEmail = (customerName, orderId, newStatus) => {
+// ATUALIZADO: Agora aceita os itens para incluir no corpo do e-mail
+const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const itemsHtml = createItemsListHtml(items); // Gera a lista de itens
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Boas notícias! O status do seu pedido #${orderId} foi atualizado.</p><div class="status">${newStatus}</div><p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .status{font-size: 1.2em; font-weight: bold; color: #333; padding: 10px; background-color: #f0f0f0; border-radius: 5px; text-align: center; margin: 20px 0;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Boas notícias! O status do seu pedido #${orderId} foi atualizado.</p><div class="status">${newStatus}</div>${itemsHtml}<p>Você pode acompanhar todos os detalhes do seu pedido acessando sua conta em nossa loja.</p><a href="${appUrl}/#account/orders" class="button">Ver Meus Pedidos</a></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
-/**
- * ATUALIZADO: Cria um template de e-mail para pedido enviado, agora com a lista de itens.
- * @param {string} customerName - Nome do cliente.
- * @param {number} orderId - ID do pedido.
- * @param {string} trackingCode - Código de rastreio.
- * @param {Array} items - Lista de itens do pedido.
- * @returns {string} - O conteúdo HTML do e-mail.
- */
 const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
-    
-    const itemsHtml = items.map(item => `
-        <div style="display: flex; align-items: center; padding: 10px 0; border-bottom: 1px solid #eeeeee;">
-            <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" style="border-radius: 4px; margin-right: 15px;">
-            <div style="flex-grow: 1;">
-                <p style="margin: 0; font-weight: bold; color: #333;">${item.name}</p>
-                <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #777;">Quantidade: ${item.quantity}</p>
-            </div>
-        </div>
-    `).join('');
+    const itemsHtml = createItemsListHtml(items); // Reutiliza a função para gerar a lista de itens
 
     return `
-      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .items-list{margin-top: 25px;} .items-list h3{color: #555; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a><div class="items-list"><h3>Itens enviados:</h3>${itemsHtml}</div><p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
+      <!DOCTYPE html><html><head><style>body{font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4;} .container{max-width: 600px; margin: 20px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);} .header{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee;} .header h1{color: #D4AF37;} .content{padding: 20px 0;} .content p{line-height: 1.6; color: #333333;} .tracking-info{border: 1px dashed #cccccc; padding: 15px; text-align: center; margin: 20px 0; border-radius: 5px;} .tracking-info p{margin: 0 0 10px 0;} .tracking-info .code{font-size: 1.3em; font-weight: bold; color: #333; letter-spacing: 2px;} .button{display: block; width: fit-content; margin: 20px auto; padding: 12px 25px; background-color: #D4AF37; color: #000000; text-decoration: none; border-radius: 5px; font-weight: bold;} .footer{text-align: center; font-size: 0.8em; color: #888888; padding-top: 20px; border-top: 1px solid #eeeeee;}</style></head><body><div class="container"><div class="header"><h1>Love Cestas e Perfumes</h1></div><div class="content"><p>Olá, ${customerName},</p><p>Ótima notícia! Seu pedido #${orderId} já está a caminho!</p><div class="tracking-info"><p>Use o código de rastreio abaixo para acompanhar a entrega:</p><div class="code">${trackingCode}</div></div><a href="${trackingUrl}" target="_blank" class="button">Rastrear Pedido</a>${itemsHtml}<p>Agradecemos pela sua compra e esperamos que goste dos seus produtos!</p></div><div class="footer"><p>&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p></div></div></body></html>
     `;
 };
 
@@ -262,7 +263,6 @@ app.post('/api/register', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`) VALUES (?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword]);
         
-        // --- NOVO: Envio de e-mail de boas-vindas ---
         try {
             await resend.emails.send({
                 from: FROM_EMAIL,
@@ -1027,18 +1027,19 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     let emailSubject;
                     
                     const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
+                    
+                    // ATUALIZADO: Busca os itens do pedido para todos os e-mails de status
+                    const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
 
                     if (status === ORDER_STATUS.SHIPPED) {
                         if (!finalTrackingCode) {
                              console.log(`AVISO: Pedido #${id} marcado como "Enviado" mas sem código de rastreio. E-mail não enviado.`);
                         } else {
-                            // ATUALIZADO: Busca os itens do pedido para incluir no e-mail
-                            const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
                             emailHtml = createShippedEmail(customerName, id, finalTrackingCode, orderItems);
                             emailSubject = `Seu Pedido #${id} foi enviado!`;
                         }
                     } else {
-                        emailHtml = createGeneralUpdateEmail(customerName, id, status);
+                        emailHtml = createGeneralUpdateEmail(customerName, id, status, orderItems);
                         emailSubject = `Atualização sobre seu Pedido #${id}`;
                     }
                     
