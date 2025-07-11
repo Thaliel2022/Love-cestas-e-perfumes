@@ -580,7 +580,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
     const payload = {
         from: { postal_code: process.env.ORIGIN_CEP },
         to: { postal_code: cep_destino.replace(/\D/g, '') },
-        services: "2", // Solicita apenas o serviço PAC (ID 2 é o padrão para PAC nos Correios via Melhor Envio)
+        services: "1,2", // ---> ATUALIZAÇÃO <--- Solicita SEDEX (1) e PAC (2).
         products: productsWithDetails.map(product => ({ 
             id: String(product.id),
             width: Number(product.width),
@@ -610,13 +610,18 @@ app.post('/api/shipping/calculate', async (req, res) => {
         let finalOptions = [storePickupOption]; 
 
         if (apiResponse.ok && Array.isArray(data)) {
-            const pacOption = data.find(option => !option.error && option.name.toLowerCase().includes('pac'));
-            if (pacOption) {
-                finalOptions.push({
-                    name: pacOption.name,
-                    price: parseFloat(pacOption.price),
-                    delivery_time: pacOption.delivery_time,
-                    company: { name: pacOption.company.name, picture: pacOption.company.picture }
+            // ---> ATUALIZAÇÃO <--- Lógica para selecionar PAC ou SEDEX.
+            const pacOption = data.find(option => !option.error && option.id === 2);
+            const sedexOption = data.find(option => !option.error && option.id === 1);
+
+            const chosenOption = pacOption || sedexOption; // Prioriza PAC, se não houver, usa SEDEX.
+
+            if (chosenOption) {
+                 finalOptions.push({
+                    name: chosenOption.name,
+                    price: parseFloat(chosenOption.price),
+                    delivery_time: chosenOption.delivery_time,
+                    company: { name: chosenOption.company.name, picture: chosenOption.company.picture }
                 });
             }
         } else {
