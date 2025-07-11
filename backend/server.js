@@ -45,8 +45,8 @@ const checkRequiredEnvVars = () => {
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL',
-        'GOOGLE_MAPS_API_KEY' // ---> ATUALIZAÇÃO <--- Variável adicionada para o mapa.
+        'RESEND_API_KEY', 'FROM_EMAIL'
+        // ---> ATUALIZAÇÃO <--- 'GOOGLE_MAPS_API_KEY' foi removida da lista de variáveis obrigatórias para permitir que o servidor inicie sem ela.
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -54,6 +54,9 @@ const checkRequiredEnvVars = () => {
         missingVars.forEach(varName => console.error(`- ${varName}`));
         console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
         process.exit(1);
+    }
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+        console.warn('AVISO: A variável de ambiente GOOGLE_MAPS_API_KEY não está definida. A funcionalidade de mapa nos e-mails estará desativada.');
     }
     console.log('Verificação de variáveis de ambiente concluída com sucesso.');
 };
@@ -270,7 +273,7 @@ const createWelcomeEmail = (customerName) => {
     return createEmailBase(content);
 };
 
-// ---> ATUALIZAÇÃO <--- E-mail de "Pronto para Retirada" melhorado com mapa.
+// ---> ATUALIZAÇÃO <--- Adicionada verificação para a chave da API do Google Maps.
 const createReadyForPickupEmail = (customerName, orderId, orderNotes) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const pickupPerson = orderNotes ? `A retirada será feita por: <strong>${orderNotes}</strong>.` : 'A retirada deve ser feita pelo titular da compra.';
@@ -278,7 +281,16 @@ const createReadyForPickupEmail = (customerName, orderId, orderNotes) => {
     const lat = -7.175478;
     const lng = -34.833939;
     const googleApiKey = process.env.GOOGLE_MAPS_API_KEY;
-    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&maptype=roadmap&markers=color:red%7Clabel:L%7C${lat},${lng}&key=${googleApiKey}`;
+
+    let mapHtml = '';
+    if (googleApiKey) {
+        const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x300&maptype=roadmap&markers=color:red%7Clabel:L%7C${lat},${lng}&key=${googleApiKey}`;
+        mapHtml = `
+            <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank">
+                <img src="${mapUrl}" width="100%" style="max-width: 520px; height: auto; border-radius: 4px;" alt="Mapa da localização da loja">
+            </a>
+        `;
+    }
     
     const content = `
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido está Pronto!</h1>
@@ -291,9 +303,7 @@ const createReadyForPickupEmail = (customerName, orderId, orderNotes) => {
             <p style="margin:0 0 15px 0;"><strong>Horário:</strong> Seg. a Sáb., das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
             <p style="margin:0 0 5px 0;"><strong>Documentos Necessários:</strong> Documento com foto (RG ou CNH) e o número do pedido.</p>
             <p style="margin:0 0 20px 0;">${pickupPerson}</p>
-            <a href="https://maps.google.com/?q=${lat},${lng}" target="_blank">
-                <img src="${mapUrl}" width="100%" style="max-width: 520px; height: auto; border-radius: 4px;" alt="Mapa da localização da loja">
-            </a>
+            ${mapHtml}
         </div>
 
         <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
@@ -354,7 +364,6 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
 });
 
-// ---> ATUALIZAÇÃO <--- Nova rota para informações da loja.
 app.get('/api/orders/pickup-info', (req, res) => {
     res.status(200).json({
         address: 'R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123',
