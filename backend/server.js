@@ -163,88 +163,95 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
 // Função auxiliar para obter a primeira imagem de um JSON
 const getFirstImage = (imagesJsonString) => {
     try {
-        if (!imagesJsonString) return 'https://placehold.co/80x80/eee/ccc?text=Produto';
+        if (!imagesJsonString) return 'https://placehold.co/80x80/2A3546/D4AF37?text=?';
         const images = JSON.parse(imagesJsonString);
-        return (Array.isArray(images) && images.length > 0) ? images[0] : 'https://placehold.co/80x80/eee/ccc?text=Produto';
+        return (Array.isArray(images) && images.length > 0) ? images[0] : 'https://placehold.co/80x80/2A3546/D4AF37?text=?';
     } catch (e) {
-        return 'https://placehold.co/80x80/eee/ccc?text=Produto';
+        return 'https://placehold.co/80x80/2A3546/D4AF37?text=?';
     }
 };
 
 // ATUALIZADO: Template base para todos os e-mails, garantindo responsividade e padrão visual
 const createEmailBase = (content) => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
     return `
     <!DOCTYPE html>
-    <html lang="pt-BR">
+    <html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
     <head>
         <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Love Cestas e Perfumes</title>
+        <!--[if mso]>
+        <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+        </noscript>
+        <![endif]-->
         <style>
             body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #111827; }
+            table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+            td, p, h1, h3 { font-family: Arial, Helvetica, sans-serif; }
             .container { width: 100%; max-width: 600px; margin: 0 auto; }
             .content-cell { padding: 35px; background-color: #1F2937; border-radius: 8px; }
-            h1 { color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px; }
-            p { color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px; }
-            .button { display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif; }
-            .footer p { color: #9CA3AF; font-size: 12px; }
-            .items-list-title { color: #E5E7EB; border-bottom: 1px solid #4B5563; padding-bottom: 5px; margin-bottom: 10px; font-family: Arial, sans-serif; font-size: 18px; }
-            .item-row { padding: 10px 0; border-bottom: 1px solid #4B5563; }
-            .item-image { width: 60px; border-radius: 4px; margin-right: 15px; }
-            .item-name { margin: 0; font-weight: bold; color: #E5E7EB; font-family: Arial, sans-serif; }
-            .item-quantity { margin: 5px 0 0 0; font-size: 14px; color: #9CA3AF; font-family: Arial, sans-serif; }
+            @media screen and (max-width: 600px) {
+                .content-cell { padding: 20px !important; }
+            }
         </style>
     </head>
-    <body style="margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #111827;">
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #111827;">
-            <tr>
-                <td align="center">
-                    <table class="container" width="600" border="0" cellpadding="0" cellspacing="0" role="presentation">
-                        <!-- Header -->
-                        <tr>
-                            <td align="center" style="padding: 20px 0;">
-                                <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 28px; margin: 0;">Love Cestas e Perfumes</h1>
-                            </td>
-                        </tr>
-                        <!-- Content -->
-                        <tr>
-                            <td class="content-cell" style="padding: 35px; background-color: #1F2937; border-radius: 8px;">
-                                ${content}
-                            </td>
-                        </tr>
-                        <!-- Footer -->
-                        <tr>
-                            <td align="center" style="padding: 20px 0;">
-                                <p style="color: #9CA3AF; font-size: 12px; font-family: Arial, sans-serif;">&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
+    <body style="margin: 0; padding: 0; width: 100%; background-color: #111827;">
+        <center>
+            <table class="container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px;">
+                <!-- Header -->
+                <tr>
+                    <td align="center" style="padding: 20px 0;">
+                        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 28px; margin: 0;">Love Cestas e Perfumes</h1>
+                    </td>
+                </tr>
+                <!-- Content -->
+                <tr>
+                    <td>
+                        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+                            <tr>
+                                <td class="content-cell" style="padding: 35px; background-color: #1F2937; border-radius: 8px;">
+                                    ${content}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <!-- Footer -->
+                <tr>
+                    <td align="center" style="padding: 20px 0;">
+                        <p style="color: #9CA3AF; font-size: 12px; font-family: Arial, sans-serif; margin:0;">&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p>
+                    </td>
+                </tr>
+            </table>
+        </center>
     </body>
     </html>
     `;
 };
 
-const createItemsListHtml = (items) => {
+const createItemsListHtml = (items, title) => {
     if (!items || items.length === 0) return '';
     
     const itemsHtml = items.map(item => `
-        <tr class="item-row" style="padding: 10px 0; border-bottom: 1px solid #4B5563;">
-            <td valign="top" style="padding: 10px 0;">
-                <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" class="item-image" style="border-radius: 4px; margin-right: 15px;">
+        <tr style="border-bottom: 1px solid #4B5563;">
+            <td valign="top" style="padding: 15px 10px 15px 0;">
+                <img src="${getFirstImage(item.images)}" alt="${item.name}" width="60" style="border-radius: 4px; object-fit: contain; background-color: #ffffff; padding: 2px;">
             </td>
-            <td valign="top" style="padding: 10px 0;">
-                <p class="item-name" style="margin: 0; font-weight: bold; color: #E5E7EB; font-family: Arial, sans-serif;">${item.name}</p>
-                <p class="item-quantity" style="margin: 5px 0 0 0; font-size: 14px; color: #9CA3AF; font-family: Arial, sans-serif;">Quantidade: ${item.quantity}</p>
+            <td valign="middle">
+                <p style="margin: 0; font-weight: bold; color: #E5E7EB; font-family: Arial, sans-serif; font-size: 15px;">${item.name}</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #9CA3AF; font-family: Arial, sans-serif;">Quantidade: ${item.quantity}</p>
             </td>
         </tr>
     `).join('');
 
     return `
-        <h3 class="items-list-title" style="color: #E5E7EB; border-bottom: 1px solid #4B5563; padding-bottom: 5px; margin: 25px 0 10px; font-family: Arial, sans-serif; font-size: 18px;">Itens no seu pedido:</h3>
+        <h3 style="color: #E5E7EB; border-bottom: 1px solid #4B5563; padding-bottom: 8px; margin: 25px 0 10px; font-family: Arial, sans-serif; font-size: 18px;">${title}</h3>
         <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
             ${itemsHtml}
         </table>
@@ -257,14 +264,14 @@ const createWelcomeEmail = (customerName) => {
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seja Bem-Vindo(a)!</h1>
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Sua conta em nossa loja foi criada com sucesso. Estamos felizes em ter você conosco!</p>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Visitar a Loja</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Visitar a Loja</a></td></tr></table>
     `;
     return createEmailBase(content);
 };
 
 const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const itemsHtml = createItemsListHtml(items);
+    const itemsHtml = createItemsListHtml(items, "Itens no seu pedido:");
     
     let introMessage;
     switch(newStatus) {
@@ -282,16 +289,16 @@ const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Atualização do Pedido #${orderId}</h1>
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">${introMessage}</p>
-        <div style="font-size: 18px; font-weight: bold; color: #1F2937; padding: 12px; background-color: #D4AF37; border-radius: 5px; text-align: center; margin: 20px 0; font-family: Arial, sans-serif;">${newStatus}</div>
+        <div style="font-size: 18px; font-weight: bold; color: #111827; padding: 12px; background-color: #D4AF37; border-radius: 5px; text-align: center; margin: 20px 0; font-family: Arial, sans-serif;">${newStatus}</div>
         ${itemsHtml}
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
     `;
     return createEmailBase(content);
 };
 
 const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
-    const itemsHtml = createItemsListHtml(items);
+    const itemsHtml = createItemsListHtml(items, "Itens enviados:");
 
     const content = `
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido Foi Enviado!</h1>
@@ -301,7 +308,7 @@ const createShippedEmail = (customerName, orderId, trackingCode, items) => {
             <p style="margin: 0 0 10px 0; color: #E5E7EB; font-family: Arial, sans-serif;">Use o código de rastreio abaixo:</p>
             <div style="font-size: 18px; font-weight: bold; color: #E5E7EB; letter-spacing: 2px; font-family: 'Courier New', Courier, monospace;">${trackingCode}</div>
         </div>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${trackingUrl}" target="_blank" class="button" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Rastrear Pedido</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Rastrear Pedido</a></td></tr></table>
         ${itemsHtml}
     `;
     return createEmailBase(content);
