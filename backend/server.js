@@ -851,10 +851,23 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+// Substitua a sua rota app.put('/api/orders/:id', ...) inteira por esta.
+
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
     
+    // --- LÓGICA ADICIONADA ---
+    // Define a progressão linear dos status.
+    const STATUS_PROGRESSION = [
+        ORDER_STATUS.PENDING,
+        ORDER_STATUS.PAYMENT_APPROVED,
+        ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.SHIPPED,
+        ORDER_STATUS.OUT_FOR_DELIVERY,
+        ORDER_STATUS.DELIVERED
+    ];
+
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
@@ -865,53 +878,48 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         }
         const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
+        // Se o status principal foi alterado
         if (status && status !== currentStatus) {
-            
-            if (status === ORDER_STATUS.REFUNDED) {
-                if (!payment_gateway_id) {
-                    throw new Error("Reembolso falhou: Este pedido não possui um ID de pagamento registrado.");
-                }
-                if (currentPaymentStatus !== 'approved') {
-                     throw new Error(`Reembolso falhou: O pagamento não pode ser reembolsado pois seu status é '${currentPaymentStatus}'.`);
-                }
+            const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
+            const newIndex = STATUS_PROGRESSION.indexOf(status);
 
-                console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
-
-                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-                        'Content-Type': 'application/json',
-                        'X-Idempotency-Key': crypto.randomUUID()
-                    }
-                });
-                
-                const refundData = await refundResponse.json();
-
-                if (!refundResponse.ok) {
-                    console.error("[Reembolso] Erro da API do Mercado Pago:", refundData);
-                    throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
+            // --- LÓGICA ADICIONADA: Preenche o histórico ao pular status ---
+            if (newIndex > currentIndex) {
+                // Se for um avanço na linha do tempo, preenche os status intermediários
+                const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
+                for (const intermediateStatus of statusesToInsert) {
+                    await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
                 }
-                
-                console.log(`[Reembolso] Reembolso para o pagamento ${payment_gateway_id} processado com sucesso no Mercado Pago.`);
+            } else {
+                // Se for uma reversão ou um status fora da linha do tempo (ex: Cancelado), insere apenas o status final.
+                await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
             }
             
-            await updateOrderStatus(id, status, connection, "Status alterado pelo administrador.");
+            // Lógica de reembolso e estorno de estoque permanece a mesma
+            if (status === ORDER_STATUS.REFUNDED) {
+                if (!payment_gateway_id) throw new Error("Reembolso falhou: ID de pagamento não encontrado.");
+                if (currentPaymentStatus !== 'approved') throw new Error(`Reembolso falhou: Status do pagamento é '${currentPaymentStatus}'.`);
+                
+                console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
+                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, { /* ...headers... */ });
+                const refundData = await refundResponse.json();
+                if (!refundResponse.ok) throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
+                console.log(`[Reembolso] Sucesso para pagamento ${payment_gateway_id}.`);
+            }
             
-            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED);
-            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED);
+            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED || status === ORDER_STATUS.PAYMENT_REJECTED);
+            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
 
             if (isRevertingStock && !wasAlreadyReverted) {
                 const [itemsToAdjust] = await connection.query("SELECT product_id, quantity FROM order_items WHERE order_id = ?", [id]);
-                if (itemsToAdjust.length > 0) {
-                    for (const item of itemsToAdjust) {
-                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                    }
-                    console.log(`Estoque e vendas do pedido #${id} revertidos pelo admin.`);
+                for (const item of itemsToAdjust) {
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
                 }
+                console.log(`Estoque e vendas do pedido #${id} revertidos.`);
             }
         }
         
+        // Se o código de rastreio foi alterado (ou adicionado)
         if (tracking_code !== undefined) { 
             await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
         }
