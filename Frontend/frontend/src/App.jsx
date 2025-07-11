@@ -1,2764 +1,11 @@
-import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
-import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-
-// --- Constante da API ---
-const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
-
-// --- ÍCONES SVG ---
-const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
-const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
-const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-const AdminIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const MenuIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
-const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
-const StarIcon = memo(({ className, isFilled, onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill={isFilled ? "currentColor" : "none"} stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
-const PlusIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>;
-const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
-const EditIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
-const ChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
-const BoxIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
-const TruckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 2h8a1 1 0 001-1z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h2a1 1 0 001-1V6a1 1 0 00-1-1h-2v11z" /></svg>;
-const UsersIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A6.995 6.995 0 0112 12a6.995 6.995 0 016-3.803M15 21a6 6 0 00-9-5.197" /></svg>;
-const TagIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm0 0v11a2 2 0 002 2h5a2 2 0 002-2l-7-7z" /></svg>;
-const FileIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>;
-const UploadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
-const InstagramIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>;
-const WhatsappIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 4.315 1.731 6.26l.16.288-1.035 3.803 3.91-1.019.28.169z"/></svg>;
-const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
-const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
-const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
-const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
-const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
-const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
-const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
-const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const CurrencyDollarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0 1H9m3 0h3m-3 10v-1m0 1h3m-3 0H9m12-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const MapPinIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
-const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-
-
-// --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
-const validateCPF = (cpf) => {
-    cpf = String(cpf).replace(/[^\d]/g, ''); 
-    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-    let sum = 0, remainder;
-    for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
-    remainder = (sum * 10) % 11;
-    if ((remainder === 10) || (remainder === 11)) remainder = 0;
-    if (remainder !== parseInt(cpf.substring(9, 10))) return false;
-    sum = 0;
-    for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
-    remainder = (sum * 10) % 11;
-    if ((remainder === 10) || (remainder === 11)) remainder = 0;
-    if (remainder !== parseInt(cpf.substring(10, 11))) return false;
-    return true;
-};
-
-const maskCPF = (value) => {
-    return value
-        .replace(/\D/g, '')
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
-        .substring(0, 14);
-};
-
-const maskCEP = (value) => {
-    return value
-        .replace(/\D/g, '')
-        .replace(/(\d{5})(\d)/, '$1-$2')
-        .substring(0, 9);
-};
-
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
-async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    const token = localStorage.getItem('token');
-    const config = {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        signal: options.signal,
-    };
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    if (body) {
-        config.body = JSON.stringify(body);
-    }
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const contentType = response.headers.get("content-type");
-        if (!response.ok) {
-            let errorData;
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                errorData = await response.json();
-            } else {
-                errorData = { message: await response.text() };
-            }
-            throw new Error(errorData.message || `Erro ${response.status}`);
-        }
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-        }
-        return response.text();
-    } catch (error) {
-        if (error.name === 'AbortError') {
-             console.log(`API fetch aborted: ${endpoint}`);
-        } else {
-             console.error(`Erro na API (${endpoint}):`, error);
-        }
-        if (error instanceof TypeError) {
-            throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
-        }
-        throw error;
-    }
-}
-
-
-async function apiUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const config = {
-        method: 'POST',
-        headers: {},
-        body: formData,
-    };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload (${endpoint}):`, error);
-        throw error;
-    }
-}
-
-async function apiImageUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
-    const formData = new FormData();
-    formData.append('image', file);
-
-    const config = {
-        method: 'POST',
-        headers: {},
-        body: formData,
-    };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
-        const responseData = await response.json();
-        if (!response.ok) {
-            throw new Error(responseData.message || `Erro ${response.status}`);
-        }
-        return responseData;
-    } catch (error) {
-        console.error(`Erro no upload da imagem (${endpoint}):`, error);
-        throw error;
-    }
-}
-
-
-// --- FUNÇÕES AUXILIARES PARA IMAGENS ---
-const parseImages = (imagesJsonString, placeholder) => {
-    if (!imagesJsonString || typeof imagesJsonString !== 'string') {
-        return placeholder === null ? [] : [placeholder];
-    }
-    try {
-        const parsed = JSON.parse(imagesJsonString);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-        }
-        return placeholder === null ? [] : [placeholder];
-    } catch (e) {
-        try {
-            const cleaned = imagesJsonString.replace(/\\"/g, '"');
-            const reparsed = JSON.parse(cleaned);
-            if (Array.isArray(reparsed) && reparsed.length > 0) {
-                return reparsed;
-            }
-            return placeholder === null ? [] : [placeholder];
-        } catch (e2) {
-            console.error("Falha ao parsear JSON de imagens:", imagesJsonString, e2);
-            return placeholder === null ? [] : [placeholder];
-        }
-    }
-};
-
-
-const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
-    const images = parseImages(imagesJsonString, placeholder);
-    return images[0] || placeholder;
-};
-
-
-// --- CONTEXTOS GLOBAIS ---
-const AuthContext = createContext(null);
-const ShopContext = createContext(null);
-const NotificationContext = createContext(null);
-const ConfirmationContext = createContext(null);
-
-const useAuth = () => useContext(AuthContext);
-const useShop = () => useContext(ShopContext);
-const useNotification = () => useContext(NotificationContext);
-const useConfirmation = () => useContext(ConfirmationContext);
-
-const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('token');
-        if (storedUser && storedToken) {
-            try {
-                setUser(JSON.parse(storedUser));
-                setToken(storedToken);
-            } catch (e) {
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
-            }
-        }
-        setIsLoading(false);
-    }, []);
-
-    const login = async (email, password) => {
-        const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
-        localStorage.setItem('user', JSON.stringify(loggedUser));
-        localStorage.setItem('token', authToken);
-        setUser(loggedUser);
-        setToken(authToken);
-        return loggedUser;
-    };
-    
-    const register = async (name, email, password, cpf) => {
-        return await apiService('/register', 'POST', { name, email, password, cpf });
-    };
-
-    const logout = useCallback(() => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setToken(null);
-    }, []);
-
-    return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
-};
-
-const ShopProvider = ({ children }) => {
-    const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
-    const [cart, setCart] = useState([]);
-    const [wishlist, setWishlist] = useState([]);
-    
-    const [addresses, setAddresses] = useState([]);
-    const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
-    const [isLoadingShipping, setIsLoadingShipping] = useState(false);
-    const [shippingError, setShippingError] = useState('');
-    
-    const [couponCode, setCouponCode] = useState("");
-    const [couponMessage, setCouponMessage] = useState("");
-    const [appliedCoupon, setAppliedCoupon] = useState(null);
-
-    const fetchPersistentCart = useCallback(async () => {
-        if (!isAuthenticated) return;
-        try {
-            const dbCart = await apiService('/cart');
-            setCart(dbCart || []);
-        } catch (err) {
-            console.error("Falha ao buscar carrinho persistente:", err);
-            setCart([]);
-        }
-    }, [isAuthenticated]);
-
-    const fetchAddresses = useCallback(async () => {
-        if (!isAuthenticated) return [];
-        try {
-            const userAddresses = await apiService('/addresses');
-            setAddresses(userAddresses || []);
-            return userAddresses || [];
-        } catch (error) {
-            console.error("Falha ao buscar endereços:", error);
-            setAddresses([]);
-            return [];
-        }
-    }, [isAuthenticated]);
-
-    const updateDefaultShippingLocation = useCallback((addrs) => {
-        const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
-        if (defaultAddr) {
-            setShippingLocation({
-                cep: defaultAddr.cep,
-                city: defaultAddr.localidade,
-                state: defaultAddr.uf,
-                alias: defaultAddr.alias
-            });
-            return true; // Retorna true se um endereço foi definido
-        }
-        return false; // Retorna false se nenhum endereço foi encontrado
-    }, []);
-
-    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
-    const determineShippingLocation = useCallback(async () => {
-        let locationDetermined = false;
-
-        if (isAuthenticated) {
-            const userAddresses = await fetchAddresses();
-            if (userAddresses && userAddresses.length > 0) {
-                locationDetermined = updateDefaultShippingLocation(userAddresses);
-            }
-        }
-
-        if (!locationDetermined && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    if (data.address && data.address.postcode) {
-                        const cep = data.address.postcode.replace(/\D/g, '');
-                        setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
-                    }
-                } catch (error) {
-                    console.warn("Não foi possível obter CEP da geolocalização.", error);
-                }
-            }, (error) => {
-                console.warn("Geolocalização negada ou indisponível.", error.message);
-            });
-        }
-    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
-
-
-    useEffect(() => {
-        if (isAuthLoading) return;
-
-        if (isAuthenticated) {
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            // Limpa o estado ao deslogar
-            setCart([]);
-            setWishlist([]);
-            setAddresses([]);
-            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null);
-            setCouponCode('');
-            setAppliedCoupon(null);
-            setCouponMessage('');
-            determineShippingLocation();
-        }
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
-    
-    useEffect(() => {
-        const debounceTimer = setTimeout(() => {
-            if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-                setIsLoadingShipping(true);
-                setShippingError('');
-                
-                const calculateAutoShipping = async () => {
-                    try {
-                        const productsPayload = cart.map(item => ({
-                            id: String(item.id),
-                            price: item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        const options = await apiService('/shipping/calculate', 'POST', {
-                            cep_destino: shippingLocation.cep,
-                            products: productsPayload,
-                        });
-                        
-                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-                        
-                        if (pacOption) {
-                            setAutoCalculatedShipping(pacOption);
-                        } else {
-                            setShippingError('Frete PAC não disponível para este CEP.');
-                            setAutoCalculatedShipping(null);
-                        }
-                    } catch (error) {
-                        setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        setAutoCalculatedShipping(null);
-                    } finally {
-                        setIsLoadingShipping(false);
-                    }
-                };
-                calculateAutoShipping();
-            } else {
-                setAutoCalculatedShipping(null);
-            }
-        }, 500);
-        return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation]);
-
-    
-    const addToCart = useCallback(async (productToAdd, qty = 1) => {
-        setCart(currentCart => {
-            const existing = currentCart.find(item => item.id === productToAdd.id);
-            let updatedCart;
-            if (existing) {
-                const newQty = existing.qty + qty;
-                updatedCart = currentCart.map(item => item.id === productToAdd.id ? { ...item, qty: newQty } : item);
-                if (isAuthenticated) {
-                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: newQty });
-                }
-            } else {
-                updatedCart = [...currentCart, { ...productToAdd, qty }];
-                if (isAuthenticated) {
-                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: qty });
-                }
-            }
-            return updatedCart;
-        });
-    }, [isAuthenticated]);
-    
-    const removeFromCart = useCallback(async (productId) => {
-        const updatedCart = cart.filter(item => item.id !== productId);
-        setCart(updatedCart);
-        if (isAuthenticated) {
-            await apiService(`/cart/${productId}`, 'DELETE');
-        }
-    }, [cart, isAuthenticated]);
-
-    const updateQuantity = useCallback(async (productId, newQuantity) => {
-        if (newQuantity < 1) {
-            removeFromCart(productId);
-            return;
-        }
-        const updatedCart = cart.map(item => item.id === productId ? {...item, qty: newQuantity } : item);
-        setCart(updatedCart);
-        if (isAuthenticated) {
-            await apiService('/cart', 'POST', { productId, quantity: newQuantity });
-        }
-    }, [cart, isAuthenticated, removeFromCart]);
-
-    
-    const clearCart = useCallback(async () => {
-        setCart([]);
-        if (isAuthenticated) {
-            await apiService('/cart', 'DELETE');
-        }
-    }, [isAuthenticated]);
-
-    const addToWishlist = useCallback(async (productToAdd) => {
-        if (!isAuthenticated) return; 
-        if (wishlist.some(p => p.id === productToAdd.id)) return;
-        try {
-            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
-            setWishlist(current => [...current, addedProduct]);
-            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) {
-            console.error("Erro ao adicionar na lista de desejos:", error);
-            return { success: false, message: `Não foi possível adicionar o item: ${error.message}` };
-        }
-    }, [isAuthenticated, wishlist]);
-
-    const removeFromWishlist = useCallback(async (productId) => {
-        if (!isAuthenticated) return;
-        try {
-            await apiService(`/wishlist/${productId}`, 'DELETE');
-            setWishlist(current => current.filter(p => p.id !== productId));
-        } catch (error) {
-            console.error("Erro ao remover da lista de desejos:", error);
-        }
-    }, [isAuthenticated]);
-    
-    const removeCoupon = useCallback(() => {
-        setAppliedCoupon(null);
-        setCouponCode('');
-        setCouponMessage('');
-    }, []);
-
-    const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code);
-        try {
-            const response = await apiService('/coupons/validate', 'POST', { code });
-            setAppliedCoupon(response.coupon);
-            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
-        } catch (error) {
-            removeCoupon();
-            setCouponMessage(error.message || "Não foi possível aplicar o cupom.");
-        }
-    }, [removeCoupon]);
-    
-
-    const clearOrderState = useCallback(() => {
-        clearCart();
-        removeCoupon();
-        determineShippingLocation();
-    }, [clearCart, removeCoupon, determineShippingLocation]);
-
-    return (
-        <ShopContext.Provider value={{
-            cart, setCart, clearOrderState,
-            wishlist, addToCart, 
-            addToWishlist, removeFromWishlist,
-            updateQuantity, removeFromCart,
-            userName: user?.name,
-            
-            // Endereços e Frete
-            addresses, fetchAddresses,
-            shippingLocation, setShippingLocation,
-            autoCalculatedShipping,
-            isLoadingShipping,
-            shippingError,
-            updateDefaultShippingLocation,
-            // CORREÇÃO: Expondo a função para ser usada em outros componentes
-            determineShippingLocation,
-
-            // Cupons
-            couponCode, setCouponCode,
-            couponMessage,
-            applyCoupon,
-            appliedCoupon,
-            removeCoupon
-        }}>
-            {children}
-        </ShopContext.Provider>
-    );
-};
-
-const NotificationProvider = ({ children }) => {
-    const [notifications, setNotifications] = useState([]);
-
-    const remove = useCallback((id) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-    }, []);
-
-    const show = useCallback((message, type = 'success', duration = 5000) => {
-        const id = Date.now() + Math.random();
-        setNotifications(prev => [...prev, { id, message, type }]);
-        
-        if (duration > 0) {
-            setTimeout(() => {
-                remove(id);
-            }, duration);
-        }
-    }, [remove]);
-
-    return (
-        <NotificationContext.Provider value={{ show }}>
-            {children}
-            <div className="fixed bottom-5 right-5 z-[100] space-y-3">
-                <AnimatePresence>
-                    {notifications.map(n => 
-                        <ToastMessage 
-                            key={n.id} 
-                            message={n.message} 
-                            type={n.type}
-                            onClose={() => remove(n.id)}
-                        />
-                    )}
-                </AnimatePresence>
-            </div>
-        </NotificationContext.Provider>
-    );
-};
-
-const ToastMessage = ({ message, type, onClose }) => {
-    const typeClasses = {
-        success: 'bg-green-500',
-        error: 'bg-red-500',
-    };
-
-    return (
-        <motion.div
-            layout
-            initial={{ opacity: 0, x: 100, scale: 0.8 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 100, scale: 0.8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className={`pl-6 pr-10 py-4 rounded-lg shadow-xl text-white font-semibold flex items-center space-x-3 relative ${typeClasses[type]}`}
-        >
-            {type === 'success' ? <CheckCircleIcon className="h-6 w-6 flex-shrink-0"/> : <ExclamationIcon className="h-6 w-6 flex-shrink-0"/>}
-            <span>{message}</span>
-            <button 
-                onClick={onClose} 
-                className="absolute top-1/2 right-2 transform -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
-            >
-                <CloseIcon className="h-5 w-5"/>
-            </button>
-        </motion.div>
-    );
-};
-
-const ConfirmationProvider = ({ children }) => {
-    const [confirmationState, setConfirmationState] = useState({ isOpen: false });
-
-    const show = useCallback((message, onConfirm) => {
-        setConfirmationState({
-            isOpen: true,
-            message,
-            onConfirm: () => {
-                onConfirm();
-                setConfirmationState({ isOpen: false });
-            },
-            onCancel: () => {
-                setConfirmationState({ isOpen: false });
-            }
-        });
-    }, []);
-
-    return (
-        <ConfirmationContext.Provider value={{ show }}>
-            {children}
-            <AnimatePresence>
-                {confirmationState.isOpen && (
-                    <Modal isOpen={true} onClose={confirmationState.onCancel} title="Confirmação">
-                        <p className="text-gray-700 mb-6">{confirmationState.message}</p>
-                        <div className="flex justify-end space-x-4">
-                            <button onClick={confirmationState.onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                            <button onClick={confirmationState.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar</button>
-                        </div>
-                    </Modal>
-                )}
-            </AnimatePresence>
-        </ConfirmationContext.Provider>
-    );
-};
-
-
-// --- COMPONENTES DA UI ---
-const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
-  if (!isOpen) return null;
-
-  const backdropVariants = {
-      visible: { opacity: 1 },
-      hidden: { opacity: 0 }
-  };
-
-  const modalVariants = {
-      hidden: { y: "-50vh", opacity: 0 },
-      visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } },
-      exit: { y: "50vh", opacity: 0 }
-  };
-
-  const sizeClasses = {
-      sm: 'max-w-sm',
-      md: 'max-w-md',
-      lg: 'max-w-lg',
-      xl: 'max-w-xl',
-  };
-
-  return (
-    <motion.div 
-      className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" 
-      variants={backdropVariants}
-      initial="hidden"
-      animate="visible"
-      exit="hidden"
-      onClick={onClose}
-    >
-      <motion.div 
-        className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${sizeClasses[size]}`} 
-        style={{ maxHeight: '90vh' }} 
-        variants={modalVariants}
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
-            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
-            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-gray-600 leading-none">&times;</button>
-        </div>
-        <div className="flex-grow p-6 overflow-y-auto">
-          {children}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-});
-
-const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
-    const [trackingInfo, setTrackingInfo] = useState([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-
-    useEffect(() => {
-        if (isOpen && trackingCode) {
-            const fetchTracking = async () => {
-                setIsLoading(true);
-                setError('');
-                setTrackingInfo([]);
-                try {
-                    const data = await apiService(`/track/${trackingCode}`);
-                    setTrackingInfo(data);
-                } catch (err) {
-                    setError(err.message || "Não foi possível obter informações de rastreio.");
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-            fetchTracking();
-        }
-    }, [isOpen, trackingCode]);
-
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <Modal isOpen={isOpen} onClose={onClose} title={`Rastreio do Pedido: ${trackingCode}`}>
-                    {isLoading && <p>Buscando informações...</p>}
-                    {error && <p className="text-red-500">{error}</p>}
-                    {!isLoading && !error && (
-                        <div className="space-y-6">
-                            {trackingInfo.map((event, index) => (
-                                <div key={index} className="flex space-x-4">
-                                    <div className="flex flex-col items-center">
-                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
-                                            {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                                        </div>
-                                        {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-gray-800">{event.status}</p>
-                                        <p className="text-sm text-gray-600">{event.location}</p>
-                                        <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </Modal>
-            )}
-        </AnimatePresence>
-    );
-});
-
-
-const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart } = useShop();
-    const notification = useNotification();
-    const [isAddingToCart, setIsAddingToCart] = useState(false);
-    const [isBuyingNow, setIsBuyingNow] = useState(false);
-    
-    const imageUrl = getFirstImage(product.images);
-    const avgRating = Math.round(product.avg_rating || 0);
-
-    const handleAddToCart = async (e) => {
-        e.stopPropagation();
-        setIsAddingToCart(true);
-        try {
-            await addToCart(product);
-            notification.show(`${product.name} adicionado ao carrinho!`);
-        } catch (error) {
-            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
-        } finally {
-            setIsAddingToCart(false);
-        }
-    };
-
-    const handleBuyNow = async (e) => {
-        e.stopPropagation();
-        setIsBuyingNow(true);
-        try {
-            await addToCart(product);
-            onNavigate('cart');
-        } catch (error) {
-            notification.show(error.message || "Erro ao iniciar compra", "error");
-            setIsBuyingNow(false);
-        }
-    };
-    
-    const WishlistButton = ({ product }) => {
-        const { wishlist, addToWishlist, removeFromWishlist } = useShop();
-        const { isAuthenticated } = useAuth();
-        const notification = useNotification();
-        const isWishlisted = wishlist.some(item => item.id === product.id);
-
-        const handleWishlistToggle = async (e) => {
-            e.stopPropagation();
-            if (!isAuthenticated) {
-                notification.show("Faça login para adicionar à lista de desejos", "error");
-                return;
-            }
-            if (isWishlisted) {
-                await removeFromWishlist(product.id);
-                notification.show(`${product.name} removido da lista de desejos.`, 'error');
-            } else {
-                const result = await addToWishlist(product);
-                if (result.success) {
-                    notification.show(result.message);
-                } else {
-                    notification.show(result.message, "error");
-                }
-            }
-        };
-
-        return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
-                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
-            </button>
-        );
-    };
-
-    const cardVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-    };
-
-    return (
-        <motion.div 
-            variants={cardVariants}
-            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
-        >
-            <div className="relative h-64 bg-white">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
-                 <WishlistButton product={product} />
-            </div>
-            <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                <div className="flex items-center mt-2">
-                    {[...Array(5)].map((_, i) => (
-                        <StarIcon 
-                            key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                            isFilled={i < avgRating}
-                        />
-                    ))}
-                </div>
-                <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                    </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
-                </div>
-            </div>
-        </motion.div>
-    );
-});
-
-const ProductCarousel = memo(({ products, onNavigate, title }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [itemsPerPage, setItemsPerPage] = useState(4);
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const minSwipeDistance = 50; 
-
-    const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 640) setItemsPerPage(1);
-        else if (window.innerWidth < 1024) setItemsPerPage(2);
-        else setItemsPerPage(4);
-    }, []);
-
-    useEffect(() => {
-        updateItemsPerPage();
-        window.addEventListener('resize', updateItemsPerPage);
-        return () => window.removeEventListener('resize', updateItemsPerPage);
-    }, [updateItemsPerPage]);
-
-    useEffect(() => {
-        const maxIndex = Math.max(0, products.length - itemsPerPage);
-        if (currentIndex > maxIndex) {
-            setCurrentIndex(maxIndex);
-        }
-    }, [itemsPerPage, products, currentIndex]);
-    
-    const goNext = useCallback(() => {
-        const maxIndex = Math.max(0, products.length - itemsPerPage);
-        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
-    }, [products.length, itemsPerPage]);
-
-    const goPrev = useCallback(() => {
-        setCurrentIndex(prev => Math.max(prev - 1, 0));
-    }, []);
-    
-    if (!products || products.length === 0) {
-        return null;
-    }
-
-    const canGoPrev = currentIndex > 0;
-    const canGoNext = products.length > itemsPerPage && currentIndex < (products.length - itemsPerPage);
-    
-    const handleTouchStart = (e) => {
-        setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-    };
-
-    const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
-
-        if (isLeftSwipe && canGoNext) {
-            goNext();
-        } else if (isRightSwipe && canGoPrev) {
-            goPrev();
-        }
-        
-        setTouchStart(null);
-        setTouchEnd(null);
-    };
-
-    return (
-        <div className="relative">
-            {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-            <div 
-                className="overflow-hidden cursor-grab active:cursor-grabbing"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-            >
-                <motion.div
-                    className="flex -mx-2 md:-mx-4"
-                    animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
-                    transition={{ type: 'spring', stiffness: 350, damping: 40 }}
-                >
-                    {products.map(product => (
-                        <div 
-                            key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4"
-                            style={{ width: `${100 / itemsPerPage}%` }}
-                        >
-                            <ProductCard product={product} onNavigate={onNavigate} />
-                        </div>
-                    ))}
-                </motion.div>
-            </div>
-
-            {products.length > itemsPerPage && (
-                <>
-                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                    </button>
-                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                </>
-            )}
-        </div>
-    );
-});
-
-
-const Header = memo(({ onNavigate }) => {
-    const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist } = useShop();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [searchSuggestions, setSearchSuggestions] = useState([]);
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
-
-    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
-    const prevTotalCartItems = useRef(totalCartItems);
-    const cartAnimationControls = useAnimation();
-
-    useEffect(() => {
-        if (totalCartItems > prevTotalCartItems.current) {
-            cartAnimationControls.start({
-                scale: [1, 1.25, 0.9, 1.1, 1],
-                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
-            });
-        }
-        prevTotalCartItems.current = totalCartItems;
-    }, [totalCartItems, cartAnimationControls]);
-
-    useEffect(() => {
-        if (searchTerm.length < 2) {
-            setSearchSuggestions([]);
-            return;
-        }
-
-        const debounceTimer = setTimeout(() => {
-            apiService(`/products/search-suggestions?q=${searchTerm}`)
-                .then(data => setSearchSuggestions(data))
-                .catch(err => console.error(err));
-        }, 300);
-
-        return () => clearTimeout(debounceTimer);
-    }, [searchTerm]);
-
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        if (searchTerm.trim()) {
-            onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setSearchTerm('');
-            setSearchSuggestions([]);
-            setIsMenuOpen(false);
-        }
-    };
-    
-    const handleSuggestionClick = (productName) => {
-        onNavigate(`products?search=${encodeURIComponent(productName)}`);
-        setSearchTerm('');
-        setSearchSuggestions([]);
-        setIsMenuOpen(false);
-    };
-
-    const navLinks = (
-        <>
-            <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Início</a>
-            <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Catálogo</a>
-            <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Ajuda</a>
-        </>
-    );
-
-    const mobileMenuVariants = {
-        open: { opacity: 1, y: 0, transition: { ease: "easeOut", duration: 0.3 } },
-        closed: { opacity: 0, y: "-100%", transition: { ease: "easeIn", duration: 0.2 } },
-    }
-
-    return (
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            <nav className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-                
-                <div className="hidden md:flex items-center space-x-8">
-                    {navLinks}
-                </div>
-
-                <div className="flex items-center space-x-4">
-                     <div className="relative hidden md:block">
-                        <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full">
-                           <input 
-                                type="text" value={searchTerm} 
-                                onChange={e => setSearchTerm(e.target.value)}
-                                onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="Buscar..." 
-                                className="bg-transparent text-white px-4 py-1 rounded-l-full focus:outline-none w-32 md:w-40 transition-all duration-300 focus:w-48"/>
-                           <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
-                        </form>
-                        {isSearchFocused && searchSuggestions.length > 0 && (
-                            <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
-                                {searchSuggestions.map(p => (
-                                    <div key={p.id} onClick={() => handleSuggestionClick(p.name)}
-                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"
-                                    >
-                                        {p.name}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {isAuthenticated && user.role === 'admin' && (
-                        <button onClick={() => onNavigate('admin/dashboard')} className="hidden md:flex items-center space-x-2 bg-amber-500 text-black px-3 py-1 rounded-md hover:bg-amber-400 font-bold transition">
-                            <AdminIcon className="h-5 w-5" />
-                            <span>Admin</span>
-                        </button>
-                    )}
-
-                    <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
-                        <HeartIcon className="h-6 w-6"/>
-                        {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
-                    </button>
-                    
-                    <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition">
-                        <CartIcon className="h-6 w-6"/>
-                        {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                    </motion.button>
-                    
-                    <div className="hidden md:block">
-                        {isAuthenticated ? (
-                            <div className="relative group">
-                               <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
-                               <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
-                                   <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
-                                   <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
-                                   <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
-                               </div>
-                            </div>
-                        ) : (
-                            <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                        )}
-                    </div>
-
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 hover:text-amber-400">
-                        {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-                    </button>
-                </div>
-            </nav>
-
-            <AnimatePresence>
-                {isMenuOpen && (
-                     <motion.div 
-                        variants={mobileMenuVariants}
-                        initial="closed"
-                        animate="open"
-                        exit="closed"
-                        className="md:hidden absolute top-full left-0 w-full bg-black/95 backdrop-blur-sm z-30 px-6 pb-6 space-y-4 origin-top"
-                     >
-                         <div className="relative">
-                            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full w-full">
-                               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Buscar..." className="bg-transparent text-white px-4 py-2 rounded-l-full focus:outline-none w-full"/>
-                               <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
-                            </form>
-                            {isSearchFocused && searchSuggestions.length > 0 && (
-                                <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
-                                    {searchSuggestions.map(p => (
-                                        <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white">{p.name}</div>
-                                    ))}
-                                </div>
-                            )}
-                         </div>
-                        {navLinks}
-                        <div className="border-t border-gray-800 pt-4 space-y-3">
-                            {isAuthenticated ? (
-                                <>
-                                    <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
-                                    {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
-                                    <button onClick={() => { logout(); onNavigate('home'); setIsMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
-                                </>
-                            ) : (
-                                <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </header>
-    );
-});
-
-// --- PÁGINAS DO CLIENTE ---
-const HomePage = ({ onNavigate }) => {
-    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
-
-    useEffect(() => { 
-        apiService('/products')
-            .then(data => {
-                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
-                
-                setProducts({
-                    newArrivals: sortedByDate,
-                    bestSellers: sortedBySales
-                });
-            })
-            .catch(err => console.error("Falha ao buscar produtos:", err));
-    }, []);
-
-    const categoryCards = [
-        { name: "Perfumes Masculinos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751868173/furg2aivlksdqxgmoqbk.png", filter: "Masculino" },
-        { name: "Perfumes Femininos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867985/snqqq1qpjbw1s7njfvwx.png", filter: "Feminino" },
-        { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
-    ];
-
-    const bannerVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1,
-            transition: { staggerChildren: 0.3, delayChildren: 0.2 }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { 
-            opacity: 1, 
-            y: 0,
-            transition: { type: 'spring', stiffness: 100 }
-        }
-    };
-
-    return (
-      <>
-        <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
-          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png')"}}></div>
-          <motion.div 
-            className="relative z-10 text-center p-4"
-            variants={bannerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-              <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg">Elegância que Veste e Perfuma</motion.h1>
-              <motion.p variants={itemVariants} className="text-lg md:text-xl mt-4 text-gray-300">Descubra fragrâncias e peças que definem seu estilo e marcam momentos.</motion.p>
-              <motion.div variants={itemVariants}>
-                <button onClick={() => onNavigate('products')} className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">Explorar Coleção</button>
-              </motion.div>
-          </motion.div>
-        </section>
-        
-        <section className="bg-black text-white py-12 md:py-16">
-          <div className="container mx-auto px-4">
-              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
-          </div>
-        </section>
-        
-        <section className="bg-gray-900 text-white py-12 md:py-16">
-            <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Navegue por Categoria</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
-                    {categoryCards.map(cat => (
-                        <div key={cat.name} className="relative rounded-lg overflow-hidden h-64 md:h-80 group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
-                            <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <h3 className="text-2xl md:text-3xl font-bold text-white tracking-wider">{cat.name}</h3>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </section>
-        
-        <section className="bg-black text-white py-12 md:py-16">
-          <div className="container mx-auto px-4">
-             <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} title="Mais Vendidos"/>
-          </div>
-        </section>
-      </>
-    );
-};
-
-const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '' }) => {
-    const [allProducts, setAllProducts] = useState([]);
-    const [filteredProducts, setFilteredProducts] = useState([]);
-    const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
-    const [currentPage, setCurrentPage] = useState(1);
-    const [isLoading, setIsLoading] = useState(true);
-    const productsPerPage = 12;
-
-    useEffect(() => {
-        const controller = new AbortController();
-        setIsLoading(true);
-        apiService('/products', 'GET', null, { signal: controller.signal })
-            .then(data => {
-                setAllProducts(data);
-            })
-            .catch(err => {
-                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
-            })
-            .finally(() => setIsLoading(false));
-
-        return () => controller.abort();
-    }, []);
-    
-    useEffect(() => {
-        setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
-    }, [initialSearch, initialCategory, initialBrand]);
-
-
-    useEffect(() => {
-        let result = allProducts;
-        if (filters.search) result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
-        if (filters.brand) result = result.filter(p => p.brand === filters.brand);
-        if (filters.category) result = result.filter(p => p.category === filters.category);
-        setFilteredProducts(result);
-        setCurrentPage(1);
-    }, [filters, allProducts]);
-    
-    const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
-    const indexOfLastProduct = currentPage * productsPerPage;
-    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
-    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
-    
-    const ProductSkeleton = () => (
-        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
-            <div className="h-64 bg-gray-700"></div>
-            <div className="p-5 flex-grow flex flex-col">
-                <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
-                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
-                <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
-                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <div className="h-10 bg-gray-700 rounded flex-grow"></div>
-                    <div className="h-10 w-12 bg-gray-700 rounded"></div>
-                </div>
-            </div>
-        </div>
-    );
-    
-    const gridContainerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
-
-    return (
-        <div className="bg-black text-white py-12 min-h-screen">
-            <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Nossa Coleção</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                    <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
-                        <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
-                        <div className="space-y-4">
-                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
-                                <option value="">Todas as Marcas</option>
-                                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
-                                <option value="">Todas as Categorias</option>
-                                {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-                    </aside>
-                    <main className="lg:col-span-3">
-                        <motion.div 
-                            variants={gridContainerVariants}
-                            initial="hidden"
-                            animate="visible"
-                            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
-                        >
-                           {isLoading ? (
-                                Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
-                            ) : currentProducts.length > 0 ? (
-                                currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
-                            ) : (
-                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
-                            )}
-                        </motion.div>
-                        {totalPages > 1 && (
-                            <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
-                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
-                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
-                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
-                            </div>
-                        )}
-                    </main>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
-    if (!isOpen || !installments || installments.length === 0) return null;
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Opções de Parcelamento">
-            <div className="space-y-3">
-                {installments.map(p => (
-                    <div key={p.installments} className="flex justify-between items-center p-3 border border-gray-200 rounded-md transition-colors hover:bg-gray-50">
-                        <div>
-                            <p className="font-bold text-lg text-gray-800">{p.recommended_message.replace('.', ',')}</p>
-                            <p className="text-sm text-gray-500">Total: R$ {p.total_amount.toFixed(2).replace('.', ',')}</p>
-                        </div>
-                        {p.installment_rate === 0 ? (
-                            <span className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full whitespace-nowrap">Sem juros</span>
-                        ) : (
-                             <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full whitespace-nowrap">Com juros</span>
-                        )}
-                    </div>
-                ))}
-            </div>
-            <p className="text-xs text-gray-500 mt-6 text-center">Você poderá escolher o número de parcelas na hora de fechar a compra.</p>
-        </Modal>
-    );
-});
-
-const ShippingCalculator = memo(({ items }) => {
-    const { addresses, shippingLocation, setShippingLocation } = useShop();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [shippingResult, setShippingResult] = useState(null);
-    const [manualCep, setManualCep] = useState('');
-    const [apiError, setApiError] = useState('');
-
-    const calculateShipping = useCallback(async (location) => {
-        if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
-            setShippingResult(null);
-            return;
-        }
-        setIsLoading(true);
-        setError('');
-        try {
-            const productsPayload = items.map(item => ({
-                id: String(item.id),
-                price: item.price,
-                quantity: item.qty || 1,
-            }));
-            const options = await apiService('/shipping/calculate', 'POST', {
-                cep_destino: location.cep,
-                products: productsPayload,
-            });
-            const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-            if (pacOption) {
-                setShippingResult(pacOption);
-            } else {
-                setError('Frete PAC não disponível para este CEP.');
-            }
-        } catch (err) {
-            setError(err.message || 'Erro ao calcular o frete.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [items]);
-
-    useEffect(() => {
-        calculateShipping(shippingLocation);
-    }, [shippingLocation, items, calculateShipping]);
-
-    const handleSelectAddress = (addr) => {
-        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
-        setIsModalOpen(false);
-    };
-
-    const handleManualCepSubmit = async (e) => {
-        e.preventDefault();
-        setApiError('');
-        const cleanCep = manualCep.replace(/\D/g, '');
-        if (cleanCep.length !== 8) {
-            setApiError("CEP inválido.");
-            return;
-        }
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-            const data = await response.json();
-            if (data.erro) {
-                setApiError("CEP não encontrado.");
-            } else {
-                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
-                setIsModalOpen(false);
-                setManualCep('');
-            }
-        } catch {
-            setApiError("Não foi possível buscar o CEP. Tente novamente.");
-        }
-    };
-    
-    const handleCepInputChange = (e) => {
-        setManualCep(maskCEP(e.target.value));
-        if (apiError) {
-            setApiError('');
-        }
-    };
-
-    const getDeliveryDate = (deliveryTime) => {
-        const date = new Date();
-        let addedDays = 0;
-        while (addedDays < deliveryTime) {
-            date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedDays++;
-            }
-        }
-        return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-    };
-
-    const getDestinationText = () => {
-        if (shippingLocation.alias) {
-             return `Enviar para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.city}, ${shippingLocation.cep}`;
-        }
-        if (shippingLocation.city) {
-            return `Entregar em ${shippingLocation.city}, ${shippingLocation.cep}`;
-        }
-        return 'Calcular frete e prazo';
-    };
-
-    return (
-        <>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Alterar Local de Entrega" size="md">
-                <div className="space-y-4">
-                    {addresses.map(addr => (
-                         <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
-                             <p className="font-bold text-gray-800">{addr.alias}</p>
-                             <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero} - {addr.bairro}</p>
-                         </div>
-                    ))}
-                    <div className="pt-4 border-t">
-                        <form onSubmit={handleManualCepSubmit} className="space-y-2">
-                             <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
-                             <div className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
-                                <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
-                             </div>
-                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
-                        </form>
-                    </div>
-                </div>
-            </Modal>
-
-            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
-                            <MapPinIcon className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">{getDestinationText()}</span>
-                        </div>
-                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
-                            Alterar
-                        </button>
-                    </div>
-                    
-                    <div className="min-h-[44px] flex flex-col justify-center">
-                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
-                        
-                        {!isLoading && error && (
-                            <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
-                        )}
-
-                        {!isLoading && shippingResult && (
-                            <div>
-                                <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
-                                <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
-                            </div>
-                        )}
-                        
-                        {!isLoading && !shippingResult && !error && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-});
-
-const ProductDetailPage = ({ productId, onNavigate }) => {
-    const { user } = useAuth();
-    const [isLoading, setIsLoading] = useState(true);
-    const [product, setProduct] = useState(null);
-    const [reviews, setReviews] = useState([]);
-    const [relatedProducts, setRelatedProducts] = useState([]);
-    const [crossSellProducts, setCrossSellProducts] = useState([]);
-    const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
-    const { addToCart } = useShop();
-    const notification = useNotification();
-    const [mainImage, setMainImage] = useState('');
-    const [quantity, setQuantity] = useState(1);
-    const [activeTab, setActiveTab] = useState('description');
-    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const [thumbnailIndex, setThumbnailIndex] = useState(0);
-    
-    const [installments, setInstallments] = useState([]);
-    const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
-    const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    
-    const productImages = useMemo(() => parseImages(product?.images, null), [product]);
-
-    const fetchProductData = useCallback(async (id) => {
-        const controller = new AbortController();
-        setIsLoading(true);
-        try {
-            const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
-                apiService(`/products/${id}`, 'GET', null, { signal: controller.signal }),
-                apiService(`/products/${id}/reviews`, 'GET', null, { signal: controller.signal }),
-                apiService('/products', 'GET', null, { signal: controller.signal }),
-                apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal: controller.signal }).catch(() => []) 
-            ]);
-            
-            const images = parseImages(productData.images, 'https://placehold.co/600x400/222/fff?text=Produto');
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-            setProduct(productData);
-            setReviews(Array.isArray(reviewsData) ? reviewsData : []);
-            setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
-
-            if (productData && allProductsData) {
-                const related = allProductsData.filter(p =>
-                    p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)
-                ).slice(0, 8); 
-                setRelatedProducts(related);
-            }
-
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                 console.error("Falha ao buscar dados do produto:", err);
-                 setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
-            }
-        } finally {
-            setIsLoading(false);
-        }
-        
-        return () => controller.abort();
-    }, []);
-
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0);
-    }, [productId, fetchProductData]);
-    
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) return;
-            setIsLoadingInstallments(true);
-            setInstallments([]);
-            try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                setInstallments(installmentData || []);
-            } catch (error) {
-                console.warn("Não foi possível carregar as opções de parcelamento.", error);
-            } finally {
-                setIsLoadingInstallments(false);
-            }
-        };
-
-        if (product && !product.error) {
-            fetchInstallments(product.price);
-        }
-    }, [product]);
-
-
-    const handleReviewSubmit = async (e) => {
-        e.preventDefault();
-        if (!user) {
-            notification.show("Você precisa estar logado para avaliar.", 'error');
-            onNavigate('login');
-            return;
-        }
-        if (newReview.rating === 0) {
-            notification.show("Por favor, selecione uma nota (clicando nas estrelas).", 'error');
-            return;
-        }
-        try {
-            await apiService(`/reviews`, 'POST', {
-                product_id: productId,
-                rating: newReview.rating,
-                comment: newReview.comment,
-            });
-            notification.show("Avaliação enviada com sucesso!");
-            setNewReview({ rating: 0, comment: '' });
-            fetchProductData(productId); 
-        } catch (error) {
-            notification.show(`Erro ao enviar avaliação: ${error.message}`, 'error');
-        }
-    };
-    
-    const handleQuantityChange = (amount) => {
-        setQuantity(prev => Math.max(1, prev + amount));
-    };
-
-    const handleAddToCart = () => {
-        if(product) {
-            addToCart(product, quantity);
-            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
-        }
-    };
-    
-    const handleBuyNow = () => {
-        if(product) {
-            addToCart(product, quantity);
-            onNavigate('cart');
-        }
-    };
-    
-    const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    
-    const TabButton = ({ label, tabName }) => (
-        <button
-            onClick={() => setActiveTab(tabName)}
-            className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
-                ${activeTab === tabName 
-                    ? 'border-amber-400 text-amber-400' 
-                    : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`
-            }
-        >
-            {label}
-        </button>
-    );
-
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return (
-          <ul className="space-y-2">
-            {text.split('\n').map((line, index) => (
-              <li key={index} className="flex items-start">
-                <span className="text-amber-400 mr-2 mt-1">&#10003;</span>
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-        );
-    };
-
-    const Lightbox = ({ images, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center" onClick={onClose}>
-            <button onClick={onClose} className="absolute top-4 right-4 text-white text-4xl z-[1000]">&times;</button>
-            <div className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center">
-                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain" />
-            </div>
-        </div>
-    );
-    
-    const THUMBNAIL_ITEM_HEIGHT = 92; 
-    const VISIBLE_THUMBNAILS = 5; 
-    const canScrollUp = thumbnailIndex > 0;
-    const canScrollDown = productImages.length > VISIBLE_THUMBNAILS && thumbnailIndex < productImages.length - VISIBLE_THUMBNAILS;
-
-    const scrollThumbs = (direction) => {
-        setThumbnailIndex(prev => {
-            const newIndex = prev + direction;
-            if (newIndex < 0) return 0;
-            if (newIndex > productImages.length - VISIBLE_THUMBNAILS) return productImages.length - VISIBLE_THUMBNAILS;
-            return newIndex;
-        });
-    };
-    const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
-    const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) {
-            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
-        }
-        if (!installments || installments.length === 0) {
-            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
-        }
-
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) {
-            return (
-                <span>
-                    em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
-                </span>
-            );
-        }
-
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) {
-            return (
-                <span>
-                    ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                </span>
-            );
-        }
-        return null;
-    };
-    
-    const itemsForShipping = useMemo(() => {
-        if (!product) return [];
-        return [{...product, qty: quantity}];
-    }, [product, quantity]);
-
-    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
-    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
-    if (!product) return <div className="bg-black min-h-screen"></div>;
-
-    return (
-        <div className="bg-black text-white min-h-screen">
-            <InstallmentModal
-                isOpen={isInstallmentModalOpen}
-                onClose={() => setIsInstallmentModalOpen(false)}
-                installments={installments}
-            />
-            {isLightboxOpen && productImages.length > 0 && (
-                <Lightbox images={productImages} onClose={() => setIsLightboxOpen(false)} />
-            )}
-            <div className="container mx-auto px-4 py-8">
-                 <div className="mb-4">
-                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                        Voltar para todos os produtos
-                    </a>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:self-start">
-                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
-                            <AnimatePresence>
-                            {canScrollUp && (
-                                <motion.button 
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                    onClick={() => scrollThumbs(-1)} 
-                                    className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
-                                    disabled={!canScrollUp}
-                                >
-                                    <UpArrow />
-                                </motion.button>
-                            )}
-                            </AnimatePresence>
-                            
-                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide py-10">
-                                <motion.div
-                                    className="flex sm:flex-col gap-3"
-                                    animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
-                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                >
-                                    {productImages.map((img, index) => (
-                                        <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
-                                            <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
-                                        </div>
-                                    ))}
-                                </motion.div>
-                            </div>
-
-                            <AnimatePresence>
-                            {canScrollDown && (
-                                <motion.button 
-                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                    onClick={() => scrollThumbs(1)} 
-                                    className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
-                                    disabled={!canScrollDown}
-                                >
-                                    <DownArrow />
-                                </motion.button>
-                            )}
-                            </AnimatePresence>
-                        </div>
-
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in">
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
-                        </div>
-                    </div>
-
-                    <div className="lg:col-span-2 space-y-6">
-                        <div>
-                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                            <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>
-                            <div className="flex items-center mt-2">
-                                {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
-                                {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
-                            </div>
-                        </div>
-
-                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
-                        
-                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                            <div className="flex items-start">
-                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
-                                    <button
-                                        onClick={() => setIsInstallmentModalOpen(true)}
-                                        className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
-                                    >
-                                        Ver parcelas disponíveis
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-4">
-                            <p className="font-semibold">Quantidade:</p>
-                            <div className="flex items-center border border-gray-700 rounded-md">
-                                <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button>
-                                <span className="px-5 py-2 font-bold text-lg">{quantity}</span>
-                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md">+</button>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3">
-                            <button onClick={handleBuyNow} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold">Comprar Agora</button>
-                            <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
-                        </div>
-                        
-                        <ShippingCalculator items={itemsForShipping} />
-                    </div>
-                </div>
-
-                <div className="mt-16 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
-                        <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Notas Olfativas" tabName="notes" />
-                        <TabButton label="Como Usar" tabName="how_to_use" />
-                        <TabButton label="Ideal Para" tabName="ideal_for" />
-                    </div>
-                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
-                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        {activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                        {activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
-                        {activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                    </div>
-                </div>
-
-
-                {crossSellProducts.length > 0 && (
-                    <div className="mt-20 pt-10 border-t border-gray-800">
-                        <ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" />
-                    </div>
-                )}
-                
-                {relatedProducts.length > 0 && (
-                    <div className="mt-20 pt-10 border-t border-gray-800">
-                        <ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." />
-                    </div>
-                )}
-                
-                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
-                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
-                    <div className="space-y-6 mb-8">
-                        {reviews.length > 0 ? reviews.map((review) => (
-                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800">
-                                <div className="flex items-center mb-2">
-                                    <p className="font-bold mr-4">{review.user_name}</p>
-                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                </div>
-                                <p className="text-gray-300">{review.comment}</p>
-                            </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Seja o primeiro a avaliar!</p>}
-                    </div>
-                     {user ? (
-                         <form onSubmit={handleReviewSubmit} className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                           <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
-                           <div className="flex items-center space-x-1 mb-4">
-                                {[...Array(5)].map((_, i) => (
-                                    <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
-                                ))}
-                           </div>
-                           <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
-                           <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
-                        </form>
-                     ) : (
-                        <p className="text-gray-400 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-400 underline">logado</a> para deixar uma avaliação.</p>
-                     )}
-                </div>
-            </div>
-        </div>
-    );
-};
-const LoginPage = ({ onNavigate }) => {
-    const { login } = useAuth();
-    const notification = useNotification();
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    
-    const handleLogin = async (e) => {
-        e.preventDefault();
-        setError('');
-        setIsLoading(true);
-        try {
-            await login(email, password);
-            notification.show('Login bem-sucedido!');
-            window.location.hash = '#home';
-        } catch (err) {
-            setError(err.message || "Ocorreu um erro desconhecido.");
-            notification.show(err.message || "Ocorreu um erro desconhecido.", "error");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
-            >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Login</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                <form onSubmit={handleLogin} className="space-y-6">
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
-                         {isLoading ? <SpinnerIcon /> : 'Entrar'}
-                    </button>
-                </form>
-                <div className="flex justify-between items-center mt-4">
-                    <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="text-sm text-amber-400 hover:underline">Não tem uma conta? Registre-se</a>
-                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-sm text-gray-400 hover:underline">Esqueci minha senha</a>
-                </div>
-            </motion.div>
-        </div>
-    );
-};
-
-const RegisterPage = ({ onNavigate }) => {
-    const { register } = useAuth();
-    const notification = useNotification();
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [cpf, setCpf] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    
-    const handleRegister = async (e) => {
-        e.preventDefault();
-        setError('');
-        if (password.length < 6) {
-             setError("A senha deve ter pelo menos 6 caracteres.");
-             return;
-        }
-        if (!validateCPF(cpf)) {
-            setError("O CPF informado é inválido.");
-            return;
-        }
-        
-        setIsLoading(true);
-        try {
-            await register(name, email, password, cpf);
-            notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
-            setTimeout(() => onNavigate('login'), 2000);
-        } catch (err) {
-            setError(err.message);
-            notification.show(err.message, 'error');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleCpfChange = (e) => {
-        setCpf(maskCPF(e.target.value));
-    };
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
-            >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Criar Conta</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                <form onSubmit={handleRegister} className="space-y-6">
-                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
-                        {isLoading ? <SpinnerIcon /> : 'Registrar'}
-                    </button>
-                </form>
-                 <div className="text-center mt-4">
-                    <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="text-sm text-amber-400 hover:underline">Já tem uma conta? Faça o login</a>
-                </div>
-            </motion.div>
-        </div>
-    );
-};
-
-const ForgotPasswordPage = ({ onNavigate }) => {
-    const notification = useNotification();
-    const [email, setEmail] = useState('');
-    const [cpf, setCpf] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [step, setStep] = useState(1);
-
-    const handleValidation = async (e) => {
-        e.preventDefault();
-        setError('');
-        if (!validateCPF(cpf)) {
-            setError("O CPF informado é inválido.");
-            return;
-        }
-
-        try {
-            await apiService('/forgot-password', 'POST', { email, cpf });
-            notification.show('Usuário validado com sucesso. Por favor, crie uma nova senha.');
-            setStep(2);
-        } catch (err) {
-            setError(err.message || 'E-mail ou CPF não correspondem a um usuário cadastrado.');
-            notification.show(err.message || 'Dados inválidos.', 'error');
-        }
-    };
-
-    const handlePasswordReset = async (e) => {
-        e.preventDefault();
-        setError('');
-        if (newPassword.length < 6) {
-            setError("A nova senha deve ter pelo menos 6 caracteres.");
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            setError("As senhas não coincidem.");
-            return;
-        }
-        try {
-            await apiService('/reset-password', 'POST', { email, cpf, newPassword });
-            notification.show('Senha redefinida com sucesso! Você já pode fazer login.');
-            setTimeout(() => onNavigate('login'), 2000);
-        } catch (err) {
-            setError(err.message);
-            notification.show(err.message, 'error');
-        }
-    };
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
-            >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Recuperar Senha</h2>
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                
-                {step === 1 ? (
-                    <form onSubmit={handleValidation} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
-                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
-                    </form>
-                ) : (
-                    <form onSubmit={handlePasswordReset} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
-                    </form>
-                )}
-
-                <div className="text-center mt-4">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
-                </div>
-            </motion.div>
-        </div>
-    );
-};
-
-const CartPage = ({ onNavigate }) => {
-    const { 
-        cart,
-        updateQuantity,
-        removeFromCart,
-        autoCalculatedShipping,
-        isLoadingShipping,
-        shippingError,
-        couponCode, setCouponCode,
-        applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon
-    } = useShop();
-
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
-
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            discountValue = parseFloat(appliedCoupon.value);
-        } else if (appliedCoupon.type === 'free_shipping') {
-            discountValue = shippingCost;
-        }
-        return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost]);
-
-    
-    const handleApplyCoupon = (e) => {
-        e.preventDefault();
-        if (couponCode.trim()) {
-            applyCoupon(couponCode);
-        }
-    }
-    
-    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
-
-    return (
-        <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-8">Carrinho de Compras</h1>
-                {cart.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Seu carrinho está vazio.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
-                                {cart.map(item => (
-                                    <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
-                                        <div className="flex items-center w-full sm:w-auto">
-                                            <div 
-                                                className="w-20 h-20 bg-white rounded-md flex-shrink-0 cursor-pointer"
-                                                onClick={() => onNavigate(`product/${item.id}`)}
-                                            >
-                                                <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
-                                            </div>
-                                            <div className="flex-grow px-4">
-                                                <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center justify-between w-full sm:w-auto">
-                                            <div className="flex items-center space-x-2">
-                                                <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
-                                                <span className="w-8 text-center">{item.qty}</span>
-                                                <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
-                                            </div>
-                                            <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
-                                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <ShippingCalculator items={cart} />
-                        </div>
-
-                        <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
-                            <h2 className="text-2xl font-bold mb-4">Resumo</h2>
-                            <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                                
-                                <div className="flex justify-between text-gray-300">
-                                    <span>Frete (PAC)</span>
-                                    {isLoadingShipping ? (
-                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                    ) : autoCalculatedShipping ? (
-                                        <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                    ) : (
-                                        <span className="text-xs text-gray-500">Informe o CEP</span>
-                                    )}
-                                </div>
-                                
-                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
-
-                                {appliedCoupon && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>Desconto ({appliedCoupon.code})</span>
-                                        <span>- R$ {discount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
-                                <span>Total</span>
-                                <span className="text-amber-400">R$ {total.toFixed(2)}</span>
-                            </div>
-                            
-                            {!appliedCoupon ? (
-                                <>
-                                <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                    <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                                    <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
-                                </form>
-                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
-                                </>
-                            ) : (
-                                <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
-                                    <p className="text-sm text-green-400 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/>{couponMessage}</p>
-                                    <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline">Remover</button>
-                                </div>
-                            )}
-                            
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-const WishlistPage = ({ onNavigate }) => {
-    const { wishlist, removeFromWishlist } = useShop();
-    const notification = useNotification();
-    
-    const handleRemove = async (item) => {
-        await removeFromWishlist(item.id);
-        notification.show(`${item.name} removido da lista de desejos.`, 'error');
-    };
-
-    return (
-        <div className="bg-black text-white min-h-screen py-12">
-            <div className="container mx-auto px-4">
-                <h1 className="text-3xl md:text-4xl font-bold mb-8">Lista de Desejos</h1>
-                 {wishlist.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Sua lista de desejos está vazia.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {wishlist.map(item => (
-                            <div key={item.id} className="bg-gray-900 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-gray-800 gap-4">
-                                <div className="flex items-center flex-grow w-full sm:w-auto">
-                                    <div className="w-20 h-20 bg-white p-1 rounded-md flex-shrink-0">
-                                        <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
-                                    </div>
-                                    <h3 className="font-bold text-lg flex-grow px-4 sm:px-6 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                </div>
-                                <div className="flex items-center space-x-4 flex-shrink-0">
-                                    <button onClick={() => onNavigate(`product/${item.id}`)} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600">Ver Produto</button>
-                                    <button onClick={() => handleRemove(item)} className="text-gray-500 hover:text-red-500 p-2"><TrashIcon className="h-5 w-5"/></button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                 )}
-            </div>
-        </div>
-    );
-};
-
-const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
-    const [formData, setFormData] = useState({
-        alias: '',
-        cep: '',
-        logradouro: '',
-        numero: '',
-        complemento: '',
-        bairro: '',
-        localidade: '',
-        uf: '',
-        is_default: false,
-        ...initialData
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const notification = useNotification();
-
-    const handleCepLookup = useCallback(async (cepValue) => {
-        const cep = cepValue.replace(/\D/g, '');
-        if (cep.length !== 8) return;
-        
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
-            
-            const data = await response.json();
-            if (!data.erro) {
-                setFormData(prev => ({ 
-                    ...prev, 
-                    logradouro: data.logradouro, 
-                    bairro: data.bairro, 
-                    localidade: data.localidade, 
-                    uf: data.uf
-                }));
-            } else {
-                notification.show("CEP não encontrado.", "error");
-            }
-        } catch (error) {
-            console.error("Erro ao buscar CEP:", error);
-            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
-        }
-    }, [notification]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
-    };
-
-    const handleCepChange = (e) => {
-        const newCep = maskCEP(e.target.value);
-        setFormData(prev => ({ ...prev, cep: newCep }));
-        if (newCep.replace(/\D/g, '').length === 8) {
-            handleCepLookup(newCep);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        await onSave(formData);
-        setIsSaving(false);
-    };
-    
-    const isFormValid = useMemo(() => {
-        const { alias, cep, logradouro, numero, bairro, localidade, uf } = formData;
-        return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
-    }, [formData]);
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
-            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" />
-            </div>
-            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            <div className="flex space-x-4">
-                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" className="w-1/4 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
-            </div>
-            <div className="flex items-center">
-                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-700">Salvar como endereço padrão</label>
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
-                    {isSaving ? <SpinnerIcon /> : 'Salvar Endereço'}
-                </button>
-            </div>
-        </form>
-    );
-};
-
-const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
-            <div className="space-y-3">
-                {addresses.map(addr => (
-                    <div 
-                        key={addr.id} 
-                        onClick={() => onSelectAddress(addr)}
-                        className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50"
-                    >
-                        <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
-                        <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero}</p>
-                        <p className="text-sm text-gray-500">{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                        <p className="text-sm text-gray-500">{addr.cep}</p>
-                    </div>
-                ))}
-                {addresses.length < 5 && (
-                    <button 
-                        onClick={onAddNewAddress}
-                        className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
-                    >
-                        <PlusCircleIcon className="h-6 w-6" />
-                        <span>Adicionar Novo Endereço</span>
-                    </button>
-                )}
-            </div>
-        </Modal>
-    );
-};
-
-
-const CheckoutPage = ({ onNavigate }) => {
-    const { 
-        cart, 
-        autoCalculatedShipping, 
-        appliedCoupon, 
-        clearOrderState,
-        addresses,
-        fetchAddresses,
-        setShippingLocation
-    } = useShop();
-    const notification = useNotification();
-    
-    const [selectedAddress, setSelectedAddress] = useState(null);
-    
-    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
-    const [isLoading, setIsLoading] = useState(false);
-    const [isAddressLoading, setIsAddressLoading] = useState(true);
-    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
-    const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
-    
-    useEffect(() => {
-        setIsAddressLoading(true);
-        fetchAddresses().then(userAddresses => {
-            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
-            if (defaultAddress) {
-                setSelectedAddress(defaultAddress);
-            }
-        }).finally(() => {
-            setIsAddressLoading(false);
-        });
-    }, [fetchAddresses]);
-
-    useEffect(() => {
-        if (selectedAddress) {
-            setShippingLocation({
-                cep: selectedAddress.cep,
-                city: selectedAddress.localidade,
-                state: selectedAddress.uf,
-                alias: selectedAddress.alias
-            });
-        }
-    }, [selectedAddress, setShippingLocation]);
-
-    const handleAddressSelection = (address) => {
-        setSelectedAddress(address);
-        setIsAddressModalOpen(false);
-    };
-
-    const handleAddNewAddress = () => {
-        setIsAddressModalOpen(false);
-        setIsNewAddressModalOpen(true);
-    };
-
-    const handleSaveNewAddress = async (formData) => {
-        try {
-            const savedAddress = await apiService('/addresses', 'POST', formData);
-            notification.show('Endereço salvo com sucesso!');
-            await fetchAddresses();
-            setSelectedAddress(savedAddress); 
-            setIsNewAddressModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
-        }
-    };
-
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
-    
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            discountValue = parseFloat(appliedCoupon.value);
-        } else if (appliedCoupon.type === 'free_shipping') {
-            discountValue = shippingCost;
-        }
-        return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost]);
-    
-    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
-
-    const handlePlaceOrderAndPay = async () => {
-        if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
-            return;
-        }
-        setIsLoading(true);
-
-        try {
-            const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
-                total: total,
-                shippingAddress: selectedAddress,
-                paymentMethod: paymentMethod,
-                shipping_method: autoCalculatedShipping.name,
-                shipping_cost: shippingCost,
-                coupon_code: appliedCoupon ? appliedCoupon.code : null,
-                discount_amount: discount
-            };
-            const orderResult = await apiService('/orders', 'POST', orderPayload);
-            const { orderId } = orderResult;
-
-            if (paymentMethod === 'mercadopago') {
-                const mpPayload = { orderId };
-                const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
-                if (paymentResult && paymentResult.init_point) {
-                    window.location.href = paymentResult.init_point;
-                } else {
-                    throw new Error("Não foi possível obter o link de pagamento.");
-                }
-            } else {
-                clearOrderState();
-                onNavigate(`order-success/${orderId}`);
-            }
-
-        } catch (error) {
-            notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
-            setIsLoading(false);
-        }
-    };
-    
-    const getShippingName = (name) => {
-        if (name) {
-            const lowerCaseName = name.toLowerCase();
-            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
-                return 'PAC';
-            }
-        }
-        return name || 'N/A';
-    };
-
-    return (
-        <>
-            <AddressSelectionModal 
-                isOpen={isAddressModalOpen}
-                onClose={() => setIsAddressModalOpen(false)}
-                addresses={addresses}
-                onSelectAddress={handleAddressSelection}
-                onAddNewAddress={handleAddNewAddress}
-            />
-            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço">
-                <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
-            </Modal>
-
-            <div className="bg-black text-white min-h-screen">
-                <div className="container mx-auto px-4 py-8">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        <div className="lg:col-span-1 space-y-8">
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
-                                {isAddressLoading ? (
-                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
-                                            Alterar Endereço
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                            Adicionar Endereço
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
-                                <div className="space-y-3">
-                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
-                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
-                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
-                                <div className="border-t border-gray-700 mt-4 pt-4">
-                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                                    {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
-                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
-                                </div>
-                                
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
-                                    {isLoading ? (
-                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
-                                    ) : (
-                                        'Finalizar e Pagar'
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                     </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
-const OrderSuccessPage = ({ orderId, onNavigate }) => {
-    const { clearOrderState } = useShop();
-    const [pageStatus, setPageStatus] = useState('processing');
-    const [finalOrderStatus, setFinalOrderStatus] = useState('');
-
-    const pollStatus = useCallback(async () => {
-        console.log(`Verificando status do pedido #${orderId}...`);
-        try {
-            const response = await apiService(`/orders/${orderId}/status`);
-            if (response.status && response.status !== 'Pendente') {
-                setFinalOrderStatus(response.status);
-                setPageStatus('success');
-                return true;
-            }
-        } catch (err) {
-            console.error("Erro ao verificar status, continuando a verificação.", err);
-        }
-        return false;
-    }, [orderId]);
-
-    useEffect(() => {
-        clearOrderState();
-
-        let pollInterval;
-        let timeout;
-
-        const startPolling = async () => {
-            const isFinished = await pollStatus();
-            if (isFinished) return;
-
-            pollInterval = setInterval(async () => {
-                const finished = await pollStatus();
-                if (finished) {
-                    clearInterval(pollInterval);
-                    clearTimeout(timeout);
-                }
-            }, 3000);
-
-            timeout = setTimeout(() => {
-                clearInterval(pollInterval);
-                if (pageStatus === 'processing') {
-                    setPageStatus('timeout');
-                }
-            }, 45000);
-        };
-
-        startPolling();
-        
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && pageStatus === 'processing') {
-                console.log("Página ficou visível, forçando nova verificação de status.");
-                pollStatus();
-            }
-        };
-        
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            clearInterval(pollInterval);
-            clearTimeout(timeout);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-        };
-    }, [orderId, clearOrderState, pollStatus, pageStatus]);
-
-
-    const renderContent = () => {
-        switch (pageStatus) {
-            case 'success':
-                return {
-                    icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
-                    title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
-                };
-            case 'timeout':
-                return {
-                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Pedido Recebido!",
-                    message: `Seu pedido #${orderId} foi recebido. A confirmação do pagamento pode levar alguns minutos. Você pode acompanhar o status final na sua área de cliente.`
-                };
-            case 'processing':
-            default:
-                return {
-                    icon: (
-                        <div className="relative mb-6">
-                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
-                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
-                        </div>
-                    ),
-                    title: "Confirmando Pagamento...",
-                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
-                };
-        }
-    };
-
-    const { icon, title, message } = renderContent();
-
-    return (
-        <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
-            <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
-                {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
-                <p className="text-gray-300 mb-6">{message}</p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
-                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
+    // NOVO: Adicionado status 'Pronto para Retirada'
     const STATUS_DEFINITIONS = useMemo(() => ({
         'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio ou retirada.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
         'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
         'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+        'Pronto para Retirada': { title: 'Pronto para Retirada', description: 'Seu pedido está pronto! Você já pode retirá-lo em nossa loja no horário de funcionamento.', icon: <StoreIcon className="h-6 w-6" />, color: 'green' },
         'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
         'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
         'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
@@ -2774,14 +21,18 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
         gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
     }), []);
     
-    const timelineOrder = useMemo(() => [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
-    ], []);
+    // NOVO: Linha do tempo dinâmica baseada no tipo de entrega
+    const timelineOrder = useMemo(() => {
+        const isPickupOrder = history.some(h => h.status === 'Pronto para Retirada') || currentStatus === 'Pronto para Retirada';
+        if (isPickupOrder) {
+            return ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
+        }
+        return ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
+    }, [history, currentStatus]);
 
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    // Lógica para status especiais (Cancelado, etc.) permanece a mesma
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
@@ -2815,14 +66,12 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
-                                // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                 className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
                                 <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
                             </div>
                             {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
@@ -2845,7 +94,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                         <div key={statusKey} className="flex">
                             <div className="flex flex-col items-center mr-4">
                                 <div 
-                                    // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                     className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                     onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
@@ -2856,7 +104,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <p className={`font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
                             </div>
                         </div>
@@ -2871,7 +118,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
-    // CORREÇÃO: Mapeamento de cores para garantir contraste no modal.
     const colorMap = {
         amber: { bg: 'bg-amber-100', icon: 'text-amber-600', title: 'text-amber-800' },
         green: { bg: 'bg-green-100', icon: 'text-green-600', title: 'text-green-800' },
@@ -2963,7 +209,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-    const [currentTrackingCode, setCurrentTrackingCode] = useState('');
+    const [currentOrderForModal, setCurrentOrderForModal] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
@@ -2986,8 +232,8 @@ const MyOrdersSection = ({ onNavigate }) => {
         onNavigate('cart');
     };
 
-    const handleOpenTrackingModal = (trackingCode) => {
-        setCurrentTrackingCode(trackingCode);
+    const handleOpenTrackingModal = (order) => {
+        setCurrentOrderForModal(order);
         setIsTrackingModalOpen(true);
     };
 
@@ -3000,41 +246,64 @@ const MyOrdersSection = ({ onNavigate }) => {
 
     return (
         <>
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} trackingCode={currentTrackingCode} />
+            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={currentOrderForModal} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
                 <div className="space-y-6">
-                    {orders.map(order => (
-                        <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                                <div>
-                                    <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                    <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                    <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                                </div>
-                            </div>
-                            <div className="my-6">
-                                <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                            </div>
-                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
-                            <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
-                                {order.items.map(item => (
-                                    <div key={item.id} className="flex items-center text-sm">
-                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
-                                        <span>{item.quantity}x {item.name}</span>
-                                        <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                    {orders.map(order => {
+                        const isPickup = order.shipping_method === 'Retirar na loja';
+                        return (
+                            <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                                    <div>
+                                        <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
+                                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
                                     </div>
-                                ))}
+                                    <div className="text-left sm:text-right">
+                                        <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                    </div>
+                                </div>
+                                <div className="my-6">
+                                    <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                </div>
+                                {isPickup ? (
+                                    <div className="my-4 p-4 bg-gray-800 rounded-md text-sm">
+                                        <p className="flex items-center gap-2 font-bold text-white mb-2"><StoreIcon className="h-5 w-5 text-amber-400"/>Método de Entrega: {order.shipping_method}</p>
+                                        {order.status === 'Pronto para Retirada' ? (
+                                            <div className="text-green-300 space-y-1">
+                                                <p><strong>Seu pedido está pronto para ser retirado!</strong></p>
+                                                <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                                                <p><strong>Horário:</strong> Seg. a Sáb, 9h-11h30 e 15h-17h30.</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-amber-300">Aguardando preparação. Você será notificado quando estiver pronto para retirada.</p>
+                                        )}
+                                        {order.pickup_person_details && <p className="mt-2 text-gray-400"><strong className="text-white">Autorizado a retirar:</strong> {order.pickup_person_details}</p>}
+                                    </div>
+                                ) : (
+                                    order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
+                                )}
+                                <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
+                                    {order.items.map(item => (
+                                        <div key={item.id} className="flex items-center text-sm">
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                            <span>{item.quantity}x {item.name}</span>
+                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
+                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                    {(order.tracking_code || isPickup) && (
+                                        <button onClick={() => handleOpenTrackingModal(order)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">
+                                            {isPickup ? 'Ver Detalhes da Retirada' : 'Rastrear Pedido'}
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
-                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             ) : (
                  <EmptyState 
@@ -3049,7 +318,6 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
@@ -3076,7 +344,7 @@ const MyAddressesSection = () => {
                 notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation();
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3089,7 +357,7 @@ const MyAddressesSection = () => {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
                 await fetchAddresses();
-                determineShippingLocation(); // Força a reavaliação da localização
+                determineShippingLocation();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3101,7 +369,7 @@ const MyAddressesSection = () => {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation();
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
@@ -4208,7 +1476,7 @@ const AdminOrders = () => {
     });
     const statuses = [
         'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
-        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
+        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
     ];
 
     const fetchOrders = useCallback(() => {
@@ -4314,20 +1582,27 @@ const AdminOrders = () => {
                             </div>
 
                             <div>
-                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                 <h4 className="font-bold text-gray-700 mb-1">{editingOrder.shipping_method === 'Retirar na loja' ? "Informações de Retirada" : "Endereço de Entrega"}</h4>
                                  <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                     {(() => {
-                                         try {
-                                             const addr = JSON.parse(editingOrder.shipping_address);
-                                             return (
-                                                 <>
-                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                                     <p>{addr.cep}</p>
-                                                 </>
-                                             )
-                                         } catch { return <p>Endereço mal formatado.</p> }
-                                     })()}
+                                     {editingOrder.shipping_method === 'Retirar na loja' ? (
+                                        <>
+                                            <p className="font-semibold">Retirada na loja</p>
+                                            {editingOrder.pickup_person_details && <p className="mt-1"><span className="font-semibold">Autorizado:</span> {editingOrder.pickup_person_details}</p>}
+                                        </>
+                                     ) : (
+                                         (() => {
+                                             try {
+                                                 const addr = JSON.parse(editingOrder.shipping_address);
+                                                 return (
+                                                     <>
+                                                         <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                         <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                                                         <p>{addr.cep}</p>
+                                                     </>
+                                                 )
+                                             } catch { return <p>Endereço mal formatado.</p> }
+                                         })()
+                                     )}
                                  </div>
                             </div>
 
@@ -4368,10 +1643,12 @@ const AdminOrders = () => {
                                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                  </div>
-                                 <div>
-                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
-                                 </div>
+                                 {editingOrder.shipping_method !== 'Retirar na loja' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                        <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                    </div>
+                                 )}
                                  <div className="flex justify-end space-x-3 pt-4">
                                     <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
                                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
@@ -4413,7 +1690,7 @@ const AdminOrders = () => {
                                 <th className="p-4 font-semibold">Data</th>
                                 <th className="p-4 font-semibold">Total</th>
                                 <th className="p-4 font-semibold">Status</th>
-                                <th className="p-4 font-semibold">Cód. Rastreio</th>
+                                <th className="p-4 font-semibold">Entrega</th>
                                 <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
@@ -4425,7 +1702,7 @@ const AdminOrders = () => {
                                     <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
                                     <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
                                     <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
-                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
+                                    <td className="p-4 text-sm">{o.shipping_method === 'Retirar na loja' ? <span className="flex items-center gap-1 font-semibold"><StoreIcon className="h-4 w-4"/>Retirada</span> : o.tracking_code || 'N/A'}</td>
                                     <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
                                 </tr>
                             ))}
@@ -4445,7 +1722,7 @@ const AdminOrders = () => {
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                 <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
                                 <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
+                                <div className="col-span-2"><strong className="text-gray-500 block">Entrega</strong> {o.shipping_method === 'Retirar na loja' ? <span className="flex items-center gap-1 font-semibold"><StoreIcon className="h-4 w-4"/>Retirada na Loja</span> : o.tracking_code || 'N/A'}</div>
                             </div>
                             <div className="flex justify-end mt-4 pt-2 border-t">
                                 <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
@@ -4698,3 +1975,2847 @@ export default function App() {
         </AuthProvider>
     );
 }
+import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+
+// --- Constante da API ---
+const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
+
+// --- ÍCONES SVG ---
+const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
+const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
+const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
+const AdminIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const MenuIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
+const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
+const StarIcon = memo(({ className, isFilled, onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill={isFilled ? "currentColor" : "none"} stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
+const PlusIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>;
+const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
+const EditIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
+const ChartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>;
+const BoxIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
+const TruckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 2h8a1 1 0 001-1z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h2a1 1 0 001-1V6a1 1 0 00-1-1h-2v11z" /></svg>;
+const UsersIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A6.995 6.995 0 0112 12a6.995 6.995 0 016-3.803M15 21a6 6 0 00-9-5.197" /></svg>;
+const TagIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm0 0v11a2 2 0 002 2h5a2 2 0 002-2l-7-7z" /></svg>;
+const FileIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>;
+const UploadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
+const InstagramIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>;
+const WhatsappIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 4.315 1.731 6.26l.16.288-1.035 3.803 3.91-1.019.28.169z"/></svg>;
+const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
+const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
+const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
+const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
+const HomeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>;
+const XCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const CurrencyDollarIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0 1H9m3 0h3m-3 10v-1m0 1h3m-3 0H9m12-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const MapPinIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
+const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const StoreIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>;
+const IdCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-6 0h6" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 16h6" /></svg>;
+
+
+// --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
+const validateCPF = (cpf) => {
+    cpf = String(cpf).replace(/[^\d]/g, ''); 
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    let sum = 0, remainder;
+    for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cpf.substring(9, 10))) return false;
+    sum = 0;
+    for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+    remainder = (sum * 10) % 11;
+    if ((remainder === 10) || (remainder === 11)) remainder = 0;
+    if (remainder !== parseInt(cpf.substring(10, 11))) return false;
+    return true;
+};
+
+const maskCPF = (value) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+        .substring(0, 14);
+};
+
+const maskCEP = (value) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/(\d{5})(\d)/, '$1-$2')
+        .substring(0, 9);
+};
+
+// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
+async function apiService(endpoint, method = 'GET', body = null, options = {}) {
+    const token = localStorage.getItem('token');
+    const config = {
+        method,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        signal: options.signal,
+    };
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (body) {
+        config.body = JSON.stringify(body);
+    }
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const contentType = response.headers.get("content-type");
+        if (!response.ok) {
+            let errorData;
+            if (contentType && contentType.indexOf("application/json") !== -1) {
+                errorData = await response.json();
+            } else {
+                errorData = { message: await response.text() };
+            }
+            throw new Error(errorData.message || `Erro ${response.status}`);
+        }
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            return response.json();
+        }
+        return response.text();
+    } catch (error) {
+        if (error.name === 'AbortError') {
+             console.log(`API fetch aborted: ${endpoint}`);
+        } else {
+             console.error(`Erro na API (${endpoint}):`, error);
+        }
+        if (error instanceof TypeError) {
+            throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
+        }
+        throw error;
+    }
+}
+
+
+async function apiUploadService(endpoint, file) {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const config = {
+        method: 'POST',
+        headers: {},
+        body: formData,
+    };
+
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const responseData = await response.json();
+        if (!response.ok) {
+            throw new Error(responseData.message || `Erro ${response.status}`);
+        }
+        return responseData;
+    } catch (error) {
+        console.error(`Erro no upload (${endpoint}):`, error);
+        throw error;
+    }
+}
+
+async function apiImageUploadService(endpoint, file) {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const config = {
+        method: 'POST',
+        headers: {},
+        body: formData,
+    };
+
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const responseData = await response.json();
+        if (!response.ok) {
+            throw new Error(responseData.message || `Erro ${response.status}`);
+        }
+        return responseData;
+    } catch (error) {
+        console.error(`Erro no upload da imagem (${endpoint}):`, error);
+        throw error;
+    }
+}
+
+
+// --- FUNÇÕES AUXILIARES PARA IMAGENS ---
+const parseImages = (imagesJsonString, placeholder) => {
+    if (!imagesJsonString || typeof imagesJsonString !== 'string') {
+        return placeholder === null ? [] : [placeholder];
+    }
+    try {
+        const parsed = JSON.parse(imagesJsonString);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+        }
+        return placeholder === null ? [] : [placeholder];
+    } catch (e) {
+        try {
+            const cleaned = imagesJsonString.replace(/\\"/g, '"');
+            const reparsed = JSON.parse(cleaned);
+            if (Array.isArray(reparsed) && reparsed.length > 0) {
+                return reparsed;
+            }
+            return placeholder === null ? [] : [placeholder];
+        } catch (e2) {
+            console.error("Falha ao parsear JSON de imagens:", imagesJsonString, e2);
+            return placeholder === null ? [] : [placeholder];
+        }
+    }
+};
+
+
+const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
+    const images = parseImages(imagesJsonString, placeholder);
+    return images[0] || placeholder;
+};
+
+
+// --- CONTEXTOS GLOBAIS ---
+const AuthContext = createContext(null);
+const ShopContext = createContext(null);
+const NotificationContext = createContext(null);
+const ConfirmationContext = createContext(null);
+
+const useAuth = () => useContext(AuthContext);
+const useShop = () => useContext(ShopContext);
+const useNotification = () => useContext(NotificationContext);
+const useConfirmation = () => useContext(ConfirmationContext);
+
+const AuthProvider = ({ children }) => {
+    const [user, setUser] = useState(null);
+    const [token, setToken] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('token');
+        if (storedUser && storedToken) {
+            try {
+                setUser(JSON.parse(storedUser));
+                setToken(storedToken);
+            } catch (e) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+            }
+        }
+        setIsLoading(false);
+    }, []);
+
+    const login = async (email, password) => {
+        const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
+        localStorage.setItem('user', JSON.stringify(loggedUser));
+        localStorage.setItem('token', authToken);
+        setUser(loggedUser);
+        setToken(authToken);
+        return loggedUser;
+    };
+    
+    const register = async (name, email, password, cpf) => {
+        return await apiService('/register', 'POST', { name, email, password, cpf });
+    };
+
+    const logout = useCallback(() => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+        setToken(null);
+    }, []);
+
+    return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
+};
+
+const ShopProvider = ({ children }) => {
+    const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    const [cart, setCart] = useState([]);
+    const [wishlist, setWishlist] = useState([]);
+    
+    const [addresses, setAddresses] = useState([]);
+    const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
+    
+    const [selectedShippingOption, setSelectedShippingOption] = useState(null);
+    const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+    const [shippingError, setShippingError] = useState('');
+    
+    const [couponCode, setCouponCode] = useState("");
+    const [couponMessage, setCouponMessage] = useState("");
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+    const fetchPersistentCart = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const dbCart = await apiService('/cart');
+            setCart(dbCart || []);
+        } catch (err) {
+            console.error("Falha ao buscar carrinho persistente:", err);
+            setCart([]);
+        }
+    }, [isAuthenticated]);
+
+    const fetchAddresses = useCallback(async () => {
+        if (!isAuthenticated) return [];
+        try {
+            const userAddresses = await apiService('/addresses');
+            setAddresses(userAddresses || []);
+            return userAddresses || [];
+        } catch (error) {
+            console.error("Falha ao buscar endereços:", error);
+            setAddresses([]);
+            return [];
+        }
+    }, [isAuthenticated]);
+
+    const updateDefaultShippingLocation = useCallback((addrs) => {
+        const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
+        if (defaultAddr) {
+            setShippingLocation({
+                cep: defaultAddr.cep,
+                city: defaultAddr.localidade,
+                state: defaultAddr.uf,
+                alias: defaultAddr.alias
+            });
+            return true;
+        }
+        return false;
+    }, []);
+
+    const determineShippingLocation = useCallback(async () => {
+        let locationDetermined = false;
+
+        if (isAuthenticated) {
+            const userAddresses = await fetchAddresses();
+            if (userAddresses && userAddresses.length > 0) {
+                locationDetermined = updateDefaultShippingLocation(userAddresses);
+            }
+        }
+
+        if (!locationDetermined && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude } = position.coords;
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    const data = await response.json();
+                    if (data.address && data.address.postcode) {
+                        const cep = data.address.postcode.replace(/\D/g, '');
+                        setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+                    }
+                } catch (error) {
+                    console.warn("Não foi possível obter CEP da geolocalização.", error);
+                }
+            }, (error) => {
+                console.warn("Geolocalização negada ou indisponível.", error.message);
+            });
+        }
+    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
+
+
+    useEffect(() => {
+        if (isAuthLoading) return;
+
+        if (isAuthenticated) {
+            fetchPersistentCart();
+            determineShippingLocation();
+            apiService('/wishlist').then(setWishlist).catch(console.error);
+        } else {
+            setCart([]);
+            setWishlist([]);
+            setAddresses([]);
+            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+            setSelectedShippingOption(null);
+            setCouponCode('');
+            setAppliedCoupon(null);
+            setCouponMessage('');
+            determineShippingLocation();
+        }
+    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
+    
+    // Efeito para calcular frete automaticamente
+    useEffect(() => {
+        // Se já houver uma opção selecionada pelo usuário, não recalcular automaticamente
+        if (selectedShippingOption) return;
+
+        const debounceTimer = setTimeout(() => {
+            if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+                setIsLoadingShipping(true);
+                setShippingError('');
+                
+                const calculateAutoShipping = async () => {
+                    try {
+                        const productsPayload = cart.map(item => ({
+                            id: String(item.id),
+                            price: item.price,
+                            quantity: item.qty || 1,
+                        }));
+                        const options = await apiService('/shipping/calculate', 'POST', {
+                            cep_destino: shippingLocation.cep,
+                            products: productsPayload,
+                        });
+                        
+                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const sedexOption = options.find(opt => opt.name.toLowerCase().includes('sedex'));
+                        
+                        // Prioriza PAC, se não houver, usa SEDEX
+                        const defaultShipping = pacOption || sedexOption;
+
+                        if (defaultShipping) {
+                            setSelectedShippingOption(defaultShipping);
+                        } else {
+                            setShippingError('Nenhuma opção de entrega encontrada para este CEP.');
+                            setSelectedShippingOption(null);
+                        }
+                    } catch (error) {
+                        setShippingError(error.message || 'Não foi possível calcular o frete.');
+                        setSelectedShippingOption(null);
+                    } finally {
+                        setIsLoadingShipping(false);
+                    }
+                };
+                calculateAutoShipping();
+            } else {
+                setSelectedShippingOption(null);
+            }
+        }, 500);
+        return () => clearTimeout(debounceTimer);
+    }, [cart, shippingLocation, selectedShippingOption]); // Adicionado selectedShippingOption para evitar recálculo
+
+    
+    const addToCart = useCallback(async (productToAdd, qty = 1) => {
+        setCart(currentCart => {
+            const existing = currentCart.find(item => item.id === productToAdd.id);
+            let updatedCart;
+            if (existing) {
+                const newQty = existing.qty + qty;
+                updatedCart = currentCart.map(item => item.id === productToAdd.id ? { ...item, qty: newQty } : item);
+                if (isAuthenticated) {
+                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: newQty });
+                }
+            } else {
+                updatedCart = [...currentCart, { ...productToAdd, qty }];
+                if (isAuthenticated) {
+                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: qty });
+                }
+            }
+            return updatedCart;
+        });
+    }, [isAuthenticated]);
+    
+    const removeFromCart = useCallback(async (productId) => {
+        const updatedCart = cart.filter(item => item.id !== productId);
+        setCart(updatedCart);
+        if (isAuthenticated) {
+            await apiService(`/cart/${productId}`, 'DELETE');
+        }
+    }, [cart, isAuthenticated]);
+
+    const updateQuantity = useCallback(async (productId, newQuantity) => {
+        if (newQuantity < 1) {
+            removeFromCart(productId);
+            return;
+        }
+        const updatedCart = cart.map(item => item.id === productId ? {...item, qty: newQuantity } : item);
+        setCart(updatedCart);
+        if (isAuthenticated) {
+            await apiService('/cart', 'POST', { productId, quantity: newQuantity });
+        }
+    }, [cart, isAuthenticated, removeFromCart]);
+
+    
+    const clearCart = useCallback(async () => {
+        setCart([]);
+        if (isAuthenticated) {
+            await apiService('/cart', 'DELETE');
+        }
+    }, [isAuthenticated]);
+
+    const addToWishlist = useCallback(async (productToAdd) => {
+        if (!isAuthenticated) return; 
+        if (wishlist.some(p => p.id === productToAdd.id)) return;
+        try {
+            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
+            setWishlist(current => [...current, addedProduct]);
+            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
+        } catch (error) {
+            console.error("Erro ao adicionar na lista de desejos:", error);
+            return { success: false, message: `Não foi possível adicionar o item: ${error.message}` };
+        }
+    }, [isAuthenticated, wishlist]);
+
+    const removeFromWishlist = useCallback(async (productId) => {
+        if (!isAuthenticated) return;
+        try {
+            await apiService(`/wishlist/${productId}`, 'DELETE');
+            setWishlist(current => current.filter(p => p.id !== productId));
+        } catch (error) {
+            console.error("Erro ao remover da lista de desejos:", error);
+        }
+    }, [isAuthenticated]);
+    
+    const removeCoupon = useCallback(() => {
+        setAppliedCoupon(null);
+        setCouponCode('');
+        setCouponMessage('');
+    }, []);
+
+    const applyCoupon = useCallback(async (code) => {
+        setCouponCode(code);
+        try {
+            const response = await apiService('/coupons/validate', 'POST', { code });
+            setAppliedCoupon(response.coupon);
+            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
+        } catch (error) {
+            removeCoupon();
+            setCouponMessage(error.message || "Não foi possível aplicar o cupom.");
+        }
+    }, [removeCoupon]);
+    
+
+    const clearOrderState = useCallback(() => {
+        clearCart();
+        removeCoupon();
+        determineShippingLocation();
+    }, [clearCart, removeCoupon, determineShippingLocation]);
+
+    return (
+        <ShopContext.Provider value={{
+            cart, setCart, clearOrderState,
+            wishlist, addToCart, 
+            addToWishlist, removeFromWishlist,
+            updateQuantity, removeFromCart,
+            userName: user?.name,
+            
+            addresses, fetchAddresses,
+            shippingLocation, setShippingLocation,
+            
+            selectedShippingOption, setSelectedShippingOption,
+            isLoadingShipping,
+            shippingError,
+
+            determineShippingLocation,
+
+            couponCode, setCouponCode,
+            couponMessage,
+            applyCoupon,
+            appliedCoupon,
+            removeCoupon
+        }}>
+            {children}
+        </ShopContext.Provider>
+    );
+};
+
+const NotificationProvider = ({ children }) => {
+    const [notifications, setNotifications] = useState([]);
+
+    const remove = useCallback((id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    }, []);
+
+    const show = useCallback((message, type = 'success', duration = 5000) => {
+        const id = Date.now() + Math.random();
+        setNotifications(prev => [...prev, { id, message, type }]);
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                remove(id);
+            }, duration);
+        }
+    }, [remove]);
+
+    return (
+        <NotificationContext.Provider value={{ show }}>
+            {children}
+            <div className="fixed bottom-5 right-5 z-[100] space-y-3">
+                <AnimatePresence>
+                    {notifications.map(n => 
+                        <ToastMessage 
+                            key={n.id} 
+                            message={n.message} 
+                            type={n.type}
+                            onClose={() => remove(n.id)}
+                        />
+                    )}
+                </AnimatePresence>
+            </div>
+        </NotificationContext.Provider>
+    );
+};
+
+const ToastMessage = ({ message, type, onClose }) => {
+    const typeClasses = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+    };
+
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, x: 100, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 100, scale: 0.8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className={`pl-6 pr-10 py-4 rounded-lg shadow-xl text-white font-semibold flex items-center space-x-3 relative ${typeClasses[type]}`}
+        >
+            {type === 'success' ? <CheckCircleIcon className="h-6 w-6 flex-shrink-0"/> : <ExclamationIcon className="h-6 w-6 flex-shrink-0"/>}
+            <span>{message}</span>
+            <button 
+                onClick={onClose} 
+                className="absolute top-1/2 right-2 transform -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
+            >
+                <CloseIcon className="h-5 w-5"/>
+            </button>
+        </motion.div>
+    );
+};
+
+const ConfirmationProvider = ({ children }) => {
+    const [confirmationState, setConfirmationState] = useState({ isOpen: false });
+
+    const show = useCallback((message, onConfirm) => {
+        setConfirmationState({
+            isOpen: true,
+            message,
+            onConfirm: () => {
+                onConfirm();
+                setConfirmationState({ isOpen: false });
+            },
+            onCancel: () => {
+                setConfirmationState({ isOpen: false });
+            }
+        });
+    }, []);
+
+    return (
+        <ConfirmationContext.Provider value={{ show }}>
+            {children}
+            <AnimatePresence>
+                {confirmationState.isOpen && (
+                    <Modal isOpen={true} onClose={confirmationState.onCancel} title="Confirmação">
+                        <p className="text-gray-700 mb-6">{confirmationState.message}</p>
+                        <div className="flex justify-end space-x-4">
+                            <button onClick={confirmationState.onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                            <button onClick={confirmationState.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar</button>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+        </ConfirmationContext.Provider>
+    );
+};
+
+
+// --- COMPONENTES DA UI ---
+const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
+  if (!isOpen) return null;
+
+  const backdropVariants = {
+      visible: { opacity: 1 },
+      hidden: { opacity: 0 }
+  };
+
+  const modalVariants = {
+      hidden: { y: "-50vh", opacity: 0 },
+      visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } },
+      exit: { y: "50vh", opacity: 0 }
+  };
+
+  const sizeClasses = {
+      sm: 'max-w-sm',
+      md: 'max-w-md',
+      lg: 'max-w-lg',
+      xl: 'max-w-xl',
+  };
+
+  return (
+    <motion.div 
+      className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" 
+      variants={backdropVariants}
+      initial="hidden"
+      animate="visible"
+      exit="hidden"
+      onClick={onClose}
+    >
+      <motion.div 
+        className={`bg-white rounded-lg shadow-xl w-full flex flex-col ${sizeClasses[size]}`} 
+        style={{ maxHeight: '90vh' }} 
+        variants={modalVariants}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex-shrink-0 p-6 pb-4 flex justify-between items-center border-b border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+            <button onClick={onClose} className="text-3xl text-gray-400 hover:text-gray-600 leading-none">&times;</button>
+        </div>
+        <div className="flex-grow p-6 overflow-y-auto">
+          {children}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+});
+
+const TrackingModal = memo(({ isOpen, onClose, order }) => {
+    const [trackingInfo, setTrackingInfo] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const isPickup = order.shipping_method === 'Retirar na loja';
+    const googleMapsUrl = `https://www.google.com/maps?q=R.+Leopoldo+Pereira+Lima,+378+-+Mangabeira,+João+Pessoa+-+PB,+58059-123`;
+
+    useEffect(() => {
+        if (isOpen && order.tracking_code && !isPickup) {
+            const fetchTracking = async () => {
+                setIsLoading(true);
+                setError('');
+                setTrackingInfo([]);
+                try {
+                    const data = await apiService(`/track/${order.tracking_code}`);
+                    setTrackingInfo(data);
+                } catch (err) {
+                    setError(err.message || "Não foi possível obter informações de rastreio.");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+            fetchTracking();
+        }
+    }, [isOpen, order, isPickup]);
+
+    const renderPickupInfo = () => (
+        <div className="space-y-4 text-gray-800">
+            <h3 className="text-xl font-bold text-amber-600">Informações para Retirada</h3>
+            <div>
+                <h4 className="font-semibold">Status do Pedido:</h4>
+                <p className={`font-bold ${order.status === 'Pronto para Retirada' ? 'text-green-600' : 'text-amber-600'}`}>{order.status}</p>
+                {order.status !== 'Pronto para Retirada' && <p className="text-sm text-gray-500">Você será notificado por e-mail quando o pedido estiver pronto.</p>}
+            </div>
+            <div>
+                <h4 className="font-semibold">Endereço:</h4>
+                <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Ver no mapa</a>
+            </div>
+            <div>
+                <h4 className="font-semibold">Horário de Funcionamento:</h4>
+                <p>Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+            </div>
+             <div>
+                <h4 className="font-semibold">Regras para Retirada:</h4>
+                <ul className="list-disc list-inside text-sm space-y-1 text-gray-600">
+                    <li>Apresentar documento com foto (RG ou CNH).</li>
+                    <li>Informar o número do pedido: <span className="font-bold">#{order.id}</span></li>
+                    {order.pickup_person_details && <li><span className="font-bold">Retirada por terceiro:</span> Apenas {order.pickup_person_details} está autorizado(a).</li>}
+                </ul>
+            </div>
+        </div>
+    );
+
+    const renderTrackingInfo = () => (
+        <>
+            {isLoading && <p>Buscando informações...</p>}
+            {error && <p className="text-red-500">{error}</p>}
+            {!isLoading && !error && (
+                <div className="space-y-6">
+                    {trackingInfo.map((event, index) => (
+                        <div key={index} className="flex space-x-4">
+                            <div className="flex flex-col items-center">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                                    {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                </div>
+                                {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-800">{event.status}</p>
+                                <p className="text-sm text-gray-600">{event.location}</p>
+                                <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </>
+    );
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <Modal isOpen={isOpen} onClose={onClose} title={isPickup ? `Retirada do Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}>
+                    {isPickup ? renderPickupInfo() : renderTrackingInfo()}
+                </Modal>
+            )}
+        </AnimatePresence>
+    );
+});
+
+
+const ProductCard = memo(({ product, onNavigate }) => {
+    const { addToCart } = useShop();
+    const notification = useNotification();
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [isBuyingNow, setIsBuyingNow] = useState(false);
+    
+    const imageUrl = getFirstImage(product.images);
+    const avgRating = Math.round(product.avg_rating || 0);
+
+    const handleAddToCart = async (e) => {
+        e.stopPropagation();
+        setIsAddingToCart(true);
+        try {
+            await addToCart(product);
+            notification.show(`${product.name} adicionado ao carrinho!`);
+        } catch (error) {
+            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
+        } finally {
+            setIsAddingToCart(false);
+        }
+    };
+
+    const handleBuyNow = async (e) => {
+        e.stopPropagation();
+        setIsBuyingNow(true);
+        try {
+            await addToCart(product);
+            onNavigate('cart');
+        } catch (error) {
+            notification.show(error.message || "Erro ao iniciar compra", "error");
+            setIsBuyingNow(false);
+        }
+    };
+    
+    const WishlistButton = ({ product }) => {
+        const { wishlist, addToWishlist, removeFromWishlist } = useShop();
+        const { isAuthenticated } = useAuth();
+        const notification = useNotification();
+        const isWishlisted = wishlist.some(item => item.id === product.id);
+
+        const handleWishlistToggle = async (e) => {
+            e.stopPropagation();
+            if (!isAuthenticated) {
+                notification.show("Faça login para adicionar à lista de desejos", "error");
+                return;
+            }
+            if (isWishlisted) {
+                await removeFromWishlist(product.id);
+                notification.show(`${product.name} removido da lista de desejos.`, 'error');
+            } else {
+                const result = await addToWishlist(product);
+                if (result.success) {
+                    notification.show(result.message);
+                } else {
+                    notification.show(result.message, "error");
+                }
+            }
+        };
+
+        return (
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
+            </button>
+        );
+    };
+
+    const cardVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+    };
+
+    return (
+        <motion.div 
+            variants={cardVariants}
+            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
+        >
+            <div className="relative h-64 bg-white">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
+                 <WishlistButton product={product} />
+            </div>
+            <div className="p-5 flex-grow flex flex-col">
+                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                <div className="flex items-center mt-2">
+                    {[...Array(5)].map((_, i) => (
+                        <StarIcon 
+                            key={i} 
+                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            isFilled={i < avgRating}
+                        />
+                    ))}
+                </div>
+                <div className="flex-grow"/>
+                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                    </button>
+                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+});
+
+const ProductCarousel = memo(({ products, onNavigate, title }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [itemsPerPage, setItemsPerPage] = useState(4);
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const minSwipeDistance = 50; 
+
+    const updateItemsPerPage = useCallback(() => {
+        if (window.innerWidth < 640) setItemsPerPage(1);
+        else if (window.innerWidth < 1024) setItemsPerPage(2);
+        else setItemsPerPage(4);
+    }, []);
+
+    useEffect(() => {
+        updateItemsPerPage();
+        window.addEventListener('resize', updateItemsPerPage);
+        return () => window.removeEventListener('resize', updateItemsPerPage);
+    }, [updateItemsPerPage]);
+
+    useEffect(() => {
+        const maxIndex = Math.max(0, products.length - itemsPerPage);
+        if (currentIndex > maxIndex) {
+            setCurrentIndex(maxIndex);
+        }
+    }, [itemsPerPage, products, currentIndex]);
+    
+    const goNext = useCallback(() => {
+        const maxIndex = Math.max(0, products.length - itemsPerPage);
+        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+    }, [products.length, itemsPerPage]);
+
+    const goPrev = useCallback(() => {
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
+    }, []);
+    
+    if (!products || products.length === 0) {
+        return null;
+    }
+
+    const canGoPrev = currentIndex > 0;
+    const canGoNext = products.length > itemsPerPage && currentIndex < (products.length - itemsPerPage);
+    
+    const handleTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe && canGoNext) {
+            goNext();
+        } else if (isRightSwipe && canGoPrev) {
+            goPrev();
+        }
+        
+        setTouchStart(null);
+        setTouchEnd(null);
+    };
+
+    return (
+        <div className="relative">
+            {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+            <div 
+                className="overflow-hidden cursor-grab active:cursor-grabbing"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
+                <motion.div
+                    className="flex -mx-2 md:-mx-4"
+                    animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
+                    transition={{ type: 'spring', stiffness: 350, damping: 40 }}
+                >
+                    {products.map(product => (
+                        <div 
+                            key={product.id} 
+                            className="flex-shrink-0 px-2 md:px-4"
+                            style={{ width: `${100 / itemsPerPage}%` }}
+                        >
+                            <ProductCard product={product} onNavigate={onNavigate} />
+                        </div>
+                    ))}
+                </motion.div>
+            </div>
+
+            {products.length > itemsPerPage && (
+                <>
+                    <button onClick={goPrev} disabled={!canGoPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <button onClick={goNext} disabled={!canGoNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg disabled:opacity-30 disabled:cursor-not-allowed z-10 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </>
+            )}
+        </div>
+    );
+});
+
+
+const Header = memo(({ onNavigate }) => {
+    const { isAuthenticated, user, logout } = useAuth();
+    const { cart, wishlist } = useShop();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [searchSuggestions, setSearchSuggestions] = useState([]);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    const prevTotalCartItems = useRef(totalCartItems);
+    const cartAnimationControls = useAnimation();
+
+    useEffect(() => {
+        if (totalCartItems > prevTotalCartItems.current) {
+            cartAnimationControls.start({
+                scale: [1, 1.25, 0.9, 1.1, 1],
+                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
+            });
+        }
+        prevTotalCartItems.current = totalCartItems;
+    }, [totalCartItems, cartAnimationControls]);
+
+    useEffect(() => {
+        if (searchTerm.length < 2) {
+            setSearchSuggestions([]);
+            return;
+        }
+
+        const debounceTimer = setTimeout(() => {
+            apiService(`/products/search-suggestions?q=${searchTerm}`)
+                .then(data => setSearchSuggestions(data))
+                .catch(err => console.error(err));
+        }, 300);
+
+        return () => clearTimeout(debounceTimer);
+    }, [searchTerm]);
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        if (searchTerm.trim()) {
+            onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
+            setSearchTerm('');
+            setSearchSuggestions([]);
+            setIsMenuOpen(false);
+        }
+    };
+    
+    const handleSuggestionClick = (productName) => {
+        onNavigate(`products?search=${encodeURIComponent(productName)}`);
+        setSearchTerm('');
+        setSearchSuggestions([]);
+        setIsMenuOpen(false);
+    };
+
+    const navLinks = (
+        <>
+            <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Início</a>
+            <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Catálogo</a>
+            <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMenuOpen(false); }} className="block md:inline-block py-2 md:py-0 hover:text-amber-400 transition">Ajuda</a>
+        </>
+    );
+
+    const mobileMenuVariants = {
+        open: { opacity: 1, y: 0, transition: { ease: "easeOut", duration: 0.3 } },
+        closed: { opacity: 0, y: "-100%", transition: { ease: "easeIn", duration: 0.2 } },
+    }
+
+    return (
+        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+            <nav className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                
+                <div className="hidden md:flex items-center space-x-8">
+                    {navLinks}
+                </div>
+
+                <div className="flex items-center space-x-4">
+                     <div className="relative hidden md:block">
+                        <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full">
+                           <input 
+                                type="text" value={searchTerm} 
+                                onChange={e => setSearchTerm(e.target.value)}
+                                onFocus={() => setIsSearchFocused(true)}
+                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                                placeholder="Buscar..." 
+                                className="bg-transparent text-white px-4 py-1 rounded-l-full focus:outline-none w-32 md:w-40 transition-all duration-300 focus:w-48"/>
+                           <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
+                        </form>
+                        {isSearchFocused && searchSuggestions.length > 0 && (
+                            <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
+                                {searchSuggestions.map(p => (
+                                    <div key={p.id} onClick={() => handleSuggestionClick(p.name)}
+                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"
+                                    >
+                                        {p.name}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {isAuthenticated && user.role === 'admin' && (
+                        <button onClick={() => onNavigate('admin/dashboard')} className="hidden md:flex items-center space-x-2 bg-amber-500 text-black px-3 py-1 rounded-md hover:bg-amber-400 font-bold transition">
+                            <AdminIcon className="h-5 w-5" />
+                            <span>Admin</span>
+                        </button>
+                    )}
+
+                    <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
+                        <HeartIcon className="h-6 w-6"/>
+                        {wishlist.length > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{wishlist.length}</span>}
+                    </button>
+                    
+                    <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition">
+                        <CartIcon className="h-6 w-6"/>
+                        {totalCartItems > 0 && <span className="absolute -top-2 -right-2 bg-amber-400 text-black text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                    </motion.button>
+                    
+                    <div className="hidden md:block">
+                        {isAuthenticated ? (
+                            <div className="relative group">
+                               <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
+                               <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
+                                   <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
+                                   <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
+                                   <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
+                               </div>
+                            </div>
+                        ) : (
+                            <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                        )}
+                    </div>
+
+                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 hover:text-amber-400">
+                        {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+                    </button>
+                </div>
+            </nav>
+
+            <AnimatePresence>
+                {isMenuOpen && (
+                     <motion.div 
+                        variants={mobileMenuVariants}
+                        initial="closed"
+                        animate="open"
+                        exit="closed"
+                        className="md:hidden absolute top-full left-0 w-full bg-black/95 backdrop-blur-sm z-30 px-6 pb-6 space-y-4 origin-top"
+                     >
+                         <div className="relative">
+                            <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full w-full">
+                               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Buscar..." className="bg-transparent text-white px-4 py-2 rounded-l-full focus:outline-none w-full"/>
+                               <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
+                            </form>
+                            {isSearchFocused && searchSuggestions.length > 0 && (
+                                <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
+                                    {searchSuggestions.map(p => (
+                                        <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white">{p.name}</div>
+                                    ))}
+                                </div>
+                            )}
+                         </div>
+                        {navLinks}
+                        <div className="border-t border-gray-800 pt-4 space-y-3">
+                            {isAuthenticated ? (
+                                <>
+                                    <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
+                                    {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
+                                    <button onClick={() => { logout(); onNavigate('home'); setIsMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
+                                </>
+                            ) : (
+                                <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </header>
+    );
+});
+
+// --- PÁGINAS DO CLIENTE ---
+const HomePage = ({ onNavigate }) => {
+    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
+
+    useEffect(() => { 
+        apiService('/products')
+            .then(data => {
+                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                
+                setProducts({
+                    newArrivals: sortedByDate,
+                    bestSellers: sortedBySales
+                });
+            })
+            .catch(err => console.error("Falha ao buscar produtos:", err));
+    }, []);
+
+    const categoryCards = [
+        { name: "Perfumes Masculinos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751868173/furg2aivlksdqxgmoqbk.png", filter: "Masculino" },
+        { name: "Perfumes Femininos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867985/snqqq1qpjbw1s7njfvwx.png", filter: "Feminino" },
+        { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
+    ];
+
+    const bannerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.3, delayChildren: 0.2 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { 
+            opacity: 1, 
+            y: 0,
+            transition: { type: 'spring', stiffness: 100 }
+        }
+    };
+
+    return (
+      <>
+        <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
+          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png')"}}></div>
+          <motion.div 
+            className="relative z-10 text-center p-4"
+            variants={bannerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+              <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg">Elegância que Veste e Perfuma</motion.h1>
+              <motion.p variants={itemVariants} className="text-lg md:text-xl mt-4 text-gray-300">Descubra fragrâncias e peças que definem seu estilo e marcam momentos.</motion.p>
+              <motion.div variants={itemVariants}>
+                <button onClick={() => onNavigate('products')} className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">Explorar Coleção</button>
+              </motion.div>
+          </motion.div>
+        </section>
+        
+        <section className="bg-black text-white py-12 md:py-16">
+          <div className="container mx-auto px-4">
+              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
+          </div>
+        </section>
+        
+        <section className="bg-gray-900 text-white py-12 md:py-16">
+            <div className="container mx-auto px-4">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Navegue por Categoria</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+                    {categoryCards.map(cat => (
+                        <div key={cat.name} className="relative rounded-lg overflow-hidden h-64 md:h-80 group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                            <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                <h3 className="text-2xl md:text-3xl font-bold text-white tracking-wider">{cat.name}</h3>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+        
+        <section className="bg-black text-white py-12 md:py-16">
+          <div className="container mx-auto px-4">
+             <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} title="Mais Vendidos"/>
+          </div>
+        </section>
+      </>
+    );
+};
+
+const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '' }) => {
+    const [allProducts, setAllProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [isLoading, setIsLoading] = useState(true);
+    const productsPerPage = 12;
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setIsLoading(true);
+        apiService('/products', 'GET', null, { signal: controller.signal })
+            .then(data => {
+                setAllProducts(data);
+            })
+            .catch(err => {
+                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
+            })
+            .finally(() => setIsLoading(false));
+
+        return () => controller.abort();
+    }, []);
+    
+    useEffect(() => {
+        setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
+    }, [initialSearch, initialCategory, initialBrand]);
+
+
+    useEffect(() => {
+        let result = allProducts;
+        if (filters.search) result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
+        if (filters.brand) result = result.filter(p => p.brand === filters.brand);
+        if (filters.category) result = result.filter(p => p.category === filters.category);
+        setFilteredProducts(result);
+        setCurrentPage(1);
+    }, [filters, allProducts]);
+    
+    const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
+    const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
+    const indexOfLastProduct = currentPage * productsPerPage;
+    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+    const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+    
+    const ProductSkeleton = () => (
+        <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full animate-pulse">
+            <div className="h-64 bg-gray-700"></div>
+            <div className="p-5 flex-grow flex flex-col">
+                <div className="h-4 bg-gray-700 rounded w-1/4 mb-2"></div>
+                <div className="h-6 bg-gray-700 rounded w-3/4 mb-4"></div>
+                <div className="h-5 bg-gray-700 rounded w-1/2 mb-auto"></div>
+                <div className="h-8 bg-gray-700 rounded w-1/3 mt-4"></div>
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <div className="h-10 bg-gray-700 rounded flex-grow"></div>
+                    <div className="h-10 w-12 bg-gray-700 rounded"></div>
+                </div>
+            </div>
+        </div>
+    );
+    
+    const gridContainerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    return (
+        <div className="bg-black text-white py-12 min-h-screen">
+            <div className="container mx-auto px-4">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Nossa Coleção</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
+                        <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
+                        <div className="space-y-4">
+                            <input type="text" placeholder="Buscar por nome..." value={filters.search} onChange={e => setFilters({...filters, search: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
+                             <select value={filters.brand} onChange={e => setFilters({...filters, brand: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                                <option value="">Todas as Marcas</option>
+                                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                            <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
+                                <option value="">Todas as Categorias</option>
+                                {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                    </aside>
+                    <main className="lg:col-span-3">
+                        <motion.div 
+                            variants={gridContainerVariants}
+                            initial="hidden"
+                            animate="visible"
+                            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+                        >
+                           {isLoading ? (
+                                Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
+                            ) : currentProducts.length > 0 ? (
+                                currentProducts.map(p => <ProductCard key={p.id} product={p} onNavigate={onNavigate} />)
+                            ) : (
+                                <p className="col-span-full text-center text-gray-500">Nenhum produto encontrado para sua busca.</p>
+                            )}
+                        </motion.div>
+                        {totalPages > 1 && (
+                            <div className="flex justify-center mt-8 items-center space-x-2 sm:space-x-4">
+                                <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Anterior</button>
+                                <span className="text-sm sm:text-base">Página {currentPage} de {totalPages}</span>
+                                <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 sm:px-4 py-2 bg-gray-800 rounded disabled:opacity-50">Próxima</button>
+                            </div>
+                        )}
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
+    if (!isOpen || !installments || installments.length === 0) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Opções de Parcelamento">
+            <div className="space-y-3">
+                {installments.map(p => (
+                    <div key={p.installments} className="flex justify-between items-center p-3 border border-gray-200 rounded-md transition-colors hover:bg-gray-50">
+                        <div>
+                            <p className="font-bold text-lg text-gray-800">{p.recommended_message.replace('.', ',')}</p>
+                            <p className="text-sm text-gray-500">Total: R$ {p.total_amount.toFixed(2).replace('.', ',')}</p>
+                        </div>
+                        {p.installment_rate === 0 ? (
+                            <span className="text-sm font-semibold text-green-600 bg-green-100 px-3 py-1 rounded-full whitespace-nowrap">Sem juros</span>
+                        ) : (
+                             <span className="text-sm font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-full whitespace-nowrap">Com juros</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-6 text-center">Você poderá escolher o número de parcelas na hora de fechar a compra.</p>
+        </Modal>
+    );
+});
+
+const ShippingCalculator = memo(({ items, onShippingOptionChange }) => {
+    const { addresses, shippingLocation, setShippingLocation } = useShop();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [shippingOptions, setShippingOptions] = useState([]);
+    const [manualCep, setManualCep] = useState('');
+    const [apiError, setApiError] = useState('');
+    const [selectedOptionId, setSelectedOptionId] = useState(null);
+
+    const pickupOption = useMemo(() => ({
+        id: 'pickup',
+        name: 'Retirar na loja',
+        price: 0,
+        delivery_time: 0,
+        company: { name: 'Retirada Local' }
+    }), []);
+
+    const calculateShipping = useCallback(async (location) => {
+        if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
+            setShippingOptions([pickupOption]);
+            setSelectedOptionId(pickupOption.id);
+            onShippingOptionChange(pickupOption);
+            return;
+        }
+        setIsLoading(true);
+        setError('');
+        try {
+            const productsPayload = items.map(item => ({
+                id: String(item.id),
+                price: item.price,
+                quantity: item.qty || 1,
+            }));
+            const optionsFromApi = await apiService('/shipping/calculate', 'POST', {
+                cep_destino: location.cep,
+                products: productsPayload,
+            });
+
+            const processedOptions = optionsFromApi.map((opt, index) => ({ ...opt, id: `api_${index}` }));
+            const allOptions = [pickupOption, ...processedOptions];
+            setShippingOptions(allOptions);
+
+            const pacOption = processedOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+            const sedexOption = processedOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+            const defaultSelection = pacOption || sedexOption || pickupOption;
+            
+            setSelectedOptionId(defaultSelection.id);
+            onShippingOptionChange(defaultSelection);
+
+        } catch (err) {
+            setError(err.message || 'Erro ao calcular o frete. Apenas a retirada na loja está disponível.');
+            setShippingOptions([pickupOption]);
+            setSelectedOptionId(pickupOption.id);
+            onShippingOptionChange(pickupOption);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [items, onShippingOptionChange, pickupOption]);
+
+    useEffect(() => {
+        calculateShipping(shippingLocation);
+    }, [shippingLocation, items, calculateShipping]);
+
+    const handleSelectAddress = (addr) => {
+        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
+        setIsModalOpen(false);
+    };
+
+    const handleManualCepSubmit = async (e) => {
+        e.preventDefault();
+        setApiError('');
+        const cleanCep = manualCep.replace(/\D/g, '');
+        if (cleanCep.length !== 8) {
+            setApiError("CEP inválido.");
+            return;
+        }
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            const data = await response.json();
+            if (data.erro) {
+                setApiError("CEP não encontrado.");
+            } else {
+                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
+                setIsModalOpen(false);
+                setManualCep('');
+            }
+        } catch {
+            setApiError("Não foi possível buscar o CEP. Tente novamente.");
+        }
+    };
+    
+    const handleCepInputChange = (e) => {
+        setManualCep(maskCEP(e.target.value));
+        if (apiError) setApiError('');
+    };
+
+    const handleOptionSelect = (option) => {
+        setSelectedOptionId(option.id);
+        onShippingOptionChange(option);
+    };
+
+    const getDeliveryDate = (deliveryTime) => {
+        if(deliveryTime === 0) return "Pronto para retirada após confirmação";
+        const date = new Date();
+        let addedDays = 0;
+        while (addedDays < deliveryTime) {
+            date.setDate(date.getDate() + 1);
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                addedDays++;
+            }
+        }
+        return `Previsão: ${date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+    };
+
+    const getDestinationText = () => {
+        if (shippingLocation.alias) return `Calcular para: ${shippingLocation.alias} - ${shippingLocation.city}, ${shippingLocation.cep}`;
+        if (shippingLocation.city) return `Calcular para: ${shippingLocation.city}, ${shippingLocation.cep}`;
+        return 'Calcular frete e prazo';
+    };
+
+    return (
+        <>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Alterar Local de Entrega" size="md">
+                <div className="space-y-4">
+                    {addresses.map(addr => (
+                         <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
+                             <p className="font-bold text-gray-800">{addr.alias}</p>
+                             <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero} - {addr.bairro}</p>
+                         </div>
+                    ))}
+                    <div className="pt-4 border-t">
+                        <form onSubmit={handleManualCepSubmit} className="space-y-2">
+                             <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
+                             <div className="flex gap-2">
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
+                                <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
+                             </div>
+                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
+                        </form>
+                    </div>
+                </div>
+            </Modal>
+
+            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+                    <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
+                        <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{getDestinationText()}</span>
+                    </div>
+                    <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                        Alterar
+                    </button>
+                </div>
+                
+                <div className="space-y-3">
+                    {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                    
+                    {!isLoading && error && (
+                        <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
+                    )}
+
+                    {!isLoading && shippingOptions.map(option => (
+                        <div key={option.id} onClick={() => handleOptionSelect(option)} className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${selectedOptionId === option.id ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    {option.id === 'pickup' ? <StoreIcon className="h-6 w-6 text-amber-400"/> : <TruckIcon className="h-6 w-6 text-amber-400"/>}
+                                    <div>
+                                        <p className="font-bold text-white">{option.name}</p>
+                                        <p className="text-xs text-gray-400">{getDeliveryDate(option.delivery_time)}</p>
+                                    </div>
+                                </div>
+                                <p className="font-bold text-lg text-green-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
+                            </div>
+                            {selectedOptionId === 'pickup' && option.id === 'pickup' && (
+                                <div className="mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400 space-y-1">
+                                    <p className="font-bold">Endereço para Retirada:</p>
+                                    <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                                    <p className="font-bold mt-2">Horário:</p>
+                                    <p>Seg. a Sáb, 9h-11h30 e 15h-17h30.</p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    
+                    {!isLoading && shippingOptions.length === 0 && !error && (
+                        <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
+                    )}
+                </div>
+            </div>
+        </>
+    );
+});
+
+const ProductDetailPage = ({ productId, onNavigate }) => {
+    const { user } = useAuth();
+    const [isLoading, setIsLoading] = useState(true);
+    const [product, setProduct] = useState(null);
+    const [reviews, setReviews] = useState([]);
+    const [relatedProducts, setRelatedProducts] = useState([]);
+    const [crossSellProducts, setCrossSellProducts] = useState([]);
+    const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
+    const { addToCart, setSelectedShippingOption } = useShop();
+    const notification = useNotification();
+    const [mainImage, setMainImage] = useState('');
+    const [quantity, setQuantity] = useState(1);
+    const [activeTab, setActiveTab] = useState('description');
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [thumbnailIndex, setThumbnailIndex] = useState(0);
+    
+    const [installments, setInstallments] = useState([]);
+    const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
+    const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
+    
+    const productImages = useMemo(() => parseImages(product?.images, null), [product]);
+
+    const fetchProductData = useCallback(async (id) => {
+        const controller = new AbortController();
+        setIsLoading(true);
+        try {
+            const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
+                apiService(`/products/${id}`, 'GET', null, { signal: controller.signal }),
+                apiService(`/products/${id}/reviews`, 'GET', null, { signal: controller.signal }),
+                apiService('/products', 'GET', null, { signal: controller.signal }),
+                apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal: controller.signal }).catch(() => []) 
+            ]);
+            
+            const images = parseImages(productData.images, 'https://placehold.co/600x400/222/fff?text=Produto');
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            setProduct(productData);
+            setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+            setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
+
+            if (productData && allProductsData) {
+                const related = allProductsData.filter(p =>
+                    p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)
+                ).slice(0, 8); 
+                setRelatedProducts(related);
+            }
+
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                 console.error("Falha ao buscar dados do produto:", err);
+                 setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
+            }
+        } finally {
+            setIsLoading(false);
+        }
+        
+        return () => controller.abort();
+    }, []);
+
+    useEffect(() => {
+        fetchProductData(productId);
+        window.scrollTo(0, 0);
+    }, [productId, fetchProductData]);
+    
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) return;
+            setIsLoadingInstallments(true);
+            setInstallments([]);
+            try {
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
+            } catch (error) {
+                console.warn("Não foi possível carregar as opções de parcelamento.", error);
+            } finally {
+                setIsLoadingInstallments(false);
+            }
+        };
+
+        if (product && !product.error) {
+            fetchInstallments(product.price);
+        }
+    }, [product]);
+
+
+    const handleReviewSubmit = async (e) => {
+        e.preventDefault();
+        if (!user) {
+            notification.show("Você precisa estar logado para avaliar.", 'error');
+            onNavigate('login');
+            return;
+        }
+        if (newReview.rating === 0) {
+            notification.show("Por favor, selecione uma nota (clicando nas estrelas).", 'error');
+            return;
+        }
+        try {
+            await apiService(`/reviews`, 'POST', {
+                product_id: productId,
+                rating: newReview.rating,
+                comment: newReview.comment,
+            });
+            notification.show("Avaliação enviada com sucesso!");
+            setNewReview({ rating: 0, comment: '' });
+            fetchProductData(productId); 
+        } catch (error) {
+            notification.show(`Erro ao enviar avaliação: ${error.message}`, 'error');
+        }
+    };
+    
+    const handleQuantityChange = (amount) => {
+        setQuantity(prev => Math.max(1, prev + amount));
+    };
+
+    const handleAddToCart = () => {
+        if(product) {
+            addToCart(product, quantity);
+            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
+        }
+    };
+    
+    const handleBuyNow = () => {
+        if(product) {
+            addToCart(product, quantity);
+            onNavigate('cart');
+        }
+    };
+    
+    const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
+    
+    const TabButton = ({ label, tabName }) => (
+        <button
+            onClick={() => setActiveTab(tabName)}
+            className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
+                ${activeTab === tabName 
+                    ? 'border-amber-400 text-amber-400' 
+                    : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`
+            }
+        >
+            {label}
+        </button>
+    );
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return (
+          <ul className="space-y-2">
+            {text.split('\n').map((line, index) => (
+              <li key={index} className="flex items-start">
+                <span className="text-amber-400 mr-2 mt-1">&#10003;</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        );
+    };
+
+    const Lightbox = ({ images, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center" onClick={onClose}>
+            <button onClick={onClose} className="absolute top-4 right-4 text-white text-4xl z-[1000]">&times;</button>
+            <div className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center">
+                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain" />
+            </div>
+        </div>
+    );
+    
+    const THUMBNAIL_ITEM_HEIGHT = 92; 
+    const VISIBLE_THUMBNAILS = 5; 
+    const canScrollUp = thumbnailIndex > 0;
+    const canScrollDown = productImages.length > VISIBLE_THUMBNAILS && thumbnailIndex < productImages.length - VISIBLE_THUMBNAILS;
+
+    const scrollThumbs = (direction) => {
+        setThumbnailIndex(prev => {
+            const newIndex = prev + direction;
+            if (newIndex < 0) return 0;
+            if (newIndex > productImages.length - VISIBLE_THUMBNAILS) return productImages.length - VISIBLE_THUMBNAILS;
+            return newIndex;
+        });
+    };
+    const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
+    const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) {
+            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
+        }
+        if (!installments || installments.length === 0) {
+            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
+        }
+
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) {
+            return (
+                <span>
+                    em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+                </span>
+            );
+        }
+
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) {
+            return (
+                <span>
+                    ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
+                </span>
+            );
+        }
+        return null;
+    };
+    
+    const itemsForShipping = useMemo(() => {
+        if (!product) return [];
+        return [{...product, qty: quantity}];
+    }, [product, quantity]);
+
+    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
+    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
+    if (!product) return <div className="bg-black min-h-screen"></div>;
+
+    return (
+        <div className="bg-black text-white min-h-screen">
+            <InstallmentModal
+                isOpen={isInstallmentModalOpen}
+                onClose={() => setIsInstallmentModalOpen(false)}
+                installments={installments}
+            />
+            {isLightboxOpen && productImages.length > 0 && (
+                <Lightbox images={productImages} onClose={() => setIsLightboxOpen(false)} />
+            )}
+            <div className="container mx-auto px-4 py-8">
+                 <div className="mb-4">
+                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                        Voltar para todos os produtos
+                    </a>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:self-start">
+                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
+                            <AnimatePresence>
+                            {canScrollUp && (
+                                <motion.button 
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    onClick={() => scrollThumbs(-1)} 
+                                    className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    disabled={!canScrollUp}
+                                >
+                                    <UpArrow />
+                                </motion.button>
+                            )}
+                            </AnimatePresence>
+                            
+                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide py-10">
+                                <motion.div
+                                    className="flex sm:flex-col gap-3"
+                                    animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                >
+                                    {productImages.map((img, index) => (
+                                        <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
+                                            <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
+                                        </div>
+                                    ))}
+                                </motion.div>
+                            </div>
+
+                            <AnimatePresence>
+                            {canScrollDown && (
+                                <motion.button 
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    onClick={() => scrollThumbs(1)} 
+                                    className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    disabled={!canScrollDown}
+                                >
+                                    <DownArrow />
+                                </motion.button>
+                            )}
+                            </AnimatePresence>
+                        </div>
+
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in">
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-2 space-y-6">
+                        <div>
+                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
+                            <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>
+                            <div className="flex items-center mt-2">
+                                {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
+                                {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
+                            </div>
+                        </div>
+
+                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
+                                    <button
+                                        onClick={() => setIsInstallmentModalOpen(true)}
+                                        className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
+                                    >
+                                        Ver parcelas disponíveis
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4">
+                            <p className="font-semibold">Quantidade:</p>
+                            <div className="flex items-center border border-gray-700 rounded-md">
+                                <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button>
+                                <span className="px-5 py-2 font-bold text-lg">{quantity}</span>
+                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md">+</button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <button onClick={handleBuyNow} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold">Comprar Agora</button>
+                            <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
+                        </div>
+                        
+                        <ShippingCalculator items={itemsForShipping} onShippingOptionChange={setSelectedShippingOption} />
+                    </div>
+                </div>
+
+                <div className="mt-16 pt-10 border-t border-gray-800">
+                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
+                        <TabButton label="Descrição" tabName="description" />
+                        <TabButton label="Notas Olfativas" tabName="notes" />
+                        <TabButton label="Como Usar" tabName="how_to_use" />
+                        <TabButton label="Ideal Para" tabName="ideal_for" />
+                    </div>
+                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
+                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        {activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
+                        {activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                    </div>
+                </div>
+
+
+                {crossSellProducts.length > 0 && (
+                    <div className="mt-20 pt-10 border-t border-gray-800">
+                        <ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" />
+                    </div>
+                )}
+                
+                {relatedProducts.length > 0 && (
+                    <div className="mt-20 pt-10 border-t border-gray-800">
+                        <ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." />
+                    </div>
+                )}
+                
+                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
+                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
+                    <div className="space-y-6 mb-8">
+                        {reviews.length > 0 ? reviews.map((review) => (
+                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                                <div className="flex items-center mb-2">
+                                    <p className="font-bold mr-4">{review.user_name}</p>
+                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                </div>
+                                <p className="text-gray-300">{review.comment}</p>
+                            </div>
+                        )) : <p className="text-gray-500 text-center mb-8">Seja o primeiro a avaliar!</p>}
+                    </div>
+                     {user ? (
+                         <form onSubmit={handleReviewSubmit} className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                           <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
+                           <div className="flex items-center space-x-1 mb-4">
+                                {[...Array(5)].map((_, i) => (
+                                    <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
+                                ))}
+                           </div>
+                           <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
+                           <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
+                        </form>
+                     ) : (
+                        <p className="text-gray-400 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-400 underline">logado</a> para deixar uma avaliação.</p>
+                     )}
+                </div>
+            </div>
+        </div>
+    );
+};
+const LoginPage = ({ onNavigate }) => {
+    const { login } = useAuth();
+    const notification = useNotification();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const handleLogin = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+        try {
+            await login(email, password);
+            notification.show('Login bem-sucedido!');
+            window.location.hash = '#home';
+        } catch (err) {
+            setError(err.message || "Ocorreu um erro desconhecido.");
+            notification.show(err.message || "Ocorreu um erro desconhecido.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+            >
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Login</h2>
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                <form onSubmit={handleLogin} className="space-y-6">
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                         {isLoading ? <SpinnerIcon /> : 'Entrar'}
+                    </button>
+                </form>
+                <div className="flex justify-between items-center mt-4">
+                    <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="text-sm text-amber-400 hover:underline">Não tem uma conta? Registre-se</a>
+                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-sm text-gray-400 hover:underline">Esqueci minha senha</a>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const RegisterPage = ({ onNavigate }) => {
+    const { register } = useAuth();
+    const notification = useNotification();
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [cpf, setCpf] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const handleRegister = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (password.length < 6) {
+             setError("A senha deve ter pelo menos 6 caracteres.");
+             return;
+        }
+        if (!validateCPF(cpf)) {
+            setError("O CPF informado é inválido.");
+            return;
+        }
+        
+        setIsLoading(true);
+        try {
+            await register(name, email, password, cpf);
+            notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
+            setTimeout(() => onNavigate('login'), 2000);
+        } catch (err) {
+            setError(err.message);
+            notification.show(err.message, 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCpfChange = (e) => {
+        setCpf(maskCPF(e.target.value));
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+            >
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Criar Conta</h2>
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                <form onSubmit={handleRegister} className="space-y-6">
+                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                        {isLoading ? <SpinnerIcon /> : 'Registrar'}
+                    </button>
+                </form>
+                 <div className="text-center mt-4">
+                    <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="text-sm text-amber-400 hover:underline">Já tem uma conta? Faça o login</a>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const ForgotPasswordPage = ({ onNavigate }) => {
+    const notification = useNotification();
+    const [email, setEmail] = useState('');
+    const [cpf, setCpf] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+    const [step, setStep] = useState(1);
+
+    const handleValidation = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (!validateCPF(cpf)) {
+            setError("O CPF informado é inválido.");
+            return;
+        }
+
+        try {
+            await apiService('/forgot-password', 'POST', { email, cpf });
+            notification.show('Usuário validado com sucesso. Por favor, crie uma nova senha.');
+            setStep(2);
+        } catch (err) {
+            setError(err.message || 'E-mail ou CPF não correspondem a um usuário cadastrado.');
+            notification.show(err.message || 'Dados inválidos.', 'error');
+        }
+    };
+
+    const handlePasswordReset = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (newPassword.length < 6) {
+            setError("A nova senha deve ter pelo menos 6 caracteres.");
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setError("As senhas não coincidem.");
+            return;
+        }
+        try {
+            await apiService('/reset-password', 'POST', { email, cpf, newPassword });
+            notification.show('Senha redefinida com sucesso! Você já pode fazer login.');
+            setTimeout(() => onNavigate('login'), 2000);
+        } catch (err) {
+            setError(err.message);
+            notification.show(err.message, 'error');
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+            <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+            >
+                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Recuperar Senha</h2>
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                
+                {step === 1 ? (
+                    <form onSubmit={handleValidation} className="space-y-6">
+                        <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
+                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
+                    </form>
+                ) : (
+                    <form onSubmit={handlePasswordReset} className="space-y-6">
+                        <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
+                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
+                    </form>
+                )}
+
+                <div className="text-center mt-4">
+                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
+const CartPage = ({ onNavigate }) => {
+    const { 
+        cart,
+        updateQuantity,
+        removeFromCart,
+        selectedShippingOption, setSelectedShippingOption,
+        isLoadingShipping,
+        shippingError,
+        couponCode, setCouponCode,
+        applyCoupon, removeCoupon,
+        couponMessage, appliedCoupon
+    } = useShop();
+
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const shippingCost = useMemo(() => selectedShippingOption ? selectedShippingOption.price : 0, [selectedShippingOption]);
+
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping' && selectedShippingOption?.id !== 'pickup') {
+            discountValue = shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost, selectedShippingOption]);
+
+    
+    const handleApplyCoupon = (e) => {
+        e.preventDefault();
+        if (couponCode.trim()) {
+            applyCoupon(couponCode);
+        }
+    }
+    
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
+    return (
+        <div className="bg-black text-white min-h-screen">
+            <div className="container mx-auto px-4 py-8">
+                <h1 className="text-3xl md:text-4xl font-bold mb-8">Carrinho de Compras</h1>
+                {cart.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-xl">Seu carrinho está vazio.</p>
+                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-2 space-y-6">
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
+                                {cart.map(item => (
+                                    <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
+                                        <div className="flex items-center w-full sm:w-auto">
+                                            <div 
+                                                className="w-20 h-20 bg-white rounded-md flex-shrink-0 cursor-pointer"
+                                                onClick={() => onNavigate(`product/${item.id}`)}
+                                            >
+                                                <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                                            </div>
+                                            <div className="flex-grow px-4">
+                                                <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-between w-full sm:w-auto">
+                                            <div className="flex items-center space-x-2">
+                                                <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
+                                                <span className="w-8 text-center">{item.qty}</span>
+                                                <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
+                                            </div>
+                                            <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
+                                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <ShippingCalculator items={cart} onShippingOptionChange={setSelectedShippingOption} />
+                        </div>
+
+                        <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
+                            <h2 className="text-2xl font-bold mb-4">Resumo</h2>
+                            <div className="space-y-2 mb-4">
+                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                                
+                                <div className="flex justify-between text-gray-300">
+                                    <span>Frete ({selectedShippingOption?.name || '...'})</span>
+                                    {isLoadingShipping ? (
+                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                    ) : selectedShippingOption ? (
+                                        <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                    ) : (
+                                        <span className="text-xs text-gray-500">Informe o CEP</span>
+                                    )}
+                                </div>
+                                
+                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
+
+                                {appliedCoupon && (
+                                    <div className="flex justify-between text-green-400">
+                                        <span>Desconto ({appliedCoupon.code})</span>
+                                        <span>- R$ {discount.toFixed(2)}</span>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
+                                <span>Total</span>
+                                <span className="text-amber-400">R$ {total.toFixed(2)}</span>
+                            </div>
+                            
+                            {!appliedCoupon ? (
+                                <>
+                                <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                                    <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
+                                    <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
+                                </form>
+                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                </>
+                            ) : (
+                                <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
+                                    <p className="text-sm text-green-400 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/>{couponMessage}</p>
+                                    <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline">Remover</button>
+                                </div>
+                            )}
+                            
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!selectedShippingOption || cart.length === 0}>Ir para o Checkout</button>
+                            {!selectedShippingOption && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+const WishlistPage = ({ onNavigate }) => {
+    const { wishlist, removeFromWishlist } = useShop();
+    const notification = useNotification();
+    
+    const handleRemove = async (item) => {
+        await removeFromWishlist(item.id);
+        notification.show(`${item.name} removido da lista de desejos.`, 'error');
+    };
+
+    return (
+        <div className="bg-black text-white min-h-screen py-12">
+            <div className="container mx-auto px-4">
+                <h1 className="text-3xl md:text-4xl font-bold mb-8">Lista de Desejos</h1>
+                 {wishlist.length === 0 ? (
+                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
+                        <p className="text-gray-400 text-xl">Sua lista de desejos está vazia.</p>
+                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {wishlist.map(item => (
+                            <div key={item.id} className="bg-gray-900 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-gray-800 gap-4">
+                                <div className="flex items-center flex-grow w-full sm:w-auto">
+                                    <div className="w-20 h-20 bg-white p-1 rounded-md flex-shrink-0">
+                                        <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                                    </div>
+                                    <h3 className="font-bold text-lg flex-grow px-4 sm:px-6 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                </div>
+                                <div className="flex items-center space-x-4 flex-shrink-0">
+                                    <button onClick={() => onNavigate(`product/${item.id}`)} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600">Ver Produto</button>
+                                    <button onClick={() => handleRemove(item)} className="text-gray-500 hover:text-red-500 p-2"><TrashIcon className="h-5 w-5"/></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                 )}
+            </div>
+        </div>
+    );
+};
+
+const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+        alias: '',
+        cep: '',
+        logradouro: '',
+        numero: '',
+        complemento: '',
+        bairro: '',
+        localidade: '',
+        uf: '',
+        is_default: false,
+        ...initialData
+    });
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+
+    const handleCepLookup = useCallback(async (cepValue) => {
+        const cep = cepValue.replace(/\D/g, '');
+        if (cep.length !== 8) return;
+        
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+            if (!response.ok) throw new Error('Falha na resposta da API de CEP.');
+            
+            const data = await response.json();
+            if (!data.erro) {
+                setFormData(prev => ({ 
+                    ...prev, 
+                    logradouro: data.logradouro, 
+                    bairro: data.bairro, 
+                    localidade: data.localidade, 
+                    uf: data.uf
+                }));
+            } else {
+                notification.show("CEP não encontrado.", "error");
+            }
+        } catch (error) {
+            console.error("Erro ao buscar CEP:", error);
+            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
+        }
+    }, [notification]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleCepChange = (e) => {
+        const newCep = maskCEP(e.target.value);
+        setFormData(prev => ({ ...prev, cep: newCep }));
+        if (newCep.replace(/\D/g, '').length === 8) {
+            handleCepLookup(newCep);
+        }
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        await onSave(formData);
+        setIsSaving(false);
+    };
+    
+    const isFormValid = useMemo(() => {
+        const { alias, cep, logradouro, numero, bairro, localidade, uf } = formData;
+        return alias && cep.replace(/\D/g, '').length === 8 && logradouro && numero && bairro && localidade && uf;
+    }, [formData]);
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
+            <input name="alias" value={formData.alias} onChange={handleChange} placeholder="Apelido do Endereço (ex: Casa, Trabalho)" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+            <input name="cep" value={formData.cep} onChange={handleCepChange} placeholder="CEP" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+            <input name="logradouro" value={formData.logradouro} onChange={handleChange} placeholder="Rua / Logradouro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+            <div className="flex space-x-4">
+                <input name="numero" value={formData.numero} onChange={handleChange} placeholder="Número" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+                <input name="complemento" value={formData.complemento} onChange={handleChange} placeholder="Complemento (Opcional)" className="w-1/2 p-3 bg-gray-100 border border-gray-300 rounded-md" />
+            </div>
+            <input name="bairro" value={formData.bairro} onChange={handleChange} placeholder="Bairro" className="w-full p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+            <div className="flex space-x-4">
+                <input name="localidade" value={formData.localidade} onChange={handleChange} placeholder="Cidade" className="flex-grow p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+                <input name="uf" value={formData.uf} onChange={handleChange} placeholder="UF" className="w-1/4 p-3 bg-gray-100 border border-gray-300 rounded-md" required />
+            </div>
+            <div className="flex items-center">
+                <input type="checkbox" id="is_default" name="is_default" checked={formData.is_default} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
+                <label htmlFor="is_default" className="ml-2 block text-sm text-gray-700">Salvar como endereço padrão</label>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4">
+                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                <button type="submit" disabled={!isFormValid || isSaving} className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
+                    {isSaving ? <SpinnerIcon /> : 'Salvar Endereço'}
+                </button>
+            </div>
+        </form>
+    );
+};
+
+const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, onAddNewAddress }) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Selecione um Endereço de Entrega" size="md">
+            <div className="space-y-3">
+                {addresses.map(addr => (
+                    <div 
+                        key={addr.id} 
+                        onClick={() => onSelectAddress(addr)}
+                        className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50"
+                    >
+                        <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
+                        <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero}</p>
+                        <p className="text-sm text-gray-500">{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                        <p className="text-sm text-gray-500">{addr.cep}</p>
+                    </div>
+                ))}
+                {addresses.length < 5 && (
+                    <button 
+                        onClick={onAddNewAddress}
+                        className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors"
+                    >
+                        <PlusCircleIcon className="h-6 w-6" />
+                        <span>Adicionar Novo Endereço</span>
+                    </button>
+                )}
+            </div>
+        </Modal>
+    );
+};
+
+
+const CheckoutPage = ({ onNavigate }) => {
+    const { 
+        cart, 
+        selectedShippingOption, 
+        appliedCoupon, 
+        clearOrderState,
+        addresses,
+        fetchAddresses,
+        setShippingLocation
+    } = useShop();
+    const notification = useNotification();
+    
+    const [selectedAddress, setSelectedAddress] = useState(null);
+    const [pickupPersonDetails, setPickupPersonDetails] = useState('');
+    
+    const [paymentMethod, setPaymentMethod] = useState('mercadopago');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isAddressLoading, setIsAddressLoading] = useState(true);
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
+    
+    const isPickupSelected = selectedShippingOption?.id === 'pickup';
+
+    useEffect(() => {
+        setIsAddressLoading(true);
+        fetchAddresses().then(userAddresses => {
+            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
+            if (defaultAddress) {
+                setSelectedAddress(defaultAddress);
+            }
+        }).finally(() => {
+            setIsAddressLoading(false);
+        });
+    }, [fetchAddresses]);
+
+    useEffect(() => {
+        if (selectedAddress && !isPickupSelected) {
+            setShippingLocation({
+                cep: selectedAddress.cep,
+                city: selectedAddress.localidade,
+                state: selectedAddress.uf,
+                alias: selectedAddress.alias
+            });
+        }
+    }, [selectedAddress, setShippingLocation, isPickupSelected]);
+
+    const handleAddressSelection = (address) => {
+        setSelectedAddress(address);
+        setIsAddressModalOpen(false);
+    };
+
+    const handleAddNewAddress = () => {
+        setIsAddressModalOpen(false);
+        setIsNewAddressModalOpen(true);
+    };
+
+    const handleSaveNewAddress = async (formData) => {
+        try {
+            const savedAddress = await apiService('/addresses', 'POST', formData);
+            notification.show('Endereço salvo com sucesso!');
+            await fetchAddresses();
+            setSelectedAddress(savedAddress); 
+            setIsNewAddressModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
+        }
+    };
+
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const shippingCost = useMemo(() => selectedShippingOption ? selectedShippingOption.price : 0, [selectedShippingOption]);
+    
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping' && !isPickupSelected) {
+            discountValue = shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost, isPickupSelected]);
+    
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
+    const handlePlaceOrderAndPay = async () => {
+        if ((!selectedAddress && !isPickupSelected) || !paymentMethod || !selectedShippingOption) {
+            notification.show("Por favor, selecione um endereço e uma forma de entrega.", 'error');
+            return;
+        }
+        setIsLoading(true);
+
+        try {
+            const orderPayload = {
+                items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
+                total: total,
+                shippingAddress: isPickupSelected ? null : selectedAddress,
+                pickup_person_details: isPickupSelected ? pickupPersonDetails : null,
+                paymentMethod: paymentMethod,
+                shipping_method: selectedShippingOption.name,
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon ? appliedCoupon.code : null,
+                discount_amount: discount
+            };
+            const orderResult = await apiService('/orders', 'POST', orderPayload);
+            const { orderId } = orderResult;
+
+            if (paymentMethod === 'mercadopago') {
+                const mpPayload = { orderId };
+                const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
+                if (paymentResult && paymentResult.init_point) {
+                    window.location.href = paymentResult.init_point;
+                } else {
+                    throw new Error("Não foi possível obter o link de pagamento.");
+                }
+            } else {
+                clearOrderState();
+                onNavigate(`order-success/${orderId}`);
+            }
+
+        } catch (error) {
+            notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <>
+            <AddressSelectionModal 
+                isOpen={isAddressModalOpen}
+                onClose={() => setIsAddressModalOpen(false)}
+                addresses={addresses}
+                onSelectAddress={handleAddressSelection}
+                onAddNewAddress={handleAddNewAddress}
+            />
+            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço">
+                <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
+            </Modal>
+
+            <div className="bg-black text-white min-h-screen">
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <div className="lg:col-span-1 space-y-8">
+                            {/* Seção de Endereço ou Retirada */}
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. {isPickupSelected ? "Detalhes da Retirada" : "Endereço de Entrega"}</h2>
+                                {isPickupSelected ? (
+                                    <div className="space-y-4">
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg">Retirada na Loja</p>
+                                            <p className="text-gray-300">R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                                            <p className="text-xs text-gray-400 mt-1">Você será notificado quando o pedido estiver pronto.</p>
+                                        </div>
+                                        <div>
+                                            <label htmlFor="pickupPerson" className="block text-sm font-medium text-gray-300 mb-2">
+                                                Autorizar outra pessoa para retirar? (Opcional)
+                                            </label>
+                                            <input 
+                                                id="pickupPerson"
+                                                type="text"
+                                                value={pickupPersonDetails}
+                                                onChange={(e) => setPickupPersonDetails(e.target.value)}
+                                                placeholder="Nome completo e documento (RG/CPF)"
+                                                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    isAddressLoading ? (
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : selectedAddress ? (
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg">{selectedAddress.alias}</p>
+                                            <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
+                                            <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
+                                            <p className="text-gray-400">{selectedAddress.cep}</p>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
+                                                Alterar Endereço
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço de entrega cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
+                                            </button>
+                                        </div>
+                                    )
+                                )}
+                            </div>
+
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
+                                <div className="space-y-3">
+                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
+                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
+                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
+                                <div className="border-t border-gray-700 mt-4 pt-4">
+                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
+                                    {selectedShippingOption && (
+                                        <div className="flex justify-between text-gray-300 py-1">
+                                            <span>Frete ({selectedShippingOption.name})</span>
+                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
+                                </div>
+                                
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!selectedAddress && !isPickupSelected) || !paymentMethod || !selectedShippingOption || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                    {isLoading ? <SpinnerIcon /> : 'Finalizar e Pagar'}
+                                </button>
+                            </div>
+                        </div>
+                     </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
+const OrderSuccessPage = ({ orderId, onNavigate }) => {
+    const { clearOrderState } = useShop();
+    const [pageStatus, setPageStatus] = useState('processing');
+    const [finalOrderStatus, setFinalOrderStatus] = useState('');
+
+    const pollStatus = useCallback(async () => {
+        console.log(`Verificando status do pedido #${orderId}...`);
+        try {
+            const response = await apiService(`/orders/${orderId}/status`);
+            if (response.status && response.status !== 'Pendente') {
+                setFinalOrderStatus(response.status);
+                setPageStatus('success');
+                return true;
+            }
+        } catch (err) {
+            console.error("Erro ao verificar status, continuando a verificação.", err);
+        }
+        return false;
+    }, [orderId]);
+
+    useEffect(() => {
+        clearOrderState();
+
+        let pollInterval;
+        let timeout;
+
+        const startPolling = async () => {
+            const isFinished = await pollStatus();
+            if (isFinished) return;
+
+            pollInterval = setInterval(async () => {
+                const finished = await pollStatus();
+                if (finished) {
+                    clearInterval(pollInterval);
+                    clearTimeout(timeout);
+                }
+            }, 3000);
+
+            timeout = setTimeout(() => {
+                clearInterval(pollInterval);
+                if (pageStatus === 'processing') {
+                    setPageStatus('timeout');
+                }
+            }, 45000);
+        };
+
+        startPolling();
+        
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && pageStatus === 'processing') {
+                console.log("Página ficou visível, forçando nova verificação de status.");
+                pollStatus();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(pollInterval);
+            clearTimeout(timeout);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [orderId, clearOrderState, pollStatus, pageStatus]);
+
+
+    const renderContent = () => {
+        switch (pageStatus) {
+            case 'success':
+                return {
+                    icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
+                    title: "Pagamento Aprovado!",
+                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio ou retirada!`
+                };
+            case 'timeout':
+                return {
+                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
+                    title: "Pedido Recebido!",
+                    message: `Seu pedido #${orderId} foi recebido. A confirmação do pagamento pode levar alguns minutos. Você pode acompanhar o status final na sua área de cliente.`
+                };
+            case 'processing':
+            default:
+                return {
+                    icon: (
+                        <div className="relative mb-6">
+                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
+                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
+                        </div>
+                    ),
+                    title: "Confirmando Pagamento...",
+                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
+                };
+        }
+    };
+
+    const { icon, title, message } = renderContent();
+
+    return (
+        <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
+            <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
+                {icon}
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
+                <p className="text-gray-300 mb-6">{message}</p>
+                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
+                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
+                </div>
+            </div>
+        </div>
+    );
+};
