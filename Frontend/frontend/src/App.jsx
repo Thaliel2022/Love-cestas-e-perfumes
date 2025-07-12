@@ -4676,7 +4676,7 @@ export default function App() {
     useEffect(() => {
         // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
-        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292998/oqlmcniwonhsymidrd2v.png";
+        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
 
         document.title = APP_NAME;
@@ -4759,6 +4759,14 @@ export default function App() {
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
+        return () => {
+            if (document.head.contains(manifestLink)) {
+                document.head.removeChild(manifestLink);
+            }
+            if (document.head.contains(faviconLink)) {
+                document.head.removeChild(faviconLink);
+            }
+        };
     }, []);
 
     return (
