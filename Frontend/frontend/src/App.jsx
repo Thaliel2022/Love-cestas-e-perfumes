@@ -39,6 +39,7 @@ const MapPinIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>;
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -317,7 +318,6 @@ const ShopProvider = ({ children }) => {
         return false; // Retorna false se nenhum endereço foi encontrado
     }, []);
 
-    // CORREÇÃO: Lógica de `determineShippingLocation` melhorada para ser mais robusta.
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
 
@@ -522,7 +522,6 @@ const ShopProvider = ({ children }) => {
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
-            // CORREÇÃO: Expondo a função para ser usada em outros componentes
             determineShippingLocation,
 
             // Cupons
@@ -1780,7 +1779,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             )}
                             </AnimatePresence>
                             
-                            {/* CORREÇÃO: Removido o padding vertical excessivo em telas pequenas */}
                             <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div
                                     className="flex sm:flex-col gap-3"
@@ -2782,7 +2780,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    // Lógica para status especiais (Cancelado, etc.) permanece a mesma
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
@@ -2816,14 +2813,12 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                     return (
                         <React.Fragment key={statusKey}>
                             <div 
-                                // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                 className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                 </div>
                                 <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
                             </div>
                             {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
@@ -2846,7 +2841,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                         <div key={statusKey} className="flex">
                             <div className="flex flex-col items-center mr-4">
                                 <div 
-                                    // --- CORREÇÃO DE CLIQUE APLICADA AQUI ---
                                     className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                     onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
@@ -2857,7 +2851,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                                 className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                 onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                 <p className={`font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {/* --- CORREÇÃO DE DATA APLICADA AQUI --- */}
                                 {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
                             </div>
                         </div>
@@ -2872,7 +2865,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     if (!isOpen || !details) return null;
 
-    // CORREÇÃO: Mapeamento de cores para garantir contraste no modal.
     const colorMap = {
         amber: { bg: 'bg-amber-100', icon: 'text-amber-600', title: 'text-amber-800' },
         green: { bg: 'bg-green-100', icon: 'text-green-600', title: 'text-green-800' },
@@ -3050,7 +3042,6 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-// CORREÇÃO: Lógica de exclusão/alteração de endereço agora reinicia o cálculo de frete
 const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const notification = useNotification();
@@ -3077,7 +3068,7 @@ const MyAddressesSection = () => {
                 notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation(); 
             setIsModalOpen(false);
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
@@ -3090,7 +3081,7 @@ const MyAddressesSection = () => {
                 await apiService(`/addresses/${id}`, 'DELETE');
                 notification.show('Endereço excluído.');
                 await fetchAddresses();
-                determineShippingLocation(); // Força a reavaliação da localização
+                determineShippingLocation(); 
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
             }
@@ -3102,7 +3093,7 @@ const MyAddressesSection = () => {
             await apiService(`/addresses/${id}/default`, 'PUT');
             notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
-            determineShippingLocation(); // Força a reavaliação da localização
+            determineShippingLocation();
         } catch (error) {
             notification.show(`Erro: ${error.message}`, 'error');
         }
@@ -4561,9 +4552,30 @@ const AdminReports = () => {
     );
 };
 
+// --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
+const InstallPWAButton = ({ deferredPrompt }) => {
+    const handleInstallClick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`PWA setup user choice: ${outcome}`);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleInstallClick}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-6 py-3 rounded-full shadow-lg hover:bg-amber-400 font-bold flex items-center gap-2 transition-transform hover:scale-105"
+        >
+            <DownloadIcon className="h-5 w-5" />
+            <span>Instalar App</span>
+        </button>
+    );
+};
+
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-function AppContent() {
+function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
@@ -4656,12 +4668,62 @@ function AppContent() {
           <p className="text-gray-500">© 2025 LovecestasePerfumes</p>
         </footer>
       )}
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
 
 export default function App() {
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+
     useEffect(() => {
+        // --- LÓGICA DO PWA ---
+        const manifestContent = {
+            "name": "Love Cestas e Perfumes",
+            "short_name": "Love Cestas",
+            "description": "Sua loja de cestas e perfumes.",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#111827",
+            "theme_color": "#D4AF37",
+            "icons": [
+                { "src": "/icon-192x192.png", "type": "image/png", "sizes": "192x192" },
+                { "src": "/icon-512x512.png", "type": "image/png", "sizes": "512x512" }
+            ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
+        const manifestUrl = URL.createObjectURL(manifestBlob);
+        
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = manifestUrl;
+        document.head.appendChild(link);
+
+        const serviceWorkerContent = `
+            self.addEventListener('install', (event) => {
+                console.log('Service Worker: Instalado');
+            });
+            self.addEventListener('fetch', (event) => {
+                // Estratégia de cache pode ser adicionada aqui no futuro
+                event.respondWith(fetch(event.request));
+            });
+        `;
+        const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(swBlob);
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register(swUrl)
+                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
+                .catch(error => console.log('Falha no registro do Service Worker:', error));
+        }
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            console.log('`beforeinstallprompt` event foi disparado.');
+        });
+        
+        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
@@ -4675,16 +4737,16 @@ export default function App() {
             document.body.appendChild(script);
         };
 
-        // Carrega as bibliotecas de relatório
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
-
-        // Carrega o SDK do Mercado Pago
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
+        return () => {
+            document.head.removeChild(link);
+        };
     }, []);
 
     return (
@@ -4692,7 +4754,7 @@ export default function App() {
             <NotificationProvider>
                 <ConfirmationProvider>
                     <ShopProvider>
-                        <AppContent />
+                        <AppContent deferredPrompt={deferredPrompt} />
                     </ShopProvider>
                 </ConfirmationProvider>
             </NotificationProvider>
