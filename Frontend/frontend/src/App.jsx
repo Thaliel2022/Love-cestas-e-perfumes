@@ -313,9 +313,9 @@ const ShopProvider = ({ children }) => {
                 state: defaultAddr.uf,
                 alias: defaultAddr.alias
             });
-            return true; // Retorna true se um endereço foi definido
+            return true;
         }
-        return false; // Retorna false se nenhum endereço foi encontrado
+        return false;
     }, []);
 
     const determineShippingLocation = useCallback(async () => {
@@ -356,7 +356,6 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            // Limpa o estado ao deslogar
             setCart([]);
             setWishlist([]);
             setAddresses([]);
@@ -515,7 +514,6 @@ const ShopProvider = ({ children }) => {
             updateQuantity, removeFromCart,
             userName: user?.name,
             
-            // Endereços e Frete
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
@@ -524,7 +522,6 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation,
             determineShippingLocation,
 
-            // Cupons
             couponCode, setCouponCode,
             couponMessage,
             applyCoupon,
@@ -4687,24 +4684,30 @@ export default function App() {
             "background_color": "#111827",
             "theme_color": "#D4AF37",
             "icons": [
-                { "src": "/icon-192x192.png", "type": "image/png", "sizes": "192x192" },
-                { "src": "/icon-512x512.png", "type": "image/png", "sizes": "512x512" }
+                { "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png", "type": "image/png", "sizes": "192x192" },
+                { "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png", "type": "image/png", "sizes": "512x512" }
             ]
         };
+        
         const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
         const manifestUrl = URL.createObjectURL(manifestBlob);
         
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = manifestUrl;
-        document.head.appendChild(link);
+        const manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        manifestLink.href = manifestUrl;
+        document.head.appendChild(manifestLink);
+
+        const faviconLink = document.createElement('link');
+        faviconLink.rel = 'icon';
+        faviconLink.type = 'image/png';
+        faviconLink.href = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292998/oqlmcniwonhsymidrd2v.png';
+        document.head.appendChild(faviconLink);
 
         const serviceWorkerContent = `
             self.addEventListener('install', (event) => {
                 console.log('Service Worker: Instalado');
             });
             self.addEventListener('fetch', (event) => {
-                // Estratégia de cache pode ser adicionada aqui no futuro
                 event.respondWith(fetch(event.request));
             });
         `;
@@ -4745,7 +4748,8 @@ export default function App() {
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
         return () => {
-            document.head.removeChild(link);
+            document.head.removeChild(manifestLink);
+            document.head.removeChild(faviconLink);
         };
     }, []);
 
