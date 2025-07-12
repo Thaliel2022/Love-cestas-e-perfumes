@@ -4675,8 +4675,14 @@ export default function App() {
 
     useEffect(() => {
         // --- LÓGICA DO PWA ---
+        const APP_NAME = "LovecestasePerfumes";
+        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292998/oqlmcniwonhsymidrd2v.png";
+        const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
+
+        document.title = APP_NAME;
+
         const manifestContent = {
-            "name": "Love Cestas e Perfumes",
+            "name": APP_NAME,
             "short_name": "Love Cestas",
             "description": "Sua loja de cestas e perfumes.",
             "start_url": "/",
@@ -4684,24 +4690,30 @@ export default function App() {
             "background_color": "#111827",
             "theme_color": "#D4AF37",
             "icons": [
-                { "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png", "type": "image/png", "sizes": "192x192" },
-                { "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png", "type": "image/png", "sizes": "512x512" }
+                { "src": ICON_URL, "type": "image/png", "sizes": "192x192" },
+                { "src": ICON_URL, "type": "image/png", "sizes": "512x512" }
             ]
         };
         
         const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
         const manifestUrl = URL.createObjectURL(manifestBlob);
         
-        const manifestLink = document.createElement('link');
-        manifestLink.rel = 'manifest';
+        let manifestLink = document.querySelector('link[rel="manifest"]');
+        if (!manifestLink) {
+            manifestLink = document.createElement('link');
+            manifestLink.rel = 'manifest';
+            document.head.appendChild(manifestLink);
+        }
         manifestLink.href = manifestUrl;
-        document.head.appendChild(manifestLink);
 
-        const faviconLink = document.createElement('link');
-        faviconLink.rel = 'icon';
+        let faviconLink = document.querySelector('link[rel="icon"]');
+        if (!faviconLink) {
+            faviconLink = document.createElement('link');
+            faviconLink.rel = 'icon';
+            document.head.appendChild(faviconLink);
+        }
         faviconLink.type = 'image/png';
-        faviconLink.href = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292998/oqlmcniwonhsymidrd2v.png';
-        document.head.appendChild(faviconLink);
+        faviconLink.href = FAVICON_URL;
 
         const serviceWorkerContent = `
             self.addEventListener('install', (event) => {
@@ -4747,10 +4759,6 @@ export default function App() {
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
-        return () => {
-            document.head.removeChild(manifestLink);
-            document.head.removeChild(faviconLink);
-        };
     }, []);
 
     return (
