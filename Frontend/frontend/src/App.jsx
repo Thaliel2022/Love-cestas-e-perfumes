@@ -1780,7 +1780,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             )}
                             </AnimatePresence>
                             
-                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide py-10">
+                            {/* CORREÇÃO: Removido o padding vertical excessivo em telas pequenas */}
+                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div
                                     className="flex sm:flex-col gap-3"
                                     animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
