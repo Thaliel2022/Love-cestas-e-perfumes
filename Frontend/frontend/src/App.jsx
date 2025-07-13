@@ -41,7 +41,6 @@ const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-const LogoutIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -1139,29 +1138,16 @@ const Header = memo(({ onNavigate }) => {
                         />
                         <motion.div 
                             variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
-                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-50 flex flex-col"
+                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
                         >
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800">
-                                <h2 className="font-bold text-amber-400 text-lg">Menu</h2>
+                            <div className="flex justify-between items-center p-4 border-b border-gray-800">
+                                <h2 className="font-bold text-amber-400">Menu</h2>
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
-
-                            <div className="flex-shrink-0 p-4 border-b border-gray-800">
-                                <form onSubmit={handleSearchSubmit}>
-                                    <input 
-                                        type="text" 
-                                        value={searchTerm} 
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        placeholder="O que você procura?" 
-                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                    />
-                                </form>
-                            </div>
-
-                            <nav className="flex-grow p-4 overflow-y-auto">
+                            <div className="flex-grow p-4 overflow-y-auto">
                                 {categoriesForMenu.map((cat, index) => (
                                     <div key={cat.name} className="border-b border-gray-800">
-                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-semibold text-white">
+                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
                                             <span>{cat.name}</span>
                                             <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
                                         </button>
@@ -1169,31 +1155,30 @@ const Header = memo(({ onNavigate }) => {
                                         {mobileAccordion === index && (
                                             <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
                                                 {cat.sub.map(subCat => (
-                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300 py-1">{subCat}</a></li>
+                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
                                                 ))}
                                             </motion.ul>
                                         )}
                                         </AnimatePresence>
                                     </div>
                                 ))}
-                                <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-semibold text-white border-b border-gray-800 hover:text-amber-400">Ver Tudo</a>
-                                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="block py-3 font-semibold text-red-400 border-b border-gray-800 hover:text-red-300">Promoções</a>
-                                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-semibold text-white hover:text-amber-400">Ajuda</a>
-                            </nav>
-                            
-                            <div className="flex-shrink-0 p-4 border-t border-gray-700 space-y-4">
-                                {isAuthenticated ? (
-                                    <div className="space-y-2">
-                                        <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="flex items-center gap-3 text-white hover:text-amber-400"><UserIcon className="h-5 w-5"/> Minha Conta</a>
-                                        {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="flex items-center gap-3 text-amber-400 hover:text-amber-300"><AdminIcon className="h-5 w-5"/> Painel Admin</a>}
-                                        <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left flex items-center gap-3 text-white hover:text-amber-400"><LogoutIcon className="h-5 w-5"/> Sair</button>
-                                    </div>
-                                ) : (
-                                    <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold text-center">Login / Criar Conta</button>
-                                )}
-                                <div className="flex justify-center items-center space-x-6 pt-4">
-                                     <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><InstagramIcon className="h-6 w-6" /></a>
-                                     <a href="https://wa.me/5583987878878" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white"><WhatsappIcon className="h-6 w-6" /></a>
+                                <div className="border-b border-gray-800">
+                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
+                                </div>
+                                <div className="border-b border-gray-800">
+                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
+                                </div>
+                                <div className="pt-4 space-y-3">
+                                    {isAuthenticated ? (
+                                        <>
+                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
+                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
+                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
@@ -3076,7 +3061,7 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
                                 </button>
                             ))}
                             <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
-                                <LogoutIcon className="h-5 w-5" />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                                 <span>Sair</span>
                             </button>
                         </div>
@@ -3093,6 +3078,7 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
         </div>
     );
 };
+
 const EmptyState = ({ icon, title, message, buttonText, onButtonClick }) => (
     <div className="text-center py-10 sm:py-16 px-4">
         <div className="mx-auto w-fit p-4 bg-gray-800 rounded-full text-amber-400 mb-4">
@@ -3403,12 +3389,8 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         logout();
         onNavigate('home');
     }
-
     return (
-        <div className="h-screen flex bg-gray-100 text-gray-800 overflow-hidden">
-            {/* Sidebar Overlay for Mobile */}
-            {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
-            
+        <div className="min-h-screen flex bg-gray-100 text-gray-800">
             {/* Sidebar */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
@@ -3432,10 +3414,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
                 <div className="p-4 border-t border-gray-800 flex-shrink-0">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2"><HomeIcon className="h-5 w-5 mr-3"/> Voltar à Loja</a>
-                    <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800"><LogoutIcon className="h-5 w-5 mr-3"/> Sair</button>
+                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2">🏠 Voltar à Loja</a>
+                    <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800">🚪 Sair</button>
                 </div>
             </aside>
+             {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
