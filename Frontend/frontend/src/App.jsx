@@ -3360,10 +3360,15 @@ const NotificationSettings = () => {
             return;
         }
         setPermission(Notification.permission);
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.getSubscription();
-        setIsSubscribed(!!subscription);
-        setIsLoading(false);
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            setIsSubscribed(!!subscription);
+        } catch (error) {
+            console.error("Erro ao verificar inscrição no Service Worker:", error);
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
     useEffect(() => {
@@ -3372,19 +3377,20 @@ const NotificationSettings = () => {
 
     const handleSubscriptionChange = async () => {
         setIsLoading(true);
-        const registration = await navigator.serviceWorker.ready;
         
         if (isSubscribed) {
-            const subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
-                try {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
                     await apiService('/notifications/unsubscribe', 'POST', { endpoint: subscription.endpoint });
                     await subscription.unsubscribe();
                     setIsSubscribed(false);
                     addNotification({ title: 'Notificações Desativadas', message: 'Você não receberá mais notificações push.', type: 'info' });
-                } catch (error) {
-                    addNotification({ title: 'Erro', message: 'Não foi possível desativar as notificações.', type: 'error' });
                 }
+            } catch (error) {
+                console.error("Erro ao desinscrever:", error);
+                addNotification({ title: 'Erro', message: 'Não foi possível desativar as notificações.', type: 'error' });
             }
         } else {
             const currentPermission = await Notification.requestPermission();
@@ -3392,6 +3398,7 @@ const NotificationSettings = () => {
 
             if (currentPermission === 'granted') {
                 try {
+                    const registration = await navigator.serviceWorker.ready;
                     const VAPID_PUBLIC_KEY = await apiService('/notifications/vapid-key');
                     const subscription = await registration.pushManager.subscribe({
                         userVisibleOnly: true,
@@ -4939,7 +4946,6 @@ export default function App() {
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL_192 = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
         const ICON_URL_512 = "https://res.cloudinary.com/dvflxuxh3/image/upload/c_scale,w_512/v1752292990/uqw1twmffseqafkiet0t.png";
-        const BADGE_ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/c_scale,w_72/v1752296170/kk9tlhxb2qyioeoieq6g.png";
 
         document.title = APP_NAME;
 
@@ -4976,71 +4982,13 @@ export default function App() {
         }
         faviconLink.type = 'image/png';
         faviconLink.href = FAVICON_URL;
-
-        const serviceWorkerContent = `
-            self.addEventListener('install', (event) => {
-                console.log('Service Worker: Instalado');
-                self.skipWaiting();
-            });
-
-            self.addEventListener('activate', (event) => {
-                console.log('Service Worker: Ativado');
-                event.waitUntil(self.clients.claim());
-            });
-
-            self.addEventListener('push', (event) => {
-                console.log('[Service Worker] Push Recebido.');
-                let data = {};
-                try {
-                    data = event.data.json();
-                } catch (e) {
-                    data = { title: 'Nova Notificação', body: event.data.text() };
-                }
-
-                const title = data.title || 'Love Cestas e Perfumes';
-                const options = {
-                    body: data.body,
-                    icon: '${ICON_URL_192}',
-                    badge: '${BADGE_ICON_URL}',
-                    data: {
-                        url: data.url || self.location.origin
-                    }
-                };
-
-                event.waitUntil(self.registration.showNotification(title, options));
-            });
-
-            self.addEventListener('notificationclick', (event) => {
-                console.log('[Service Worker] Notificação clicada.');
-                event.notification.close();
-                
-                const urlToOpen = new URL(event.notification.data.url || '/', self.location.origin).href;
-                
-                event.waitUntil(
-                    clients.matchAll({
-                        type: 'window',
-                        includeUncontrolled: true
-                    }).then((clientList) => {
-                        for (let i = 0; i < clientList.length; i++) {
-                            const client = clientList[i];
-                            if (client.url === urlToOpen && 'focus' in client) {
-                                return client.focus();
-                            }
-                        }
-                        if (clients.openWindow) {
-                            return clients.openWindow(urlToOpen);
-                        }
-                    })
-                );
-            });
-        `;
-        const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(swBlob);
         
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl, { scope: '/' })
-                .then(registration => console.log('Service Worker registrado com sucesso com escopo:', registration.scope))
-                .catch(error => console.log('Falha no registro do Service Worker:', error));
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => console.log('Service Worker registrado com sucesso com escopo:', registration.scope))
+                    .catch(error => console.log('Falha no registro do Service Worker:', error));
+            });
         }
 
         window.addEventListener('beforeinstallprompt', (e) => {
