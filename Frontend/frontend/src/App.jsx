@@ -1134,11 +1134,9 @@ const Header = memo(({ onNavigate }) => {
     );
 });
 
-// --- PÁGINAS DO CLIENTE ---
-
-const CategoryCarousel = memo(({ categories, onNavigate }) => {
+const CategoryCarousel = memo(({ categories, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [itemsPerPage, setItemsPerPage] = useState(7);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
@@ -1147,7 +1145,6 @@ const CategoryCarousel = memo(({ categories, onNavigate }) => {
         if (window.innerWidth < 640) setItemsPerPage(3);
         else if (window.innerWidth < 768) setItemsPerPage(4);
         else if (window.innerWidth < 1024) setItemsPerPage(5);
-        else if (window.innerWidth < 1280) setItemsPerPage(6);
         else setItemsPerPage(7);
     }, []);
 
@@ -1157,103 +1154,80 @@ const CategoryCarousel = memo(({ categories, onNavigate }) => {
         return () => window.removeEventListener('resize', updateItemsPerPage);
     }, [updateItemsPerPage]);
 
-    useEffect(() => {
-        const maxIndex = Math.max(0, categories.length - itemsPerPage);
-        if (currentIndex > maxIndex) {
-            setCurrentIndex(maxIndex);
-        }
-    }, [itemsPerPage, categories, currentIndex]);
-
-    const canGoPrev = currentIndex > 0;
-    const canGoNext = currentIndex < (categories.length - itemsPerPage);
-
     const goNext = useCallback(() => {
-        if (canGoNext) {
-            setCurrentIndex(prev => prev + 1);
-        }
-    }, [canGoNext]);
+        const maxIndex = Math.max(0, categories.length - itemsPerPage);
+        setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+    }, [categories.length, itemsPerPage]);
 
     const goPrev = useCallback(() => {
-        if (canGoPrev) {
-            setCurrentIndex(prev => prev - 1);
-        }
-    }, [canGoPrev]);
-    
-    const handleTouchStart = (e) => {
-        setTouchEnd(null);
-        setTouchStart(e.targetTouches[0].clientX);
-    };
+        setCurrentIndex(prev => Math.max(prev - 1, 0));
+    }, []);
 
-    const handleTouchMove = (e) => {
-        setTouchEnd(e.targetTouches[0].clientX);
-    };
+    if (!categories || categories.length === 0) return null;
 
+    const canGoPrev = currentIndex > 0;
+    const canGoNext = categories.length > itemsPerPage && currentIndex < (categories.length - itemsPerPage);
+
+    const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
+    const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
     const handleTouchEnd = () => {
         if (!touchStart || !touchEnd) return;
         const distance = touchStart - touchEnd;
-        const isLeftSwipe = distance > minSwipeDistance;
-        const isRightSwipe = distance < -minSwipeDistance;
-
-        if (isLeftSwipe) {
-            goNext();
-        } else if (isRightSwipe) {
-            goPrev();
-        }
-        
+        if (distance > minSwipeDistance && canGoNext) goNext();
+        else if (distance < -minSwipeDistance && canGoPrev) goPrev();
         setTouchStart(null);
         setTouchEnd(null);
     };
 
     return (
-        <div className="relative group">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Coleções</h2>
-            <div 
-                className="overflow-hidden"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-            >
-                <motion.div
-                    className="flex -mx-2"
-                    animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
-                    transition={{ type: 'spring', stiffness: 350, damping: 40 }}
-                >
-                    {categories.map(cat => (
-                        <div key={cat.name} className="flex-shrink-0 px-2" style={{ width: `${100 / itemsPerPage}%` }}>
-                            <div
-                                className="relative rounded-lg overflow-hidden h-40 md:h-48 group/card cursor-pointer"
-                                onClick={() => onNavigate(`products?category=${encodeURIComponent(cat.filter)}`)}
-                            >
-                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-500" />
-                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 text-center">
-                                    <h3 className="text-base md:text-lg font-bold text-white tracking-wider drop-shadow-md">{cat.name}</h3>
+        <section className="bg-black text-white py-12 md:py-16">
+            <div className="container mx-auto px-4">
+                {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+                <div className="relative">
+                    <div 
+                        className="overflow-hidden"
+                        onTouchStart={handleTouchStart}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                    >
+                        <motion.div
+                            className="flex -mx-2"
+                            animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
+                            transition={{ type: 'spring', stiffness: 350, damping: 40 }}
+                        >
+                            {categories.map(cat => (
+                                <div 
+                                    key={cat.name} 
+                                    className="flex-shrink-0 px-2"
+                                    style={{ width: `${100 / itemsPerPage}%` }}
+                                >
+                                    <div className="relative rounded-lg overflow-hidden aspect-square group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
+                                            <h3 className="text-lg font-bold text-white text-center" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>{cat.name}</h3>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    ))}
-                </motion.div>
+                            ))}
+                        </motion.div>
+                    </div>
+                    {canGoPrev && (
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                        </button>
+                    )}
+                    {canGoNext && (
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                    )}
+                </div>
             </div>
-
-            {/* Navigation Arrows */}
-            <button
-                onClick={goPrev}
-                disabled={!canGoPrev}
-                className="absolute top-1/2 -translate-y-1/2 left-0 -translate-x-2 md:-translate-x-4 bg-gray-800/50 hover:bg-gray-800 p-2 rounded-full text-white opacity-0 group-hover:opacity-100 disabled:opacity-0 transition-opacity z-10"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <button
-                onClick={goNext}
-                disabled={!canGoNext}
-                className="absolute top-1/2 -translate-y-1/2 right-0 translate-x-2 md:translate-x-4 bg-gray-800/50 hover:bg-gray-800 p-2 rounded-full text-white opacity-0 group-hover:opacity-100 disabled:opacity-0 transition-opacity z-10"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
-        </div>
+        </section>
     );
 });
 
-
+// --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
 
@@ -1286,7 +1260,7 @@ const HomePage = ({ onNavigate }) => {
         { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
         { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
         { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
-        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" },
+        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
     ];
 
     const bannerVariants = {
@@ -1324,11 +1298,7 @@ const HomePage = ({ onNavigate }) => {
           </motion.div>
         </section>
         
-        <section className="bg-gray-900 text-white py-12 md:py-16">
-            <div className="container mx-auto px-4">
-                <CategoryCarousel categories={categoryCards} onNavigate={onNavigate} />
-            </div>
-        </section>
+        <CategoryCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
 
         <section className="bg-black text-white py-12 md:py-16">
           <div className="container mx-auto px-4">
