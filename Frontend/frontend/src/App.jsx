@@ -40,8 +40,6 @@ const CheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
-const BellIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>;
-const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -535,116 +533,67 @@ const ShopProvider = ({ children }) => {
     );
 };
 
-const NotificationToast = ({ notification, onRemove }) => {
-    const { addNotification } = useNotification();
-    const [isHovered, setIsHovered] = useState(false);
-    const controls = useAnimation();
+const NotificationProvider = ({ children }) => {
+    const [notifications, setNotifications] = useState([]);
 
-    useEffect(() => {
-        const duration = 5000;
-        const timer = setTimeout(() => {
-            if (!isHovered) {
-                controls.start({
-                    opacity: 0,
-                    x: 100,
-                    scale: 0.8,
-                    transition: { duration: 0.4 }
-                }).then(() => onRemove(notification.id));
-            }
-        }, duration);
+    const remove = useCallback((id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    }, []);
 
-        return () => clearTimeout(timer);
-    }, [isHovered, notification.id, onRemove, controls]);
-
-    const notificationTypes = {
-        success: { icon: <CheckCircleIcon className="h-6 w-6"/>, color: 'bg-green-500' },
-        error: { icon: <ExclamationCircleIcon className="h-6 w-6"/>, color: 'bg-red-500' },
-        order_status: { icon: <PackageIcon className="h-6 w-6"/>, color: 'bg-blue-500' },
-        recommendation: { icon: <SparklesIcon className="h-6 w-6"/>, color: 'bg-amber-500' },
-        info: { icon: <ExclamationIcon className="h-6 w-6"/>, color: 'bg-gray-700' },
-    };
-
-    const { icon, color } = notificationTypes[notification.type] || notificationTypes.info;
-
-    const handleClick = () => {
-        if (notification.link) {
-            addNotification({ type: 'info', message: 'Navegando...' }); 
-            window.location.hash = notification.link;
+    const show = useCallback((message, type = 'success', duration = 5000) => {
+        const id = Date.now() + Math.random();
+        setNotifications(prev => [...prev, { id, message, type }]);
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                remove(id);
+            }, duration);
         }
-        onRemove(notification.id);
+    }, [remove]);
+
+    return (
+        <NotificationContext.Provider value={{ show }}>
+            {children}
+            <div className="fixed bottom-5 right-5 z-[100] space-y-3">
+                <AnimatePresence>
+                    {notifications.map(n => 
+                        <ToastMessage 
+                            key={n.id} 
+                            message={n.message} 
+                            type={n.type}
+                            onClose={() => remove(n.id)}
+                        />
+                    )}
+                </AnimatePresence>
+            </div>
+        </NotificationContext.Provider>
+    );
+};
+
+const ToastMessage = ({ message, type, onClose }) => {
+    const typeClasses = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
     };
 
     return (
         <motion.div
             layout
             initial={{ opacity: 0, x: 100, scale: 0.8 }}
-            animate={controls}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 100, scale: 0.8 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className={`pl-6 pr-10 py-4 rounded-lg shadow-xl text-white font-semibold flex items-center space-x-4 relative cursor-pointer ${color}`}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            onClick={handleClick}
+            className={`pl-6 pr-10 py-4 rounded-lg shadow-xl text-white font-semibold flex items-center space-x-3 relative ${typeClasses[type]}`}
         >
-            <div className="flex-shrink-0">{icon}</div>
-            <div>
-                {notification.title && <p className="font-bold text-base">{notification.title}</p>}
-                <p className="text-sm font-normal">{notification.message}</p>
-            </div>
+            {type === 'success' ? <CheckCircleIcon className="h-6 w-6 flex-shrink-0"/> : <ExclamationIcon className="h-6 w-6 flex-shrink-0"/>}
+            <span>{message}</span>
             <button 
-                onClick={(e) => { e.stopPropagation(); onRemove(notification.id); }} 
+                onClick={onClose} 
                 className="absolute top-1/2 right-2 transform -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-white/50"
             >
                 <CloseIcon className="h-5 w-5"/>
             </button>
         </motion.div>
-    );
-};
-
-const NotificationProvider = ({ children }) => {
-    const [notifications, setNotifications] = useState([]);
-    const [toasts, setToasts] = useState([]);
-
-    const addNotification = useCallback((notificationData) => {
-        const id = Date.now() + Math.random();
-        const newNotification = { 
-            id, 
-            read: false, 
-            timestamp: new Date(), 
-            ...notificationData 
-        };
-
-        setNotifications(prev => [newNotification, ...prev].slice(0, 20)); // Keep last 20
-        setToasts(prev => [...prev, newNotification]);
-    }, []);
-
-    const removeToast = useCallback((id) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
-    }, []);
-
-    const markAsRead = useCallback((id) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    }, []);
-
-    const markAllAsRead = useCallback(() => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    }, []);
-
-    return (
-        <NotificationContext.Provider value={{ addNotification, notifications, markAsRead, markAllAsRead }}>
-            {children}
-            <div className="fixed bottom-5 right-5 z-[100] space-y-3">
-                <AnimatePresence>
-                    {toasts.map(toast => 
-                        <NotificationToast 
-                            key={toast.id} 
-                            notification={toast}
-                            onRemove={removeToast}
-                        />
-                    )}
-                </AnimatePresence>
-            </div>
-        </NotificationContext.Provider>
     );
 };
 
@@ -791,7 +740,7 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
 
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [isBuyingNow, setIsBuyingNow] = useState(false);
     
@@ -803,9 +752,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
         setIsAddingToCart(true);
         try {
             await addToCart(product);
-            addNotification({title: "Sucesso!", message: `${product.name} adicionado ao carrinho!`, type: 'success'});
+            notification.show(`${product.name} adicionado ao carrinho!`);
         } catch (error) {
-            addNotification({title: "Erro", message: error.message || "Erro ao adicionar ao carrinho", type: "error"});
+            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
             setIsAddingToCart(false);
         }
@@ -818,7 +767,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             await addToCart(product);
             onNavigate('cart');
         } catch (error) {
-            addNotification({title: "Erro", message: error.message || "Erro ao iniciar compra", type: "error"});
+            notification.show(error.message || "Erro ao iniciar compra", "error");
             setIsBuyingNow(false);
         }
     };
@@ -826,25 +775,25 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const WishlistButton = ({ product }) => {
         const { wishlist, addToWishlist, removeFromWishlist } = useShop();
         const { isAuthenticated } = useAuth();
-        const { addNotification } = useNotification();
+        const notification = useNotification();
         const isWishlisted = wishlist.some(item => item.id === product.id);
 
         const handleWishlistToggle = async (e) => {
             e.stopPropagation();
             if (!isAuthenticated) {
-                addNotification({title: "Aviso", message: "Faça login para adicionar à lista de desejos", type: "error"});
+                notification.show("Faça login para adicionar à lista de desejos", "error");
                 return;
             }
             if (isWishlisted) {
                 await removeFromWishlist(product.id);
-                addNotification({title: "Removido", message: `${product.name} removido da lista de desejos.`, type: 'error'});
+                notification.show(`${product.name} removido da lista de desejos.`, 'error');
             } else {
                 const result = await addToWishlist(product);
-                addNotification({
-                    title: result.success ? "Adicionado!" : "Erro",
-                    message: result.message,
-                    type: result.success ? "success" : "error"
-                });
+                if (result.success) {
+                    notification.show(result.message);
+                } else {
+                    notification.show(result.message, "error");
+                }
             }
         };
 
@@ -1004,75 +953,6 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     );
 });
 
-const NotificationBell = ({ onNavigate }) => {
-    const { notifications, markAsRead, markAllAsRead } = useNotification();
-    const [isOpen, setIsOpen] = useState(false);
-    const unreadCount = notifications.filter(n => !n.read).length;
-
-    const handleNotificationClick = (notification) => {
-        markAsRead(notification.id);
-        if (notification.link) {
-            onNavigate(notification.link);
-        }
-        setIsOpen(false);
-    };
-
-    const notificationTypes = {
-        success: { icon: <CheckCircleIcon className="h-5 w-5 text-green-500"/> },
-        error: { icon: <ExclamationCircleIcon className="h-5 w-5 text-red-500"/> },
-        order_status: { icon: <PackageIcon className="h-5 w-5 text-blue-500"/> },
-        recommendation: { icon: <SparklesIcon className="h-5 w-5 text-amber-500"/> },
-        info: { icon: <ExclamationIcon className="h-5 w-5 text-gray-500"/> },
-    };
-
-    return (
-        <div className="relative">
-            <button onClick={() => setIsOpen(prev => !prev)} className="relative hover:text-amber-400 transition">
-                <BellIcon className="h-6 w-6"/>
-                {unreadCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold animate-pulse">{unreadCount}</span>}
-            </button>
-            <AnimatePresence>
-                {isOpen && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute top-full right-0 mt-2 w-80 bg-gray-900 border border-gray-800 rounded-lg shadow-2xl z-50 overflow-hidden"
-                    >
-                        <div className="p-3 flex justify-between items-center border-b border-gray-700">
-                            <h4 className="font-bold text-white">Notificações</h4>
-                            {unreadCount > 0 && <button onClick={markAllAsRead} className="text-xs text-amber-400 hover:underline">Marcar todas como lidas</button>}
-                        </div>
-                        <div className="max-h-96 overflow-y-auto">
-                            {notifications.length === 0 ? (
-                                <p className="text-gray-500 text-center py-8">Nenhuma notificação.</p>
-                            ) : (
-                                notifications.map(n => {
-                                    const { icon } = notificationTypes[n.type] || notificationTypes.info;
-                                    return (
-                                        <div 
-                                            key={n.id} 
-                                            onClick={() => handleNotificationClick(n)}
-                                            className={`p-3 flex items-start gap-3 border-b border-gray-800 last:border-b-0 hover:bg-gray-800 transition-colors ${n.link ? 'cursor-pointer' : ''}`}
-                                        >
-                                            <div className={`mt-1 flex-shrink-0 ${n.read ? 'opacity-50' : ''}`}>{icon}</div>
-                                            <div className="flex-grow">
-                                                <p className={`font-semibold text-sm ${n.read ? 'text-gray-400' : 'text-white'}`}>{n.title || 'Notificação'}</p>
-                                                <p className={`text-xs ${n.read ? 'text-gray-500' : 'text-gray-300'}`}>{n.message}</p>
-                                            </div>
-                                            {!n.read && <div className="w-2 h-2 bg-amber-400 rounded-full flex-shrink-0 mt-2"></div>}
-                                        </div>
-                                    )
-                                })
-                            )}
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-};
-
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
@@ -1181,8 +1061,6 @@ const Header = memo(({ onNavigate }) => {
                             <span>Admin</span>
                         </button>
                     )}
-                    
-                    {isAuthenticated && <NotificationBell onNavigate={onNavigate} />}
 
                     <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition">
                         <HeartIcon className="h-6 w-6"/>
@@ -1258,7 +1136,6 @@ const Header = memo(({ onNavigate }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const { addNotification } = useNotification();
     const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
 
     useEffect(() => { 
@@ -1273,18 +1150,7 @@ const HomePage = ({ onNavigate }) => {
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
-
-        const recommendationTimer = setTimeout(() => {
-            addNotification({
-                title: "Temos novidades!",
-                message: "Confira os últimos lançamentos em nossa loja.",
-                type: 'recommendation',
-                link: '#products'
-            });
-        }, 8000); // 8 segundos após entrar na home
-
-        return () => clearTimeout(recommendationTimer);
-    }, [addNotification]);
+    }, []);
 
     const categoryCards = [
         { name: "Perfumes Masculinos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751868173/furg2aivlksdqxgmoqbk.png", filter: "Masculino" },
@@ -1667,7 +1533,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [crossSellProducts, setCrossSellProducts] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
     const { addToCart } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState('description');
@@ -1745,11 +1611,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
         if (!user) {
-            addNotification({title: "Aviso", message: "Você precisa estar logado para avaliar.", type: 'error', link: '#login'});
+            notification.show("Você precisa estar logado para avaliar.", 'error');
+            onNavigate('login');
             return;
         }
         if (newReview.rating === 0) {
-            addNotification({title: "Aviso", message: "Por favor, selecione uma nota (clicando nas estrelas).", type: 'error'});
+            notification.show("Por favor, selecione uma nota (clicando nas estrelas).", 'error');
             return;
         }
         try {
@@ -1758,11 +1625,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 rating: newReview.rating,
                 comment: newReview.comment,
             });
-            addNotification({title: "Sucesso", message: "Avaliação enviada com sucesso!"});
+            notification.show("Avaliação enviada com sucesso!");
             setNewReview({ rating: 0, comment: '' });
             fetchProductData(productId); 
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro ao enviar avaliação: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao enviar avaliação: ${error.message}`, 'error');
         }
     };
     
@@ -1773,7 +1640,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const handleAddToCart = () => {
         if(product) {
             addToCart(product, quantity);
-            addNotification({title: "Adicionado!", message: `${quantity}x ${product.name} no carrinho!`, type: 'success'});
+            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
         }
     };
     
@@ -2051,7 +1918,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 };
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -2063,11 +1930,11 @@ const LoginPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             await login(email, password);
-            addNotification({title: 'Bem-vindo(a)!', message: 'Login bem-sucedido!', type: 'success'});
+            notification.show('Login bem-sucedido!');
             window.location.hash = '#home';
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
-            addNotification({title: 'Erro de Login', message: err.message || "Ocorreu um erro desconhecido.", type: "error"});
+            notification.show(err.message || "Ocorreu um erro desconhecido.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -2101,7 +1968,7 @@ const LoginPage = ({ onNavigate }) => {
 
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -2124,11 +1991,11 @@ const RegisterPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             await register(name, email, password, cpf);
-            addNotification({title: "Registro Concluído!", message: "Usuário registrado com sucesso! Você já pode fazer o login.", type: 'success'});
+            notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
             setTimeout(() => onNavigate('login'), 2000);
         } catch (err) {
             setError(err.message);
-            addNotification({title: "Erro no Registro", message: err.message, type: 'error'});
+            notification.show(err.message, 'error');
         } finally {
             setIsLoading(false);
         }
@@ -2166,7 +2033,7 @@ const RegisterPage = ({ onNavigate }) => {
 };
 
 const ForgotPasswordPage = ({ onNavigate }) => {
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [email, setEmail] = useState('');
     const [cpf, setCpf] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -2184,11 +2051,11 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 
         try {
             await apiService('/forgot-password', 'POST', { email, cpf });
-            addNotification({title: 'Sucesso', message: 'Usuário validado. Por favor, crie uma nova senha.', type: 'success'});
+            notification.show('Usuário validado com sucesso. Por favor, crie uma nova senha.');
             setStep(2);
         } catch (err) {
             setError(err.message || 'E-mail ou CPF não correspondem a um usuário cadastrado.');
-            addNotification({title: 'Erro', message: err.message || 'Dados inválidos.', type: 'error'});
+            notification.show(err.message || 'Dados inválidos.', 'error');
         }
     };
 
@@ -2205,11 +2072,11 @@ const ForgotPasswordPage = ({ onNavigate }) => {
         }
         try {
             await apiService('/reset-password', 'POST', { email, cpf, newPassword });
-            addNotification({title: 'Sucesso', message: 'Senha redefinida com sucesso! Você já pode fazer login.', type: 'success'});
+            notification.show('Senha redefinida com sucesso! Você já pode fazer login.');
             setTimeout(() => onNavigate('login'), 2000);
         } catch (err) {
             setError(err.message);
-            addNotification({title: 'Erro', message: err.message, type: 'error'});
+            notification.show(err.message, 'error');
         }
     };
 
@@ -2385,11 +2252,11 @@ const CartPage = ({ onNavigate }) => {
 };
 const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     
     const handleRemove = async (item) => {
         await removeFromWishlist(item.id);
-        addNotification({title: "Removido", message: `${item.name} removido da lista de desejos.`, type: 'error'});
+        notification.show(`${item.name} removido da lista de desejos.`, 'error');
     };
 
     return (
@@ -2438,7 +2305,7 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
         ...initialData
     });
     const [isSaving, setIsSaving] = useState(false);
-    const { addNotification } = useNotification();
+    const notification = useNotification();
 
     const handleCepLookup = useCallback(async (cepValue) => {
         const cep = cepValue.replace(/\D/g, '');
@@ -2458,13 +2325,13 @@ const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
                     uf: data.uf
                 }));
             } else {
-                addNotification({title: "Aviso", message: "CEP não encontrado.", type: "error"});
+                notification.show("CEP não encontrado.", "error");
             }
         } catch (error) {
             console.error("Erro ao buscar CEP:", error);
-            addNotification({title: "Erro", message: "Não foi possível buscar o CEP. Tente novamente.", type: "error"});
+            notification.show("Não foi possível buscar o CEP. Tente novamente.", "error");
         }
-    }, [addNotification]);
+    }, [notification]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -2563,7 +2430,7 @@ const CheckoutPage = ({ onNavigate }) => {
         fetchAddresses,
         setShippingLocation
     } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     
     const [selectedAddress, setSelectedAddress] = useState(null);
     
@@ -2609,12 +2476,12 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
-            addNotification({title: "Sucesso", message: 'Endereço salvo com sucesso!'});
+            notification.show('Endereço salvo com sucesso!');
             await fetchAddresses();
             setSelectedAddress(savedAddress); 
             setIsNewAddressModalOpen(false);
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro ao salvar endereço: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
         }
     };
 
@@ -2638,7 +2505,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const handlePlaceOrderAndPay = async () => {
         if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
-            addNotification({title: "Atenção", message: "Por favor, selecione um endereço e aguarde o cálculo do frete.", type: 'error'});
+            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
             return;
         }
         setIsLoading(true);
@@ -2671,7 +2538,7 @@ const CheckoutPage = ({ onNavigate }) => {
             }
 
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro ao processar pedido: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
             setIsLoading(false);
         }
     };
@@ -3032,7 +2899,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
         { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
-        { key: 'notifications', label: 'Notificações', icon: <BellIcon className="h-5 w-5"/> },
     ];
 
     return (
@@ -3059,7 +2925,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
                             {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
                             {activeTab === 'addresses' && <MyAddressesSection />}
                             {activeTab === 'profile' && <MyProfileSection user={user} />}
-                            {activeTab === 'notifications' && <NotificationSettings />}
                         </div>
                     </main>
                 </div>
@@ -3084,7 +2949,7 @@ const EmptyState = ({ icon, title, message, buttonText, onButtonClick }) => (
 
 const MyOrdersSection = ({ onNavigate }) => {
     const { addToCart } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
@@ -3095,9 +2960,9 @@ const MyOrdersSection = ({ onNavigate }) => {
     useEffect(() => {
         apiService('/orders/my-orders')
             .then(data => setOrders(data))
-            .catch(err => addNotification({title: "Erro", message: "Falha ao buscar pedidos.", type: 'error'}))
+            .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
             .finally(() => setIsLoading(false));
-    }, [addNotification]);
+    }, [notification]);
 
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
@@ -3107,7 +2972,7 @@ const MyOrdersSection = ({ onNavigate }) => {
             addToCart(product, item.quantity);
             count++;
         });
-        addNotification({title: "Sucesso", message: `${count} item(ns) adicionado(s) ao carrinho!`, type: 'success'});
+        notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
         onNavigate('cart');
     };
 
@@ -3174,16 +3039,16 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-const MyAddressesSection = ({ onNavigate }) => {
+const MyAddressesSection = () => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const confirmation = useConfirmation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAddress, setEditingAddress] = useState(null);
 
     const handleOpenModal = (address = null) => {
         if (!address && addresses.length >= 5) {
-            addNotification({title: "Limite Atingido", message: "Você já possui 5 endereços cadastrados. Exclua um para adicionar outro.", type: "error"});
+            notification.show("Você já possui 5 endereços cadastrados. Exclua um para adicionar outro.", "error");
             return;
         }
         setEditingAddress(address);
@@ -3194,16 +3059,16 @@ const MyAddressesSection = ({ onNavigate }) => {
         try {
             if (editingAddress) {
                 await apiService(`/addresses/${editingAddress.id}`, 'PUT', formData);
-                addNotification({title: "Sucesso", message: 'Endereço atualizado!'});
+                notification.show('Endereço atualizado!');
             } else {
                 await apiService('/addresses', 'POST', formData);
-                addNotification({title: "Sucesso", message: 'Endereço adicionado!'});
+                notification.show('Endereço adicionado!');
             }
             await fetchAddresses();
             determineShippingLocation(); 
             setIsModalOpen(false);
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+            notification.show(`Erro: ${error.message}`, 'error');
         }
     };
     
@@ -3211,11 +3076,11 @@ const MyAddressesSection = ({ onNavigate }) => {
         confirmation.show("Tem certeza que deseja excluir este endereço?", async () => {
             try {
                 await apiService(`/addresses/${id}`, 'DELETE');
-                addNotification({title: "Sucesso", message: 'Endereço excluído.'});
+                notification.show('Endereço excluído.');
                 await fetchAddresses();
                 determineShippingLocation(); 
             } catch (error) {
-                addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+                notification.show(`Erro: ${error.message}`, 'error');
             }
         });
     };
@@ -3223,11 +3088,11 @@ const MyAddressesSection = ({ onNavigate }) => {
     const handleSetDefault = async (id) => {
         try {
             await apiService(`/addresses/${id}/default`, 'PUT');
-            addNotification({title: "Sucesso", message: 'Endereço padrão atualizado.'});
+            notification.show('Endereço padrão atualizado.');
             await fetchAddresses();
             determineShippingLocation();
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+            notification.show(`Erro: ${error.message}`, 'error');
         }
     };
     
@@ -3297,21 +3162,21 @@ const MyAddressesSection = ({ onNavigate }) => {
 const MyProfileSection = ({ user }) => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
-    const { addNotification } = useNotification();
+    const notification = useNotification();
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
         if(newPassword.length < 6) {
-            addNotification({title: "Aviso", message: "A nova senha deve ter pelo menos 6 caracteres.", type: "error"});
+            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
             return;
         }
         try {
             await apiService('/users/me/password', 'PUT', { password: newPassword });
-            addNotification({title: "Sucesso", message: 'Senha alterada com sucesso!'});
+            notification.show('Senha alterada com sucesso!');
             setNewPassword('');
             setIsPasswordModalOpen(false);
         } catch (error) {
-             addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+             notification.show(`Erro: ${error.message}`, 'error');
         }
     };
 
@@ -3344,110 +3209,6 @@ const MyProfileSection = ({ user }) => {
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
         </>
-    );
-};
-
-const NotificationSettings = () => {
-    const { addNotification } = useNotification();
-    const [permission, setPermission] = useState('default');
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const checkSubscription = useCallback(async () => {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            console.warn('Push Notifications não são suportadas.');
-            setIsLoading(false);
-            return;
-        }
-        setPermission(Notification.permission);
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            setIsSubscribed(!!subscription);
-        } catch (error) {
-            console.error("Erro ao verificar inscrição no Service Worker:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        checkSubscription();
-    }, [checkSubscription]);
-
-    const handleSubscriptionChange = async () => {
-        setIsLoading(true);
-        
-        if (isSubscribed) {
-            try {
-                const registration = await navigator.serviceWorker.ready;
-                const subscription = await registration.pushManager.getSubscription();
-                if (subscription) {
-                    await apiService('/notifications/unsubscribe', 'POST', { endpoint: subscription.endpoint });
-                    await subscription.unsubscribe();
-                    setIsSubscribed(false);
-                    addNotification({ title: 'Notificações Desativadas', message: 'Você não receberá mais notificações push.', type: 'info' });
-                }
-            } catch (error) {
-                console.error("Erro ao desinscrever:", error);
-                addNotification({ title: 'Erro', message: 'Não foi possível desativar as notificações.', type: 'error' });
-            }
-        } else {
-            const currentPermission = await Notification.requestPermission();
-            setPermission(currentPermission);
-
-            if (currentPermission === 'granted') {
-                try {
-                    const registration = await navigator.serviceWorker.ready;
-                    const VAPID_PUBLIC_KEY = await apiService('/notifications/vapid-key');
-                    const subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: VAPID_PUBLIC_KEY,
-                    });
-                    await apiService('/notifications/subscribe', 'POST', subscription);
-                    setIsSubscribed(true);
-                    addNotification({ title: 'Notificações Ativadas!', message: 'Você agora receberá nossas novidades.', type: 'success' });
-                } catch (error) {
-                    console.error('Falha ao se inscrever:', error);
-                    addNotification({ title: 'Erro', message: 'Não foi possível ativar as notificações.', type: 'error' });
-                }
-            } else {
-                addNotification({ title: 'Permissão Necessária', message: 'Você precisa permitir as notificações para recebê-las.', type: 'error' });
-            }
-        }
-        setIsLoading(false);
-    };
-
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Configurações de Notificação</h2>
-            <div className="bg-gray-800 p-6 rounded-lg">
-                <h3 className="text-lg font-semibold text-white mb-2">Notificações Push</h3>
-                <p className="text-gray-400 text-sm mb-4">
-                    Receba atualizações sobre o status do seu pedido, promoções exclusivas e novidades diretamente no seu dispositivo.
-                </p>
-                {isLoading ? (
-                    <div className="h-10 flex items-center justify-center"><SpinnerIcon /></div>
-                ) : (
-                    <div className="flex items-center space-x-4">
-                        <button 
-                            onClick={handleSubscriptionChange}
-                            disabled={permission === 'denied'}
-                            className={`px-6 py-2 font-bold rounded-md transition-colors flex items-center justify-center ${
-                                isSubscribed 
-                                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                                : 'bg-green-600 hover:bg-green-700 text-white'
-                            } disabled:bg-gray-500 disabled:cursor-not-allowed`}
-                        >
-                            {isSubscribed ? 'Desativar Notificações' : 'Ativar Notificações'}
-                        </button>
-                        {permission === 'denied' && (
-                            <p className="text-red-400 text-sm">As notificações estão bloqueadas no seu navegador.</p>
-                        )}
-                    </div>
-                )}
-            </div>
-        </div>
     );
 };
 
@@ -3855,7 +3616,7 @@ const AdminProducts = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const confirmation = useConfirmation();
-  const { addNotification } = useNotification();
+  const notification = useNotification();
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -3898,15 +3659,15 @@ const AdminProducts = () => {
       try {
         if (editingProduct) {
             await apiService(`/products/${editingProduct.id}`, 'PUT', formData);
-            addNotification({title: "Sucesso", message: 'Produto atualizado com sucesso!'});
+            notification.show('Produto atualizado com sucesso!');
         } else {
             await apiService('/products', 'POST', formData);
-            addNotification({title: "Sucesso", message: 'Produto criado com sucesso!'});
+            notification.show('Produto criado com sucesso!');
         }
         fetchProducts(searchTerm);
         setIsModalOpen(false);
       } catch (error) {
-          addNotification({title: "Erro", message: `Erro ao salvar produto: ${error.message}`, type: 'error'});
+          notification.show(`Erro ao salvar produto: ${error.message}`, 'error');
       }
   };
 
@@ -3915,9 +3676,9 @@ const AdminProducts = () => {
           try {
             await apiService(`/products/${id}`, 'DELETE');
             fetchProducts(searchTerm);
-            addNotification({title: "Sucesso", message: 'Produto deletado com sucesso.'});
+            notification.show('Produto deletado com sucesso.');
           } catch(error) {
-            addNotification({title: "Erro", message: `Erro ao deletar produto: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
           }
       });
   };
@@ -3957,7 +3718,7 @@ const AdminProducts = () => {
       try {
           const result = await apiUploadService('/products/import', selectedFile);
           setImportMessage(result.message);
-          addNotification({title: "Importação", message: result.message});
+          notification.show(result.message);
           fetchProducts(searchTerm);
           setTimeout(() => {
             setIsImportModalOpen(false);
@@ -3966,7 +3727,7 @@ const AdminProducts = () => {
           }, 2000);
       } catch (error) {
           setImportMessage(`Erro: ${error.message}`);
-          addNotification({title: "Erro na Importação", message: error.message, type: 'error'});
+          notification.show(`Erro na importação: ${error.message}`, 'error');
       } finally {
           setIsImporting(false);
       }
@@ -3999,9 +3760,9 @@ const AdminProducts = () => {
               const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
               fetchProducts(searchTerm); 
               setSelectedProducts([]); 
-              addNotification({title: "Sucesso", message: result.message || `${selectedProducts.length} produtos deletados.`});
+              notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
           } catch (error) {
-              addNotification({title: "Erro", message: `Erro ao deletar produtos: ${error.message}`, type: 'error'});
+              notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
           }
       });
   };
@@ -4146,7 +3907,7 @@ const AdminUsers = () => {
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const confirmation = useConfirmation();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
 
     const fetchUsers = useCallback(() => {
         apiService('/users').then(setUsers).catch(err => console.error(err));
@@ -4166,9 +3927,9 @@ const AdminUsers = () => {
             await apiService(`/users/${editingUser.id}`, 'PUT', formData);
             fetchUsers();
             setIsUserModalOpen(false);
-            addNotification({title: "Sucesso", message: 'Usuário atualizado com sucesso!'});
+            notification.show('Usuário atualizado com sucesso!');
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro ao atualizar usuário: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
         }
     };
 
@@ -4177,9 +3938,9 @@ const AdminUsers = () => {
             try {
                 await apiService(`/users/${id}`, 'DELETE');
                 fetchUsers();
-                addNotification({title: "Sucesso", message: 'Usuário deletado.'});
+                notification.show('Usuário deletado.');
             } catch (err) {
-                addNotification({title: "Erro", message: `Erro ao deletar: ${err.message}`, type: 'error'});
+                notification.show(`Erro ao deletar: ${err.message}`, 'error');
             }
         });
     };
@@ -4295,7 +4056,7 @@ const AdminCoupons = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
     const confirmation = useConfirmation();
-    const { addNotification } = useNotification();
+    const notification = useNotification();
 
     const fetchCoupons = useCallback(() => {
         apiService('/coupons').then(data => {
@@ -4314,15 +4075,15 @@ const AdminCoupons = () => {
         try {
             if (editingCoupon) {
                 await apiService(`/coupons/${editingCoupon.id}`, 'PUT', formData);
-                addNotification({title: "Sucesso", message: 'Cupom atualizado!'});
+                notification.show('Cupom atualizado!');
             } else {
                 await apiService('/coupons', 'POST', formData);
-                addNotification({title: "Sucesso", message: 'Cupom criado!'});
+                notification.show('Cupom criado!');
             }
             fetchCoupons();
             setIsModalOpen(false);
         } catch (error) {
-            addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+            notification.show(`Erro: ${error.message}`, 'error');
         }
     };
     
@@ -4331,9 +4092,9 @@ const AdminCoupons = () => {
             try {
                 await apiService(`/coupons/${id}`, 'DELETE');
                 fetchCoupons();
-                addNotification({title: "Sucesso", message: 'Cupom deletado.'});
+                notification.show('Cupom deletado.');
             } catch(error) {
-                addNotification({title: "Erro", message: `Erro: ${error.message}`, type: 'error'});
+                notification.show(`Erro: ${error.message}`, 'error');
             }
         });
     }
@@ -4425,7 +4186,7 @@ const AdminOrders = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingOrder, setEditingOrder] = useState(null);
     const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
-    const { addNotification } = useNotification();
+    const notification = useNotification();
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
@@ -4463,7 +4224,7 @@ const AdminOrders = () => {
             });
             setIsEditModalOpen(true);
         } catch (error) {
-            addNotification({title: "Erro", message: "Erro ao buscar detalhes do pedido.", type: 'error'});
+            notification.show("Erro ao buscar detalhes do pedido.", 'error');
             console.error(error);
         }
     };
@@ -4481,9 +4242,9 @@ const AdminOrders = () => {
             fetchOrders();
             setIsEditModalOpen(false);
             setEditingOrder(null);
-            addNotification({title: "Sucesso", message: 'Pedido atualizado com sucesso!'});
+            notification.show('Pedido atualizado com sucesso!');
         } catch(error) {
-            addNotification({title: "Erro", message: `Erro ao atualizar pedido: ${error.message}`, type: 'error'});
+            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
         }
     };
 
@@ -4813,9 +4574,7 @@ const InstallPWAButton = ({ deferredPrompt }) => {
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { addNotification } = useNotification();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-  const lastCheckTimestamp = useRef(new Date().toISOString());
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -4832,33 +4591,6 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-
-  // Polling de notificações
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const pollNotifications = async () => {
-        try {
-            const fetchedNotifications = await apiService(`/notifications?since=${lastCheckTimestamp.current}`);
-            if (fetchedNotifications && fetchedNotifications.length > 0) {
-                fetchedNotifications.forEach(n => {
-                    addNotification({
-                        title: n.title,
-                        message: n.message,
-                        type: n.type,
-                        link: n.link
-                    });
-                });
-                lastCheckTimestamp.current = new Date().toISOString();
-            }
-        } catch (error) {
-            console.warn("Falha ao buscar notificações:", error.message);
-        }
-    };
-
-    const intervalId = setInterval(pollNotifications, 30000); // A cada 30 segundos
-    return () => clearInterval(intervalId);
-  }, [isAuthenticated, addNotification]);
 
   const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
@@ -4942,10 +4674,10 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
+        // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
-        const ICON_URL_192 = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
-        const ICON_URL_512 = "https://res.cloudinary.com/dvflxuxh3/image/upload/c_scale,w_512/v1752292990/uqw1twmffseqafkiet0t.png";
+        const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
 
         document.title = APP_NAME;
 
@@ -4953,13 +4685,13 @@ export default function App() {
             "name": APP_NAME,
             "short_name": "Love Cestas",
             "description": "Sua loja de cestas e perfumes.",
-            "start_url": ".",
+            "start_url": "/",
             "display": "standalone",
             "background_color": "#111827",
             "theme_color": "#D4AF37",
             "icons": [
-                { "src": ICON_URL_192, "type": "image/png", "sizes": "192x192" },
-                { "src": ICON_URL_512, "type": "image/png", "sizes": "512x512" }
+                { "src": ICON_URL, "type": "image/png", "sizes": "192x192" },
+                { "src": ICON_URL, "type": "image/png", "sizes": "512x512" }
             ]
         };
         
@@ -4982,13 +4714,22 @@ export default function App() {
         }
         faviconLink.type = 'image/png';
         faviconLink.href = FAVICON_URL;
+
+        const serviceWorkerContent = `
+            self.addEventListener('install', (event) => {
+                console.log('Service Worker: Instalado');
+            });
+            self.addEventListener('fetch', (event) => {
+                event.respondWith(fetch(event.request));
+            });
+        `;
+        const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(swBlob);
         
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => console.log('Service Worker registrado com sucesso com escopo:', registration.scope))
-                    .catch(error => console.log('Falha no registro do Service Worker:', error));
-            });
+            navigator.serviceWorker.register(swUrl)
+                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
+                .catch(error => console.log('Falha no registro do Service Worker:', error));
         }
 
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -4997,6 +4738,7 @@ export default function App() {
             console.log('`beforeinstallprompt` event foi disparado.');
         });
         
+        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
@@ -5018,8 +4760,12 @@ export default function App() {
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
         return () => {
-            if (document.head.contains(manifestLink)) document.head.removeChild(manifestLink);
-            if (document.head.contains(faviconLink)) document.head.removeChild(faviconLink);
+            if (document.head.contains(manifestLink)) {
+                document.head.removeChild(manifestLink);
+            }
+            if (document.head.contains(faviconLink)) {
+                document.head.removeChild(faviconLink);
+            }
         };
     }, []);
 
