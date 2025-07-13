@@ -958,10 +958,10 @@ const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
     const { cart, wishlist } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+    const [activeMenu, setActiveMenu] = useState(null);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
@@ -982,13 +982,11 @@ const Header = memo(({ onNavigate }) => {
             setSearchSuggestions([]);
             return;
         }
-
         const debounceTimer = setTimeout(() => {
             apiService(`/products/search-suggestions?q=${searchTerm}`)
                 .then(data => setSearchSuggestions(data))
                 .catch(err => console.error(err));
         }, 300);
-
         return () => clearTimeout(debounceTimer);
     }, [searchTerm]);
 
@@ -998,7 +996,7 @@ const Header = memo(({ onNavigate }) => {
             onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
             setSearchTerm('');
             setSearchSuggestions([]);
-            setIsMenuOpen(false);
+            setIsMobileMenuOpen(false);
         }
     };
     
@@ -1006,168 +1004,182 @@ const Header = memo(({ onNavigate }) => {
         onNavigate(`products?search=${encodeURIComponent(productName)}`);
         setSearchTerm('');
         setSearchSuggestions([]);
-        setIsMenuOpen(false);
+        setIsMobileMenuOpen(false);
     };
 
-    const categories = [
-        { name: "Perfumaria", sub: ["Masculino", "Feminino", "Cestas"] },
+    const categoriesForMenu = [
+        { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
         { name: "Roupas", sub: ["Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos"] },
-        { name: "Conjuntos", sub: ["de Calça", "de Shorts"] },
+        { name: "Conjuntos", sub: ["Conjunto de Calças", "Conjunto de Shorts"] },
         { name: "Moda Íntima", sub: ["Lingerie", "Moda Praia"] },
         { name: "Calçados", sub: ["Sandálias"] },
+        { name: "Acessórios", sub: ["Presente"] }
     ];
 
     const dropdownVariants = {
         open: { opacity: 1, y: 0, display: 'block' },
-        closed: { opacity: 0, y: -10, transitionEnd: { display: 'none' } }
+        closed: { opacity: 0, y: -20, transitionEnd: { display: 'none' } }
     };
     
     const mobileMenuVariants = {
-        open: { opacity: 1, y: 0, transition: { ease: "easeOut", duration: 0.3 } },
-        closed: { opacity: 0, y: "-100%", transition: { ease: "easeIn", duration: 0.2 } },
-    }
+        open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
+        closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
+    };
 
     return (
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            <nav className="container mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-                
-                <div className="hidden md:flex items-center space-x-8">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="hover:text-amber-400 transition">Início</a>
-                    <div className="relative" onMouseLeave={() => setIsCategoryDropdownOpen(false)}>
-                        <button onMouseEnter={() => setIsCategoryDropdownOpen(true)} className="hover:text-amber-400 transition flex items-center">
-                            Categorias <ChevronDownIcon className="h-4 w-4 ml-1" />
+            {/* Top Bar */}
+            <div className="container mx-auto px-4 sm:px-6">
+                <div className="flex justify-between items-center py-3">
+                    <div className="flex items-center">
+                        <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4 text-white">
+                            <MenuIcon className="h-6 w-6" />
                         </button>
-                        <AnimatePresence>
-                        {isCategoryDropdownOpen && (
-                            <motion.div 
-                                initial="closed" animate="open" exit="closed" variants={dropdownVariants}
-                                className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-max bg-gray-900 border border-gray-800 rounded-md shadow-lg p-4 z-50 flex space-x-8"
-                            >
-                                {categories.map(cat => (
-                                    <div key={cat.name}>
-                                        <h3 className="font-bold text-amber-400 mb-2">{cat.name}</h3>
-                                        <ul className="space-y-1">
-                                            {cat.sub.map(subCat => (
-                                                <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsCategoryDropdownOpen(false); }} className="block text-sm text-white hover:text-amber-300">{subCat}</a></li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ))}
-                            </motion.div>
-                        )}
-                        </AnimatePresence>
+                        <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                     </div>
-                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="hover:text-amber-400 transition">Ver Tudo</a>
-                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="hover:text-amber-400 transition">Ajuda</a>
-                </div>
-
-                <div className="flex items-center space-x-2 sm:space-x-4">
-                     <div className="relative hidden lg:block">
-                        <form onSubmit={handleSearchSubmit} className="flex items-center bg-gray-800 rounded-full">
+                    
+                    <div className="hidden lg:block flex-1 max-w-xl mx-8">
+                         <form onSubmit={handleSearchSubmit} className="relative">
                            <input 
                                 type="text" value={searchTerm} 
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="Buscar..." 
-                                className="bg-transparent text-white px-4 py-1 rounded-l-full focus:outline-none w-32 md:w-40 transition-all duration-300 focus:w-48"/>
-                           <button type="submit" className="p-2 text-gray-400 hover:text-white rounded-r-full"><SearchIcon className="h-5 w-5" /></button>
+                                placeholder="O que você procura?" 
+                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
+                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                           {isSearchFocused && searchSuggestions.length > 0 && (
+                                <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
+                                    {searchSuggestions.map(p => (
+                                        <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white">{p.name}</div>
+                                    ))}
+                                </div>
+                            )}
                         </form>
-                        {isSearchFocused && searchSuggestions.length > 0 && (
-                            <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50">
-                                {searchSuggestions.map(p => (
-                                    <div key={p.id} onClick={() => handleSuggestionClick(p.name)}
-                                        className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white"
-                                    >
-                                        {p.name}
+                    </div>
+
+                    <div className="flex items-center space-x-2 sm:space-x-4">
+                        {isAuthenticated && (
+                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex flex-col items-center text-xs hover:text-amber-400 transition px-2">
+                                <span>Devoluções</span>
+                                <span className="font-bold">& Pedidos</span>
+                            </button>
+                        )}
+                        <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition p-1">
+                            <HeartIcon className="h-6 w-6"/>
+                            {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
+                        </button>
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition p-1">
+                            <CartIcon className="h-6 w-6"/>
+                            {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                        </motion.button>
+                        <div className="hidden md:block">
+                            {isAuthenticated ? (
+                                <div className="relative group">
+                                   <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
+                                   <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
+                                       <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
+                                       <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
+                                       {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm text-amber-400 hover:bg-gray-800">Painel Admin</a>}
+                                       <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
+                                   </div>
+                                </div>
+                            ) : (
+                                <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom Bar (Desktop Navigation) */}
+            <nav className="hidden md:flex container mx-auto px-4 sm:px-6 h-12 items-center justify-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
+                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
+                <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
+                    <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
+                </div>
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Promoções</a>
+                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
+                
+                <AnimatePresence>
+                    {activeMenu && (
+                        <motion.div 
+                            initial="closed" animate="open" exit="closed" variants={dropdownVariants}
+                            className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
+                        >
+                            <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
+                                {categoriesForMenu.map(cat => (
+                                    <div key={cat.name}>
+                                        <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
+                                        <ul className="space-y-2">
+                                            {cat.sub.map(subCat => (
+                                                <li key={subCat}>
+                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
-
-                    {isAuthenticated && (
-                         <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex flex-col items-center text-xs hover:text-amber-400 transition px-2">
-                            <span className="font-semibold">Devoluções</span>
-                            <span>e Pedidos</span>
-                        </button>
+                        </motion.div>
                     )}
-
-                    <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition p-1">
-                        <HeartIcon className="h-6 w-6"/>
-                        {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
-                    </button>
-                    
-                    <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition p-1">
-                        <CartIcon className="h-6 w-6"/>
-                        {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                    </motion.button>
-                    
-                    <div className="hidden md:block">
-                        {isAuthenticated ? (
-                            <div className="relative group">
-                               <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
-                               <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
-                                   <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
-                                   <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
-                                   {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm text-amber-400 hover:bg-gray-800">Painel Admin</a>}
-                                   <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
-                               </div>
-                            </div>
-                        ) : (
-                            <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                        )}
-                    </div>
-
-                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="md:hidden p-2 hover:text-amber-400">
-                        {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-                    </button>
-                </div>
+                </AnimatePresence>
             </nav>
-
+            
+            {/* Mobile Menu */}
             <AnimatePresence>
-                {isMenuOpen && (
-                     <motion.div 
-                        variants={mobileMenuVariants}
-                        initial="closed"
-                        animate="open"
-                        exit="closed"
-                        className="md:hidden absolute top-full left-0 w-full bg-black/95 backdrop-blur-sm z-30 px-6 pb-6 space-y-4 origin-top"
-                     >
-                        <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Início</a>
-                        {categories.map(cat => (
-                            <div key={cat.name}>
-                                <h3 className="font-bold text-amber-400 mt-3">{cat.name}</h3>
-                                <ul className="pl-4 mt-1 space-y-1">
-                                    {cat.sub.map(subCat => (
-                                        <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMenuOpen(false); }} className="block text-sm text-white hover:text-amber-300">{subCat}</a></li>
-                                    ))}
-                                </ul>
+                {isMobileMenuOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/60 z-50 md:hidden"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        />
+                        <motion.div 
+                            variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
+                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-50 flex flex-col"
+                        >
+                            <div className="flex justify-between items-center p-4 border-b border-gray-800">
+                                <h2 className="font-bold text-amber-400">Menu</h2>
+                                <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
-                        ))}
-                        <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400 pt-2 border-t border-gray-800">Ver Tudo</a>
-                        <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Ajuda</a>
-                        <div className="border-t border-gray-800 pt-4 space-y-3">
-                            {isAuthenticated ? (
-                                <>
-                                    <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
-                                    <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
-                                    {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
-                                    <button onClick={() => { logout(); onNavigate('home'); setIsMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
-                                </>
-                            ) : (
-                                <button onClick={() => { onNavigate('login'); setIsMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                            )}
-                        </div>
-                    </motion.div>
+                            <div className="flex-grow p-4 overflow-y-auto">
+                                {categoriesForMenu.map(cat => (
+                                    <div key={cat.name}>
+                                        <h3 className="font-bold text-amber-400 mt-4 mb-2">{cat.name}</h3>
+                                        <ul className="pl-4 space-y-2">
+                                            {cat.sub.map(subCat => (
+                                                <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-white hover:text-amber-300">{subCat}</a></li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                                <div className="border-t border-gray-800 mt-4 pt-4 space-y-2">
+                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Ver Tudo</a>
+                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Ajuda</a>
+                                </div>
+                                <div className="border-t border-gray-800 mt-4 pt-4 space-y-2">
+                                    {isAuthenticated ? (
+                                        <>
+                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
+                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
+                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
                 )}
             </AnimatePresence>
         </header>
     );
 });
 
-const CategoryCarousel = memo(({ categories, onNavigate, title }) => {
+const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(6);
     const [touchStart, setTouchStart] = useState(null);
@@ -1331,7 +1343,7 @@ const HomePage = ({ onNavigate }) => {
           </motion.div>
         </section>
         
-        <CategoryCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
+        <CollectionsCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
 
         <section className="bg-black text-white py-12 md:py-16">
           <div className="container mx-auto px-4">
