@@ -1153,9 +1153,21 @@ const HomePage = ({ onNavigate }) => {
     }, []);
 
     const categoryCards = [
-        { name: "Perfumes Masculinos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751868173/furg2aivlksdqxgmoqbk.png", filter: "Masculino" },
-        { name: "Perfumes Femininos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867985/snqqq1qpjbw1s7njfvwx.png", filter: "Feminino" },
-        { name: "Roupas (Em breve)", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop", filter: "Roupas" }
+        { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
+        { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
+        { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
+        { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
+        { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
+        { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
+        { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
+        { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
+        { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
+        { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
+        { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
+        { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
+        { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
+        { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
+        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
     ];
 
     const bannerVariants = {
@@ -1193,26 +1205,26 @@ const HomePage = ({ onNavigate }) => {
           </motion.div>
         </section>
         
-        <section className="bg-black text-white py-12 md:py-16">
-          <div className="container mx-auto px-4">
-              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
-          </div>
-        </section>
-        
         <section className="bg-gray-900 text-white py-12 md:py-16">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Navegue por Categoria</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
                     {categoryCards.map(cat => (
-                        <div key={cat.name} className="relative rounded-lg overflow-hidden h-64 md:h-80 group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                        <div key={cat.name} className="relative rounded-lg overflow-hidden aspect-square group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
                             <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <h3 className="text-2xl md:text-3xl font-bold text-white tracking-wider">{cat.name}</h3>
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-2">
+                                <h3 className="text-lg md:text-xl font-bold text-white tracking-wider text-center">{cat.name}</h3>
                             </div>
                         </div>
                     ))}
                 </div>
             </div>
+        </section>
+
+        <section className="bg-black text-white py-12 md:py-16">
+          <div className="container mx-auto px-4">
+              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
+          </div>
         </section>
         
         <section className="bg-black text-white py-12 md:py-16">
