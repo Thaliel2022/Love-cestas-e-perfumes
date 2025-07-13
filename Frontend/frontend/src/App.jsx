@@ -1167,7 +1167,7 @@ const HomePage = ({ onNavigate }) => {
         { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
         { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
         { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
-        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
+        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" },
     ];
 
     const bannerVariants = {
@@ -1207,13 +1207,17 @@ const HomePage = ({ onNavigate }) => {
         
         <section className="bg-gray-900 text-white py-12 md:py-16">
             <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Navegue por Categoria</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">Coleções</h2>
+                <div className="flex space-x-4 overflow-x-auto pb-4 -mx-4 px-4">
                     {categoryCards.map(cat => (
-                        <div key={cat.name} className="relative rounded-lg overflow-hidden aspect-square group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                        <div 
+                            key={cat.name} 
+                            className="relative rounded-lg overflow-hidden w-36 h-40 md:w-40 md:h-44 flex-shrink-0 group cursor-pointer transform hover:-translate-y-2 transition-transform duration-300"
+                            onClick={() => onNavigate(`products?category=${encodeURIComponent(cat.filter)}`)}
+                        >
                             <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-2">
-                                <h3 className="text-lg md:text-xl font-bold text-white tracking-wider text-center">{cat.name}</h3>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-3">
+                                <h3 className="text-base font-bold text-white tracking-wide">{cat.name}</h3>
                             </div>
                         </div>
                     ))}
