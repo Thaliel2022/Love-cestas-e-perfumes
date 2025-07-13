@@ -24,6 +24,7 @@
     "node-fetch": "^2.7.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "resend": "^4.6.0"
+    "resend": "^4.6.0",
+    "web-push": "^3.6.7"
   }
 }
