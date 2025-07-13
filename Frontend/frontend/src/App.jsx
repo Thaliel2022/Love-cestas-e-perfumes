@@ -1138,13 +1138,32 @@ const Header = memo(({ onNavigate }) => {
                         />
                         <motion.div 
                             variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
-                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
+                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-50 flex flex-col"
                         >
-                            <div className="flex justify-between items-center p-4 border-b border-gray-800">
+                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800">
                                 <h2 className="font-bold text-amber-400">Menu</h2>
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow p-4 overflow-y-auto">
+                                <form onSubmit={handleSearchSubmit} className="relative mb-4">
+                                    <input
+                                        type="text"
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        onFocus={() => setIsSearchFocused(true)}
+                                        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                                        placeholder="O que você procura?"
+                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    {isSearchFocused && searchSuggestions.length > 0 && (
+                                        <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-700 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                                            {searchSuggestions.map(p => (
+                                                <div key={p.id} onClick={() => handleSuggestionClick(p.name)} className="px-4 py-2 hover:bg-gray-800 cursor-pointer text-sm text-white">{p.name}</div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </form>
+
                                 {categoriesForMenu.map((cat, index) => (
                                     <div key={cat.name} className="border-b border-gray-800">
                                         <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
@@ -2765,7 +2784,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     ) : (
                                         <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
                                     )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
                                 
                                 <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
