@@ -4829,7 +4829,7 @@ export default function App() {
 
         const manifestContent = {
             "name": APP_NAME,
-            "short_name": "Love Cestas",
+            "short_name": "Love Cestas e Perfumes",
             "description": "Sua loja de cestas e perfumes.",
             "start_url": "/",
             "display": "standalone",
