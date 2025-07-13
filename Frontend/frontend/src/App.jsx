@@ -1019,7 +1019,7 @@ const Header = memo(({ onNavigate }) => {
 
     const dropdownVariants = {
         open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
-        closed: { opacity: 0, y: -10, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
+        closed: { opacity: 0, y: -20, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
     };
     
     const mobileMenuVariants = {
