@@ -1145,7 +1145,6 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
 
-                            {/* Search bar for mobile menu */}
                             <div className="p-4 border-b border-gray-800 flex-shrink-0">
                                 <form onSubmit={handleSearchSubmit} className="relative">
                                     <input 
@@ -1161,43 +1160,41 @@ const Header = memo(({ onNavigate }) => {
                                 </form>
                             </div>
 
-                            <div className="flex-grow overflow-y-auto">
-                                <div className="p-4">
-                                    {categoriesForMenu.map((cat, index) => (
-                                        <div key={cat.name} className="border-b border-gray-800">
-                                            <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
-                                                <span>{cat.name}</span>
-                                                <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
-                                            </button>
-                                            <AnimatePresence>
-                                            {mobileAccordion === index && (
-                                                <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
-                                                    {cat.sub.map(subCat => (
-                                                        <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${encodeURIComponent(subCat)}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
-                                                    ))}
-                                                </motion.ul>
-                                            )}
-                                            </AnimatePresence>
-                                        </div>
-                                    ))}
-                                    <div className="border-b border-gray-800">
-                                        <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
-                                    </div>
-                                    <div className="border-b border-gray-800">
-                                        <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
-                                    </div>
-                                    <div className="pt-4 space-y-3">
-                                        {isAuthenticated ? (
-                                            <>
-                                                <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
-                                                <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
-                                                {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
-                                                <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
-                                            </>
-                                        ) : (
-                                            <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                            <div className="flex-grow overflow-y-auto p-4">
+                                {categoriesForMenu.map((cat, index) => (
+                                    <div key={cat.name} className="border-b border-gray-800">
+                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
+                                            <span>{cat.name}</span>
+                                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        <AnimatePresence>
+                                        {mobileAccordion === index && (
+                                            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
+                                                {cat.sub.map(subCat => (
+                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${encodeURIComponent(subCat)}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
+                                                ))}
+                                            </motion.ul>
                                         )}
+                                        </AnimatePresence>
                                     </div>
+                                ))}
+                                <div className="border-b border-gray-800">
+                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
+                                </div>
+                                <div className="border-b border-gray-800">
+                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
+                                </div>
+                                <div className="pt-4 space-y-3">
+                                    {isAuthenticated ? (
+                                        <>
+                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
+                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
+                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>
