@@ -3349,12 +3349,17 @@ const MyProfileSection = ({ user }) => {
 
 const NotificationSettings = () => {
     const { addNotification } = useNotification();
-    const [permission, setPermission] = useState(Notification.permission);
+    const [permission, setPermission] = useState('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     const checkSubscription = useCallback(async () => {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.warn('Push Notifications não são suportadas.');
+            setIsLoading(false);
+            return;
+        }
+        setPermission(Notification.permission);
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
         setIsSubscribed(!!subscription);
@@ -3370,7 +3375,6 @@ const NotificationSettings = () => {
         const registration = await navigator.serviceWorker.ready;
         
         if (isSubscribed) {
-            // Unsubscribe
             const subscription = await registration.pushManager.getSubscription();
             if (subscription) {
                 try {
@@ -3383,27 +3387,27 @@ const NotificationSettings = () => {
                 }
             }
         } else {
-            // Subscribe
-            if (Notification.permission === 'denied') {
-                addNotification({ title: 'Permissão Negada', message: 'Você precisa permitir as notificações nas configurações do seu navegador.', type: 'error' });
-                setIsLoading(false);
-                return;
-            }
-            try {
-                const VAPID_PUBLIC_KEY = await apiService('/notifications/vapid-key');
-                const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: VAPID_PUBLIC_KEY,
-                });
-                await apiService('/notifications/subscribe', 'POST', subscription);
-                setIsSubscribed(true);
-                addNotification({ title: 'Notificações Ativadas!', message: 'Você agora receberá nossas novidades.', type: 'success' });
-            } catch (error) {
-                console.error('Falha ao se inscrever:', error);
-                addNotification({ title: 'Erro', message: 'Não foi possível ativar as notificações.', type: 'error' });
+            const currentPermission = await Notification.requestPermission();
+            setPermission(currentPermission);
+
+            if (currentPermission === 'granted') {
+                try {
+                    const VAPID_PUBLIC_KEY = await apiService('/notifications/vapid-key');
+                    const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: VAPID_PUBLIC_KEY,
+                    });
+                    await apiService('/notifications/subscribe', 'POST', subscription);
+                    setIsSubscribed(true);
+                    addNotification({ title: 'Notificações Ativadas!', message: 'Você agora receberá nossas novidades.', type: 'success' });
+                } catch (error) {
+                    console.error('Falha ao se inscrever:', error);
+                    addNotification({ title: 'Erro', message: 'Não foi possível ativar as notificações.', type: 'error' });
+                }
+            } else {
+                addNotification({ title: 'Permissão Necessária', message: 'Você precisa permitir as notificações para recebê-las.', type: 'error' });
             }
         }
-        setPermission(Notification.permission);
         setIsLoading(false);
     };
 
@@ -4931,10 +4935,11 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
-        const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
+        const ICON_URL_192 = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
+        const ICON_URL_512 = "https://res.cloudinary.com/dvflxuxh3/image/upload/c_scale,w_512/v1752292990/uqw1twmffseqafkiet0t.png";
+        const BADGE_ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/c_scale,w_72/v1752296170/kk9tlhxb2qyioeoieq6g.png";
 
         document.title = APP_NAME;
 
@@ -4942,13 +4947,13 @@ export default function App() {
             "name": APP_NAME,
             "short_name": "Love Cestas",
             "description": "Sua loja de cestas e perfumes.",
-            "start_url": "/",
+            "start_url": ".",
             "display": "standalone",
             "background_color": "#111827",
             "theme_color": "#D4AF37",
             "icons": [
-                { "src": ICON_URL, "type": "image/png", "sizes": "192x192" },
-                { "src": ICON_URL, "type": "image/png", "sizes": "512x512" }
+                { "src": ICON_URL_192, "type": "image/png", "sizes": "192x192" },
+                { "src": ICON_URL_512, "type": "image/png", "sizes": "512x512" }
             ]
         };
         
@@ -4980,21 +4985,25 @@ export default function App() {
 
             self.addEventListener('activate', (event) => {
                 console.log('Service Worker: Ativado');
-                return self.clients.claim();
+                event.waitUntil(self.clients.claim());
             });
 
             self.addEventListener('push', (event) => {
                 console.log('[Service Worker] Push Recebido.');
-                console.log('[Service Worker] Dados do Push: ', event.data.text());
+                let data = {};
+                try {
+                    data = event.data.json();
+                } catch (e) {
+                    data = { title: 'Nova Notificação', body: event.data.text() };
+                }
 
-                const data = event.data.json();
-                const title = data.title || 'Nova Notificação';
+                const title = data.title || 'Love Cestas e Perfumes';
                 const options = {
                     body: data.body,
-                    icon: data.icon || '/icon-192x192.png',
-                    badge: data.badge || '/badge-72x72.png',
+                    icon: '${ICON_URL_192}',
+                    badge: '${BADGE_ICON_URL}',
                     data: {
-                        url: data.url
+                        url: data.url || self.location.origin
                     }
                 };
 
@@ -5005,24 +5014,22 @@ export default function App() {
                 console.log('[Service Worker] Notificação clicada.');
                 event.notification.close();
                 
-                const urlToOpen = event.notification.data.url || '/';
+                const urlToOpen = new URL(event.notification.data.url || '/', self.location.origin).href;
                 
                 event.waitUntil(
                     clients.matchAll({
                         type: 'window',
                         includeUncontrolled: true
                     }).then((clientList) => {
-                        if (clientList.length > 0) {
-                            let client = clientList[0];
-                            for (let i = 0; i < clientList.length; i++) {
-                                if (clientList[i].focused) {
-                                    client = clientList[i];
-                                }
+                        for (let i = 0; i < clientList.length; i++) {
+                            const client = clientList[i];
+                            if (client.url === urlToOpen && 'focus' in client) {
+                                return client.focus();
                             }
-                            client.navigate(urlToOpen);
-                            return client.focus();
                         }
-                        return clients.openWindow(urlToOpen);
+                        if (clients.openWindow) {
+                            return clients.openWindow(urlToOpen);
+                        }
                     })
                 );
             });
@@ -5031,8 +5038,8 @@ export default function App() {
         const swUrl = URL.createObjectURL(swBlob);
         
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl)
-                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
+            navigator.serviceWorker.register(swUrl, { scope: '/' })
+                .then(registration => console.log('Service Worker registrado com sucesso com escopo:', registration.scope))
                 .catch(error => console.log('Falha no registro do Service Worker:', error));
         }
 
@@ -5042,7 +5049,6 @@ export default function App() {
             console.log('`beforeinstallprompt` event foi disparado.');
         });
         
-        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
@@ -5064,12 +5070,8 @@ export default function App() {
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
         return () => {
-            if (document.head.contains(manifestLink)) {
-                document.head.removeChild(manifestLink);
-            }
-            if (document.head.contains(faviconLink)) {
-                document.head.removeChild(faviconLink);
-            }
+            if (document.head.contains(manifestLink)) document.head.removeChild(manifestLink);
+            if (document.head.contains(faviconLink)) document.head.removeChild(faviconLink);
         };
     }, []);
 
