@@ -1136,16 +1136,16 @@ const Header = memo(({ onNavigate }) => {
 
 const CategoryCarousel = memo(({ categories, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [itemsPerPage, setItemsPerPage] = useState(5);
+    const [itemsPerPage, setItemsPerPage] = useState(6);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
 
     const updateItemsPerPage = useCallback(() => {
-        if (window.innerWidth < 640) setItemsPerPage(3);
-        else if (window.innerWidth < 768) setItemsPerPage(4);
-        else if (window.innerWidth < 1024) setItemsPerPage(5);
-        else setItemsPerPage(7);
+        if (window.innerWidth < 640) setItemsPerPage(2);
+        else if (window.innerWidth < 768) setItemsPerPage(3);
+        else if (window.innerWidth < 1024) setItemsPerPage(4);
+        else setItemsPerPage(6);
     }, []);
 
     useEffect(() => {
@@ -1201,10 +1201,10 @@ const CategoryCarousel = memo(({ categories, onNavigate, title }) => {
                                     className="flex-shrink-0 px-2"
                                     style={{ width: `${100 / itemsPerPage}%` }}
                                 >
-                                    <div className="relative rounded-lg overflow-hidden aspect-square group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
                                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
-                                            <h3 className="text-lg font-bold text-white text-center" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>{cat.name}</h3>
+                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
@@ -1226,6 +1226,7 @@ const CategoryCarousel = memo(({ categories, onNavigate, title }) => {
         </section>
     );
 });
+
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
