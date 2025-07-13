@@ -1523,6 +1523,7 @@ const ShippingCalculator = memo(({ items }) => {
         </>
     );
 });
+
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
@@ -4675,7 +4676,7 @@ export default function App() {
     useEffect(() => {
         // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
-        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
+        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
 
         document.title = APP_NAME;
