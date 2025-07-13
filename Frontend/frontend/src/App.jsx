@@ -41,8 +41,6 @@ const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-const BellIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>;
-
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -2795,6 +2793,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
@@ -2898,7 +2897,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
                 <p className="text-gray-300 mb-6">{message}</p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account/orders')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
+                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
                     <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
                 </div>
             </div>
@@ -3056,7 +3055,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
         { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
-        { key: 'notifications', label: 'Notificações', icon: <BellIcon className="h-5 w-5"/> },
     ];
 
     return (
@@ -3083,7 +3081,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
                             {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
                             {activeTab === 'addresses' && <MyAddressesSection />}
                             {activeTab === 'profile' && <MyProfileSection user={user} />}
-                            {activeTab === 'notifications' && <MyNotificationsSection />}
                         </div>
                     </main>
                 </div>
@@ -3371,14 +3368,6 @@ const MyProfileSection = ({ user }) => {
     );
 };
 
-const MyNotificationsSection = () => {
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Gerenciar Notificações</h2>
-            <NotificationController />
-        </div>
-    );
-};
 
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
@@ -3427,7 +3416,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
                         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
                         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
-                        { key: 'notifications', label: 'Notificações', icon: <BellIcon className="h-5 w-5"/> },
                         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                     ].map(item => (
                         <a href="#" key={item.key} onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} className={`flex items-center px-4 py-2 space-x-3 rounded-md transition-colors ${activePage === item.key ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}>
@@ -4738,109 +4726,6 @@ const InstallPWAButton = ({ deferredPrompt }) => {
     );
 };
 
-// --- NOVO: COMPONENTE PARA CONTROLAR NOTIFICAÇÕES ---
-const NotificationController = () => {
-    const [permissionStatus, setPermissionStatus] = useState(Notification.permission);
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const { isAuthenticated } = useAuth();
-    const notification = useNotification();
-
-    const urlBase64ToUint8Array = (base64String) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    };
-
-    const checkSubscription = useCallback(async () => {
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            setIsSubscribed(!!subscription);
-        }
-        setIsLoading(false);
-    }, []);
-
-    useEffect(() => {
-        if (isAuthenticated) {
-            checkSubscription();
-        } else {
-            setIsLoading(false);
-        }
-    }, [isAuthenticated, checkSubscription]);
-
-    const handleSubscribe = async () => {
-        if (!isAuthenticated) {
-            notification.show("Você precisa estar logado para ativar as notificações.", "error");
-            return;
-        }
-
-        const currentPermission = await Notification.requestPermission();
-        setPermissionStatus(currentPermission);
-
-        if (currentPermission !== 'granted') {
-            notification.show("Permissão para notificações não concedida.", "error");
-            return;
-        }
-
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const publicKey = await apiService('/vapid-public-key');
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey),
-            });
-
-            await apiService('/subscribe', 'POST', subscription);
-            setIsSubscribed(true);
-            notification.show("Notificações ativadas com sucesso!");
-        } catch (error) {
-            console.error("Erro ao inscrever para notificações:", error);
-            notification.show(`Erro ao ativar notificações: ${error.message}`, "error");
-        }
-    };
-
-    const renderStatus = () => {
-        if (isLoading) {
-            return <p className="text-gray-400">Verificando status...</p>;
-        }
-        if (permissionStatus === 'denied') {
-            return (
-                <div className="bg-red-900/50 border border-red-700 text-red-300 p-4 rounded-lg">
-                    <p className="font-bold">Permissão Bloqueada</p>
-                    <p className="text-sm">Você bloqueou as notificações. Para reativá-las, é necessário alterar as permissões do site nas configurações do seu navegador.</p>
-                </div>
-            );
-        }
-        if (isSubscribed) {
-            return (
-                <div className="bg-green-900/50 border border-green-700 text-green-300 p-4 rounded-lg flex items-center gap-3">
-                    <CheckCircleIcon className="h-6 w-6"/>
-                    <p className="font-semibold">Você está recebendo notificações.</p>
-                </div>
-            );
-        }
-        return (
-            <div className="bg-gray-800 p-6 rounded-lg">
-                <p className="text-gray-300 mb-4">Receba atualizações sobre seus pedidos e novidades da loja diretamente no seu dispositivo.</p>
-                <button 
-                    onClick={handleSubscribe} 
-                    className="w-full bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 transition"
-                >
-                    Ativar Notificações
-                </button>
-            </div>
-        );
-    };
-
-    return <div>{renderStatus()}</div>;
-}
-
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
@@ -4885,7 +4770,6 @@ function AppContent({ deferredPrompt }) {
             'orders': <AdminOrders />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
-            'notifications': <AdminNotifications />, // NOVO
             'reports': <AdminReports />,
         };
 
@@ -4988,43 +4872,11 @@ export default function App() {
         faviconLink.href = FAVICON_URL;
 
         const serviceWorkerContent = `
-            self.addEventListener('push', event => {
-                const data = event.data.json();
-                console.log('Nova notificação push recebida', data);
-                event.waitUntil(
-                    self.registration.showNotification(data.title, {
-                        body: data.body,
-                        icon: data.icon,
-                        badge: data.badge,
-                        image: data.image,
-                        data: {
-                            url: data.data.url
-                        }
-                    })
-                );
+            self.addEventListener('install', (event) => {
+                console.log('Service Worker: Instalado');
             });
-
-            self.addEventListener('notificationclick', event => {
-                event.notification.close();
-                const urlToOpen = event.notification.data.url || '/';
-                event.waitUntil(
-                    clients.matchAll({
-                        type: 'window',
-                        includeUncontrolled: true
-                    }).then(windowClients => {
-                        // Verifica se a janela do app já está aberta
-                        for (var i = 0; i < windowClients.length; i++) {
-                            var client = windowClients[i];
-                            if (client.url === urlToOpen && 'focus' in client) {
-                                return client.focus();
-                            }
-                        }
-                        // Se não estiver aberta, abre uma nova
-                        if (clients.openWindow) {
-                            return clients.openWindow(urlToOpen);
-                        }
-                    })
-                );
+            self.addEventListener('fetch', (event) => {
+                event.respondWith(fetch(event.request));
             });
         `;
         const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
