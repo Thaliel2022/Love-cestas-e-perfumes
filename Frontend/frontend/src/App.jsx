@@ -4,66 +4,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
-// --- NOVO: Código do Service Worker para Notificações ---
-const serviceWorkerCode = `
-    self.addEventListener('install', (event) => {
-        console.log('[Service Worker] Instalado');
-        self.skipWaiting();
-    });
-
-    self.addEventListener('activate', (event) => {
-        console.log('[Service Worker] Ativado');
-        event.waitUntil(self.clients.claim());
-    });
-
-    self.addEventListener('push', (event) => {
-        console.log('[Service Worker] Notificação Push recebida.');
-        if (!event.data) {
-            console.log('[Service Worker] Push event mas sem dados.');
-            return;
-        }
-
-        const data = event.data.json();
-        console.log('[Service Worker] Dados da notificação:', data);
-
-        const title = data.title || 'Love Cestas e Perfumes';
-        const options = {
-            body: data.body,
-            icon: data.icon || '/icon-192x192.png', // Ícone pequeno
-            badge: '/badge-72x72.png', // Ícone para a barra de status do Android
-            image: data.image, // Uma imagem maior para ser exibida na notificação
-            data: {
-                url: data.data?.url // URL para abrir ao clicar
-            }
-        };
-
-        event.waitUntil(self.registration.showNotification(title, options));
-    });
-
-    self.addEventListener('notificationclick', (event) => {
-        console.log('[Service Worker] Clique na notificação recebido.');
-        event.notification.close();
-
-        const urlToOpen = event.notification.data?.url || '/';
-
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-                // Verifica se o site já está aberto
-                const matchingClient = windowClients.find(client => new URL(client.url).pathname === new URL(urlToOpen, self.location.origin).pathname);
-
-                if (matchingClient) {
-                    // Se já estiver aberto, foca na aba
-                    return matchingClient.focus();
-                } else {
-                    // Se não, abre uma nova aba
-                    return clients.openWindow(urlToOpen);
-                }
-            })
-        );
-    });
-`;
-
-
 // --- ÍCONES SVG ---
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
@@ -101,10 +41,6 @@ const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
-const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .848 0 1.67.11 2.458.312M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2 2l20 20" /></svg>;
-const BellIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>;
-
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -138,23 +74,6 @@ const maskCEP = (value) => {
         .replace(/(\d{5})(\d)/, '$1-$2')
         .substring(0, 9);
 };
-
-// --- NOVO: Função auxiliar para converter a VAPID key ---
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
-
 
 // --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
@@ -1219,13 +1138,13 @@ const Header = memo(({ onNavigate }) => {
                         />
                         <motion.div 
                             variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
-                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
+                            className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
                         >
                             <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800">
                                 <h2 className="font-bold text-amber-400">Menu</h2>
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
-                            <div className="flex-grow p-4 overflow-y-auto">
+                            <div className="flex-grow overflow-y-auto p-4">
                                 <form onSubmit={handleSearchSubmit} className="relative mb-4">
                                     <input
                                         type="text"
@@ -2153,56 +2072,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-const PasswordField = ({ value, onChange, placeholder, required = false, name = "password" }) => {
-    const [showPassword, setShowPassword] = useState(false);
-    return (
-        <div className="relative">
-            <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder={placeholder}
-                value={value}
-                onChange={onChange}
-                name={name}
-                required={required}
-                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10"
-            />
-            <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-white"
-                aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
-            >
-                {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-            </button>
-        </div>
-    );
-};
-
-const PasswordFieldLight = ({ value, onChange, placeholder, required = false, name = "password" }) => {
-    const [showPassword, setShowPassword] = useState(false);
-    return (
-        <div className="relative">
-            <input
-                type={showPassword ? 'text' : 'password'}
-                value={value}
-                onChange={onChange}
-                name={name}
-                placeholder={placeholder}
-                required={required}
-                className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500 pr-10"
-            />
-            <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
-                aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
-            >
-                {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
-            </button>
-        </div>
-    );
-};
-
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
@@ -2239,12 +2108,7 @@ const LoginPage = ({ onNavigate }) => {
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
                 <form onSubmit={handleLogin} className="space-y-6">
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <PasswordField 
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="Senha"
-                        required
-                    />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
                     <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
                          {isLoading ? <SpinnerIcon /> : 'Entrar'}
                     </button>
@@ -2311,12 +2175,7 @@ const RegisterPage = ({ onNavigate }) => {
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <PasswordField 
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        placeholder="Senha"
-                        required
-                    />
+                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
                     <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
@@ -2398,18 +2257,8 @@ const ForgotPasswordPage = ({ onNavigate }) => {
                 ) : (
                     <form onSubmit={handlePasswordReset} className="space-y-6">
                         <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                        <PasswordField
-                            value={newPassword}
-                            onChange={e => setNewPassword(e.target.value)}
-                            placeholder="Nova Senha"
-                            required
-                        />
-                        <PasswordField
-                            value={confirmPassword}
-                            onChange={e => setConfirmPassword(e.target.value)}
-                            placeholder="Confirmar Nova Senha"
-                            required
-                        />
+                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
                         <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
                     </form>
                 )}
@@ -2944,6 +2793,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
@@ -3047,7 +2897,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
                 <p className="text-gray-300 mb-6">{message}</p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account/orders')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
+                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
                     <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
                 </div>
             </div>
@@ -3205,7 +3055,6 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
         { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
-        { key: 'notifications', label: 'Notificações', icon: <BellIcon className="h-5 w-5"/> }, // NOVO
     ];
 
     return (
@@ -3228,11 +3077,10 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
                         </div>
                     </aside>
                     <main className="lg:col-span-3">
-                        <div className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800 min-h-[400px]">
+                        <div className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
                             {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
                             {activeTab === 'addresses' && <MyAddressesSection />}
                             {activeTab === 'profile' && <MyProfileSection user={user} />}
-                            {activeTab === 'notifications' && <MyNotificationsSection />}
                         </div>
                     </main>
                 </div>
@@ -3496,11 +3344,7 @@ const MyProfileSection = ({ user }) => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <PasswordFieldLight
-                                    value={newPassword}
-                                    onChange={e => setNewPassword(e.target.value)}
-                                    placeholder="Mínimo 6 caracteres"
-                                />
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500" />
                             </div>
                             <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
                         </form>
@@ -3521,94 +3365,6 @@ const MyProfileSection = ({ user }) => {
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
         </>
-    );
-};
-
-// --- NOVO: Seção de Notificações ---
-const MyNotificationsSection = () => {
-    const notification = useNotification();
-    const [isSubscribed, setIsSubscribed] = useState(false);
-    const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(true);
-    const [isUnsupported, setIsUnsupported] = useState(false);
-
-    useEffect(() => {
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-            setIsUnsupported(true);
-            setIsSubscriptionLoading(false);
-            return;
-        }
-        
-        navigator.serviceWorker.ready.then(registration => {
-            registration.pushManager.getSubscription().then(subscription => {
-                setIsSubscribed(!!subscription);
-                setIsSubscriptionLoading(false);
-            });
-        });
-    }, []);
-
-    const handleSubscriptionToggle = async () => {
-        setIsSubscriptionLoading(true);
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const existingSubscription = await registration.pushManager.getSubscription();
-
-            if (existingSubscription) {
-                // Desinscrever
-                await existingSubscription.unsubscribe();
-                // Opcional: informar o backend para remover a inscrição
-                // await apiService('/push/unsubscribe', 'POST', { endpoint: existingSubscription.endpoint });
-                notification.show('Você não receberá mais notificações.', 'error');
-                setIsSubscribed(false);
-            } else {
-                // Inscrever
-                const { publicKey } = await apiService('/push/vapid-key');
-                const subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(publicKey),
-                });
-                
-                await apiService('/push/subscribe', 'POST', { subscription });
-                notification.show('Inscrição realizada! Você receberá notificações.');
-                setIsSubscribed(true);
-            }
-        } catch (error) {
-            console.error('Falha ao gerenciar inscrição de notificação:', error);
-            notification.show(`Erro: ${error.message}`, 'error');
-        } finally {
-            setIsSubscriptionLoading(false);
-        }
-    };
-
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Notificações</h2>
-            <div className="bg-gray-800 p-6 rounded-lg">
-                {isUnsupported ? (
-                    <p className="text-yellow-400">Seu navegador não suporta notificações push.</p>
-                ) : (
-                    <>
-                        <p className="text-gray-300 mb-4">
-                            Receba atualizações sobre seus pedidos e novidades exclusivas diretamente no seu dispositivo, mesmo com o aplicativo fechado.
-                        </p>
-                        <div className="flex items-center justify-between">
-                            <span className="font-semibold text-lg">
-                                {isSubscribed ? 'Notificações Ativadas' : 'Notificações Desativadas'}
-                            </span>
-                            <button
-                                onClick={handleSubscriptionToggle}
-                                disabled={isSubscriptionLoading}
-                                className={`px-6 py-2 rounded-md font-bold transition-colors flex items-center justify-center w-36
-                                    ${isSubscribed ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
-                                    ${isSubscriptionLoading ? 'bg-gray-500 cursor-not-allowed' : ''}
-                                `}
-                            >
-                                {isSubscriptionLoading ? <SpinnerIcon /> : (isSubscribed ? 'Desativar' : 'Ativar')}
-                            </button>
-                        </div>
-                    </>
-                )}
-            </div>
-        </div>
     );
 };
 
@@ -3692,7 +3448,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0 });
-    const notification = useNotification();
     
     useEffect(() => {
         Promise.all([
@@ -3735,29 +3490,9 @@ const AdminDashboard = () => {
         });
     }, []);
 
-    const handleBroadcast = async () => {
-        const title = prompt("Digite o título da notificação:");
-        if (!title) return;
-        const body = prompt("Digite o corpo da notificação:");
-        if (!body) return;
-        const url = prompt("Digite a URL de destino (opcional):");
-
-        try {
-            const result = await apiService('/push/broadcast', 'POST', { title, body, url });
-            notification.show(result.message || 'Notificações enviadas!');
-        } catch (error) {
-            notification.show(error.message || 'Falha ao enviar notificações', 'error');
-        }
-    };
-
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Dashboard</h1>
-                <button onClick={handleBroadcast} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center space-x-2">
-                    <BellIcon className="h-5 w-5"/> <span>Enviar Notificação</span>
-                </button>
-            </div>
+            <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Faturamento Total</h4><p className="text-3xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</p></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Vendas Totais</h4><p className="text-3xl font-bold">{stats.totalSales}</p></div>
@@ -3925,20 +3660,6 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                 if (field.name === 'value' && formData.type === 'free_shipping') {
                     return null;
                 }
-                if (field.type === 'password') {
-                    return (
-                        <div key={field.name}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            <PasswordFieldLight
-                                name={field.name}
-                                value={formData[field.name] || ''}
-                                onChange={handleChange}
-                                placeholder={field.placeholder || ''}
-                                required={field.required}
-                            />
-                        </div>
-                    );
-                }
                 return(
                     <div key={field.name}>
                         <label className="block text-sm font-medium text-gray-700">{field.label}</label>
@@ -3963,6 +3684,1048 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         </form>
     );
 };
+
+const FileUploadArea = ({ onFileSelect }) => {
+    const [dragging, setDragging] = useState(false);
+    const [fileName, setFileName] = useState('');
+    const fileInputRef = useRef(null);
+
+    const handleDragEvents = (e, isDragging) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragging(isDragging);
+    };
+
+    const handleDrop = (e) => {
+        handleDragEvents(e, false);
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+            setFileName(files[0].name);
+            onFileSelect(files[0]);
+        }
+    };
+    
+    const handleFileChange = (e) => {
+        const files = e.target.files;
+        if (files && files.length > 0) {
+            setFileName(files[0].name);
+            onFileSelect(files[0]);
+        }
+    };
+    
+    const triggerFileSelect = () => fileInputRef.current.click();
+
+    return (
+        <div 
+            className={`p-6 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${dragging ? 'border-amber-500 bg-amber-50' : 'border-gray-300 hover:border-gray-400'}`}
+            onDragEnter={(e) => handleDragEvents(e, true)}
+            onDragOver={(e) => handleDragEvents(e, true)}
+            onDragLeave={(e) => handleDragEvents(e, false)}
+            onDrop={handleDrop}
+            onClick={triggerFileSelect}
+        >
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept=".csv"
+                onChange={handleFileChange}
+            />
+            <UploadIcon className="h-10 w-10 mx-auto text-gray-400 mb-2"/>
+            {fileName ? (
+                <div>
+                    <p className="font-semibold text-gray-800">{fileName}</p>
+                    <p className="text-xs text-gray-500">Clique ou arraste outro arquivo para substituir</p>
+                </div>
+            ) : (
+                <p className="text-gray-600">Arraste e solte o arquivo CSV aqui, ou <span className="text-amber-600 font-semibold">clique para selecionar</span>.</p>
+            )}
+        </div>
+    );
+}
+
+const DownloadTemplateButton = () => {
+    const handleDownload = () => {
+        const headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active";
+        const exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1";
+        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "modelo_produtos.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    return (
+        <button onClick={handleDownload} className="text-sm text-blue-600 hover:text-blue-800 underline">
+            Baixar modelo CSV
+        </button>
+    );
+};
+
+
+const AdminProducts = () => {
+  const [products, setProducts] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const confirmation = useConfirmation();
+  const notification = useNotification();
+  
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [importMessage, setImportMessage] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [uniqueBrands, setUniqueBrands] = useState([]);
+  const [uniqueCategories, setUniqueCategories] = useState([]);
+
+  const fetchProducts = useCallback((currentSearchTerm) => {
+    const query = currentSearchTerm ? `?search=${encodeURIComponent(currentSearchTerm)}` : '';
+    apiService(`/products/all${query}`)
+        .then(data => {
+            setProducts(data);
+            const brands = [...new Set(data.map(p => p.brand).filter(b => b))];
+            const categories = [...new Set(data.map(p => p.category).filter(c => c))];
+            setUniqueBrands(brands);
+            setUniqueCategories(categories);
+        })
+        .catch(err => console.error("Falha ao buscar produtos:", err));
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        fetchProducts(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, fetchProducts]);
+
+  const handleOpenModal = (product = null) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+  
+  const handleSave = async (formData) => {
+      try {
+        if (editingProduct) {
+            await apiService(`/products/${editingProduct.id}`, 'PUT', formData);
+            notification.show('Produto atualizado com sucesso!');
+        } else {
+            await apiService('/products', 'POST', formData);
+            notification.show('Produto criado com sucesso!');
+        }
+        fetchProducts(searchTerm);
+        setIsModalOpen(false);
+      } catch (error) {
+          notification.show(`Erro ao salvar produto: ${error.message}`, 'error');
+      }
+  };
+
+  const handleDelete = (id) => {
+      confirmation.show("Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.", async () => {
+          try {
+            await apiService(`/products/${id}`, 'DELETE');
+            fetchProducts(searchTerm);
+            notification.show('Produto deletado com sucesso.');
+          } catch(error) {
+            notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
+          }
+      });
+  };
+  
+  const productFields = [
+      { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
+      { name: 'brand', label: 'Marca', type: 'text', required: true },
+      { name: 'category', label: 'Categoria', type: 'text', required: true },
+      { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
+      { name: 'stock', label: 'Estoque', type: 'number', required: true },
+      { name: 'images_upload', label: 'Fazer Upload de Nova Imagem', type: 'file' },
+      { name: 'images', label: 'URLs das Imagens', type: 'text_array' },
+      { name: 'description', label: 'Descrição', type: 'textarea' },
+      { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
+      { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
+      { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
+      { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
+      { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
+      { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
+      { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
+      { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
+      { name: 'is_active', label: 'Ativo', type: 'checkbox' },
+  ];
+
+  const handleFileSelect = (file) => {
+      setImportMessage('');
+      setSelectedFile(file);
+  };
+
+  const handleImport = async () => {
+      if (!selectedFile) {
+          setImportMessage('Por favor, selecione um arquivo.');
+          return;
+      }
+      setIsImporting(true);
+      setImportMessage('Importando, por favor aguarde...');
+      try {
+          const result = await apiUploadService('/products/import', selectedFile);
+          setImportMessage(result.message);
+          notification.show(result.message);
+          fetchProducts(searchTerm);
+          setTimeout(() => {
+            setIsImportModalOpen(false);
+            setImportMessage('');
+            setSelectedFile(null);
+          }, 2000);
+      } catch (error) {
+          setImportMessage(`Erro: ${error.message}`);
+          notification.show(`Erro na importação: ${error.message}`, 'error');
+      } finally {
+          setIsImporting(false);
+      }
+  };
+
+  const handleSelectProduct = (productId) => {
+    setSelectedProducts(prevSelected => {
+        if (prevSelected.includes(productId)) {
+            return prevSelected.filter(id => id !== productId);
+        } else {
+            return [...prevSelected, productId];
+        }
+    });
+  };
+
+  const handleSelectAll = (e) => {
+      if (e.target.checked) {
+          const allProductIds = products.map(p => p.id);
+          setSelectedProducts(allProductIds);
+      } else {
+          setSelectedProducts([]);
+      }
+  };
+
+  const handleDeleteSelected = async () => {
+      if (selectedProducts.length === 0) return;
+      
+      confirmation.show(`Tem certeza que deseja deletar ${selectedProducts.length} produtos?`, async () => {
+          try {
+              const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
+              fetchProducts(searchTerm); 
+              setSelectedProducts([]); 
+              notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
+          } catch (error) {
+              notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
+          }
+      });
+  };
+
+  return (
+    <div>
+        <AnimatePresence>
+            {isModalOpen && (
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingProduct ? 'Editar Produto' : 'Adicionar Produto'}>
+                    <CrudForm 
+                        item={editingProduct} 
+                        onSave={handleSave} 
+                        onCancel={() => setIsModalOpen(false)} 
+                        fieldsConfig={productFields}
+                        brands={uniqueBrands}
+                        categories={uniqueCategories}
+                    />
+                </Modal>
+            )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+            {isImportModalOpen && (
+                <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Importar Produtos via CSV">
+                    <div className="space-y-4">
+                        <div>
+                            <h3 className="font-bold text-lg mb-2">Instruções</h3>
+                            <p className="text-sm text-gray-600 mb-2">
+                                O arquivo CSV deve conter um cabeçalho com as colunas exatamente como no modelo. 
+                            </p>
+                             <DownloadTemplateButton />
+                        </div>
+                        
+                        <FileUploadArea onFileSelect={handleFileSelect} />
+
+                        <button onClick={handleImport} disabled={!selectedFile || isImporting} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center">
+                            {isImporting ? <SpinnerIcon /> : 'Fazer Upload e Importar'}
+                        </button>
+                        {importMessage && <p className={`mt-4 text-center text-sm font-semibold ${importMessage.startsWith('Erro') ? 'text-red-600' : 'text-green-600'}`}>{importMessage}</p>}
+                    </div>
+                </Modal>
+            )}
+        </AnimatePresence>
+
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
+            <div className="flex flex-wrap gap-2">
+                {selectedProducts.length > 0 && (
+                    <button onClick={handleDeleteSelected} className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2">
+                        <TrashIcon className="h-5 w-5"/> <span>Deletar ({selectedProducts.length})</span>
+                    </button>
+                )}
+                <button onClick={() => setIsImportModalOpen(true)} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center space-x-2">
+                    <UploadIcon className="h-5 w-5"/> <span>Importar</span>
+                </button>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
+                    <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
+                </button>
+            </div>
+        </div>
+        <div className="mb-6">
+            <input 
+                type="text" 
+                placeholder="Pesquisar por nome, marca ou categoria..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            />
+        </div>
+
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="hidden md:block">
+                <table className="w-full text-left">
+                    <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 w-4">
+                                <input type="checkbox" onChange={handleSelectAll} checked={products.length > 0 && selectedProducts.length === products.length} />
+                            </th>
+                            <th className="p-4">Produto</th>
+                            <th className="p-4">Marca</th>
+                            <th className="p-4">Preço</th>
+                            <th className="p-4">Estoque</th>
+                            <th className="p-4">Vendas</th>
+                            <th className="p-4">Ativo</th>
+                            <th className="p-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {products.map(p => (
+                            <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''}`}>
+                                <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
+                                <td className="p-4 flex items-center">
+                                    <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
+                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
+                                    </div>
+                                    <p className="font-semibold">{p.name}</p>
+                                </td>
+                                <td className="p-4">{p.brand}</td>
+                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
+                                <td className="p-4">{p.stock}</td>
+                                <td className="p-4">{p.sales || 0}</td>
+                                <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
+                                <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <div className="md:hidden space-y-4 p-4">
+                {products.map(p => (
+                    <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                        <div className="flex justify-between items-start">
+                             <div className="flex items-center">
+                                <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4"/>
+                                <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                <div>
+                                    <p className="font-bold">{p.name}</p>
+                                    <p className="text-sm text-gray-500">{p.brand}</p>
+                                </div>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
+                             <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
+                             <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
+                        </div>
+                         <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                            <button onClick={() => handleOpenModal(p)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                            <button onClick={() => handleDelete(p.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+  )
+};
+
+const AdminUsers = () => {
+    const [users, setUsers] = useState([]);
+    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState(null);
+    const confirmation = useConfirmation();
+    const notification = useNotification();
+
+    const fetchUsers = useCallback(() => {
+        apiService('/users').then(setUsers).catch(err => console.error(err));
+    }, []);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+    
+    const handleOpenUserModal = (user) => {
+        setEditingUser(user);
+        setIsUserModalOpen(true);
+    };
+
+    const handleSaveUser = async (formData) => {
+        try {
+            await apiService(`/users/${editingUser.id}`, 'PUT', formData);
+            fetchUsers();
+            setIsUserModalOpen(false);
+            notification.show('Usuário atualizado com sucesso!');
+        } catch (error) {
+            notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
+        }
+    };
+
+    const handleDelete = (id) => {
+        confirmation.show("Tem certeza que deseja remover este usuário?", async () => {
+            try {
+                await apiService(`/users/${id}`, 'DELETE');
+                fetchUsers();
+                notification.show('Usuário deletado.');
+            } catch (err) {
+                notification.show(`Erro ao deletar: ${err.message}`, 'error');
+            }
+        });
+    };
+    
+    const userFields = [
+        { name: 'name', label: 'Nome', type: 'text', required: true },
+        { name: 'email', label: 'Email', type: 'email', required: true },
+        { name: 'cpf', label: 'CPF', type: 'text', required: false, editable: false },
+        { name: 'role', label: 'Função', type: 'select', options: [{value: 'user', label: 'Usuário'}, {value: 'admin', label: 'Administrador'}] },
+        { name: 'password', label: 'Nova Senha (deixe em branco para não alterar)', type: 'password', required: false },
+    ];
+
+    return (
+        <div>
+             <AnimatePresence>
+                {isUserModalOpen && (
+                    <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Editar Usuário">
+                        <CrudForm item={editingUser} onSave={handleSaveUser} onCancel={() => setIsUserModalOpen(false)} fieldsConfig={userFields} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
+            
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden md:block">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100">
+                             <tr>
+                                <th className="p-4">ID</th>
+                                <th className="p-4">Nome</th>
+                                <th className="p-4">Email</th>
+                                <th className="p-4">Função</th>
+                                <th className="p-4">Ações</th>
+                             </tr>
+                        </thead>
+                         <tbody>
+                            {users.map(u => (
+                                <tr key={u.id} className="border-b">
+                                    <td className="p-4">{u.id}</td>
+                                    <td className="p-4">{u.name}</td>
+                                    <td className="p-4">{u.email}</td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                </div>
+                 <div className="md:hidden space-y-4 p-4">
+                    {users.map(u => (
+                        <div key={u.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold">{u.name}</p>
+                                    <p className="text-sm text-gray-500">{u.email}</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span>
+                            </div>
+                            <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenUserModal(u)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(u.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const CouponCountdown = ({ createdAt, validityDays }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+
+    useEffect(() => {
+        if (!validityDays || !createdAt) {
+            setTimeLeft('Permanente');
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const expirationDate = new Date(new Date(createdAt).getTime() + validityDays * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const difference = expirationDate - now;
+
+            if (difference <= 0) {
+                setTimeLeft('Expirado');
+                clearInterval(interval);
+                return;
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((difference / 1000 / 60) % 60);
+            const seconds = Math.floor((difference / 1000) % 60);
+            
+            let displayString = '';
+            if (days > 0) displayString += `${days}d `;
+            displayString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            setTimeLeft(displayString);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [createdAt, validityDays]);
+
+    const colorClass = timeLeft === 'Expirado' ? 'text-red-500' : 'text-green-600';
+
+    return <span className={`font-mono text-sm ${colorClass}`}>{timeLeft}</span>;
+};
+
+const AdminCoupons = () => {
+    const [coupons, setCoupons] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingCoupon, setEditingCoupon] = useState(null);
+    const confirmation = useConfirmation();
+    const notification = useNotification();
+
+    const fetchCoupons = useCallback(() => {
+        apiService('/coupons').then(data => {
+            setCoupons(data.sort((a,b) => b.id - a.id));
+        }).catch(err=>console.error(err));
+    }, []);
+
+    useEffect(() => { fetchCoupons() }, [fetchCoupons]);
+
+    const handleOpenModal = (coupon = null) => {
+        setEditingCoupon(coupon);
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (formData) => {
+        try {
+            if (editingCoupon) {
+                await apiService(`/coupons/${editingCoupon.id}`, 'PUT', formData);
+                notification.show('Cupom atualizado!');
+            } else {
+                await apiService('/coupons', 'POST', formData);
+                notification.show('Cupom criado!');
+            }
+            fetchCoupons();
+            setIsModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro: ${error.message}`, 'error');
+        }
+    };
+    
+    const handleDelete = (id) => {
+        confirmation.show("Tem certeza que deseja deletar este cupom?", async () => {
+            try {
+                await apiService(`/coupons/${id}`, 'DELETE');
+                fetchCoupons();
+                notification.show('Cupom deletado.');
+            } catch(error) {
+                notification.show(`Erro: ${error.message}`, 'error');
+            }
+        });
+    }
+
+    const couponFields = [
+        { name: 'code', label: 'Código do Cupom', type: 'text', required: true, placeholder: 'Ex: PROMO10' },
+        { name: 'type', label: 'Tipo de Desconto', type: 'select', options: [{value: 'percentage', label: 'Porcentagem (%)'}, {value: 'fixed', label: 'Valor Fixo (R$)'}, {value: 'free_shipping', label: 'Frete Grátis'}]},
+        { name: 'value', label: 'Valor do Desconto', type: 'number', step: '0.01', required: false, placeholder: 'Ex: 10 para 10% ou R$10.00' },
+        { name: 'validity_days', label: 'Dias de Validade', type: 'number', required: false, placeholder: 'Deixe em branco para ser permanente' },
+        { name: 'is_first_purchase', label: 'Apenas para a primeira compra?', type: 'checkbox' },
+        { name: 'is_single_use_per_user', label: 'Uso único por usuário?', type: 'checkbox' },
+        { name: 'is_active', label: 'Ativo (pronto para uso)', type: 'checkbox' },
+    ];
+    
+    return (
+        <div>
+            <AnimatePresence>
+                {isModalOpen && (
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Adicionar Cupom'}>
+                        <CrudForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={couponFields} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
+            </div>
+
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden md:block">
+                    <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                             <tr>
+                                <th className="p-4">Código</th>
+                                <th className="p-4">Tipo</th>
+                                <th className="p-4">Valor</th>
+                                <th className="p-4">1ª Compra</th>
+                                <th className="p-4">Uso Único</th>
+                                <th className="p-4">Validade</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4">Ações</th>
+                             </tr>
+                        </thead>
+                         <tbody>
+                            {coupons.map(c => (
+                                <tr key={c.id} className="border-b">
+                                    <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
+                                    <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
+                                    <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
+                                    <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(c)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                </div>
+                 <div className="md:hidden space-y-4 p-4">
+                    {coupons.map(c => (
+                         <div key={c.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <span className="font-mono font-bold">{c.code}</span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                 <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
+                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
+                                 <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
+                                 <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
+                                 <div className="col-span-2"><strong className="text-gray-500 block">Validade Restante</strong> <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></div>
+                            </div>
+                             <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenModal(c)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(c.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminOrders = () => {
+    const [orders, setOrders] = useState([]);
+    const [filteredOrders, setFilteredOrders] = useState([]);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
+    const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
+    const notification = useNotification();
+    const [filters, setFilters] = useState({
+        startDate: '',
+        endDate: '',
+        status: '',
+        customerName: '',
+        minPrice: '',
+        maxPrice: '',
+    });
+    const statuses = [
+        'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
+        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
+    ];
+
+    const fetchOrders = useCallback(() => {
+        apiService('/orders')
+            .then(data => {
+                const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
+                setOrders(sortedData);
+                setFilteredOrders(sortedData);
+            })
+            .catch(err => console.error("Falha ao buscar pedidos:", err));
+    }, []);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+    
+    const handleOpenEditModal = async (order) => {
+        try {
+            const fullOrderDetails = await apiService(`/orders/${order.id}`);
+            setEditingOrder(fullOrderDetails);
+            setEditFormData({
+                status: fullOrderDetails.status,
+                tracking_code: fullOrderDetails.tracking_code || ''
+            });
+            setIsEditModalOpen(true);
+        } catch (error) {
+            notification.show("Erro ao buscar detalhes do pedido.", 'error');
+            console.error(error);
+        }
+    };
+
+    const handleEditFormChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveOrder = async (e) => {
+        e.preventDefault();
+        if (!editingOrder) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            fetchOrders();
+            setIsEditModalOpen(false);
+            setEditingOrder(null);
+            notification.show('Pedido atualizado com sucesso!');
+        } catch(error) {
+            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
+        }
+    };
+
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const applyFilters = useCallback(() => {
+        let tempOrders = [...orders];
+
+        if (filters.startDate) {
+            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        }
+        if (filters.endDate) {
+            const endOfDay = new Date(filters.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+        }
+        if (filters.status) {
+            tempOrders = tempOrders.filter(o => o.status === filters.status);
+        }
+        if (filters.customerName) {
+            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+        }
+        if (filters.minPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+        }
+        if (filters.maxPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+        }
+
+        setFilteredOrders(tempOrders);
+    }, [orders, filters]);
+
+    const clearFilters = () => {
+        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setFilteredOrders(orders);
+    }
+
+    return (
+        <div>
+            <AnimatePresence>
+                {editingOrder && (
+                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
+                         <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
+                                    <p>{editingOrder.user_name}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
+                                    <p className="capitalize">{editingOrder.payment_method}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                 <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                     {(() => {
+                                         try {
+                                             const addr = JSON.parse(editingOrder.shipping_address);
+                                             return (
+                                                 <>
+                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                                                     <p>{addr.cep}</p>
+                                                 </>
+                                             )
+                                         } catch { return <p>Endereço mal formatado.</p> }
+                                     })()}
+                                 </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
+                                <div className="space-y-2 border-t pt-2">
+                                    {editingOrder.items?.map(item => (
+                                        <div key={item.id} className="flex items-center text-sm">
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{item.name}</p>
+                                                <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
+                                <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
+                                    <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
+                                    {Number(editingOrder.discount_amount) > 0 && (
+                                    <div className="flex justify-between text-green-600">
+                                        <span>Desconto ({editingOrder.coupon_code || ''}):</span> 
+                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
+                                    </div>
+                                    )}
+                                    <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
+                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
+                                    <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                 </div>
+                                 <div className="flex justify-end space-x-3 pt-4">
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                                    <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+                                </div>
+                            </form>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
+            
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
+                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
+                        <option value="">Todos os Status</option>
+                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                </div>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
+                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
+                </div>
+            </div>
+
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden lg:block">
+                     <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-4 font-semibold">Pedido ID</th>
+                                <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Data</th>
+                                <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Cód. Rastreio</th>
+                                <th className="p-4 font-semibold">Ações</th>
+                            </tr>
+                         </thead>
+                         <tbody>
+                            {filteredOrders.map(o => (
+                                <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 font-mono">#{o.id}</td>
+                                    <td className="p-4">{o.user_name}</td>
+                                    <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
+                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
+                                    <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                     </table>
+                </div>
+                <div className="lg:hidden space-y-4 p-4">
+                    {filteredOrders.map(o => (
+                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold">Pedido #{o.id}</p>
+                                    <p className="text-sm text-gray-600">{o.user_name}</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
+                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
+                            </div>
+                            <div className="flex justify-end mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminReports = () => {
+    const runWhenLibsReady = (callback, requiredLibs) => {
+        const check = () => {
+            const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
+            const isExcelReady = requiredLibs.includes('excel') ? (window.XLSX) : true;
+
+            if (isPdfReady && isExcelReady) {
+                callback();
+            } else {
+                console.log("Aguardando bibliotecas de relatório...");
+                setTimeout(check, 100);
+            }
+        };
+        check();
+    };
+
+    const generatePdf = (data, headers, title) => {
+        runWhenLibsReady(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const timestamp = new Date().toLocaleString('pt-BR');
+
+            doc.setFontSize(18);
+            doc.text(title, pageWidth / 2, 16, { align: 'center' });
+            doc.setFontSize(8);
+            doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
+            doc.autoTable({ 
+                head: [headers], 
+                body: data,
+                startY: 25
+            });
+            doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
+        }, ['pdf']);
+    };
+
+    const generateExcel = (data, filename) => {
+        runWhenLibsReady(() => {
+            const wb = window.XLSX.utils.book_new();
+            const ws = window.XLSX.utils.json_to_sheet(data);
+            window.XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+            window.XLSX.writeFile(wb, `${filename}.xlsx`);
+        }, ['excel']);
+    };
+
+    const handleSalesExport = async (format) => {
+        try {
+            const orders = await apiService('/orders');
+            const data = orders.map(o => ({ Pedido_ID: o.id, Cliente: o.user_name, Data: new Date(o.date).toLocaleDateString(), Total: o.total, Status: o.status }));
+            if (format === 'pdf') {
+                generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio de Vendas');
+            } else {
+                generateExcel(data, 'relatorio_vendas');
+            }
+        } catch (error) {
+            alert(`Falha ao gerar relatório de vendas: ${error.message}`);
+        }
+    };
+    
+    const handleStockExport = async (format) => {
+        try {
+            const products = await apiService('/products/all');
+            const data = products.map(p => ({ Produto: p.name, Marca: p.brand, Estoque: p.stock, Preço: p.price }));
+            if (format === 'pdf') {
+                generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio de Estoque');
+            } else {
+                generateExcel(data, 'relatorio_estoque');
+            }
+        } catch (error) {
+            alert(`Falha ao gerar relatório de estoque: ${error.message}`);
+        }
+    };
+
+    return(
+        <div>
+            <h1 className="text-3xl font-bold mb-6">Relatórios</h1>
+            <div className="bg-white p-6 rounded-lg shadow space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
+                    <div>
+                        <h4 className="font-bold">Relatório de Vendas</h4>
+                        <p className="text-sm text-gray-600">Exporte um resumo de todos os pedidos realizados.</p>
+                    </div>
+                    <div className="space-x-2 flex-shrink-0">
+                        <button onClick={() => handleSalesExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
+                        <button onClick={() => handleSalesExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
+                    </div>
+                </div>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border rounded-md gap-4">
+                    <div>
+                        <h4 className="font-bold">Relatório de Estoque</h4>
+                        <p className="text-sm text-gray-600">Exporte a lista de produtos com o estoque atual.</p>
+                    </div>
+                    <div className="space-x-2 flex-shrink-0">
+                         <button onClick={() => handleStockExport('pdf')} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
+                        <button onClick={() => handleStockExport('excel')} className="bg-green-600 text-white px-4 py-2 rounded">Excel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
+const InstallPWAButton = ({ deferredPrompt }) => {
+    const handleInstallClick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`PWA setup user choice: ${outcome}`);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleInstallClick}
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-6 py-3 rounded-full shadow-lg hover:bg-amber-400 font-bold flex items-center gap-2 transition-transform hover:scale-105"
+        >
+            <DownloadIcon className="h-5 w-5" />
+            <span>Instalar App</span>
+        </button>
+    );
+};
+
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
@@ -4108,13 +4871,20 @@ export default function App() {
         faviconLink.type = 'image/png';
         faviconLink.href = FAVICON_URL;
 
-        // --- NOVO: Registro do Service Worker via Blob ---
-        const swBlob = new Blob([serviceWorkerCode], { type: 'application/javascript' });
+        const serviceWorkerContent = `
+            self.addEventListener('install', (event) => {
+                console.log('Service Worker: Instalado');
+            });
+            self.addEventListener('fetch', (event) => {
+                event.respondWith(fetch(event.request));
+            });
+        `;
+        const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
         const swUrl = URL.createObjectURL(swBlob);
         
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register(swUrl)
-                .then(registration => console.log('Service Worker para notificações registrado com sucesso:', registration))
+                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
                 .catch(error => console.log('Falha no registro do Service Worker:', error));
         }
 
