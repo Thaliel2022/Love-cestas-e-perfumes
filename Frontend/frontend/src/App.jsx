@@ -962,6 +962,7 @@ const Header = memo(({ onNavigate }) => {
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeMenu, setActiveMenu] = useState(null);
+    const [mobileAccordion, setMobileAccordion] = useState(null);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
@@ -1017,8 +1018,8 @@ const Header = memo(({ onNavigate }) => {
     ];
 
     const dropdownVariants = {
-        open: { opacity: 1, y: 0, display: 'block' },
-        closed: { opacity: 0, y: -20, transitionEnd: { display: 'none' } }
+        open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
+        closed: { opacity: 0, y: -10, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
     };
     
     const mobileMenuVariants = {
@@ -1098,11 +1099,11 @@ const Header = memo(({ onNavigate }) => {
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
                 </div>
-                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Promoções</a>
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors">Promoções</a>
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 
                 <AnimatePresence>
-                    {activeMenu && (
+                    {activeMenu === 'Coleções' && (
                         <motion.div 
                             initial="closed" animate="open" exit="closed" variants={dropdownVariants}
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
@@ -1144,21 +1145,30 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow p-4 overflow-y-auto">
-                                {categoriesForMenu.map(cat => (
-                                    <div key={cat.name}>
-                                        <h3 className="font-bold text-amber-400 mt-4 mb-2">{cat.name}</h3>
-                                        <ul className="pl-4 space-y-2">
-                                            {cat.sub.map(subCat => (
-                                                <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-white hover:text-amber-300">{subCat}</a></li>
-                                            ))}
-                                        </ul>
+                                {categoriesForMenu.map((cat, index) => (
+                                    <div key={cat.name} className="border-b border-gray-800">
+                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
+                                            <span>{cat.name}</span>
+                                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
+                                        </button>
+                                        <AnimatePresence>
+                                        {mobileAccordion === index && (
+                                            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
+                                                {cat.sub.map(subCat => (
+                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
+                                                ))}
+                                            </motion.ul>
+                                        )}
+                                        </AnimatePresence>
                                     </div>
                                 ))}
-                                <div className="border-t border-gray-800 mt-4 pt-4 space-y-2">
-                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Ver Tudo</a>
-                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Ajuda</a>
+                                <div className="border-b border-gray-800">
+                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
                                 </div>
-                                <div className="border-t border-gray-800 mt-4 pt-4 space-y-2">
+                                <div className="border-b border-gray-800">
+                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
+                                </div>
+                                <div className="pt-4 space-y-3">
                                     {isAuthenticated ? (
                                         <>
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
