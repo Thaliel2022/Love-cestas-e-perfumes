@@ -3032,6 +3032,7 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
         { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
+        { key: 'notifications', label: 'Notificações', icon: <BellIcon className="h-5 w-5"/> },
     ];
 
     return (
@@ -3058,6 +3059,7 @@ const MyAccountPage = ({ onNavigate, subPage }) => {
                             {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
                             {activeTab === 'addresses' && <MyAddressesSection />}
                             {activeTab === 'profile' && <MyProfileSection user={user} />}
+                            {activeTab === 'notifications' && <NotificationSettings />}
                         </div>
                     </main>
                 </div>
@@ -3172,7 +3174,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     );
 };
 
-const MyAddressesSection = () => {
+const MyAddressesSection = ({ onNavigate }) => {
     const { addresses, fetchAddresses, determineShippingLocation } = useShop();
     const { addNotification } = useNotification();
     const confirmation = useConfirmation();
@@ -3342,6 +3344,99 @@ const MyProfileSection = ({ user }) => {
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
         </>
+    );
+};
+
+const NotificationSettings = () => {
+    const { addNotification } = useNotification();
+    const [permission, setPermission] = useState(Notification.permission);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const checkSubscription = useCallback(async () => {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        setIsSubscribed(!!subscription);
+        setIsLoading(false);
+    }, []);
+
+    useEffect(() => {
+        checkSubscription();
+    }, [checkSubscription]);
+
+    const handleSubscriptionChange = async () => {
+        setIsLoading(true);
+        const registration = await navigator.serviceWorker.ready;
+        
+        if (isSubscribed) {
+            // Unsubscribe
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                try {
+                    await apiService('/notifications/unsubscribe', 'POST', { endpoint: subscription.endpoint });
+                    await subscription.unsubscribe();
+                    setIsSubscribed(false);
+                    addNotification({ title: 'Notificações Desativadas', message: 'Você não receberá mais notificações push.', type: 'info' });
+                } catch (error) {
+                    addNotification({ title: 'Erro', message: 'Não foi possível desativar as notificações.', type: 'error' });
+                }
+            }
+        } else {
+            // Subscribe
+            if (Notification.permission === 'denied') {
+                addNotification({ title: 'Permissão Negada', message: 'Você precisa permitir as notificações nas configurações do seu navegador.', type: 'error' });
+                setIsLoading(false);
+                return;
+            }
+            try {
+                const VAPID_PUBLIC_KEY = await apiService('/notifications/vapid-key');
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: VAPID_PUBLIC_KEY,
+                });
+                await apiService('/notifications/subscribe', 'POST', subscription);
+                setIsSubscribed(true);
+                addNotification({ title: 'Notificações Ativadas!', message: 'Você agora receberá nossas novidades.', type: 'success' });
+            } catch (error) {
+                console.error('Falha ao se inscrever:', error);
+                addNotification({ title: 'Erro', message: 'Não foi possível ativar as notificações.', type: 'error' });
+            }
+        }
+        setPermission(Notification.permission);
+        setIsLoading(false);
+    };
+
+    return (
+        <div>
+            <h2 className="text-2xl font-bold text-amber-400 mb-6">Configurações de Notificação</h2>
+            <div className="bg-gray-800 p-6 rounded-lg">
+                <h3 className="text-lg font-semibold text-white mb-2">Notificações Push</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                    Receba atualizações sobre o status do seu pedido, promoções exclusivas e novidades diretamente no seu dispositivo.
+                </p>
+                {isLoading ? (
+                    <div className="h-10 flex items-center justify-center"><SpinnerIcon /></div>
+                ) : (
+                    <div className="flex items-center space-x-4">
+                        <button 
+                            onClick={handleSubscriptionChange}
+                            disabled={permission === 'denied'}
+                            className={`px-6 py-2 font-bold rounded-md transition-colors flex items-center justify-center ${
+                                isSubscribed 
+                                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                                : 'bg-green-600 hover:bg-green-700 text-white'
+                            } disabled:bg-gray-500 disabled:cursor-not-allowed`}
+                        >
+                            {isSubscribed ? 'Desativar Notificações' : 'Ativar Notificações'}
+                        </button>
+                        {permission === 'denied' && (
+                            <p className="text-red-400 text-sm">As notificações estão bloqueadas no seu navegador.</p>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
     );
 };
 
@@ -4880,9 +4975,56 @@ export default function App() {
         const serviceWorkerContent = `
             self.addEventListener('install', (event) => {
                 console.log('Service Worker: Instalado');
+                self.skipWaiting();
             });
-            self.addEventListener('fetch', (event) => {
-                event.respondWith(fetch(event.request));
+
+            self.addEventListener('activate', (event) => {
+                console.log('Service Worker: Ativado');
+                return self.clients.claim();
+            });
+
+            self.addEventListener('push', (event) => {
+                console.log('[Service Worker] Push Recebido.');
+                console.log('[Service Worker] Dados do Push: ', event.data.text());
+
+                const data = event.data.json();
+                const title = data.title || 'Nova Notificação';
+                const options = {
+                    body: data.body,
+                    icon: data.icon || '/icon-192x192.png',
+                    badge: data.badge || '/badge-72x72.png',
+                    data: {
+                        url: data.url
+                    }
+                };
+
+                event.waitUntil(self.registration.showNotification(title, options));
+            });
+
+            self.addEventListener('notificationclick', (event) => {
+                console.log('[Service Worker] Notificação clicada.');
+                event.notification.close();
+                
+                const urlToOpen = event.notification.data.url || '/';
+                
+                event.waitUntil(
+                    clients.matchAll({
+                        type: 'window',
+                        includeUncontrolled: true
+                    }).then((clientList) => {
+                        if (clientList.length > 0) {
+                            let client = clientList[0];
+                            for (let i = 0; i < clientList.length; i++) {
+                                if (clientList[i].focused) {
+                                    client = clientList[i];
+                                }
+                            }
+                            client.navigate(urlToOpen);
+                            return client.focus();
+                        }
+                        return clients.openWindow(urlToOpen);
+                    })
+                );
             });
         `;
         const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
