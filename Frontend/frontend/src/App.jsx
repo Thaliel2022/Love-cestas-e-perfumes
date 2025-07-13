@@ -8,7 +8,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
-const AdminIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const AdminIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const MenuIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
 const StarIcon = memo(({ className, isFilled, onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill={isFilled ? "currentColor" : "none"} stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
@@ -1115,7 +1115,7 @@ const Header = memo(({ onNavigate }) => {
                                         <ul className="space-y-2">
                                             {cat.sub.map(subCat => (
                                                 <li key={subCat}>
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
+                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${encodeURIComponent(subCat)}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
                                                 </li>
                                             ))}
                                         </ul>
@@ -1138,24 +1138,31 @@ const Header = memo(({ onNavigate }) => {
                         />
                         <motion.div 
                             variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
-                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
+                            className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-50 flex flex-col"
                         >
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 h-16 border-b border-gray-800">
+                            <div className="flex justify-between items-center p-4 border-b border-gray-800 flex-shrink-0">
                                 <h2 className="font-bold text-amber-400">Menu</h2>
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
-                            <div className="flex-grow overflow-y-auto" style={{ height: 'calc(100% - 4rem)'}}>
-                                <div className="p-4">
-                                    <form onSubmit={handleSearchSubmit} className="relative mb-4">
-                                        <input
-                                            type="text"
-                                            value={searchTerm}
-                                            onChange={e => setSearchTerm(e.target.value)}
-                                            placeholder="O que você procura?"
-                                            className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                        />
-                                    </form>
 
+                            {/* Search bar for mobile menu */}
+                            <div className="p-4 border-b border-gray-800 flex-shrink-0">
+                                <form onSubmit={handleSearchSubmit} className="relative">
+                                    <input 
+                                        type="text" 
+                                        value={searchTerm} 
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        placeholder="O que você procura?" 
+                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-1 focus:ring-amber-500"
+                                    />
+                                    <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400">
+                                        <SearchIcon className="h-5 w-5" />
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="flex-grow overflow-y-auto">
+                                <div className="p-4">
                                     {categoriesForMenu.map((cat, index) => (
                                         <div key={cat.name} className="border-b border-gray-800">
                                             <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
@@ -1166,7 +1173,7 @@ const Header = memo(({ onNavigate }) => {
                                             {mobileAccordion === index && (
                                                 <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
                                                     {cat.sub.map(subCat => (
-                                                        <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
+                                                        <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${encodeURIComponent(subCat)}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
                                                     ))}
                                                 </motion.ul>
                                             )}
@@ -1701,7 +1708,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    
     const productImages = useMemo(() => parseImages(product?.images, null), [product]);
 
     const fetchProductData = useCallback(async (id) => {
@@ -2777,7 +2783,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     ) : (
                                         <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
                                     )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
                                 
                                 <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
