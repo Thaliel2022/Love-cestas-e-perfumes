@@ -13,15 +13,16 @@ const { MercadoPagoConfig, Preference } = require('mercadopago');
 const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
-const { Resend } = require('resend');
-const webpush = require('web-push'); // --- NOVO: Pacote para notificações push ---
+const { Resend } = require('resend'); // --- Importação do Resend ---
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
+
 // --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
+
 
 // ---> Constantes para status de pedidos
 const ORDER_STATUS = {
@@ -36,15 +37,14 @@ const ORDER_STATUS = {
     REFUNDED: 'Reembolsado'
 };
 
+
 // Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = () => {
     const requiredVars = [
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL',
-        // --- NOVO: Variáveis para Notificações Push ---
-        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT'
+        'RESEND_API_KEY', 'FROM_EMAIL'
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -126,12 +126,6 @@ cloudinary.config({
 const memoryStorage = multer.memoryStorage();
 const memoryUpload = multer({ storage: memoryStorage });
 
-// --- NOVO: CONFIGURAÇÃO DO WEB-PUSH ---
-webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT,
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-);
 
 // --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
 const verifyToken = (req, res, next) => {
@@ -153,7 +147,7 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- Funções Auxiliares ---
+// --- Função Auxiliar para atualizar status e registrar histórico
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
     await connection.query(
@@ -163,22 +157,10 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
 };
 
-// --- NOVO: Função para enviar notificação push ---
-const sendPushNotification = async (subscription, payload) => {
-    try {
-        await webpush.sendNotification(subscription, payload);
-        console.log('Notificação push enviada com sucesso.');
-    } catch (error) {
-        console.error('Erro ao enviar notificação push:', error.statusCode, error.body);
-        // Se a inscrição expirou ou é inválida (410 Gone ou 404 Not Found), remova-a do banco de dados.
-        if (error.statusCode === 410 || error.statusCode === 404) {
-            console.log('Removendo inscrição inválida do banco de dados.');
-            await db.query("DELETE FROM push_subscriptions WHERE endpoint = ?", [error.endpoint]);
-        }
-    }
-};
 
-// --- Funções para criar os e-mails HTML (sem alterações) ---
+// --- Funções para criar os e-mails HTML ---
+
+// Função auxiliar para obter a primeira imagem de um JSON
 const getFirstImage = (imagesJsonString) => {
     try {
         if (!imagesJsonString) return 'https://placehold.co/80x80/2A3546/D4AF37?text=?';
@@ -189,6 +171,7 @@ const getFirstImage = (imagesJsonString) => {
     }
 };
 
+// ATUALIZADO: Template base para todos os e-mails, garantindo responsividade e padrão visual
 const createEmailBase = (content) => {
     return `
     <!DOCTYPE html>
@@ -364,84 +347,8 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
     }
 });
 
-// --- ROTAS DE NOTIFICAÇÕES PUSH ---
-app.get('/api/push/vapid-key', (req, res) => {
-    res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
-});
 
-app.post('/api/push/subscribe', verifyToken, async (req, res) => {
-    const subscription = req.body.subscription;
-    const userId = req.user.id; 
-
-    if (!subscription || !subscription.endpoint) {
-        return res.status(400).json({ message: 'Inscrição inválida.' });
-    }
-
-    try {
-        const sql = `
-            INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) 
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE user_id = ?, updated_at = CURRENT_TIMESTAMP
-        `;
-        await db.query(sql, [
-            userId, 
-            subscription.endpoint, 
-            subscription.keys.p256dh, 
-            subscription.keys.auth,
-            userId // para o caso de ON DUPLICATE KEY UPDATE
-        ]);
-        res.status(201).json({ message: 'Inscrição salva com sucesso.' });
-    } catch (error) {
-        console.error('Erro ao salvar inscrição push:', error);
-        res.status(500).json({ message: 'Falha ao salvar inscrição.' });
-    }
-});
-
-app.post('/api/push/broadcast', verifyToken, verifyAdmin, async (req, res) => {
-    const { title, body, url } = req.body;
-    if (!title || !body) {
-        return res.status(400).json({ message: 'Título e corpo da mensagem são obrigatórios.' });
-    }
-
-    try {
-        const [subscriptions] = await db.query("SELECT endpoint, p256dh, auth FROM push_subscriptions");
-        
-        if (subscriptions.length === 0) {
-            return res.status(404).json({ message: 'Nenhum usuário inscrito para receber notificações.' });
-        }
-
-        const payload = JSON.stringify({
-            title: title,
-            body: body,
-            icon: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png',
-            data: {
-                url: url || process.env.APP_URL
-            }
-        });
-
-        const sendPromises = subscriptions.map(sub => {
-            const subscriptionObject = {
-                endpoint: sub.endpoint,
-                keys: {
-                    p256dh: sub.p256dh,
-                    auth: sub.auth
-                }
-            };
-            return sendPushNotification(subscriptionObject, payload);
-        });
-
-        await Promise.all(sendPromises);
-
-        res.status(200).json({ message: `Notificação enviada para ${subscriptions.length} inscritos.` });
-
-    } catch (error) {
-        console.error('Erro ao enviar notificação em massa:', error);
-        res.status(500).json({ message: 'Falha ao enviar notificações.' });
-    }
-});
-
-
-// --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS (sem alterações) ---
+// --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
 app.post('/api/register', async (req, res) => {
     const { name, email, password, cpf } = req.body;
     if (!name || !email || !password || !cpf) {
@@ -552,7 +459,8 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// --- ROTA DE RASTREIO (sem alterações) ---
+
+// --- ROTA DE RASTREIO (INTEGRAÇÃO REAL COM LINK & TRACK) ---
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
     
@@ -585,7 +493,8 @@ app.get('/api/track/:code', async (req, res) => {
     }
 });
 
-// --- ROTA DE CÁLCULO DE FRETE (sem alterações) ---
+
+// --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body; 
     if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
@@ -663,8 +572,8 @@ app.post('/api/shipping/calculate', async (req, res) => {
     }
 });
 
-// --- ROTAS DE PRODUTOS (sem alterações) ---
-// (código das rotas /api/products... omitido por ser idêntico)
+
+// --- ROTAS DE PRODUTOS ---
 app.get('/api/products', async (req, res) => {
     try {
         const sql = `
@@ -888,7 +797,8 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
     }
 });
 
-// --- ROTAS DE AVALIAÇÕES (REVIEWS) (sem alterações) ---
+
+// --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -911,7 +821,8 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE CARRINHO PERSISTENTE (sem alterações) ---
+
+// --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -975,7 +886,7 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE PEDIDOS (com integração de notificação push) ---
+// --- ROTAS DE PEDIDOS ---
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -991,6 +902,7 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
     }
 });
+
 
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -1096,6 +1008,29 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     }
 });
 
+
+app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const { address } = req.body;
+    const userId = req.user.id;
+
+    try {
+        const [order] = await db.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [id, userId]);
+        if (order.length === 0) {
+            return res.status(404).json({ message: "Pedido não encontrado ou não pertence a este usuário." });
+        }
+        if (order[0].status !== ORDER_STATUS.PENDING && order[0].status !== ORDER_STATUS.PAYMENT_APPROVED) {
+            return res.status(403).json({ message: "Endereço não pode ser alterado para este pedido." });
+        }
+        await db.query("UPDATE orders SET shipping_address = ? WHERE id = ?", [JSON.stringify(address), id]);
+        res.json({ message: "Endereço do pedido atualizado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao atualizar endereço do pedido:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar endereço." });
+    }
+});
+
+// Rota de atualização de pedido com envio de e-mail integrado
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -1109,7 +1044,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         ORDER_STATUS.DELIVERED
     ];
     
-    const statusesThatTriggerNotification = [
+    // ATUALIZADO: Adicionado Cancelado e Reembolsado
+    const statusesThatTriggerEmail = [
         ORDER_STATUS.PROCESSING,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
@@ -1126,7 +1062,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (currentOrderResult.length === 0) {
             throw new Error("Pedido não encontrado.");
         }
-        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus, user_id } = currentOrderResult[0];
+        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrderResult[0];
 
         if (status && status !== currentStatus) {
             const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
@@ -1177,39 +1113,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
         await connection.commit();
         
-        // --- LÓGICA DE ENVIO DE NOTIFICAÇÃO ---
-        if (status && statusesThatTriggerNotification.includes(status)) {
-            const [subscriptions] = await db.query("SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?", [user_id]);
-            
-            if (subscriptions.length > 0) {
-                const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
-                let notificationTitle = `Pedido #${id} Atualizado`;
-                let notificationBody = `O status do seu pedido foi atualizado para: ${status}.`;
-
-                if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
-                    notificationTitle = `Seu Pedido #${id} Foi Enviado!`;
-                    notificationBody = `Seu pedido está a caminho! Cód. Rastreio: ${finalTrackingCode}`;
-                }
-
-                const payload = JSON.stringify({
-                    title: notificationTitle,
-                    body: notificationBody,
-                    icon: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png',
-                    data: {
-                        url: `${process.env.APP_URL}/#account/orders`
-                    }
-                });
-
-                for (const sub of subscriptions) {
-                    const subscriptionObject = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
-                    sendPushNotification(subscriptionObject, payload);
-                }
-            }
-        }
-        
-        // --- LÓGICA DE ENVIO DE EMAIL ---
         try {
-            if (status && statusesThatTriggerNotification.includes(status)) {
+            if (status && statusesThatTriggerEmail.includes(status)) {
                 
                 const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
 
@@ -1262,8 +1167,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 
-// --- SEÇÃO DE PAGAMENTOS E WEBHOOK (sem alterações) ---
-// (código das rotas /api/orders/:id/status, /api/create-mercadopago-payment, etc... omitido por ser idêntico)
+// --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
+
 app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
@@ -1400,6 +1305,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
     }
 });
 
+
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -1511,6 +1417,7 @@ const processPaymentWebhook = async (paymentId) => {
     }
 };
 
+
 app.post('/api/mercadopago-webhook', (req, res) => {
     res.sendStatus(200);
 
@@ -1532,7 +1439,8 @@ app.post('/api/mercadopago-webhook', (req, res) => {
     }
 });
 
-// --- ROTAS DE USUÁRIOS (para Admin e Perfil) (sem alterações) ---
+
+// --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
 app.get('/api/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [users] = await db.query("SELECT id, name, email, cpf, role, created_at FROM users");
@@ -1621,7 +1529,7 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTAS DE CUPONS (sem alterações) ---
+// --- ROTAS DE CUPONS (CRUD COMPLETO E AVANÇADO) ---
 app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
@@ -1693,6 +1601,7 @@ app.post('/api/coupons/validate', async (req, res) => {
     }
 });
 
+
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
     if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
@@ -1750,7 +1659,7 @@ app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTAS DA LISTA DE DESEJOS (WISHLIST) (sem alterações) ---
+// --- ROTAS DA LISTA DE DESEJOS (WISHLIST) ---
 app.get('/api/wishlist', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -1801,7 +1710,7 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE ENDEREÇOS (sem alterações) ---
+// --- NOVAS ROTAS: GERENCIAMENTO DE ENDEREÇOS ---
 app.get('/api/addresses', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
