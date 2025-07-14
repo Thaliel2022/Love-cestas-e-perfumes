@@ -1,10 +1,8 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
-// --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
-// --- ÍCONES SVG ---
 const CartIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>;
 const HeartIcon = ({ className, filled }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill={filled ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 20.25l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
 const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>;
@@ -41,8 +39,9 @@ const PlusCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const ExclamationCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const DownloadIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const ChevronDownIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
+const RulerIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16M8 4v4m8-4v4" /></svg>;
+const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M19 3v4m2-2h-4m-6 4v10m7-14v4m2-2h-4M7 13h10M7 17h10" /></svg>;
 
-// --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
     cpf = String(cpf).replace(/[^\d]/g, ''); 
     if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -75,7 +74,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
     const token = localStorage.getItem('token');
     const config = {
@@ -177,41 +175,30 @@ async function apiImageUploadService(endpoint, file) {
     }
 }
 
-
-// --- FUNÇÕES AUXILIARES PARA IMAGENS ---
-const parseImages = (imagesJsonString, placeholder) => {
-    if (!imagesJsonString || typeof imagesJsonString !== 'string') {
-        return placeholder === null ? [] : [placeholder];
+const parseJsonSafe = (jsonString, fallback = null) => {
+    if (!jsonString || typeof jsonString !== 'string') {
+        return fallback;
     }
     try {
-        const parsed = JSON.parse(imagesJsonString);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-        }
-        return placeholder === null ? [] : [placeholder];
+        const parsed = JSON.parse(jsonString);
+        return parsed;
     } catch (e) {
         try {
-            const cleaned = imagesJsonString.replace(/\\"/g, '"');
+            const cleaned = jsonString.replace(/\\"/g, '"');
             const reparsed = JSON.parse(cleaned);
-            if (Array.isArray(reparsed) && reparsed.length > 0) {
-                return reparsed;
-            }
-            return placeholder === null ? [] : [placeholder];
+            return reparsed;
         } catch (e2) {
-            console.error("Falha ao parsear JSON de imagens:", imagesJsonString, e2);
-            return placeholder === null ? [] : [placeholder];
+            console.error("Falha ao parsear JSON:", jsonString, e2);
+            return fallback;
         }
     }
 };
 
-
 const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
-    const images = parseImages(imagesJsonString, placeholder);
-    return images[0] || placeholder;
+    const images = parseJsonSafe(imagesJsonString, []);
+    return (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
 };
 
-
-// --- CONTEXTOS GLOBAIS ---
 const AuthContext = createContext(null);
 const ShopContext = createContext(null);
 const NotificationContext = createContext(null);
@@ -410,43 +397,74 @@ const ShopProvider = ({ children }) => {
     }, [cart, shippingLocation]);
 
     
-    const addToCart = useCallback(async (productToAdd, qty = 1) => {
+    const addToCart = useCallback(async (productToAdd, qty = 1, variant = null) => {
         setCart(currentCart => {
-            const existing = currentCart.find(item => item.id === productToAdd.id);
+            const cartItemId = variant ? `${productToAdd.id}-${variant.id}` : String(productToAdd.id);
+            const existing = currentCart.find(item => item.cartItemId === cartItemId);
             let updatedCart;
             if (existing) {
                 const newQty = existing.qty + qty;
-                updatedCart = currentCart.map(item => item.id === productToAdd.id ? { ...item, qty: newQty } : item);
+                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: newQty } : item);
                 if (isAuthenticated) {
-                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: newQty });
+                    apiService('/cart', 'POST', {
+                        productId: productToAdd.id,
+                        quantity: newQty,
+                        variantId: variant ? variant.id : null,
+                    });
                 }
             } else {
-                updatedCart = [...currentCart, { ...productToAdd, qty }];
+                const newItem = {
+                    ...productToAdd,
+                    qty,
+                    variant,
+                    cartItemId
+                };
+                updatedCart = [...currentCart, newItem];
                 if (isAuthenticated) {
-                    apiService('/cart', 'POST', { productId: productToAdd.id, quantity: qty });
+                    apiService('/cart', 'POST', {
+                        productId: productToAdd.id,
+                        quantity: qty,
+                        variantId: variant ? variant.id : null,
+                    });
                 }
             }
             return updatedCart;
         });
     }, [isAuthenticated]);
     
-    const removeFromCart = useCallback(async (productId) => {
-        const updatedCart = cart.filter(item => item.id !== productId);
+    const removeFromCart = useCallback(async (cartItemId) => {
+        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
         setCart(updatedCart);
         if (isAuthenticated) {
-            await apiService(`/cart/${productId}`, 'DELETE');
+            const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
+            if (itemToRemove) {
+                 await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variantId: itemToRemove.variant ? itemToRemove.variant.id : null });
+            }
         }
     }, [cart, isAuthenticated]);
 
-    const updateQuantity = useCallback(async (productId, newQuantity) => {
+    const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
         if (newQuantity < 1) {
-            removeFromCart(productId);
+            removeFromCart(cartItemId);
             return;
         }
-        const updatedCart = cart.map(item => item.id === productId ? {...item, qty: newQuantity } : item);
+        
+        let itemToUpdate = null;
+        const updatedCart = cart.map(item => {
+            if (item.cartItemId === cartItemId) {
+                itemToUpdate = { ...item, qty: newQuantity };
+                return itemToUpdate;
+            }
+            return item;
+        });
         setCart(updatedCart);
-        if (isAuthenticated) {
-            await apiService('/cart', 'POST', { productId, quantity: newQuantity });
+
+        if (isAuthenticated && itemToUpdate) {
+            await apiService('/cart', 'POST', { 
+                productId: itemToUpdate.id,
+                quantity: newQuantity,
+                variantId: itemToUpdate.variant ? itemToUpdate.variant.id : null,
+            });
         }
     }, [cart, isAuthenticated, removeFromCart]);
 
@@ -632,8 +650,6 @@ const ConfirmationProvider = ({ children }) => {
     );
 };
 
-
-// --- COMPONENTES DA UI ---
 const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   if (!isOpen) return null;
 
@@ -653,6 +669,7 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
       md: 'max-w-md',
       lg: 'max-w-lg',
       xl: 'max-w-xl',
+      '2xl': 'max-w-2xl'
   };
 
   return (
@@ -744,31 +761,32 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [isBuyingNow, setIsBuyingNow] = useState(false);
     
+    const hasVariants = product.product_type === 'clothing' && product.variants && product.variants.length > 0;
     const imageUrl = getFirstImage(product.images);
     const avgRating = Math.round(product.avg_rating || 0);
 
-    const handleAddToCart = async (e) => {
+    const handleAction = async (e, action) => {
         e.stopPropagation();
-        setIsAddingToCart(true);
+        if (hasVariants) {
+            onNavigate(`product/${product.id}`);
+            return;
+        }
+
+        if (action === 'buy') setIsBuyingNow(true);
+        else setIsAddingToCart(true);
+
         try {
             await addToCart(product);
-            notification.show(`${product.name} adicionado ao carrinho!`);
+            if (action === 'buy') {
+                onNavigate('cart');
+            } else {
+                notification.show(`${product.name} adicionado ao carrinho!`);
+            }
         } catch (error) {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
-            setIsAddingToCart(false);
-        }
-    };
-
-    const handleBuyNow = async (e) => {
-        e.stopPropagation();
-        setIsBuyingNow(true);
-        try {
-            await addToCart(product);
-            onNavigate('cart');
-        } catch (error) {
-            notification.show(error.message || "Erro ao iniciar compra", "error");
-            setIsBuyingNow(false);
+            if (action === 'buy') setIsBuyingNow(false);
+            else setIsAddingToCart(false);
         }
     };
     
@@ -832,14 +850,18 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ))}
                 </div>
                 <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                <p className="text-2xl font-light text-white mt-4">
+                    {hasVariants ? "A partir de " : ""}R$ {Number(product.price).toFixed(2)}
+                </p>
                 <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                    <button onClick={(e) => handleAction(e, 'buy')} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                        {isBuyingNow ? <SpinnerIcon /> : (hasVariants ? 'Ver Opções' : 'Comprar')}
                     </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
+                    {!hasVariants && (
+                        <button onClick={(e) => handleAction(e, 'add')} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                            {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                        </button>
+                    )}
                 </div>
             </div>
         </motion.div>
@@ -1029,7 +1051,6 @@ const Header = memo(({ onNavigate }) => {
 
     return (
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            {/* Top Bar */}
             <div className="container mx-auto px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
                     <div className="flex items-center">
@@ -1093,7 +1114,6 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-            {/* Bottom Bar (Desktop Navigation) */}
             <nav className="hidden md:flex container mx-auto px-4 sm:px-6 h-12 items-center justify-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
@@ -1127,7 +1147,6 @@ const Header = memo(({ onNavigate }) => {
                 </AnimatePresence>
             </nav>
             
-            {/* Mobile Menu */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <>
@@ -1292,7 +1311,6 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
     );
 });
 
-// --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
 
@@ -1695,12 +1713,39 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [thumbnailIndex, setThumbnailIndex] = useState(0);
+    const [selectedVariant, setSelectedVariant] = useState(null);
     
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
-    const productImages = useMemo(() => parseImages(product?.images, null), [product]);
+    const productImages = useMemo(() => parseJsonSafe(product?.images, []), [product]);
+
+    useEffect(() => {
+        if (product) {
+            const initialImage = selectedVariant?.image || (productImages.length > 0 ? productImages[0] : 'https://placehold.co/600x400/222/fff?text=Produto');
+            setMainImage(initialImage);
+        }
+    }, [product, selectedVariant, productImages]);
+
+    const handleVariantSelection = (type, value) => {
+        const newSelection = { ...selectedVariant, [type]: value };
+
+        if (type === 'color') {
+            const availableSizesForColor = product.variants
+                .filter(v => v.color === value)
+                .map(v => v.size);
+            if (!availableSizesForColor.includes(newSelection.size)) {
+                newSelection.size = availableSizesForColor[0];
+            }
+        }
+        
+        const matchingVariant = product.variants.find(
+            v => v.color === newSelection.color && v.size === newSelection.size
+        );
+
+        setSelectedVariant(matchingVariant || { color: newSelection.color, size: newSelection.size });
+    };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -1713,22 +1758,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal: controller.signal }).catch(() => []) 
             ]);
             
-            const images = parseImages(productData.images, 'https://placehold.co/600x400/222/fff?text=Produto');
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
-            if (productData && allProductsData) {
-                const related = allProductsData.filter(p =>
-                    p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)
-                ).slice(0, 8); 
-                setRelatedProducts(related);
+            if (productData) {
+                if(productData.product_type === 'clothing' && productData.variants?.length > 0) {
+                    setSelectedVariant(productData.variants[0]);
+                }
+                if (allProductsData) {
+                    const related = allProductsData.filter(p =>
+                        p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)
+                    ).slice(0, 8); 
+                    setRelatedProducts(related);
+                }
             }
 
         } catch (err) {
             if (err.name !== 'AbortError') {
-                 console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
             }
         } finally {
@@ -1790,34 +1837,47 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
     
     const handleQuantityChange = (amount) => {
-        setQuantity(prev => Math.max(1, prev + amount));
+        const maxStock = product?.product_type === 'clothing' ? selectedVariant?.stock : product?.stock;
+        setQuantity(prev => {
+            const newQty = prev + amount;
+            if (newQty < 1) return 1;
+            if (maxStock && newQty > maxStock) return maxStock;
+            return newQty;
+        });
     };
 
     const handleAddToCart = () => {
-        if(product) {
-            addToCart(product, quantity);
-            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
+        if(!product) return;
+        if (product.product_type === 'clothing' && (!selectedVariant || !selectedVariant.id)) {
+            notification.show('Por favor, selecione as opções disponíveis.', 'error');
+            return;
         }
+        addToCart(product, quantity, selectedVariant);
+        notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
     };
     
     const handleBuyNow = () => {
-        if(product) {
-            addToCart(product, quantity);
-            onNavigate('cart');
+        if(!product) return;
+        if (product.product_type === 'clothing' && (!selectedVariant || !selectedVariant.id)) {
+            notification.show('Por favor, selecione as opções disponíveis.', 'error');
+            return;
         }
+        addToCart(product, quantity, selectedVariant);
+        onNavigate('cart');
     };
     
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
-    const TabButton = ({ label, tabName }) => (
+    const TabButton = ({ label, tabName, icon }) => (
         <button
             onClick={() => setActiveTab(tabName)}
-            className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
+            className={`flex items-center gap-2 px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300
                 ${activeTab === tabName 
                     ? 'border-amber-400 text-amber-400' 
                     : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`
             }
         >
+            {icon}
             {label}
         </button>
     );
@@ -1893,10 +1953,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (!product) return [];
         return [{...product, qty: quantity}];
     }, [product, quantity]);
+    
+    const uniqueColors = useMemo(() => {
+        if(product?.product_type !== 'clothing' || !product.variants) return [];
+        return [...new Set(product.variants.map(v => v.color))];
+    }, [product]);
+
+    const availableSizesForSelectedColor = useMemo(() => {
+        if(product?.product_type !== 'clothing' || !product.variants || !selectedVariant?.color) return [];
+        return product.variants
+            .filter(v => v.color === selectedVariant.color)
+            .map(v => v.size);
+    }, [product, selectedVariant]);
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
+
+    const currentStock = product.product_type === 'clothing' ? (selectedVariant?.stock ?? 0) : product.stock;
+    const isOutOfStock = currentStock <= 0;
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -1969,7 +2044,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                            <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>
+                            {product.product_type === 'perfume' && <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>}
                             <div className="flex items-center mt-2">
                                 {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
                                 {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
@@ -1993,19 +2068,41 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {product.product_type === 'clothing' && (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="font-semibold text-gray-300 mb-2 block">Cor: <span className="text-white">{selectedVariant?.color}</span></label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {uniqueColors.map(color => (
+                                            <button key={color} onClick={() => handleVariantSelection('color', color)} className={`h-8 w-8 rounded-full border-2 transition-transform hover:scale-110 ${selectedVariant?.color === color ? 'border-amber-400' : 'border-gray-600'}`} style={{ backgroundColor: color.toLowerCase() }} title={color}></button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="font-semibold text-gray-300 mb-2 block">Tamanho:</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {availableSizesForSelectedColor.map(size => (
+                                            <button key={size} onClick={() => handleVariantSelection('size', size)} className={`px-4 py-1.5 border-2 rounded-md font-semibold transition ${selectedVariant?.size === size ? 'bg-amber-400 border-amber-400 text-black' : 'border-gray-700 hover:border-amber-400'}`}>{size}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         
                         <div className="flex items-center space-x-4">
                             <p className="font-semibold">Quantidade:</p>
                             <div className="flex items-center border border-gray-700 rounded-md">
-                                <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button>
-                                <span className="px-5 py-2 font-bold text-lg">{quantity}</span>
-                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md">+</button>
+                                <button onClick={() => handleQuantityChange(-1)} disabled={isOutOfStock} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md disabled:opacity-50">-</button>
+                                <span className="px-5 py-2 font-bold text-lg">{isOutOfStock ? 0 : quantity}</span>
+                                <button onClick={() => handleQuantityChange(1)} disabled={isOutOfStock} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:opacity-50">+</button>
                             </div>
+                             {isOutOfStock && <span className="text-red-500 font-semibold">Indisponível</span>}
                         </div>
 
                         <div className="space-y-3">
-                            <button onClick={handleBuyNow} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold">Comprar Agora</button>
-                            <button onClick={handleAddToCart} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold">Adicionar ao Carrinho</button>
+                            <button onClick={handleBuyNow} disabled={isOutOfStock} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed">Comprar Agora</button>
+                            <button onClick={handleAddToCart} disabled={isOutOfStock} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed">Adicionar ao Carrinho</button>
                         </div>
                         
                         <ShippingCalculator items={itemsForShipping} />
@@ -2014,16 +2111,30 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                 <div className="mt-16 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
-                        <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Notas Olfativas" tabName="notes" />
-                        <TabButton label="Como Usar" tabName="how_to_use" />
-                        <TabButton label="Ideal Para" tabName="ideal_for" />
+                        {product.product_type === 'perfume' ? (
+                            <>
+                                <TabButton label="Descrição" tabName="description" icon={<FileIcon className="h-5 w-5"/>}/>
+                                <TabButton label="Notas Olfativas" tabName="notes" icon={<SparklesIcon className="h-5 w-5"/>}/>
+                                <TabButton label="Como Usar" tabName="how_to_use" icon={<CheckBadgeIcon className="h-5 w-5"/>}/>
+                                <TabButton label="Ideal Para" tabName="ideal_for" icon={<StarIcon className="h-5 w-5"/>}/>
+                            </>
+                        ) : (
+                             <>
+                                <TabButton label="Detalhes do Produto" tabName="description" icon={<FileIcon className="h-5 w-5"/>}/>
+                                <TabButton label="Tabela de Medidas" tabName="size_chart" icon={<RulerIcon className="h-5 w-5"/>}/>
+                                <TabButton label="Cuidados" tabName="care" icon={<CheckBadgeIcon className="h-5 w-5"/>}/>
+                            </>
+                        )}
                     </div>
                     <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        {activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                        {activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
-                        {activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        
+                        {product.product_type === 'perfume' && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
+                        {product.product_type === 'perfume' && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {product.product_type === 'perfume' && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        
+                        {product.product_type === 'clothing' && activeTab === 'size_chart' && <p>{product.size_chart || 'Tabela de medidas não disponível.'}</p>}
+                        {product.product_type === 'clothing' && activeTab === 'care' && <p>{product.care || 'Instruções de cuidado não disponíveis.'}</p>}
                     </div>
                 </div>
 
@@ -2324,7 +2435,7 @@ const CartPage = ({ onNavigate }) => {
                         <div className="lg:col-span-2 space-y-6">
                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
                                 {cart.map(item => (
-                                    <div key={item.id} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
+                                    <div key={item.cartItemId} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
                                         <div className="flex items-center w-full sm:w-auto">
                                             <div 
                                                 className="w-20 h-20 bg-white rounded-md flex-shrink-0 cursor-pointer"
@@ -2334,17 +2445,22 @@ const CartPage = ({ onNavigate }) => {
                                             </div>
                                             <div className="flex-grow px-4">
                                                 <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                {item.variant && (
+                                                    <p className="text-sm text-gray-400">
+                                                        {item.variant.color} / {item.variant.size}
+                                                    </p>
+                                                )}
                                                 <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
                                             <div className="flex items-center space-x-2">
-                                                <button onClick={() => updateQuantity(item.id, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
+                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
                                                 <span className="w-8 text-center">{item.qty}</span>
-                                                <button onClick={() => updateQuantity(item.id, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
+                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
                                             </div>
                                             <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
-                                            <button onClick={() => removeFromCart(item.id)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
+                                            <button onClick={() => removeFromCart(item.cartItemId)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -2668,7 +2784,12 @@ const CheckoutPage = ({ onNavigate }) => {
 
         try {
             const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: item.price })),
+                items: cart.map(item => ({ 
+                    id: item.id,
+                    qty: item.qty,
+                    price: item.price,
+                    variantId: item.variant ? item.variant.id : null,
+                })),
                 total: total,
                 shippingAddress: selectedAddress,
                 paymentMethod: paymentMethod,
@@ -2764,7 +2885,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1">
                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
                                 <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                                {cart.map(item => <div key={item.id} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
+                                {cart.map(item => <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1"><span>{item.qty}x {item.name}</span><span>R$ {(item.price * item.qty).toFixed(2)}</span></div>)}
                                 <div className="border-t border-gray-700 mt-4 pt-4">
                                     {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
@@ -2793,14 +2914,12 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
-
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
     const pollStatus = useCallback(async () => {
-        console.log(`Verificando status do pedido #${orderId}...`);
         try {
             const response = await apiService(`/orders/${orderId}/status`);
             if (response.status && response.status !== 'Pendente') {
@@ -2844,7 +2963,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && pageStatus === 'processing') {
-                console.log("Página ficou visível, forçando nova verificação de status.");
                 pollStatus();
             }
         };
@@ -2953,7 +3071,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
-            {/* --- VISTA DESKTOP --- */}
             <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
@@ -2980,7 +3097,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
                 })}
             </div>
 
-            {/* --- VISTA MOBILE --- */}
             <div className="md:hidden flex flex-col">
                 {timelineOrder.map((statusKey, index) => {
                     const statusInfo = historyMap.get(statusKey);
@@ -3124,8 +3240,9 @@ const MyOrdersSection = ({ onNavigate }) => {
         if (!orderItems) return;
         let count = 0;
         orderItems.forEach(item => {
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images };
-            addToCart(product, item.quantity);
+            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, product_type: item.product_type, variants: item.variants };
+            const variant = item.variant_id ? { id: item.variant_id, size: item.variant_size, color: item.variant_color } : null;
+            addToCart(product, item.quantity, variant);
             count++;
         });
         notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
@@ -3170,7 +3287,12 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 {order.items.map(item => (
                                     <div key={item.id} className="flex items-center text-sm">
                                         <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
-                                        <span>{item.quantity}x {item.name}</span>
+                                        <div>
+                                            {item.quantity}x {item.name}
+                                            {item.variant_size && item.variant_color && (
+                                                <p className="text-xs text-gray-400">{item.variant_color} / {item.variant_size}</p>
+                                            )}
+                                        </div>
                                         <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
                                     </div>
                                 ))}
@@ -3390,7 +3512,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-// --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -3401,7 +3522,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     }
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
-            {/* Sidebar */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
@@ -3430,7 +3550,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
              {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4 flex-shrink-0">
                      <button onClick={() => setIsSidebarOpen(true)} className="p-2">
@@ -3507,6 +3626,46 @@ const AdminDashboard = () => {
     );
 };
 
+const VariantManager = ({ variants, onVariantsChange }) => {
+    const handleVariantChange = (index, field, value) => {
+        const newVariants = [...variants];
+        newVariants[index] = { ...newVariants[index], [field]: value };
+        onVariantsChange(newVariants);
+    };
+
+    const addVariant = () => {
+        onVariantsChange([...variants, { size: '', color: '', stock: 0 }]);
+    };
+
+    const removeVariant = (index) => {
+        onVariantsChange(variants.filter((_, i) => i !== index));
+    };
+
+    return (
+        <div className="space-y-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+            <h4 className="font-semibold text-gray-800">Gerenciar Variações</h4>
+            <div className="hidden md:grid grid-cols-5 gap-2 text-sm font-medium text-gray-600">
+                <span>Tamanho</span>
+                <span>Cor</span>
+                <span>Estoque</span>
+                <span>Imagem (URL)</span>
+                <span>Ação</span>
+            </div>
+            {variants.map((variant, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-center border-t md:border-none pt-2 md:pt-0">
+                    <input type="text" placeholder="Tamanho (Ex: P, M, 40)" value={variant.size || ''} onChange={(e) => handleVariantChange(index, 'size', e.target.value)} className="w-full p-2 border rounded-md" />
+                    <input type="text" placeholder="Cor (Ex: Vermelho)" value={variant.color || ''} onChange={(e) => handleVariantChange(index, 'color', e.target.value)} className="w-full p-2 border rounded-md" />
+                    <input type="number" placeholder="Estoque" value={variant.stock || 0} onChange={(e) => handleVariantChange(index, 'stock', parseInt(e.target.value, 10))} className="w-full p-2 border rounded-md" />
+                    <input type="text" placeholder="URL da Imagem (Opcional)" value={variant.image || ''} onChange={(e) => handleVariantChange(index, 'image', e.target.value)} className="w-full p-2 border rounded-md" />
+                    <button type="button" onClick={() => removeVariant(index)} className="p-2 bg-red-500 text-white rounded-md flex-shrink-0 hover:bg-red-600 flex justify-center items-center"><TrashIcon className="h-4 w-4"/></button>
+                </div>
+            ))}
+            <button type="button" onClick={addVariant} className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-semibold">Adicionar Variação</button>
+        </div>
+    );
+};
+
+
 const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
@@ -3514,14 +3673,21 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
     useEffect(() => {
         const initialData = {};
         fieldsConfig.forEach(field => {
-            initialData[field.name] = item?.[field.name] ?? 
-                (field.type === 'select' ? (field.options[0]?.value || '') : 
-                (field.type === 'checkbox' ? 0 : 
-                (field.name === 'images' ? [] : '')));
+            let defaultValue = '';
+            if (field.type === 'checkbox') defaultValue = 0;
+            if (field.name === 'images') defaultValue = [];
+            if (field.name === 'product_type') defaultValue = 'perfume';
+            if (field.name === 'variants') defaultValue = '[]';
+            
+            initialData[field.name] = item?.[field.name] ?? defaultValue;
         });
         
         if (item?.images) {
-            initialData.images = parseImages(item.images, null);
+            initialData.images = parseJsonSafe(item.images, []);
+        }
+        
+        if (!item) {
+            initialData.is_active = 1;
         }
 
         setFormData(initialData);
@@ -3573,7 +3739,7 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         e.preventDefault();
         const dataToSubmit = { ...formData };
 
-        if (dataToSubmit.volume && !isNaN(dataToSubmit.volume) && !dataToSubmit.volume.toLowerCase().includes('ml')) {
+        if (dataToSubmit.volume && !isNaN(dataToSubmit.volume) && !String(dataToSubmit.volume).toLowerCase().includes('ml')) {
             dataToSubmit.volume = `${dataToSubmit.volume}ml`;
         }
         
@@ -3592,9 +3758,18 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
         onSave(dataToSubmit);
     };
 
+    const perfumeFields = ['notes', 'how_to_use', 'ideal_for', 'volume'];
+    const clothingFields = ['variants', 'size_chart', 'care'];
+
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {fieldsConfig.map(field => {
+                const isPerfumeField = perfumeFields.includes(field.name);
+                const isClothingField = clothingFields.includes(field.name);
+
+                if (isPerfumeField && formData.product_type !== 'perfume') return null;
+                if (isClothingField && formData.product_type !== 'clothing') return null;
+                
                  if (field.name === 'brand') {
                     return (
                         <div key={field.name}>
@@ -3659,6 +3834,9 @@ const CrudForm = ({ item, onSave, onCancel, fieldsConfig, brands = [], categorie
                 }
                 if (field.name === 'value' && formData.type === 'free_shipping') {
                     return null;
+                }
+                if (field.name === 'variants') {
+                    return <VariantManager key={field.name} variants={parseJsonSafe(formData.variants, [])} onVariantsChange={(v) => setFormData(p => ({...p, variants: JSON.stringify(v)}))} />;
                 }
                 return(
                     <div key={field.name}>
@@ -3746,9 +3924,10 @@ const FileUploadArea = ({ onFileSelect }) => {
 
 const DownloadTemplateButton = () => {
     const handleDownload = () => {
-        const headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active";
-        const exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1";
-        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow;
+        const headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type,variants,size_chart,care";
+        const exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,[\"https://example.com/img1.png\"],Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume,,,"
+        const exampleRow2 = "Camisa Básica,Minha Marca,Roupa,89.90,0,[\"https://example.com/shirt.png\"],Camisa de algodão, , , , ,0.3,50,70,2,1,clothing,\"[{\\\"size\\\":\\\"M\\\",\\\"color\\\":\\\"Branco\\\",\\\"stock\\\":15},{\\\"size\\\":\\\"G\\\",\\\"color\\\":\\\"Branco\\\",\\\"stock\\\":10}]\",\"P: Ombro 40cm, Busto 50cm\",\"Lavar a 30°C\"";
+        const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + exampleRow + "\n" + exampleRow2;
         
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
@@ -3841,10 +4020,11 @@ const AdminProducts = () => {
   
   const productFields = [
       { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
+      { name: 'product_type', label: 'Tipo de Produto', type: 'select', options: [{value: 'perfume', label: 'Perfume'}, {value: 'clothing', label: 'Roupa'}] },
       { name: 'brand', label: 'Marca', type: 'text', required: true },
       { name: 'category', label: 'Categoria', type: 'text', required: true },
       { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
-      { name: 'stock', label: 'Estoque', type: 'number', required: true },
+      { name: 'stock', label: 'Estoque (para produtos sem variação)', type: 'number', required: false },
       { name: 'images_upload', label: 'Fazer Upload de Nova Imagem', type: 'file' },
       { name: 'images', label: 'URLs das Imagens', type: 'text_array' },
       { name: 'description', label: 'Descrição', type: 'textarea' },
@@ -3852,6 +4032,9 @@ const AdminProducts = () => {
       { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
       { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
       { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
+      { name: 'variants', label: 'Variações', type: 'variant_manager'},
+      { name: 'size_chart', label: 'Tabela de Medidas', type: 'textarea'},
+      { name: 'care', label: 'Instruções de Cuidado', type: 'textarea' },
       { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
       { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
       { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
@@ -3927,7 +4110,7 @@ const AdminProducts = () => {
     <div>
         <AnimatePresence>
             {isModalOpen && (
-                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingProduct ? 'Editar Produto' : 'Adicionar Produto'}>
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingProduct ? 'Editar Produto' : 'Adicionar Produto'} size="2xl">
                     <CrudForm 
                         item={editingProduct} 
                         onSave={handleSave} 
@@ -4018,7 +4201,7 @@ const AdminProducts = () => {
                                 </td>
                                 <td className="p-4">{p.brand}</td>
                                 <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
-                                <td className="p-4">{p.stock}</td>
+                                <td className="p-4">{p.product_type === 'clothing' ? (parseJsonSafe(p.variants, [])?.reduce((sum, v) => sum + v.stock, 0)) : p.stock}</td>
                                 <td className="p-4">{p.sales || 0}</td>
                                 <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
                                 <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
@@ -4043,7 +4226,7 @@ const AdminProducts = () => {
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
                              <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
-                             <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
+                             <div><strong className="text-gray-500 block">Estoque</strong>{p.product_type === 'clothing' ? (parseJsonSafe(p.variants, [])?.reduce((sum, v) => sum + v.stock, 0)) : p.stock}</div>
                              <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                         </div>
                          <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
@@ -4485,6 +4668,9 @@ const AdminOrders = () => {
                                             <div>
                                                 <p className="font-semibold text-gray-800">{item.name}</p>
                                                 <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                {item.variant_size && item.variant_color && (
+                                                    <p className="text-xs text-gray-500">{item.variant_color} / {item.variant_size}</p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -4612,7 +4798,6 @@ const AdminReports = () => {
             if (isPdfReady && isExcelReady) {
                 callback();
             } else {
-                console.log("Aguardando bibliotecas de relatório...");
                 setTimeout(check, 100);
             }
         };
@@ -4705,7 +4890,6 @@ const AdminReports = () => {
     );
 };
 
-// --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
         if (deferredPrompt) {
@@ -4726,8 +4910,6 @@ const InstallPWAButton = ({ deferredPrompt }) => {
     );
 };
 
-
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -4830,7 +5012,6 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
@@ -4894,7 +5075,6 @@ export default function App() {
             console.log('`beforeinstallprompt` event foi disparado.');
         });
         
-        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
