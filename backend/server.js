@@ -44,7 +44,7 @@ const checkRequiredEnvVars = () => {
         'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
         'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
         'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL'
+        'RESEND_API_KEY', 'FROM_EMAIL', 'CRON_SECRET'
     ];
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
     if (missingVars.length > 0) {
@@ -62,6 +62,7 @@ checkRequiredEnvVars();
 const app = express();
 const saltRounds = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 // --- CONFIGURAÇÕES DE SEGURANÇA ---
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -127,7 +128,14 @@ const memoryStorage = multer.memoryStorage();
 const memoryUpload = multer({ storage: memoryStorage });
 
 
-// --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN ---
+// --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
+
+// Validador de email
+const isValidEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(String(email).toLowerCase());
+};
+
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -147,7 +155,6 @@ const verifyAdmin = (req, res, next) => {
     next();
 };
 
-// --- Função Auxiliar para atualizar status e registrar histórico
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
     await connection.query(
@@ -157,8 +164,17 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
 };
 
+const sendEmailAsync = async (options) => {
+    try {
+        await resend.emails.send(options);
+        console.log(`E-mail com assunto "${options.subject}" enviado para ${options.to}.`);
+    } catch (emailError) {
+        console.error(`FALHA AO ENVIAR E-MAIL para ${options.to}:`, emailError);
+    }
+};
 
-// --- Funções para criar os e-mails HTML ---
+
+// --- E-MAIL TEMPLATES ---
 const getFirstImage = (imagesJsonString) => {
     try {
         if (!imagesJsonString) return 'https://placehold.co/80x80/2A3546/D4AF37?text=?';
@@ -178,15 +194,6 @@ const createEmailBase = (content) => {
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Love Cestas e Perfumes</title>
-        <!--[if mso]>
-        <noscript>
-        <xml>
-          <o:OfficeDocumentSettings>
-            <o:PixelsPerInch>96</o:PixelsPerInch>
-          </o:OfficeDocumentSettings>
-        </xml>
-        </noscript>
-        <![endif]-->
         <style>
             body { margin: 0; padding: 0; width: 100% !important; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #111827; }
             table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
@@ -201,13 +208,11 @@ const createEmailBase = (content) => {
     <body style="margin: 0; padding: 0; width: 100%; background-color: #111827;">
         <center>
             <table class="container" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px;">
-                <!-- Header -->
                 <tr>
                     <td align="center" style="padding: 20px 0;">
                         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 28px; margin: 0;">Love Cestas e Perfumes</h1>
                     </td>
                 </tr>
-                <!-- Content -->
                 <tr>
                     <td>
                         <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
@@ -219,7 +224,6 @@ const createEmailBase = (content) => {
                         </table>
                     </td>
                 </tr>
-                <!-- Footer -->
                 <tr>
                     <td align="center" style="padding: 20px 0;">
                         <p style="color: #9CA3AF; font-size: 12px; font-family: Arial, sans-serif; margin:0;">&copy; ${new Date().getFullYear()} Love Cestas e Perfumes. Todos os direitos reservados.</p>
@@ -268,6 +272,17 @@ const createWelcomeEmail = (customerName) => {
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Sua conta em nossa loja foi criada com sucesso. Estamos felizes em ter você conosco!</p>
         <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Visitar a Loja</a></td></tr></table>
+    `;
+    return createEmailBase(content);
+};
+
+const createPasswordResetEmail = (customerName, resetLink) => {
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Redefinição de Senha</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Recebemos uma solicitação para redefinir sua senha. Clique no botão abaixo para escolher uma nova senha.</p>
+        <p style="color: #9CA3AF; font-size: 14px; line-height: 1.6; margin: 0 0 25px;">Se você não solicitou isso, pode ignorar este e-mail com segurança. Este link é válido por 1 hora.</p>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${resetLink}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Redefinir Senha</a></td></tr></table>
     `;
     return createEmailBase(content);
 };
@@ -357,21 +372,23 @@ app.post('/api/register', async (req, res) => {
     if (!name || !email || !password || !cpf) {
         return res.status(400).json({ message: "Nome, email, senha e CPF são obrigatórios." });
     }
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ message: "Formato de e-mail inválido." });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres." });
+    }
+
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`) VALUES (?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword]);
         
-        try {
-            await resend.emails.send({
-                from: FROM_EMAIL,
-                to: email,
-                subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
-                html: createWelcomeEmail(name),
-            });
-            console.log(`E-mail de boas-vindas enviado para ${email}.`);
-        } catch (emailError) {
-            console.error(`FALHA AO ENVIAR E-MAIL de boas-vindas para ${email}:`, emailError);
-        }
+        sendEmailAsync({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
+            html: createWelcomeEmail(name),
+        });
 
         res.status(201).json({ message: "Usuário registrado com sucesso!", userId: result.insertId });
 
@@ -410,7 +427,7 @@ app.post('/api/login', async (req, res) => {
 
         delete loginAttempts[email];
 
-        const token = jwt.sign({ id: user.id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
+        const token = jwt.sign({ id: user.id, name: user.name, role: user.role }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         const { password: _, ...userData } = user;
         res.json({ message: "Login bem-sucedido", user: userData, token: token });
     } catch (err) {
@@ -420,39 +437,65 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/forgot-password', async (req, res) => {
-    const { email, cpf } = req.body;
-    if (!email || !cpf) {
-        return res.status(400).json({ message: "Email e CPF são obrigatórios." });
-    }
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "O e-mail é obrigatório." });
+
     try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
+        const [users] = await db.query("SELECT id, name FROM users WHERE email = ?", [email]);
         if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
+            // Retorna sucesso mesmo se o email não existir para não revelar quais emails estão cadastrados
+            console.log(`Solicitação de recuperação de senha para e-mail não cadastrado: ${email}`);
+            return res.status(200).json({ message: "Se um usuário com este e-mail existir, um link de recuperação será enviado." });
         }
-        res.status(200).json({ message: "Usuário validado com sucesso." });
+        const user = users[0];
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        const expiryDate = new Date();
+        expiryDate.setHours(expiryDate.getHours() + 1); // Token válido por 1 hora
+
+        await db.query("UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?", [hashedToken, expiryDate, user.id]);
+
+        const resetLink = `${process.env.APP_URL}/#reset-password/${token}`;
+        
+        sendEmailAsync({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Recuperação de Senha - Love Cestas e Perfumes',
+            html: createPasswordResetEmail(user.name, resetLink)
+        });
+
+        res.status(200).json({ message: "Se um usuário com este e-mail existir, um link de recuperação será enviado." });
+
     } catch (err) {
-        console.error("Erro ao validar usuário para recuperação de senha:", err);
+        console.error("Erro no processo de 'esqueci minha senha':", err);
         res.status(500).json({ message: "Erro interno do servidor." });
     }
 });
 
 app.post('/api/reset-password', async (req, res) => {
-    const { email, cpf, newPassword } = req.body;
-    if (!email || !cpf || !newPassword) {
-        return res.status(400).json({ message: "Email, CPF e nova senha são obrigatórios." });
+    const { token, password } = req.body;
+    if (!token || !password) {
+        return res.status(400).json({ message: "Token e nova senha são obrigatórios." });
     }
-    if (newPassword.length < 6) {
+    if (password.length < 6) {
         return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
     }
 
     try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
+        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+        const [users] = await db.query("SELECT id FROM users WHERE password_reset_token = ? AND password_reset_expires > NOW()", [hashedToken]);
+
         if (users.length === 0) {
-            return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
+            return res.status(400).json({ message: "Token de redefinição inválido ou expirado." });
         }
-        
-        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
+        const userId = users[0].id;
+
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        await db.query("UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?", [hashedPassword, userId]);
         
         res.status(200).json({ message: "Senha redefinida com sucesso." });
 
@@ -680,7 +723,6 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
     }
 });
 
-// Rota de criação de produto ATUALIZADA para lidar com tipos
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
@@ -714,7 +756,6 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// Rota de atualização de produto ATUALIZADA para lidar com tipos
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
@@ -797,7 +838,6 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// Rota de importação ATUALIZADA
 app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('file'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
@@ -895,7 +935,7 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
 });
 
 
-// --- ROTAS DE CARRINHO PERSISTENTE (ATUALIZADO) ---
+// --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -906,10 +946,17 @@ app.get('/api/cart', verifyToken, async (req, res) => {
             WHERE uc.user_id = ?
         `;
         const [cartItems] = await db.query(sql, [userId]);
-        const parsedItems = cartItems.map(item => ({
-            ...item,
-            variation: item.variation_details ? JSON.parse(item.variation_details) : null
-        }));
+        const parsedItems = cartItems.map(item => {
+            const variation = item.variation_details ? JSON.parse(item.variation_details) : null;
+            const cartItemId = variation 
+                ? `${item.id}-${variation.color}-${variation.size}` 
+                : String(item.id);
+            return {
+                ...item,
+                variation,
+                cartItemId
+            };
+        });
         res.json(parsedItems);
     } catch (error) {
         console.error("Erro ao buscar carrinho do usuário:", error);
@@ -926,39 +973,49 @@ app.post('/api/cart', verifyToken, async (req, res) => {
     }
     
     const variationDetailsString = variation ? JSON.stringify(variation) : null;
-
+    const connection = await db.getConnection();
     try {
-        const sql = `
-            INSERT INTO user_carts (user_id, product_id, quantity, variation_details)
-            VALUES (?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE quantity = ?;
-        `;
-        // Para que ON DUPLICATE KEY funcione, a chave única precisa ser (user_id, product_id, variation_details)
-        // O SQL atualizado no arquivo .sql precisa refletir isso.
-        // Por simplicidade aqui, vamos assumir que o frontend gerencia a lógica de "item existente".
-        // Uma implementação mais robusta faria um SELECT primeiro.
-        
-        // Lógica simplificada: deleta e insere.
-        await db.query("DELETE FROM user_carts WHERE user_id = ? AND product_id = ? AND (variation_details <=> ?)", [userId, productId, variationDetailsString]);
-        await db.query("INSERT INTO user_carts (user_id, product_id, quantity, variation_details) VALUES (?, ?, ?, ?)", [userId, productId, quantity, variationDetailsString]);
+        await connection.beginTransaction();
 
+        const [existingItem] = await connection.query(
+            "SELECT id FROM user_carts WHERE user_id = ? AND product_id = ? AND (variation_details <=> ?)",
+            [userId, productId, variationDetailsString]
+        );
+
+        if (existingItem.length > 0) {
+            await connection.query(
+                "UPDATE user_carts SET quantity = ? WHERE id = ?",
+                [quantity, existingItem[0].id]
+            );
+        } else {
+            await connection.query(
+                "INSERT INTO user_carts (user_id, product_id, quantity, variation_details) VALUES (?, ?, ?, ?)",
+                [userId, productId, quantity, variationDetailsString]
+            );
+        }
+        await connection.commit();
         res.status(200).json({ message: "Carrinho atualizado com sucesso." });
     } catch (error) {
+        await connection.rollback();
         console.error("Erro ao atualizar o carrinho:", error);
         res.status(500).json({ message: "Erro ao atualizar carrinho." });
+    } finally {
+        connection.release();
     }
 });
 
-app.delete('/api/cart/:cartItemId', verifyToken, async (req, res) => {
+app.delete('/api/cart/:productId', verifyToken, async (req, res) => {
     const userId = req.user.id;
-    const { cartItemId } = req.params; // O frontend enviará o ID único do item no carrinho
+    const { productId } = req.params;
+    const { variation } = req.body; 
+    const variationDetailsString = variation ? JSON.stringify(variation) : null;
 
+    if (!productId) {
+        return res.status(400).json({ message: "ID do produto é obrigatório." });
+    }
+    
     try {
-        // A lógica aqui depende de como o `cartItemId` é construído.
-        // Assumindo que o frontend deleta pelo ID do produto e variação.
-        // Esta rota pode precisar de mais detalhes no body.
-        // Por simplicidade, vamos assumir que o frontend envia o ID da tabela user_carts
-        await db.query("DELETE FROM user_carts WHERE id = ? AND user_id = ?", [cartItemId, userId]);
+        await db.query("DELETE FROM user_carts WHERE user_id = ? AND product_id = ? AND (variation_details <=> ?)", [userId, productId, variationDetailsString]);
         res.status(200).json({ message: "Item removido do carrinho." });
     } catch (error) {
         console.error("Erro ao remover item do carrinho:", error);
@@ -977,7 +1034,7 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE PEDIDOS (ATUALIZADO) ---
+// --- ROTAS DE PEDIDOS ---
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -1027,7 +1084,6 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// Rota de criação de pedido ATUALIZADA
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount } = req.body;
     if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
@@ -1126,7 +1182,6 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
-// Rota de atualização de pedido com envio de e-mail integrado
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -1221,47 +1276,29 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
         await connection.commit();
         
-        try {
-            if (status && statusesThatTriggerEmail.includes(status)) {
-                
-                const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
+        // Envio de email fora da transação
+        if (status && statusesThatTriggerEmail.includes(status)) {
+            const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
+            if (userResult.length > 0) {
+                const customerEmail = userResult[0].email;
+                const customerName = userResult[0].name;
+                const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
+                const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
+                const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
 
-                if (userResult.length > 0) {
-                    const customerEmail = userResult[0].email;
-                    const customerName = userResult[0].name;
-                    let emailHtml;
-                    let emailSubject;
-                    
-                    const finalTrackingCode = tracking_code || currentOrderResult[0].tracking_code;
-                    
-                    const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
-                    const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
+                let emailHtml, emailSubject;
+                if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
+                    emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
+                    emailSubject = `Seu Pedido #${id} foi enviado!`;
+                } else {
+                    emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
+                    emailSubject = `Atualização sobre seu Pedido #${id}`;
+                }
 
-                    if (status === ORDER_STATUS.SHIPPED) {
-                        if (!finalTrackingCode) {
-                             console.log(`AVISO: Pedido #${id} marcado como "Enviado" mas sem código de rastreio. E-mail não enviado.`);
-                        } else {
-                            emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
-                            emailSubject = `Seu Pedido #${id} foi enviado!`;
-                        }
-                    } else {
-                        emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
-                        emailSubject = `Atualização sobre seu Pedido #${id}`;
-                    }
-                    
-                    if (emailHtml && emailSubject) {
-                        await resend.emails.send({
-                            from: FROM_EMAIL,
-                            to: customerEmail,
-                            subject: emailSubject,
-                            html: emailHtml,
-                        });
-                        console.log(`E-mail de atualização de status "${status}" enviado para ${customerEmail} para o pedido #${id}.`);
-                    }
+                if (emailHtml && emailSubject) {
+                    sendEmailAsync({ from: FROM_EMAIL, to: customerEmail, subject: emailSubject, html: emailHtml });
                 }
             }
-        } catch (emailError) {
-            console.error(`FALHA AO ENVIAR E-MAIL para o pedido #${id}:`, emailError);
         }
 
         res.json({ message: "Pedido atualizado com sucesso." });
@@ -1423,8 +1460,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
     }
     
     try {
-        const bin = '411111'; 
-        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&bin=${bin}`, {
+        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
@@ -1503,20 +1539,20 @@ const processPaymentWebhook = async (paymentId) => {
                 const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
                 if (itemsToReturn.length > 0) {
                     for (const item of itemsToReturn) {
-                         const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                         const product = productResult[0];
-                         if (product.product_type === 'clothing' && item.variation_details) {
-                             const variation = JSON.parse(item.variation_details);
-                             let variations = JSON.parse(product.variations || '[]');
-                             const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                             if (variationIndex !== -1) {
-                                 variations[variationIndex].stock += item.quantity;
-                                 const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                                 await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                             }
-                         } else {
+                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                        const product = productResult[0];
+                        if (product.product_type === 'clothing' && item.variation_details) {
+                            const variation = JSON.parse(item.variation_details);
+                            let variations = JSON.parse(product.variations || '[]');
+                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                            if (variationIndex !== -1) {
+                                variations[variationIndex].stock += item.quantity;
+                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                            }
+                        } else {
                             await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                         }
+                        }
                     }
                     console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
                 }
@@ -1651,7 +1687,7 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// --- ROTAS DE CUPONS (CRUD COMPLETO E AVANÇADO) ---
+// --- ROTAS DE CUPONS ---
 app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
@@ -1832,7 +1868,7 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
     }
 });
 
-// --- NOVAS ROTAS: GERENCIAMENTO DE ENDEREÇOS ---
+// --- ROTAS DE GERENCIAMENTO DE ENDEREÇOS ---
 app.get('/api/addresses', verifyToken, async (req, res) => {
     const userId = req.user.id;
     try {
@@ -1943,6 +1979,77 @@ app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
     } catch (err) {
         console.error("Erro ao deletar endereço:", err);
         res.status(500).json({ message: "Erro ao deletar endereço." });
+    }
+});
+
+// --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
+app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
+    const { secret } = req.body;
+    if (secret !== process.env.CRON_SECRET) {
+        return res.status(403).json({ message: 'Acesso negado.' });
+    }
+
+    console.log('[CRON] Iniciando tarefa de cancelamento de pedidos pendentes...');
+    const PENDING_ORDER_TIMEOUT_HOURS = 2;
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const timeout = new Date();
+        timeout.setHours(timeout.getHours() - PENDING_ORDER_TIMEOUT_HOURS);
+
+        const [pendingOrders] = await connection.query(
+            "SELECT id FROM orders WHERE status = ? AND date < ?",
+            [ORDER_STATUS.PENDING, timeout]
+        );
+
+        if (pendingOrders.length === 0) {
+            console.log('[CRON] Nenhum pedido pendente para cancelar.');
+            await connection.commit();
+            return res.status(200).json({ message: "Nenhum pedido pendente para cancelar." });
+        }
+
+        console.log(`[CRON] Encontrados ${pendingOrders.length} pedidos pendentes para cancelar.`);
+
+        for (const order of pendingOrders) {
+            const orderId = order.id;
+            console.log(`[CRON] Processando cancelamento do pedido #${orderId}`);
+            
+            // Reverte o estoque
+            const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
+            for (const item of itemsToReturn) {
+                const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                const product = productResult[0];
+                if (product.product_type === 'clothing' && item.variation_details) {
+                    const variation = JSON.parse(item.variation_details);
+                    let variations = JSON.parse(product.variations || '[]');
+                    const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                    if (variationIndex !== -1) {
+                        variations[variationIndex].stock += item.quantity;
+                        const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                        await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                    }
+                } else {
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                }
+            }
+            console.log(`[CRON] Estoque do pedido #${orderId} revertido.`);
+            
+            // Atualiza status do pedido para Cancelado
+            await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Cancelado automaticamente por falta de pagamento.");
+        }
+
+        await connection.commit();
+        console.log(`[CRON] Tarefa concluída. ${pendingOrders.length} pedidos cancelados.`);
+        res.status(200).json({ message: `${pendingOrders.length} pedidos pendentes foram cancelados com sucesso.` });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error('[CRON] Erro ao executar a tarefa de cancelamento:', err);
+        res.status(500).json({ message: "Erro interno ao executar a tarefa." });
+    } finally {
+        connection.release();
     }
 });
 
