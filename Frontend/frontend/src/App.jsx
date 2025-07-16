@@ -3763,7 +3763,89 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     );
 };
 
-const CrudForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
+// NOVO: Formulário genérico para Admin (Usado por Cupons e Usuários)
+const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
+    const [formData, setFormData] = useState({});
+
+    useEffect(() => {
+        const initialData = {};
+        fieldsConfig.forEach(field => {
+            initialData[field.name] = item?.[field.name] ?? (field.type === 'checkbox' ? 0 : '');
+        });
+        setFormData(initialData);
+    }, [item, fieldsConfig]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value
+        }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {fieldsConfig.map(field => (
+                <div key={field.name}>
+                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                    {field.type === 'select' ? (
+                        <select
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                        >
+                            {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                        </select>
+                    ) : field.type === 'textarea' ? (
+                        <textarea
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                            placeholder={field.placeholder || ''}
+                        />
+                    ) : field.type === 'checkbox' ? (
+                        <div className="flex items-center pt-2">
+                             <input
+                                type="checkbox"
+                                name={field.name}
+                                checked={!!formData[field.name]}
+                                onChange={handleChange}
+                                className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                            />
+                        </div>
+                    ) : (
+                        <input
+                            type={field.type}
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                            placeholder={field.placeholder || ''}
+                            readOnly={field.editable === false}
+                            step={field.step}
+                        />
+                    )}
+                </div>
+            ))}
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            </div>
+        </form>
+    );
+};
+
+const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
 
@@ -4298,7 +4380,7 @@ const AdminProducts = ({ onNavigate }) => {
                     title={editingProduct ? 'Editar Produto' : 'Adicionar Novo Produto'}
                     size="3xl" // Modal maior para o novo formulário
                 >
-                    <CrudForm 
+                    <ProductForm
                         item={editingProduct} 
                         onSave={handleSave} 
                         onCancel={() => setIsModalOpen(false)} 
@@ -4480,7 +4562,6 @@ const AdminUsers = () => {
         });
     };
     
-    // Configuração dos campos para o SimpleCrudForm
     const userFields = [
         { name: 'name', label: 'Nome', type: 'text', required: true },
         { name: 'email', label: 'Email', type: 'email', required: true },
@@ -4494,8 +4575,7 @@ const AdminUsers = () => {
              <AnimatePresence>
                 {isUserModalOpen && (
                     <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Editar Usuário">
-                        {/* Usando o novo SimpleCrudForm */}
-                        <SimpleCrudForm item={editingUser} onSave={handleSaveUser} onCancel={() => setIsUserModalOpen(false)} fieldsConfig={userFields} />
+                        <AdminCrudForm item={editingUser} onSave={handleSaveUser} onCancel={() => setIsUserModalOpen(false)} fieldsConfig={userFields} />
                     </Modal>
                 )}
             </AnimatePresence>
@@ -4548,9 +4628,46 @@ const AdminUsers = () => {
     );
 };
 
+const CouponCountdown = ({ createdAt, validityDays }) => {
+    const [timeLeft, setTimeLeft] = useState('');
 
-// --- ATUALIZAÇÃO: AdminCoupons ---
-// Substitua toda a sua função AdminCoupons por esta.
+    useEffect(() => {
+        if (!validityDays || !createdAt) {
+            setTimeLeft('Permanente');
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const expirationDate = new Date(new Date(createdAt).getTime() + validityDays * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const difference = expirationDate - now;
+
+            if (difference <= 0) {
+                setTimeLeft('Expirado');
+                clearInterval(interval);
+                return;
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((difference / 1000 / 60) % 60);
+            const seconds = Math.floor((difference / 1000) % 60);
+            
+            let displayString = '';
+            if (days > 0) displayString += `${days}d `;
+            displayString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            setTimeLeft(displayString);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [createdAt, validityDays]);
+
+    const colorClass = timeLeft === 'Expirado' ? 'text-red-500' : 'text-green-600';
+
+    return <span className={`font-mono text-sm ${colorClass}`}>{timeLeft}</span>;
+};
+
 const AdminCoupons = () => {
     const [coupons, setCoupons] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -4599,7 +4716,6 @@ const AdminCoupons = () => {
         });
     }
 
-    // Configuração dos campos para o SimpleCrudForm
     const couponFields = [
         { name: 'code', label: 'Código do Cupom', type: 'text', required: true, placeholder: 'Ex: PROMO10' },
         { name: 'type', label: 'Tipo de Desconto', type: 'select', options: [{value: 'percentage', label: 'Porcentagem (%)'}, {value: 'fixed', label: 'Valor Fixo (R$)'}, {value: 'free_shipping', label: 'Frete Grátis'}]},
@@ -4615,8 +4731,7 @@ const AdminCoupons = () => {
             <AnimatePresence>
                 {isModalOpen && (
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Adicionar Cupom'}>
-                        {/* Usando o novo SimpleCrudForm */}
-                        <SimpleCrudForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={couponFields} />
+                        <AdminCrudForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={couponFields} />
                     </Modal>
                 )}
             </AnimatePresence>
@@ -4681,95 +4796,271 @@ const AdminCoupons = () => {
         </div>
     );
 };
-// --- NOVO COMPONENTE: SimpleCrudForm ---
-// Este é um formulário genérico e simplificado para ser usado em seções
-// como Usuários e Cupons, que não precisam da complexidade do formulário de produtos.
-// Isso corrige o erro da página em branco.
-const SimpleCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
-    const [formData, setFormData] = useState({});
+
+const AdminOrders = () => {
+    const [orders, setOrders] = useState([]);
+    const [filteredOrders, setFilteredOrders] = useState([]);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
+    const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
+    const notification = useNotification();
+    const [filters, setFilters] = useState({
+        startDate: '',
+        endDate: '',
+        status: '',
+        customerName: '',
+        minPrice: '',
+        maxPrice: '',
+    });
+    const statuses = [
+        'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
+        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
+    ];
+
+    const fetchOrders = useCallback(() => {
+        apiService('/orders')
+            .then(data => {
+                const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
+                setOrders(sortedData);
+                setFilteredOrders(sortedData);
+            })
+            .catch(err => console.error("Falha ao buscar pedidos:", err));
+    }, []);
 
     useEffect(() => {
-        const initialData = {};
-        fieldsConfig.forEach(field => {
-            initialData[field.name] = item?.[field.name] ?? 
-                (field.type === 'select' ? (field.options[0]?.value || '') : 
-                (field.type === 'checkbox' ? 0 : ''));
-        });
-        setFormData(initialData);
-    }, [item, fieldsConfig]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
-    };
+        fetchOrders();
+    }, [fetchOrders]);
     
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const dataToSubmit = { ...formData };
-        
-        // Garante que campos não editáveis não sejam enviados
-        fieldsConfig.forEach(field => {
-            if (field.editable === false) {
-                delete dataToSubmit[field.name];
-            }
-        });
-
-        onSave(dataToSubmit);
+    const handleOpenEditModal = async (order) => {
+        try {
+            const fullOrderDetails = await apiService(`/orders/${order.id}`);
+            setEditingOrder(fullOrderDetails);
+            setEditFormData({
+                status: fullOrderDetails.status,
+                tracking_code: fullOrderDetails.tracking_code || ''
+            });
+            setIsEditModalOpen(true);
+        } catch (error) {
+            notification.show("Erro ao buscar detalhes do pedido.", 'error');
+            console.error(error);
+        }
     };
+
+    const handleEditFormChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveOrder = async (e) => {
+        e.preventDefault();
+        if (!editingOrder) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            fetchOrders();
+            setIsEditModalOpen(false);
+            setEditingOrder(null);
+            notification.show('Pedido atualizado com sucesso!');
+        } catch(error) {
+            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
+        }
+    };
+
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const applyFilters = useCallback(() => {
+        let tempOrders = [...orders];
+
+        if (filters.startDate) {
+            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        }
+        if (filters.endDate) {
+            const endOfDay = new Date(filters.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+        }
+        if (filters.status) {
+            tempOrders = tempOrders.filter(o => o.status === filters.status);
+        }
+        if (filters.customerName) {
+            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+        }
+        if (filters.minPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+        }
+        if (filters.maxPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+        }
+
+        setFilteredOrders(tempOrders);
+    }, [orders, filters]);
+
+    const clearFilters = () => {
+        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setFilteredOrders(orders);
+    }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {fieldsConfig.map(field => (
-                <div key={field.name}>
-                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                    {field.type === 'textarea' ? (
-                        <textarea 
-                            name={field.name} 
-                            value={formData[field.name] || ''} 
-                            onChange={handleChange} 
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" 
-                            required={field.required}
-                        />
-                    ) : field.type === 'select' ? (
-                        <select 
-                            name={field.name} 
-                            value={formData[field.name] || ''} 
-                            onChange={handleChange} 
-                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" 
-                            required={field.required}
-                        >
-                            {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                        </select>
-                    ) : field.type === 'checkbox' ? (
-                        <div className="flex items-center pt-2">
-                             <input 
-                                type="checkbox" 
-                                name={field.name} 
-                                checked={!!formData[field.name]} 
-                                onChange={handleChange} 
-                                className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
-                            />
+        <div>
+            <AnimatePresence>
+                {editingOrder && (
+                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
+                         <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
+                                    <p>{editingOrder.user_name}</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
+                                    <p className="capitalize">{editingOrder.payment_method}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                 <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                     {(() => {
+                                         try {
+                                             const addr = JSON.parse(editingOrder.shipping_address);
+                                             return (
+                                                 <>
+                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                                                     <p>{addr.cep}</p>
+                                                 </>
+                                             )
+                                         } catch { return <p>Endereço mal formatado.</p> }
+                                     })()}
+                                 </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
+                                <div className="space-y-2 border-t pt-2">
+                                    {editingOrder.items?.map(item => (
+                                        <div key={item.id} className="flex items-center text-sm">
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{item.name}</p>
+                                                <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
+                                <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
+                                    <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
+                                    <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
+                                    {Number(editingOrder.discount_amount) > 0 && (
+                                    <div className="flex justify-between text-green-600">
+                                        <span>Desconto ({editingOrder.coupon_code || ''}):</span> 
+                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
+                                    </div>
+                                    )}
+                                    <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
+                                </div>
+                            </div>
+
+                            <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
+                                 <div>
+                                    <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
+                                    <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                 </div>
+                                 <div>
+                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                 </div>
+                                 <div className="flex justify-end space-x-3 pt-4">
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                                    <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+                                </div>
+                            </form>
                         </div>
-                    ) : (
-                        <input 
-                            type={field.type} 
-                            name={field.name} 
-                            value={formData[field.name] || ''} 
-                            onChange={handleChange} 
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
-                            required={field.required} 
-                            step={field.step} 
-                            disabled={field.editable === false}
-                            placeholder={field.placeholder || ''}
-                        />
-                    )}
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
+            
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
+                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+                    <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
+                        <option value="">Todos os Status</option>
+                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                 </div>
-            ))}
-            <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar</button>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
+                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
+                </div>
             </div>
-        </form>
+
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden lg:block">
+                     <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                            <tr>
+                                <th className="p-4 font-semibold">Pedido ID</th>
+                                <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Data</th>
+                                <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Cód. Rastreio</th>
+                                <th className="p-4 font-semibold">Ações</th>
+                            </tr>
+                         </thead>
+                         <tbody>
+                            {filteredOrders.map(o => (
+                                <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 font-mono">#{o.id}</td>
+                                    <td className="p-4">{o.user_name}</td>
+                                    <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
+                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
+                                    <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                     </table>
+                </div>
+                <div className="lg:hidden space-y-4 p-4">
+                    {filteredOrders.map(o => (
+                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                             <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold">Pedido #{o.id}</p>
+                                    <p className="text-sm text-gray-600">{o.user_name}</p>
+                                </div>
+                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
+                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
+                            </div>
+                            <div className="flex justify-end mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
     );
 };
 
