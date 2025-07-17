@@ -79,6 +79,33 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
+const mapColorNameToCSS = (colorName) => {
+    if (!colorName) return 'transparent';
+    const name = String(colorName).toLowerCase().trim();
+    // Handles direct hex codes or standard colors
+    if (name.startsWith('#') || /^[a-z]+$/.test(name)) {
+        return name;
+    }
+    const colorMap = {
+        'rosa': 'pink',
+        'azul': 'blue',
+        'vermelho': 'red',
+        'verde': 'green',
+        'preto': 'black',
+        'branco': 'white',
+        'cinza': 'gray',
+        'amarelo': 'yellow',
+        'laranja': 'orange',
+        'roxo': 'purple',
+        'marrom': 'brown',
+        'bege': 'beige',
+        'dourado': 'gold',
+        'prata': 'silver',
+    };
+    return colorMap[name] || name;
+};
+
+
 // --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
     const token = localStorage.getItem('token');
@@ -1779,7 +1806,7 @@ const VariationSelector = ({ variations, onSelectionChange }) => {
                             key={color}
                             onClick={() => handleColorChange(color)}
                             className={`w-10 h-10 rounded-full border-2 transition-transform duration-200 ${selectedColor === color ? 'border-amber-400 scale-110' : 'border-gray-600 hover:border-gray-400'}`}
-                            style={{ backgroundColor: color.toLowerCase() }}
+                            style={{ backgroundColor: mapColorNameToCSS(color) }}
                             title={color}
                         />
                     ))}
@@ -1830,7 +1857,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
-    // --> NOVO: State para variação selecionada (cor/tamanho)
+    // --> ATUALIZADO: State para variação selecionada (cor/tamanho)
     const [selectedVariation, setSelectedVariation] = useState(null);
     
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
@@ -2038,6 +2065,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return [{...product, qty: quantity}];
     }, [product, quantity]);
 
+    // --> ATUALIZADO: Handler para seleção de variação
+    const handleVariationSelection = (variation) => {
+        setSelectedVariation(variation);
+        // Se a variação selecionada tiver uma imagem específica, atualiza a imagem principal
+        if (variation && variation.image) {
+            setMainImage(variation.image);
+        }
+    };
+
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
@@ -2142,9 +2178,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* NOVO: Seletor de variações para roupas */}
+                        {/* ATUALIZADO: Seletor de variações para roupas com o novo handler */}
                         {isClothing && (
-                           <VariationSelector variations={productVariations} onSelectionChange={setSelectedVariation} />
+                           <VariationSelector variations={productVariations} onSelectionChange={handleVariationSelection} />
                         )}
                         
                         <div className="flex items-center space-x-4">
@@ -3711,7 +3747,7 @@ const AdminDashboard = () => {
 
 const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes }) => {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-10 gap-3 items-center p-3 bg-gray-50 rounded-md border">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 bg-gray-50 rounded-md border">
             <div className="md:col-span-3">
                 <label className="text-xs text-gray-500">Cor</label>
                 <input 
@@ -3748,6 +3784,17 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10))}
                     className="w-full p-2 border border-gray-300 rounded-md"
                     placeholder="0"
+                />
+            </div>
+            {/* ATUALIZADO: Campo de imagem da variação */}
+            <div className="md:col-span-2">
+                <label className="text-xs text-gray-500">Imagem</label>
+                <input 
+                    type="text"
+                    value={variation.image || ''}
+                    onChange={(e) => onVariationChange(index, 'image', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    placeholder="URL"
                 />
             </div>
             <div className="md:col-span-2 flex items-end h-full">
@@ -3943,7 +3990,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const addVariation = () => {
         setFormData(prev => ({
             ...prev,
-            variations: [...(prev.variations || []), { color: '', size: '', stock: 0 }]
+            variations: [...(prev.variations || []), { color: '', size: '', stock: 0, image: '' }]
         }));
     };
 
@@ -4946,6 +4993,12 @@ const AdminOrders = () => {
                                             <div>
                                                 <p className="font-semibold text-gray-800">{item.name}</p>
                                                 <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                {/* ATUALIZADO: Exibe a variação do item do pedido */}
+                                                {item.variation && typeof item.variation === 'object' && (
+                                                     <p className="text-xs text-indigo-600 bg-indigo-100 rounded-full px-2 py-1 w-fit mt-1">
+                                                         {item.variation.color} / {item.variation.size}
+                                                     </p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
