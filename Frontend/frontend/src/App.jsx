@@ -401,46 +401,47 @@ const ShopProvider = ({ children }) => {
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
+        // Se for roupa, a identificação é produto + variação. Senão, só produto.
+        const cartItemId = productToAdd.product_type === 'clothing' && variation 
+            ? `${productToAdd.id}-${variation.color}-${variation.size}` 
+            : productToAdd.id;
+
+        const existing = cart.find(item => item.cartItemId === cartItemId);
+
+        // Determina o estoque disponível para a variação específica ou para o produto geral.
+        const availableStock = variation ? variation.stock : productToAdd.stock;
+        
+        const currentQtyInCart = existing ? existing.qty : 0;
+        
+        if (currentQtyInCart + qty > availableStock) {
+            throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        }
+
         setCart(currentCart => {
-            // Se for roupa, a identificação é produto + variação. Senão, só produto.
-            const cartItemId = productToAdd.product_type === 'clothing' && variation 
-                ? `${productToAdd.id}-${variation.color}-${variation.size}` 
-                : productToAdd.id;
-
-            const existing = currentCart.find(item => item.cartItemId === cartItemId);
             let updatedCart;
-
             if (existing) {
                 const newQty = existing.qty + qty;
                 updatedCart = currentCart.map(item => 
                     item.cartItemId === cartItemId ? { ...item, qty: newQty } : item
                 );
-                if (isAuthenticated) {
-                    apiService('/cart', 'POST', { 
-                        productId: productToAdd.id, 
-                        quantity: newQty,
-                        variationId: existing.variation?.id // Assumindo que a variação tem um ID
-                    });
-                }
             } else {
-                const newItem = { 
-                    ...productToAdd, 
-                    qty, 
-                    variation,
-                    cartItemId 
-                };
+                const newItem = { ...productToAdd, qty, variation, cartItemId };
                 updatedCart = [...currentCart, newItem];
-                if (isAuthenticated) {
-                    apiService('/cart', 'POST', { 
-                        productId: productToAdd.id, 
-                        quantity: qty,
-                        variationId: variation?.id // Assumindo que a variação tem um ID
-                    });
-                }
+            }
+
+            if (isAuthenticated) {
+                apiService('/cart', 'POST', { 
+                    productId: productToAdd.id, 
+                    quantity: existing ? existing.qty + qty : qty,
+                    variationId: variation?.id
+                }).catch(err => {
+                    console.error("Falha ao sincronizar carrinho com o backend:", err);
+                    // Opcional: Reverter a alteração no estado local se o backend falhar
+                });
             }
             return updatedCart;
         });
-    }, [isAuthenticated]);
+    }, [cart, isAuthenticated]);
     
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
@@ -463,6 +464,12 @@ const ShopProvider = ({ children }) => {
         
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
+        
+        const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
+        if (newQuantity > availableStock) {
+            // Lançar um erro que pode ser capturado na UI para notificação
+            throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        }
 
         const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
         setCart(updatedCart);
@@ -784,7 +791,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
         setIsAddingToCart(true);
         try {
-            await addToCart(product);
+            await addToCart(product, 1);
             notification.show(`${product.name} adicionado ao carrinho!`);
         } catch (error) {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
@@ -801,10 +808,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
         setIsBuyingNow(true);
         try {
-            await addToCart(product);
+            await addToCart(product, 1);
             onNavigate('cart');
         } catch (error) {
             notification.show(error.message || "Erro ao iniciar compra", "error");
+        } finally {
             setIsBuyingNow(false);
         }
     };
@@ -1722,7 +1730,6 @@ const ShippingCalculator = memo(({ items }) => {
     );
 });
 
-// ATUALIZADO: Componente seletor de variação para usar imagens como "swatches"
 const VariationSelector = ({ product, variations, onSelectionChange }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
@@ -1735,19 +1742,23 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
             if (v.color && !colors.has(v.color)) {
                 const primaryImage = (v.images && v.images.length > 0) 
                     ? v.images[0] 
-                    : getFirstImage(product.images); // Fallback para imagem principal do produto
+                    : getFirstImage(product.images);
                 colors.set(v.color, primaryImage);
             }
         });
         return Array.from(colors, ([name, image]) => ({ name, image }));
     }, [variations, product]);
 
-    const availableSizes = useMemo(() => {
+    const allSizesForColor = useMemo(() => {
         if (!selectedColor) return [];
-        return variations
-            .filter(v => v.color === selectedColor && v.stock > 0)
-            .map(v => v.size)
-            .filter((value, index, self) => self.indexOf(value) === index); // Garante tamanhos únicos
+        const sizeMap = new Map();
+        variations
+            .filter(v => v.color === selectedColor)
+            .forEach(v => {
+                const currentStock = sizeMap.get(v.size)?.stock || 0;
+                sizeMap.set(v.size, { size: v.size, stock: currentStock + v.stock });
+            });
+        return Array.from(sizeMap.values());
     }, [variations, selectedColor]);
 
     useEffect(() => {
@@ -1773,12 +1784,12 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
     return (
         <div className="space-y-6">
             <div>
-                <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
+                 <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
                 <div className="flex flex-wrap gap-2">
                     {uniqueColors.map(colorInfo => (
                          <div key={colorInfo.name}
                             onClick={() => handleColorChange(colorInfo.name)}
-                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-purple-600 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
+                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-amber-400 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
                             title={colorInfo.name}
                         >
                              <img src={colorInfo.image} alt={colorInfo.name} className="w-16 h-16 object-contain"/>
@@ -1788,17 +1799,28 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
             </div>
             {selectedColor && (
                  <div>
-                    <h3 className="text-lg font-semibold text-gray-300 mb-3">Tamanho: <span className="font-normal">{selectedSize || 'Selecione um tamanho'}</span></h3>
+                    <h3 className="text-lg font-semibold text-gray-300 mb-3">Tamanho:</h3>
                     <div className="flex flex-wrap gap-3">
-                        {availableSizes.length > 0 ? (
-                            availableSizes.map(size => (
-                                <button
-                                    key={size}
-                                    onClick={() => setSelectedSize(size)}
-                                    className={`px-5 py-2 border-2 rounded-md font-bold transition-colors duration-200 ${selectedSize === size ? 'bg-amber-400 text-black border-amber-400' : 'border-gray-600 hover:bg-gray-800 hover:border-gray-500'}`}
-                                >
-                                    {size}
-                                </button>
+                        {allSizesForColor.length > 0 ? (
+                            allSizesForColor.map(({ size, stock }) => (
+                                <div key={size} className="relative">
+                                    <button
+                                        key={size}
+                                        onClick={() => setSelectedSize(size)}
+                                        disabled={stock === 0}
+                                        className={`px-5 py-2 border-2 rounded-md font-bold transition-colors duration-200 
+                                            ${selectedSize === size ? 'bg-amber-400 text-black border-amber-400' : 'border-gray-600 hover:bg-gray-800 hover:border-gray-500'}
+                                            ${stock === 0 ? 'opacity-40 bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : ''}`
+                                        }
+                                    >
+                                        {size}
+                                    </button>
+                                    {stock === 0 && (
+                                        <div className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border-2 border-black">
+                                            X
+                                        </div>
+                                    )}
+                                </div>
                             ))
                         ) : (
                              <p className="text-gray-500">Nenhum tamanho disponível para esta cor.</p>
@@ -1819,7 +1841,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
-    const { addToCart } = useShop();
+    const { addToCart, cart } = useShop();
     const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
@@ -1832,7 +1854,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
     const [selectedVariation, setSelectedVariation] = useState(null);
-    const [galleryImages, setGalleryImages] = useState([]); // ATUALIZADO: Estado para a galeria de imagens dinâmica
+    const [galleryImages, setGalleryImages] = useState([]);
     
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -1850,7 +1872,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-            setGalleryImages(images); // ATUALIZADO: Inicializa a galeria com as imagens principais do produto
+            setGalleryImages(images);
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -1926,27 +1948,33 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
     
     const handleQuantityChange = (amount) => {
-        setQuantity(prev => Math.max(1, prev + amount));
+        setQuantity(prev => {
+            const newQty = prev + amount;
+            if (newQty < 1) return 1;
+            
+            const stockLimit = selectedVariation?.stock;
+            if (stockLimit && newQty > stockLimit) {
+                return stockLimit;
+            }
+            return newQty;
+        });
     };
 
-    const handleAddToCart = () => {
+    const handleAction = async (action) => {
         if (!product) return;
         if (product.product_type === 'clothing' && !selectedVariation) {
             notification.show("Por favor, selecione uma cor e um tamanho.", "error");
             return;
         }
-        addToCart(product, quantity, selectedVariation);
-        notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
-    };
-    
-    const handleBuyNow = () => {
-        if (!product) return;
-         if (product.product_type === 'clothing' && !selectedVariation) {
-            notification.show("Por favor, selecione uma cor e um tamanho.", "error");
-            return;
+        try {
+            await addToCart(product, quantity, selectedVariation);
+            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
+            if (action === 'buyNow') {
+                onNavigate('cart');
+            }
+        } catch (error) {
+            notification.show(error.message, 'error');
         }
-        addToCart(product, quantity, selectedVariation);
-        onNavigate('cart');
     };
     
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
@@ -2039,7 +2067,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return [{...product, qty: quantity}];
     }, [product, quantity]);
 
-    // ATUALIZADO: Handler para a seleção de variação que atualiza a galeria de imagens
     const handleVariationSelection = (variation, color) => {
         setSelectedVariation(variation);
 
@@ -2057,10 +2084,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
-
-    const isPerfume = product.product_type === 'perfume';
+    
     const isClothing = product.product_type === 'clothing';
+    const isPerfume = product.product_type === 'perfume';
 
+    const stockLimit = selectedVariation?.stock;
+    const isQtyAtMax = stockLimit ? quantity >= stockLimit : false;
+    
     return (
         <div className="bg-black text-white min-h-screen">
             <InstallmentModal
@@ -2170,22 +2200,23 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <div className="flex items-center border border-gray-700 rounded-md">
                                 <button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button>
                                 <span className="px-5 py-2 font-bold text-lg">{quantity}</span>
-                                <button onClick={() => handleQuantityChange(1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md">+</button>
+                                <button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button>
                             </div>
+                            {stockLimit && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
                         </div>
 
                         <div className="space-y-3">
                             <button 
-                                onClick={handleBuyNow} 
+                                onClick={() => handleAction('buyNow')} 
                                 className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed"
-                                disabled={isClothing && !selectedVariation}
+                                disabled={(isClothing && !selectedVariation) || stockLimit === 0}
                             >
                                 Comprar Agora
                             </button>
                             <button 
-                                onClick={handleAddToCart} 
+                                onClick={() => handleAction('addToCart')} 
                                 className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed"
-                                disabled={isClothing && !selectedVariation}
+                                disabled={(isClothing && !selectedVariation) || stockLimit === 0}
                             >
                                 Adicionar ao Carrinho
                             </button>
@@ -2472,6 +2503,7 @@ const CartPage = ({ onNavigate }) => {
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon
     } = useShop();
+    const notification = useNotification();
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
@@ -2498,6 +2530,14 @@ const CartPage = ({ onNavigate }) => {
     }
     
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
+    const handleUpdateQuantity = async (cartItemId, newQuantity) => {
+        try {
+            await updateQuantity(cartItemId, newQuantity);
+        } catch (error) {
+            notification.show(error.message, 'error');
+        }
+    };
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -2533,9 +2573,9 @@ const CartPage = ({ onNavigate }) => {
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
                                             <div className="flex items-center space-x-2">
-                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
+                                                <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
                                                 <span className="w-8 text-center">{item.qty}</span>
-                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
+                                                <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
                                             </div>
                                             <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
                                             <button onClick={() => removeFromCart(item.cartItemId)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
@@ -3325,21 +3365,28 @@ const MyOrdersSection = ({ onNavigate }) => {
 
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
-        let count = 0;
-        orderItems.forEach(item => {
-            // Se for roupa, não podemos adicionar diretamente ao carrinho sem escolher variação
+        
+        const promises = orderItems.map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
-                return;
+                return Promise.resolve(0); // Resolve para não quebrar o Promise.all
             }
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images };
-            addToCart(product, item.quantity);
-            count++;
+            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations };
+            return addToCart(product, item.quantity, item.variation)
+                .then(() => 1) // Sucesso
+                .catch(err => {
+                    notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
+                    return 0; // Falha
+                });
         });
-        if (count > 0) {
-            notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
-            onNavigate('cart');
-        }
+
+        Promise.all(promises).then(results => {
+            const count = results.reduce((sum, val) => sum + val, 0);
+            if (count > 0) {
+                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
+                onNavigate('cart');
+            }
+        });
     };
 
     const handleOpenTrackingModal = (trackingCode) => {
