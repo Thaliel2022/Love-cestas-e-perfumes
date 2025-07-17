@@ -79,33 +79,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-const mapColorNameToCSS = (colorName) => {
-    if (!colorName) return 'transparent';
-    const name = String(colorName).toLowerCase().trim();
-    // Handles direct hex codes or standard colors
-    if (name.startsWith('#') || /^[a-z]+$/.test(name)) {
-        return name;
-    }
-    const colorMap = {
-        'rosa': 'pink',
-        'azul': 'blue',
-        'vermelho': 'red',
-        'verde': 'green',
-        'preto': 'black',
-        'branco': 'white',
-        'cinza': 'gray',
-        'amarelo': 'yellow',
-        'laranja': 'orange',
-        'roxo': 'purple',
-        'marrom': 'brown',
-        'bege': 'beige',
-        'dourado': 'gold',
-        'prata': 'silver',
-    };
-    return colorMap[name] || name;
-};
-
-
 // --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
     const token = localStorage.getItem('token');
@@ -1749,50 +1722,51 @@ const ShippingCalculator = memo(({ items }) => {
     );
 });
 
-// Helper component for size/color selection on Product Detail Page
-const VariationSelector = ({ variations, onSelectionChange }) => {
+// ATUALIZADO: Componente seletor de variação para usar imagens como "swatches"
+const VariationSelector = ({ product, variations, onSelectionChange }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
 
-    const availableColors = useMemo(() => {
-        const colors = variations.map(v => v.color);
-        return [...new Set(colors)];
-    }, [variations]);
+    const uniqueColors = useMemo(() => {
+        const colors = new Map();
+        if (!variations || !product) return [];
+
+        variations.forEach(v => {
+            if (v.color && !colors.has(v.color)) {
+                const primaryImage = (v.images && v.images.length > 0) 
+                    ? v.images[0] 
+                    : getFirstImage(product.images); // Fallback para imagem principal do produto
+                colors.set(v.color, primaryImage);
+            }
+        });
+        return Array.from(colors, ([name, image]) => ({ name, image }));
+    }, [variations, product]);
 
     const availableSizes = useMemo(() => {
         if (!selectedColor) return [];
         return variations
             .filter(v => v.color === selectedColor && v.stock > 0)
-            .map(v => v.size);
+            .map(v => v.size)
+            .filter((value, index, self) => self.indexOf(value) === index); // Garante tamanhos únicos
     }, [variations, selectedColor]);
 
     useEffect(() => {
-        // Reset size if color changes and the current size is not available for the new color
-        if (selectedColor && !availableSizes.includes(selectedSize)) {
-            setSelectedSize('');
-        }
-    }, [selectedColor, selectedSize, availableSizes]);
-
-    useEffect(() => {
-        // Notify parent component about the selection
-        if (selectedColor && selectedSize) {
-            const selection = variations.find(v => v.color === selectedColor && v.size === selectedSize);
-            onSelectionChange(selection);
-        } else {
-            onSelectionChange(null);
-        }
+        const fullSelection = (selectedColor && selectedSize)
+            ? variations.find(v => v.color === selectedColor && v.size === selectedSize)
+            : null;
+        onSelectionChange(fullSelection, selectedColor);
     }, [selectedColor, selectedSize, variations, onSelectionChange]);
 
     const handleColorChange = (color) => {
         setSelectedColor(color);
-        // Automatically select size if there's only one option for the new color
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
+        
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); // Reset size selection
+            setSelectedSize('');
         }
     };
     
@@ -1800,15 +1774,15 @@ const VariationSelector = ({ variations, onSelectionChange }) => {
         <div className="space-y-6">
             <div>
                 <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
-                <div className="flex flex-wrap gap-3">
-                    {availableColors.map(color => (
-                        <button
-                            key={color}
-                            onClick={() => handleColorChange(color)}
-                            className={`w-10 h-10 rounded-full border-2 transition-transform duration-200 ${selectedColor === color ? 'border-amber-400 scale-110' : 'border-gray-600 hover:border-gray-400'}`}
-                            style={{ backgroundColor: mapColorNameToCSS(color) }}
-                            title={color}
-                        />
+                <div className="flex flex-wrap gap-2">
+                    {uniqueColors.map(colorInfo => (
+                         <div key={colorInfo.name}
+                            onClick={() => handleColorChange(colorInfo.name)}
+                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-purple-600 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
+                            title={colorInfo.name}
+                        >
+                             <img src={colorInfo.image} alt={colorInfo.name} className="w-16 h-16 object-contain"/>
+                         </div>
                     ))}
                 </div>
             </div>
@@ -1857,8 +1831,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     
-    // --> ATUALIZADO: State para variação selecionada (cor/tamanho)
     const [selectedVariation, setSelectedVariation] = useState(null);
+    const [galleryImages, setGalleryImages] = useState([]); // ATUALIZADO: Estado para a galeria de imagens dinâmica
     
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -1867,7 +1841,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const controller = new AbortController();
         setIsLoading(true);
         try {
-            // A API de produto agora deve retornar `product_type` e `variations`
             const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
                 apiService(`/products/${id}`, 'GET', null, { signal: controller.signal }),
                 apiService(`/products/${id}/reviews`, 'GET', null, { signal: controller.signal }),
@@ -1877,6 +1850,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            setGalleryImages(images); // ATUALIZADO: Inicializa a galeria com as imagens principais do produto
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -2019,13 +1993,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const THUMBNAIL_ITEM_HEIGHT = 92; 
     const VISIBLE_THUMBNAILS = 5; 
     const canScrollUp = thumbnailIndex > 0;
-    const canScrollDown = productImages.length > VISIBLE_THUMBNAILS && thumbnailIndex < productImages.length - VISIBLE_THUMBNAILS;
+    const canScrollDown = galleryImages.length > VISIBLE_THUMBNAILS && thumbnailIndex < galleryImages.length - VISIBLE_THUMBNAILS;
 
     const scrollThumbs = (direction) => {
         setThumbnailIndex(prev => {
             const newIndex = prev + direction;
             if (newIndex < 0) return 0;
-            if (newIndex > productImages.length - VISIBLE_THUMBNAILS) return productImages.length - VISIBLE_THUMBNAILS;
+            if (newIndex > galleryImages.length - VISIBLE_THUMBNAILS) return galleryImages.length - VISIBLE_THUMBNAILS;
             return newIndex;
         });
     };
@@ -2065,12 +2039,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return [{...product, qty: quantity}];
     }, [product, quantity]);
 
-    // --> ATUALIZADO: Handler para seleção de variação
-    const handleVariationSelection = (variation) => {
+    // ATUALIZADO: Handler para a seleção de variação que atualiza a galeria de imagens
+    const handleVariationSelection = (variation, color) => {
         setSelectedVariation(variation);
-        // Se a variação selecionada tiver uma imagem específica, atualiza a imagem principal
-        if (variation && variation.image) {
-            setMainImage(variation.image);
+
+        const anyVariationWithColor = productVariations.find(v => v.color === color && v.images && v.images.length > 0);
+
+        if (anyVariationWithColor) {
+            setGalleryImages(anyVariationWithColor.images);
+            setMainImage(anyVariationWithColor.images[0]);
+        } else {
+            setGalleryImages(productImages);
+            setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
         }
     };
 
@@ -2078,7 +2058,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    // Lógica para tabs dinâmicas
     const isPerfume = product.product_type === 'perfume';
     const isClothing = product.product_type === 'clothing';
 
@@ -2089,8 +2068,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 onClose={() => setIsInstallmentModalOpen(false)}
                 installments={installments}
             />
-            {isLightboxOpen && productImages.length > 0 && (
-                <Lightbox images={productImages} onClose={() => setIsLightboxOpen(false)} />
+            {isLightboxOpen && galleryImages.length > 0 && (
+                <Lightbox images={galleryImages} onClose={() => setIsLightboxOpen(false)} />
             )}
             <div className="container mx-auto px-4 py-8">
                  <div className="mb-4">
@@ -2122,7 +2101,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 >
-                                    {productImages.map((img, index) => (
+                                    {galleryImages.map((img, index) => (
                                         <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
                                             <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                         </div>
@@ -2178,9 +2157,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* ATUALIZADO: Seletor de variações para roupas com o novo handler */}
                         {isClothing && (
-                           <VariationSelector variations={productVariations} onSelectionChange={handleVariationSelection} />
+                           <VariationSelector 
+                                product={product} 
+                                variations={productVariations} 
+                                onSelectionChange={handleVariationSelection} 
+                            />
                         )}
                         
                         <div className="flex items-center space-x-4">
@@ -2225,12 +2207,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
                         
-                        {/* Conteúdo Perfume */}
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
 
-                        {/* Conteúdo Roupa */}
                         {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
@@ -2543,7 +2523,6 @@ const CartPage = ({ onNavigate }) => {
                                             </div>
                                             <div className="flex-grow px-4">
                                                 <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                {/* NOVO: Exibir variação no carrinho */}
                                                 {item.variation && (
                                                     <p className="text-xs text-gray-400">
                                                         {item.variation.color} / {item.variation.size}
@@ -2883,7 +2862,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
         try {
             const orderPayload = {
-                // ATUALIZADO: envia a variação do item se houver
                 items: cart.map(item => ({ 
                     id: item.id, 
                     qty: item.qty, 
@@ -3762,7 +3740,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     {availableColors.map(c => <option key={c} value={c} />)}
                 </datalist>
             </div>
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Tamanho</label>
                 <input 
                     type="text"
@@ -3781,23 +3759,22 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                 <input 
                     type="number"
                     value={variation.stock}
-                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10))}
+                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)}
                     className="w-full p-2 border border-gray-300 rounded-md"
                     placeholder="0"
                 />
             </div>
-            {/* ATUALIZADO: Campo de imagem da variação */}
-            <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Imagem</label>
-                <input 
-                    type="text"
-                    value={variation.image || ''}
-                    onChange={(e) => onVariationChange(index, 'image', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="URL"
+            <div className="md:col-span-4">
+                <label className="text-xs text-gray-500">Imagens da Variação (URLs separadas por vírgula)</label>
+                <textarea 
+                    value={(variation.images || []).join(', ')}
+                    onChange={(e) => onVariationChange(index, 'images', e.target.value.split(',').map(url => url.trim()).filter(url => url))}
+                    className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                    placeholder="https://.../img1.png, https://.../img2.png"
+                    rows={2}
                 />
             </div>
-            <div className="md:col-span-2 flex items-end h-full">
+            <div className="md:col-span-1 flex items-end h-full">
                 <button 
                     type="button" 
                     onClick={() => onRemoveVariation(index)}
@@ -3904,7 +3881,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     ];
     
     const clothingFields = [
-        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque)', type: 'variations' },
+        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque, Imagens)', type: 'variations' },
         { name: 'size_guide', label: 'Guia de Medidas (HTML permitido)', type: 'textarea' },
         { name: 'care_instructions', label: 'Cuidados com a Peça (um por linha)', type: 'textarea' },
     ];
@@ -3914,8 +3891,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
-        { name: 'images_upload', label: 'Fazer Upload de Nova Imagem', type: 'file' },
-        { name: 'images', label: 'URLs das Imagens', type: 'text_array' },
+        { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
+        { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
         { name: 'description', label: 'Descrição', type: 'textarea' },
         { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
         { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
@@ -3936,8 +3913,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         
         if (item) {
             setProductType(item.product_type || 'perfume');
-            if (item.images) initialData.images = parseJsonString(item.images, []);
-            if (item.variations) initialData.variations = parseJsonString(item.variations, []);
+            initialData.images = parseJsonString(item.images, []);
+            initialData.variations = parseJsonString(item.variations, []);
         } else {
             setProductType('perfume');
         }
@@ -3966,14 +3943,18 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     };
     
     const handleImageChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-        setUploadStatus('Enviando imagem...');
+        setUploadStatus(`Enviando ${files.length} imagem(ns)...`);
         try {
-            const response = await apiImageUploadService('/upload/image', file);
-            setFormData(prev => ({...prev, images: [...(prev.images || []), response.imageUrl]}));
+            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
+            const responses = await Promise.all(uploadPromises);
+            const newImageUrls = responses.map(res => res.imageUrl);
+            
+            setFormData(prev => ({...prev, images: [...(prev.images || []), ...newImageUrls]}));
             setUploadStatus('Upload concluído com sucesso!');
+            e.target.value = ''; // Limpa o input de arquivo
             setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
             setUploadStatus(`Erro no upload: ${error.message}`);
@@ -3990,7 +3971,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const addVariation = () => {
         setFormData(prev => ({
             ...prev,
-            variations: [...(prev.variations || []), { color: '', size: '', stock: 0, image: '' }]
+            variations: [...(prev.variations || []), { color: '', size: '', stock: 0, images: [] }]
         }));
     };
 
@@ -4003,18 +3984,15 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         e.preventDefault();
         const dataToSubmit = { ...formData, product_type: productType };
 
-        // Limpa campos que não pertencem ao tipo de produto selecionado
         if (productType === 'perfume') {
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
-            dataToSubmit.variations = '[]'; // Garante que seja uma string JSON vazia
+            dataToSubmit.variations = '[]';
         } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
-            // Calcula o estoque total a partir das variações
             const totalStock = (dataToSubmit.variations || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
             dataToSubmit.stock = totalStock;
         }
 
-        // Serializa arrays para JSON
         dataToSubmit.images = JSON.stringify(dataToSubmit.images?.filter(img => img && img.trim() !== '') || []);
         if (dataToSubmit.variations) {
             dataToSubmit.variations = JSON.stringify(dataToSubmit.variations);
@@ -4030,7 +4008,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Seletor de Tipo de Produto */}
             <div className="p-4 bg-gray-100 rounded-lg">
                 <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Produto</label>
                 <div className="flex gap-4">
@@ -4043,7 +4020,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 </div>
             </div>
 
-            {/* Campos Comuns */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {commonFields.map(field => {
                     if (field.name === 'brand' || field.name === 'category') {
@@ -4093,12 +4069,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 })}
             </div>
             
-            {/* Campos de Imagem */}
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens</h3>
+                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
                 <div>
-                     <label className="block text-sm font-medium text-gray-700">Fazer Upload de Nova Imagem</label>
-                     <input type="file" name="images_upload" accept="image/*" onChange={handleImageChange} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+                     <label className="block text-sm font-medium text-gray-700">Fazer Upload de Novas Imagens</label>
+                     <input type="file" name="images_upload" accept="image/*" onChange={handleImageChange} multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
                      {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                 </div>
                  <div>
@@ -4114,7 +4089,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 </div>
             </div>
 
-            {/* Campos Dinâmicos */}
             <AnimatePresence mode="wait">
                 <motion.div
                     key={productType}
@@ -4242,7 +4216,7 @@ const DownloadTemplateButton = ({ productType }) => {
             filename = "modelo_perfumes.csv";
         } else { // clothing
             headers = "name,brand,category,price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type";
-            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,https://example.com/img2.png,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing";
+            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing";
             filename = "modelo_roupas.csv";
         }
         
@@ -4281,7 +4255,6 @@ const AdminProducts = ({ onNavigate }) => {
   const [uniqueBrands, setUniqueBrands] = useState([]);
   const [uniqueCategories, setUniqueCategories] = useState([]);
 
-  // NOVO: State para controlar o tipo de produto no modal de criação/edição
   const [productType, setProductType] = useState('perfume');
 
   const fetchProducts = useCallback((currentSearchTerm) => {
@@ -4320,7 +4293,6 @@ const AdminProducts = ({ onNavigate }) => {
 
   const handleOpenModal = (product = null) => {
     setEditingProduct(product);
-    // Define o tipo de produto com base no item existente ou padrão para 'perfume'
     setProductType(product ? product.product_type : 'perfume');
     setIsModalOpen(true);
   };
@@ -4425,7 +4397,7 @@ const AdminProducts = ({ onNavigate }) => {
                     isOpen={isModalOpen} 
                     onClose={() => setIsModalOpen(false)} 
                     title={editingProduct ? 'Editar Produto' : 'Adicionar Novo Produto'}
-                    size="3xl" // Modal maior para o novo formulário
+                    size="3xl"
                 >
                     <ProductForm
                         item={editingProduct} 
@@ -4993,10 +4965,9 @@ const AdminOrders = () => {
                                             <div>
                                                 <p className="font-semibold text-gray-800">{item.name}</p>
                                                 <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                {/* ATUALIZADO: Exibe a variação do item do pedido */}
                                                 {item.variation && typeof item.variation === 'object' && (
-                                                     <p className="text-xs text-indigo-600 bg-indigo-100 rounded-full px-2 py-1 w-fit mt-1">
-                                                         {item.variation.color} / {item.variation.size}
+                                                     <p className="text-xs text-indigo-600 bg-indigo-100 font-medium rounded-full px-2 py-1 w-fit mt-1">
+                                                         Cor: {item.variation.color} / Tamanho: {item.variation.size}
                                                      </p>
                                                 )}
                                             </div>
