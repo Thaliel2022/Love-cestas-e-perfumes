@@ -1976,6 +1976,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
+    const handleVariationSelection = (variation, color) => {
+        setSelectedVariation(variation);
+
+        if (color && productVariations.length > 0) {
+            const allImagesForColor = productVariations
+                .filter(v => v.color === color)
+                .flatMap(v => v.images || [])
+                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setMainImage(allImagesForColor[0]);
+                return;
+            }
+        }
+        
+        // Fallback to default product images if no color is selected or color has no images
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    };
     
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
@@ -2066,20 +2086,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (!product) return [];
         return [{...product, qty: quantity}];
     }, [product, quantity]);
-
-    const handleVariationSelection = (variation, color) => {
-        setSelectedVariation(variation);
-
-        const anyVariationWithColor = productVariations.find(v => v.color === color && v.images && v.images.length > 0);
-
-        if (anyVariationWithColor) {
-            setGalleryImages(anyVariationWithColor.images);
-            setMainImage(anyVariationWithColor.images[0]);
-        } else {
-            setGalleryImages(productImages);
-            setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-        }
-    };
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -3770,9 +3776,10 @@ const AdminDashboard = () => {
     );
 };
 
-const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes }) => {
+const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes, onImageUpload, uploadStatus }) => {
+    const fileInputRef = useRef(null);
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 bg-gray-50 rounded-md border">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
             <div className="md:col-span-3">
                 <label className="text-xs text-gray-500">Cor</label>
                 <input 
@@ -3811,21 +3818,30 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     placeholder="0"
                 />
             </div>
-            <div className="md:col-span-4">
-                <label className="text-xs text-gray-500">Imagens da Variação (URLs separadas por vírgula)</label>
-                <textarea 
-                    value={(variation.images || []).join(', ')}
-                    onChange={(e) => onVariationChange(index, 'images', e.target.value.split(',').map(url => url.trim()).filter(url => url))}
-                    className="w-full p-2 border border-gray-300 rounded-md text-xs"
-                    placeholder="https://.../img1.png, https://.../img2.png"
-                    rows={2}
-                />
+            <div className="md:col-span-4 space-y-2">
+                 <div>
+                    <label className="text-xs text-gray-500">URLs das Imagens (uma por linha)</label>
+                    <textarea 
+                        value={(variation.images || []).join('\n')}
+                        onChange={(e) => onVariationChange(index, 'images', e.target.value.split('\n').map(url => url.trim()).filter(url => url))}
+                        className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                        placeholder="https://.../img1.png&#10;https://.../img2.png"
+                        rows={2}
+                    />
+                </div>
+                <div>
+                    <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
+                    <button type="button" onClick={() => fileInputRef.current.click()} className="w-full text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1">
+                        <UploadIcon className="h-4 w-4" /> Anexar Imagens
+                    </button>
+                    {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
+                </div>
             </div>
-            <div className="md:col-span-1 flex items-end h-full">
+            <div className="md:col-span-1 flex items-center justify-center h-full">
                 <button 
                     type="button" 
                     onClick={() => onRemoveVariation(index)}
-                    className="w-full bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
+                    className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
                 >
                     <TrashIcon className="h-5 w-5 mx-auto"/>
                 </button>
@@ -3919,6 +3935,7 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
+    const [uploadingStatus, setUploadingStatus] = useState({});
 
     const perfumeFields = [
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
@@ -4013,6 +4030,29 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const newVariations = [...formData.variations];
         newVariations[index][field] = value;
         setFormData(prev => ({ ...prev, variations: newVariations }));
+    };
+    
+    const handleVariationImageUpload = async (index, e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+        try {
+            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
+            const responses = await Promise.all(uploadPromises);
+            const newImageUrls = responses.map(res => res.imageUrl);
+            
+            const newVariations = [...formData.variations];
+            const currentImages = newVariations[index].images || [];
+            newVariations[index].images = [...currentImages, ...newImageUrls];
+            setFormData(prev => ({ ...prev, variations: newVariations }));
+            
+            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
+            e.target.value = ''; // Clear the input
+            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
+        } catch (error) {
+            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
+        }
     };
 
     const addVariation = () => {
@@ -4169,6 +4209,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                             onRemoveVariation={removeVariation}
                                             availableColors={availableColors}
                                             availableSizes={availableSizes}
+                                            onImageUpload={(e) => handleVariationImageUpload(i, e)}
+                                            uploadStatus={uploadingStatus[i]}
                                         />
                                     ))}
                                     <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
