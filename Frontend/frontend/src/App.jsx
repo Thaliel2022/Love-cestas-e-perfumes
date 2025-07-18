@@ -1976,26 +1976,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
-    const handleVariationSelection = (variation, color) => {
-        setSelectedVariation(variation);
-
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color)
-                .flatMap(v => v.images || [])
-                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        
-        // Fallback to default product images if no color is selected or color has no images
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-    };
     
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
@@ -2086,6 +2066,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (!product) return [];
         return [{...product, qty: quantity}];
     }, [product, quantity]);
+
+    const handleVariationSelection = (variation, color) => {
+        setSelectedVariation(variation);
+    
+        // Priority 1: Use images from the fully selected variation (with color and size)
+        if (variation && variation.images && Array.isArray(variation.images) && variation.images.length > 0) {
+            setGalleryImages(variation.images);
+            setMainImage(variation.images[0]);
+            return; // Gallery updated, we are done.
+        }
+    
+        // Priority 2: If no full variation is selected (or it has no images), but a color is selected,
+        // find any variation with that same color that has images and use them.
+        // This is useful when a color is selected but a size isn't yet.
+        const anyVariationWithSameColor = productVariations.find(v => v.color === color && v.images && Array.isArray(v.images) && v.images.length > 0);
+        if (anyVariationWithSameColor) {
+            setGalleryImages(anyVariationWithSameColor.images);
+            setMainImage(anyVariationWithSameColor.images[0]);
+            return; // Gallery updated, we are done.
+        }
+    
+        // Priority 3: As a fallback, use the main product images.
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    };
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
@@ -3776,11 +3781,11 @@ const AdminDashboard = () => {
     );
 };
 
-const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes, onImageUpload, uploadStatus }) => {
-    const fileInputRef = useRef(null);
+const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, onVariationImageUpload, availableColors, availableSizes }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
-            <div className="md:col-span-3">
+            {/* Cor */}
+            <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Cor</label>
                 <input 
                     type="text"
@@ -3794,6 +3799,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     {availableColors.map(c => <option key={c} value={c} />)}
                 </datalist>
             </div>
+            {/* Tamanho */}
             <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Tamanho</label>
                 <input 
@@ -3808,7 +3814,8 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     {availableSizes.map(s => <option key={s} value={s} />)}
                 </datalist>
             </div>
-            <div className="md:col-span-2">
+            {/* Estoque */}
+            <div className="md:col-span-1">
                 <label className="text-xs text-gray-500">Estoque</label>
                 <input 
                     type="number"
@@ -3818,30 +3825,39 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     placeholder="0"
                 />
             </div>
-            <div className="md:col-span-4 space-y-2">
-                 <div>
-                    <label className="text-xs text-gray-500">URLs das Imagens (uma por linha)</label>
-                    <textarea 
-                        value={(variation.images || []).join('\n')}
-                        onChange={(e) => onVariationChange(index, 'images', e.target.value.split('\n').map(url => url.trim()).filter(url => url))}
-                        className="w-full p-2 border border-gray-300 rounded-md text-xs"
-                        placeholder="https://.../img1.png&#10;https://.../img2.png"
-                        rows={2}
-                    />
-                </div>
-                <div>
-                    <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
-                    <button type="button" onClick={() => fileInputRef.current.click()} className="w-full text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1">
-                        <UploadIcon className="h-4 w-4" /> Anexar Imagens
-                    </button>
-                    {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
-                </div>
+            {/* URLs de Imagens */}
+            <div className="md:col-span-3">
+                <label className="text-xs text-gray-500">URLs das Imagens</label>
+                <textarea 
+                    value={(variation.images || []).join(',\n')}
+                    onChange={(e) => onVariationChange(index, 'images', e.target.value.split(/[\n,]/).map(url => url.trim()).filter(url => url))}
+                    className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                    placeholder="https://.../img1.png,\nhttps://.../img2.png"
+                    rows={3}
+                />
             </div>
-            <div className="md:col-span-1 flex items-center justify-center h-full">
+            {/* Upload de Imagens */}
+            <div className="md:col-span-3">
+                 <label className="text-xs text-gray-500">Upload de Imagens</label>
+                 <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => onVariationImageUpload(index, e)}
+                    className="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
+                  />
+                  <div className="flex gap-1 mt-1 flex-wrap h-10 overflow-y-auto">
+                    {(variation.images || []).map((img, imgIndex) => (
+                        <img key={imgIndex} src={img} alt={`Variação ${index+1} Imagem ${imgIndex+1}`} className="w-8 h-8 object-cover rounded border flex-shrink-0" />
+                    ))}
+                  </div>
+            </div>
+            {/* Botão Remover */}
+            <div className="md:col-span-1 flex items-center h-full">
                 <button 
                     type="button" 
                     onClick={() => onRemoveVariation(index)}
-                    className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
+                    className="w-full bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200 mt-4 md:mt-0"
                 >
                     <TrashIcon className="h-5 w-5 mx-auto"/>
                 </button>
@@ -3935,7 +3951,6 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
-    const [uploadingStatus, setUploadingStatus] = useState({});
 
     const perfumeFields = [
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
@@ -4025,18 +4040,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         }
     };
     
-    // Funções para gerenciar variações de roupas
-    const handleVariationChange = (index, field, value) => {
-        const newVariations = [...formData.variations];
-        newVariations[index][field] = value;
-        setFormData(prev => ({ ...prev, variations: newVariations }));
-    };
-    
     const handleVariationImageUpload = async (index, e) => {
         const files = Array.from(e.target.files);
         if (files.length === 0) return;
-
-        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+    
+        setUploadStatus(`Enviando imagens para variação #${index + 1}...`);
         try {
             const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
@@ -4046,13 +4054,20 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             const currentImages = newVariations[index].images || [];
             newVariations[index].images = [...currentImages, ...newImageUrls];
             setFormData(prev => ({ ...prev, variations: newVariations }));
-            
-            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
-            e.target.value = ''; // Clear the input
-            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
+    
+            setUploadStatus(`Upload para variação #${index + 1} concluído!`);
+            e.target.value = ''; // Clear file input
+            setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
-            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
+            setUploadStatus(`Erro no upload da variação: ${error.message}`);
         }
+    };
+
+    // Funções para gerenciar variações de roupas
+    const handleVariationChange = (index, field, value) => {
+        const newVariations = [...formData.variations];
+        newVariations[index][field] = value;
+        setFormData(prev => ({ ...prev, variations: newVariations }));
     };
 
     const addVariation = () => {
@@ -4207,10 +4222,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                             index={i} 
                                             onVariationChange={handleVariationChange}
                                             onRemoveVariation={removeVariation}
+                                            onVariationImageUpload={handleVariationImageUpload}
                                             availableColors={availableColors}
                                             availableSizes={availableSizes}
-                                            onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                            uploadStatus={uploadingStatus[i]}
                                         />
                                     ))}
                                     <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
@@ -4236,7 +4250,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         </form>
     );
 };
-
 const FileUploadArea = ({ onFileSelect }) => {
     const [dragging, setDragging] = useState(false);
     const [fileName, setFileName] = useState('');
