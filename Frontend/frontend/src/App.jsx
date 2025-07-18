@@ -1841,7 +1841,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
-    const { addToCart } = useShop();
+    const { addToCart, cart } = useShop();
     const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
@@ -1976,26 +1976,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
-
-    const handleVariationSelection = (variation, color) => {
-        setSelectedVariation(variation);
-
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color)
-                .flatMap(v => v.images || [])
-                .filter((value, index, self) => self.indexOf(value) === index);
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-    };
+    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
     const TabButton = ({ label, tabName, isVisible = true }) => {
@@ -2028,22 +2009,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         );
     };
 
-    const Lightbox = ({ mainImage, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+    const Lightbox = ({ images, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center" onClick={onClose}>
             <button 
-                onClick={(e) => { 
-                    e.stopPropagation();
-                    onClose(); 
+                onClick={(e) => {
+                    e.stopPropagation(); // Impede que o clique se propague para o backdrop
+                    onClose();
                 }} 
-                className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2"
+                className="absolute top-4 right-4 text-white text-4xl z-[1000] p-2 leading-none"
             >
                 &times;
             </button>
             <div 
-                className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" 
-                onClick={e => e.stopPropagation()}
+                className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center"
+                onClick={(e) => e.stopPropagation()} // Impede que cliques na imagem/container fechem o lightbox
             >
-                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" />
+                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain" />
             </div>
         </div>
     );
@@ -2097,6 +2078,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return [{...product, qty: quantity}];
     }, [product, quantity]);
 
+    const handleVariationSelection = (variation, color) => {
+        setSelectedVariation(variation);
+    
+        // Priority 1: Use images from the fully selected variation (with color and size)
+        if (variation && variation.images && Array.isArray(variation.images) && variation.images.length > 0) {
+            setGalleryImages(variation.images);
+            setMainImage(variation.images[0]);
+            return; // Gallery updated, we are done.
+        }
+    
+        // Priority 2: If no full variation is selected (or it has no images), but a color is selected,
+        // find any variation with that same color that has images and use them.
+        // This is useful when a color is selected but a size isn't yet.
+        const anyVariationWithSameColor = productVariations.find(v => v.color === color && v.images && Array.isArray(v.images) && v.images.length > 0);
+        if (anyVariationWithSameColor) {
+            setGalleryImages(anyVariationWithSameColor.images);
+            setMainImage(anyVariationWithSameColor.images[0]);
+            return; // Gallery updated, we are done.
+        }
+    
+        // Priority 3: As a fallback, use the main product images.
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    };
+
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
@@ -2115,7 +2121,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 installments={installments}
             />
             {isLightboxOpen && galleryImages.length > 0 && (
-                <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} />
+                <Lightbox images={galleryImages} onClose={() => setIsLightboxOpen(false)} />
             )}
             <div className="container mx-auto px-4 py-8">
                  <div className="mb-4">
@@ -2148,7 +2154,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 >
                                     {galleryImages.map((img, index) => (
-                                        <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
+                                        <div key={index} onClick={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
                                             <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                         </div>
                                     ))}
@@ -3786,26 +3792,22 @@ const AdminDashboard = () => {
     );
 };
 
-const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes, onImageUpload, uploadStatus, isFirstOfColor }) => {
-    const fileInputRef = useRef(null);
-
-    const handleRemoveImage = (imgIndex) => {
-        const updatedImages = variation.images.filter((_, i) => i !== imgIndex);
-        onVariationChange(index, 'images', updatedImages);
-    };
-
+const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes }) => {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center p-3 bg-gray-50 rounded-md border">
             <div className="md:col-span-3">
                 <label className="text-xs text-gray-500">Cor</label>
-                <select
+                <input 
+                    type="text"
+                    list="available-colors"
                     value={variation.color}
                     onChange={(e) => onVariationChange(index, 'color', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md bg-white"
-                >
-                    <option value="">Selecione a Cor</option>
-                    {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                    placeholder="Ex: Preto"
+                />
+                <datalist id="available-colors">
+                    {availableColors.map(c => <option key={c} value={c} />)}
+                </datalist>
             </div>
             <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Tamanho</label>
@@ -3818,65 +3820,34 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                     placeholder="Ex: M ou 42"
                 />
                 <datalist id="available-sizes">
-                    {availableSizes.map(s => <option key={s} value={s}>{s}</option>)}
+                    {availableSizes.map(s => <option key={s} value={s} />)}
                 </datalist>
             </div>
             <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Estoque</label>
                 <input 
                     type="number"
-                    min="0"
                     value={variation.stock}
                     onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)}
                     className="w-full p-2 border border-gray-300 rounded-md"
                     placeholder="0"
                 />
             </div>
-
-            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
-                 {isFirstOfColor ? (
-                    <>
-                        <label className="text-xs text-gray-500 font-semibold">Imagens para a cor "{variation.color || '...'}"</label>
-                        <div className="p-2 border rounded-md bg-white min-h-[60px]">
-                            {variation.images && variation.images.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {variation.images.map((img, imgIndex) => (
-                                        <div key={imgIndex} className="relative group">
-                                            <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
-                                            <button 
-                                                type="button"
-                                                onClick={() => handleRemoveImage(imgIndex)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <XMarkIcon className="h-3 w-3" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p>
-                            )}
-                        </div>
-
-                        <div>
-                            <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
-                            <button type="button" onClick={() => fileInputRef.current.click()} className="w-full text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1">
-                                <UploadIcon className="h-4 w-4" /> Anexar Imagens
-                            </button>
-                            {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
-                        </div>
-                    </>
-                 ) : (
-                    <div>
-                        <label className="text-xs text-gray-500">Imagens</label>
-                        <p className="text-xs text-gray-500 p-2 border rounded-md bg-gray-100">As imagens são definidas na primeira variação desta cor.</p>
-                    </div>
-                 )}
+            <div className="md:col-span-4">
+                <label className="text-xs text-gray-500">Imagens da Variação (URLs separadas por vírgula)</label>
+                <textarea 
+                    value={(variation.images || []).join(', ')}
+                    onChange={(e) => onVariationChange(index, 'images', e.target.value.split(',').map(url => url.trim()).filter(url => url))}
+                    className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                    placeholder="https://.../img1.png, https://.../img2.png"
+                    rows={2}
+                />
             </div>
-            <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
+            <div className="md:col-span-1 flex items-end h-full">
                 <button 
                     type="button" 
                     onClick={() => onRemoveVariation(index)}
-                    className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
+                    className="w-full bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
                 >
                     <TrashIcon className="h-5 w-5 mx-auto"/>
                 </button>
@@ -3970,7 +3941,6 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
-    const [uploadingStatus, setUploadingStatus] = useState({});
 
     const perfumeFields = [
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
@@ -4060,33 +4030,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         }
     };
     
+    // Funções para gerenciar variações de roupas
     const handleVariationChange = (index, field, value) => {
         const newVariations = [...formData.variations];
         newVariations[index][field] = value;
         setFormData(prev => ({ ...prev, variations: newVariations }));
-    };
-    
-    const handleVariationImageUpload = async (index, e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
-        try {
-            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
-            const responses = await Promise.all(uploadPromises);
-            const newImageUrls = responses.map(res => res.imageUrl);
-            
-            const newVariations = [...formData.variations];
-            const currentImages = newVariations[index].images || [];
-            newVariations[index].images = [...currentImages, ...newImageUrls];
-            setFormData(prev => ({ ...prev, variations: newVariations }));
-            
-            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
-            e.target.value = '';
-            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
-        } catch (error) {
-            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
-        }
     };
 
     const addVariation = () => {
@@ -4103,29 +4051,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const dataToSubmit = { ...formData };
-        dataToSubmit.product_type = productType;
+        const dataToSubmit = { ...formData, product_type: productType };
 
         if (productType === 'perfume') {
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
             dataToSubmit.variations = '[]';
         } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
-
-            const colorImageMap = new Map();
-            (dataToSubmit.variations || []).forEach(v => {
-                if (v.color && !colorImageMap.has(v.color)) {
-                    colorImageMap.set(v.color, v.images || []);
-                }
-            });
-
-            const syncedVariations = (dataToSubmit.variations || []).map(v => ({
-                ...v,
-                images: v.color ? colorImageMap.get(v.color) : []
-            }));
-
-            dataToSubmit.variations = syncedVariations;
-            
             const totalStock = (dataToSubmit.variations || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
             dataToSubmit.stock = totalStock;
         }
@@ -4139,9 +4071,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
         onSave(dataToSubmit);
     };
-    
-    const availableColors = useMemo(() => [...new Set(categories.filter(c => c.type === 'color').map(c => c.name))], [categories]);
-    const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
+
+    const availableColors = [...new Set(categories.filter(c => c.type === 'color').map(c => c.name))];
+    const availableSizes = [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))];
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -4247,31 +4179,20 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     ))}
                     {productType === 'clothing' && clothingFields.map(field => {
                         if (field.name === 'variations') {
-                             const seenColors = new Set();
                             return (
                                 <div key={field.name} className="p-4 border rounded-lg bg-gray-50 space-y-3">
                                     <h3 className="font-semibold text-gray-800">{field.label}</h3>
-                                    {(formData.variations || []).map((v, i) => {
-                                        let isFirst = false;
-                                        if (v.color && !seenColors.has(v.color)) {
-                                            seenColors.add(v.color);
-                                            isFirst = true;
-                                        }
-                                        return (
-                                            <VariationInputRow 
-                                                key={i} 
-                                                variation={v} 
-                                                index={i} 
-                                                onVariationChange={handleVariationChange}
-                                                onRemoveVariation={removeVariation}
-                                                availableColors={availableColors}
-                                                availableSizes={availableSizes}
-                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                                uploadStatus={uploadingStatus[i]}
-                                                isFirstOfColor={isFirst}
-                                            />
-                                        )
-                                    })}
+                                    {(formData.variations || []).map((v, i) => (
+                                        <VariationInputRow 
+                                            key={i} 
+                                            variation={v} 
+                                            index={i} 
+                                            onVariationChange={handleVariationChange}
+                                            onRemoveVariation={removeVariation}
+                                            availableColors={availableColors}
+                                            availableSizes={availableSizes}
+                                        />
+                                    ))}
                                     <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
                                         + Adicionar Variação
                                     </button>
@@ -4295,7 +4216,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         </form>
     );
 };
-
 const FileUploadArea = ({ onFileSelect }) => {
     const [dragging, setDragging] = useState(false);
     const [fileName, setFileName] = useState('');
@@ -4411,25 +4331,22 @@ const AdminProducts = ({ onNavigate }) => {
         .then(data => {
             setProducts(data);
             const brands = [...new Set(data.map(p => p.brand).filter(b => b))];
-            
-            const categorySet = new Set();
-            data.forEach(p => {
-                if (p.category) {
-                    categorySet.add(JSON.stringify({ name: p.category, type: 'product' }));
-                }
+            const categories = data.reduce((acc, p) => {
+                if (p.category) acc.add({ name: p.category, type: 'product' });
                 if (p.variations) {
                     try {
                         const variations = JSON.parse(p.variations);
                         variations.forEach(v => {
-                            if (v.color) categorySet.add(JSON.stringify({ name: v.color, type: 'color' }));
-                            if (v.size) categorySet.add(JSON.stringify({ name: v.size, type: 'size' }));
+                            if (v.color) acc.add({ name: v.color, type: 'color' });
+                            if (v.size) acc.add({ name: v.size, type: 'size' });
                         });
-                    } catch (e) { console.error("Erro ao parsear variações", p.variations, e); }
+                    } catch (e) { console.error("Erro ao parsear variações", e); }
                 }
-            });
-
+                return acc;
+            }, new Set());
+            
             setUniqueBrands(brands);
-            setUniqueCategories(Array.from(categorySet).map(item => JSON.parse(item)));
+            setUniqueCategories(Array.from(categories));
         })
         .catch(err => console.error("Falha ao buscar produtos:", err));
   }, []);
