@@ -1841,7 +1841,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
-    const { addToCart, cart } = useShop();
+    const { addToCart } = useShop();
     const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
@@ -1976,6 +1976,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
+
     const handleVariationSelection = (variation, color) => {
         setSelectedVariation(variation);
 
@@ -1983,7 +1984,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             const allImagesForColor = productVariations
                 .filter(v => v.color === color)
                 .flatMap(v => v.images || [])
-                .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+                .filter((value, index, self) => self.indexOf(value) === index);
 
             if (allImagesForColor.length > 0) {
                 setGalleryImages(allImagesForColor);
@@ -1992,11 +1993,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         }
         
-        // Fallback to default product images if no color is selected or color has no images
         setGalleryImages(productImages);
         setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
     };
-    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
     const TabButton = ({ label, tabName, isVisible = true }) => {
@@ -2029,11 +2028,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         );
     };
 
-    const Lightbox = ({ images, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center" onClick={onClose}>
-            <button onClick={onClose} className="absolute top-4 right-4 text-white text-4xl z-[1000]">&times;</button>
-            <div className="relative w-full h-full max-w-4xl max-h-[80vh] flex items-center justify-center">
-                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain" />
+    const Lightbox = ({ mainImage, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+            <button 
+                onClick={(e) => { 
+                    e.stopPropagation();
+                    onClose(); 
+                }} 
+                className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2"
+            >
+                &times;
+            </button>
+            <div 
+                className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" 
+                onClick={e => e.stopPropagation()}
+            >
+                <img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" />
             </div>
         </div>
     );
@@ -2105,7 +2115,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 installments={installments}
             />
             {isLightboxOpen && galleryImages.length > 0 && (
-                <Lightbox images={galleryImages} onClose={() => setIsLightboxOpen(false)} />
+                <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} />
             )}
             <div className="container mx-auto px-4 py-8">
                  <div className="mb-4">
@@ -2138,7 +2148,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 >
                                     {galleryImages.map((img, index) => (
-                                        <div key={index} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
+                                        <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
                                             <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                         </div>
                                     ))}
