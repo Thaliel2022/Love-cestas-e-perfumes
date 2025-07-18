@@ -1040,7 +1040,7 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     try {
         const [orders] = await db.query("SELECT * FROM orders WHERE user_id = ? ORDER BY date DESC", [userId]);
         const detailedOrders = await Promise.all(orders.map(async (order) => {
-            const [items] = await db.query("SELECT oi.*, p.name, p.images, p.product_type FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
+            const [items] = await db.query("SELECT oi.*, p.name, p.images, p.product_type, p.stock, p.variations FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
             const parsedItems = items.map(item => ({
                 ...item,
                 variation: item.variation_details ? JSON.parse(item.variation_details) : null
@@ -1076,7 +1076,13 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         const order = orders[0];
         const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
         
-        const detailedOrder = { ...order, items };
+        // ATUALIZADO: Parseia os detalhes da variação para enviar ao frontend
+        const parsedItems = items.map(item => ({
+            ...item,
+            variation: item.variation_details ? JSON.parse(item.variation_details) : null
+        }));
+        
+        const detailedOrder = { ...order, items: parsedItems };
         res.json(detailedOrder);
     } catch (err) {
         console.error("Erro ao buscar detalhes do pedido:", err);
