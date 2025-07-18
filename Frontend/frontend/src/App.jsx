@@ -5542,6 +5542,7 @@ export default function App() {
             script.async = true;
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
+            
         };
 
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
