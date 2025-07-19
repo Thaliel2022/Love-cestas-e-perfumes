@@ -1976,8 +1976,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
-
-    const handleVariationSelection = (variation, color) => {
+    const handleVariationSelection = useCallback((variation, color) => {
         setSelectedVariation(variation);
 
         if (color && productVariations.length > 0) {
@@ -1995,7 +1994,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         
         setGalleryImages(productImages);
         setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-    };
+    }, [productVariations, productImages]);
+    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
     const TabButton = ({ label, tabName, isVisible = true }) => {
