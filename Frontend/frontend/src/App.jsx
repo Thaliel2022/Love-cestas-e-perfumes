@@ -1976,6 +1976,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
+
     const handleVariationSelection = (variation, color) => {
         setSelectedVariation(variation);
 
@@ -1995,7 +1996,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setGalleryImages(productImages);
         setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
     };
-    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     
     const TabButton = ({ label, tabName, isVisible = true }) => {
@@ -2315,6 +2315,19 @@ const LoginPage = ({ onNavigate }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
+    };
     
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -2333,26 +2346,43 @@ const LoginPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
             <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Login</h2>
+                <motion.div variants={itemVariants} className="text-center mb-6">
+                    <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700">
+                        <UserIcon className="h-8 w-8 text-amber-400" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
+                </motion.div>
+
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                <form onSubmit={handleLogin} className="space-y-6">
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                
+                <motion.form variants={itemVariants} onSubmit={handleLogin} className="space-y-6">
+                    <div>
+                        <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
+                        <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
+                        <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    </div>
+                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
                          {isLoading ? <SpinnerIcon /> : 'Entrar'}
                     </button>
-                </form>
-                <div className="flex justify-between items-center mt-4">
-                    <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="text-sm text-amber-400 hover:underline">Não tem uma conta? Registre-se</a>
-                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-sm text-gray-400 hover:underline">Esqueci minha senha</a>
-                </div>
+                </motion.form>
+
+                <motion.div variants={itemVariants} className="text-center mt-6 text-sm">
+                    <p className="text-gray-400">
+                        Não tem uma conta?{' '}
+                        <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a>
+                    </p>
+                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
+                </motion.div>
             </motion.div>
         </div>
     );
@@ -3972,6 +4002,12 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [uploadStatus, setUploadStatus] = useState('');
     const [uploadingStatus, setUploadingStatus] = useState({});
 
+    const clothingCategories = [
+        "Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos", 
+        "Conjunto de Calças", "Conjunto de Shorts", "Lingerie", "Moda Praia",
+        "Sandálias", "Presente"
+    ];
+
     const perfumeFields = [
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
         { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
@@ -4159,23 +4195,54 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {commonFields.map(field => {
-                    if (field.name === 'brand' || field.name === 'category') {
-                        const datalistId = `${field.name}-datalist`;
-                        const options = field.name === 'brand' ? brands : categories.filter(c => c.type === 'product').map(c => c.name);
-                        return (
-                            <div key={field.name} className={field.name === 'name' ? 'md:col-span-2' : ''}>
+                    if (field.name === 'category') {
+                         return productType === 'clothing' ? (
+                            <div key={field.name}>
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <select 
+                                    name="category" 
+                                    value={formData.category || ''} 
+                                    onChange={handleChange} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
+                                    required={field.required}
+                                >
+                                    <option value="">Selecione uma categoria</option>
+                                    {clothingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                </select>
+                            </div>
+                         ) : (
+                            <div key={field.name}>
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                                 <input
                                     type="text"
                                     name={field.name}
                                     value={formData[field.name] || ''}
                                     onChange={handleChange}
-                                    list={datalistId}
+                                    list="perfume-categories"
                                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                                     required={field.required}
                                 />
-                                <datalist id={datalistId}>
-                                    {options.map(opt => <option key={opt} value={opt} />)}
+                                <datalist id="perfume-categories">
+                                    {categories.filter(c => c.type === 'product').map(c => <option key={c.name} value={c.name} />)}
+                                </datalist>
+                            </div>
+                         )
+                    }
+                    if (field.name === 'brand') {
+                        return (
+                            <div key={field.name}>
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <input
+                                    type="text"
+                                    name={field.name}
+                                    value={formData[field.name] || ''}
+                                    onChange={handleChange}
+                                    list="brand-datalist"
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    required={field.required}
+                                />
+                                <datalist id="brand-datalist">
+                                    {brands.map(opt => <option key={opt} value={opt} />)}
                                 </datalist>
                             </div>
                         );
@@ -4196,7 +4263,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                             </div>
                          )
                     }
-                    if (field.name === 'images' || field.name === 'images_upload') return null; // Renderizado separadamente
+                    if (field.name === 'images' || field.name === 'images_upload') return null;
                     return (
                         <div key={field.name} className={field.name === 'name' ? 'md:col-span-2' : ''}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
