@@ -1,4 +1,3 @@
-// ===== INÍCIO PARTE 1 =====
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
@@ -1848,7 +1847,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-    const thumbContainerRef = useRef(null);
+    const [thumbnailIndex, setThumbnailIndex] = useState(0);
     
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
@@ -2049,22 +2048,21 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
     
-    const scrollThumbs = (direction) => {
-        if (thumbContainerRef.current) {
-            const isVertical = window.innerWidth >= 640; // sm breakpoint
-            const scrollAmount = (isVertical ? thumbContainerRef.current.clientHeight : thumbContainerRef.current.clientWidth) * 0.8;
-            thumbContainerRef.current.scrollBy({
-                top: isVertical ? direction * scrollAmount : 0,
-                left: !isVertical ? direction * scrollAmount : 0,
-                behavior: 'smooth'
-            });
-        }
-    };
+    const THUMBNAIL_ITEM_HEIGHT = 92; 
+    const VISIBLE_THUMBNAILS = 5; 
+    const canScrollUp = thumbnailIndex > 0;
+    const canScrollDown = galleryImages.length > VISIBLE_THUMBNAILS && thumbnailIndex < galleryImages.length - VISIBLE_THUMBNAILS;
 
+    const scrollThumbs = (direction) => {
+        setThumbnailIndex(prev => {
+            const newIndex = prev + direction;
+            if (newIndex < 0) return 0;
+            if (newIndex > galleryImages.length - VISIBLE_THUMBNAILS) return galleryImages.length - VISIBLE_THUMBNAILS;
+            return newIndex;
+        });
+    };
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-    const LeftArrow = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>;
-    const RightArrow = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>;
 
     const getInstallmentSummary = () => {
         if (isLoadingInstallments) {
@@ -2129,38 +2127,48 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
                     <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:self-start">
-                        {/* Container para thumbnails e seus controles */}
-                        <div className="relative flex-shrink-0 w-full sm:w-24">
-                            {/* Thumbnails */}
-                            <div ref={thumbContainerRef} className="h-24 sm:h-[500px] w-full overflow-auto scrollbar-hide snap-x sm:snap-y snap-mandatory">
-                                <div className="flex sm:flex-col gap-3 w-max sm:w-full p-1">
+                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
+                            <AnimatePresence>
+                            {canScrollUp && (
+                                <motion.button 
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    onClick={() => scrollThumbs(-1)} 
+                                    className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    disabled={!canScrollUp}
+                                >
+                                    <UpArrow />
+                                </motion.button>
+                            )}
+                            </AnimatePresence>
+                            
+                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                                <motion.div
+                                    className="flex sm:flex-col gap-3"
+                                    animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                >
                                     {galleryImages.map((img, index) => (
-                                        <div
-                                            key={index}
-                                            onClick={() => setMainImage(img)}
-                                            className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all snap-start ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}
-                                        >
+                                        <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}>
                                             <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                         </div>
                                     ))}
-                                </div>
+                                </motion.div>
                             </div>
 
-                            {/* Botões de Scroll */}
-                            {galleryImages.length > 5 && (
-                                <>
-                                    {/* Botões Verticais (Desktop) */}
-                                    <button onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white transition-all"><UpArrow /></button>
-                                    <button onClick={() => scrollThumbs(1)} className="hidden sm:flex items-center justify-center absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white transition-all"><DownArrow /></button>
-                                    
-                                    {/* Botões Horizontais (Mobile) */}
-                                    <button onClick={() => scrollThumbs(-1)} className="sm:hidden absolute left-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white transition-all flex items-center justify-center"><LeftArrow className="h-5 w-5" /></button>
-                                    <button onClick={() => scrollThumbs(1)} className="sm:hidden absolute right-1 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white transition-all flex items-center justify-center"><RightArrow className="h-5 w-5" /></button>
-                                </>
+                            <AnimatePresence>
+                            {canScrollDown && (
+                                <motion.button 
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    onClick={() => scrollThumbs(1)} 
+                                    className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all"
+                                    disabled={!canScrollDown}
+                                >
+                                    <DownArrow />
+                                </motion.button>
                             )}
+                            </AnimatePresence>
                         </div>
 
-                        {/* Imagem Principal */}
                         <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in">
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
@@ -2300,8 +2308,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-// ===== FIM PARTE 1 =====
-// ===== INÍCIO PARTE 2 =====
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
@@ -3995,12 +4001,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     ];
 
     const allFields = [...commonFields, ...perfumeFields, ...clothingFields];
-    
-    const clothingCategories = useMemo(() => [
-        "Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos",
-        "Conjunto de Calças", "Conjunto de Shorts", "Lingerie", "Moda Praia",
-        "Sandálias", "Presente"
-    ], []);
 
     useEffect(() => {
         const initialData = {};
@@ -4159,37 +4159,23 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {commonFields.map(field => {
-                    if (field.name === 'brand') {
+                    if (field.name === 'brand' || field.name === 'category') {
+                        const datalistId = `${field.name}-datalist`;
+                        const options = field.name === 'brand' ? brands : categories.filter(c => c.type === 'product').map(c => c.name);
                         return (
-                            <div key={field.name}>
+                            <div key={field.name} className={field.name === 'name' ? 'md:col-span-2' : ''}>
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                                 <input
-                                    type="text" name={field.name} value={formData[field.name] || ''} onChange={handleChange}
-                                    list="brand-datalist" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required
+                                    type="text"
+                                    name={field.name}
+                                    value={formData[field.name] || ''}
+                                    onChange={handleChange}
+                                    list={datalistId}
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                    required={field.required}
                                 />
-                                <datalist id="brand-datalist">
-                                    {brands.map(opt => <option key={opt} value={opt} />)}
-                                </datalist>
-                            </div>
-                        );
-                    }
-                    if (field.name === 'category') {
-                        return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                {productType === 'clothing' ? (
-                                    <select name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" required>
-                                        <option value="">Selecione uma categoria</option>
-                                        {clothingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                ) : (
-                                    <input
-                                        type="text" name={field.name} value={formData[field.name] || ''} onChange={handleChange}
-                                        list="category-datalist" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required
-                                    />
-                                )}
-                                <datalist id="category-datalist">
-                                    {categories.filter(c => c.type === 'product').map(c => <option key={c.name} value={c.name} />)}
+                                <datalist id={datalistId}>
+                                    {options.map(opt => <option key={opt} value={opt} />)}
                                 </datalist>
                             </div>
                         );
@@ -5587,4 +5573,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-// ===== FIM PARTE 2 =====
