@@ -1,4 +1,3 @@
-// ===== INÍCIO PARTE 1 =====
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
@@ -46,14 +45,6 @@ const ShirtIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const RulerIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16M8 4v4m8-4v4" /></svg>;
 const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
 const XMarkIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
-
-// --- Ícones de Cartão de Crédito ---
-const VisaIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-visa"><title id="pi-visa">Visa</title><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"/><path d="M28.8 10.1h-4.2c-.2 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h4.2c.2 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5zm-14.3-.3h-4a.5.5 0 00-.5.5v3.5c0 .3.2.5.5.5h4a.5.5 0 00.5-.5v-3.5a.5.5 0 00-.5-.5zm-4.4 2.2c0-.3.2-.5.5-.5h3.4c.3 0 .5.2.5.5v1.1c0 .3-.2.5-.5.5h-3.4a.5.5 0 01-.5-.5v-1.1z" fill="#E6A23C"/><path d="M22.5 10.1h-2.2c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2.2c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M22.1 10.1H20c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2.1c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M12.1 10.1h-2c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M11.7 10.1H9.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.9c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M9.4 10.1H7.5c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.9c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M16 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5H16c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M15.6 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M15.2 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M14.8 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path fill="#409EFF" d="M1.6 4.3c0-.3.2-.5.5-.5h3.4c.3 0 .5.2.5.5v1.1c0 .3-.2.5-.5.5H2.1a.5.5 0 01-.5-.5V4.3z"/></svg>;
-const MastercardIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-mastercard"><title id="pi-mastercard">Mastercard</title><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"/><circle fill="#EB001B" cx="15" cy="12" r="7"/><circle fill="#F79E1B" cx="23" cy="12" r="7"/><path fill="#FF5F00" d="M22 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z"/></svg>;
-const EloIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><circle fill="#E6A23C" cx="12" cy="12" r="7"/><path d="M26 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z" fill="#F0F0F0"/><path d="M26 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z" fill="none" stroke="#000" strokeWidth="2"/><path fill="#409EFF" d="M12 5c-3.9 0-7 3.1-7 7s3.1 7 7 7 7-3.1 7-7-3.1-7-7-7zm0 11c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/></svg>;
-const AmexIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><path d="M15.9 12.3l.5-1.5h2.3l-.5 1.5H16l-.1.3z" fill="#409EFF"/><path d="M14.6 12.3c-.1 0-.1 0-.2-.1l-1.1-3.2-1.1 3.2c-.1.1-.2.1-.2.1H9.3l2.2-6.6h2.2l2.2 6.6h-2.7zM28.7 5.7h-2.2l-2.2 6.6h2.2l.2-.7h1.5l.2.7h2.2l-2.1-6.6zm-1.1 4.2l.6-1.9.6 1.9h-1.2z" fill="#409EFF"/><path d="M22.5 5.7l-2.2 6.6h2.2l2.2-6.6h-2.2z" fill="#409EFF"/></svg>;
-const HipercardIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><path d="M22.6 16.3c0 .5-.4.8-.8.8h-2.3c-.4 0-.8-.3-.8-.8v-8.6c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v8.6z" fill="#E41B23"/><path d="M30.9 12.6c0 .5-.4.8-.8.8H28c-.4 0-.8-.3-.8-.8V8.9c0-.5.4-.8.8-.8h2.1c.4 0 .8.3.8.8v3.7zM15.4 17.1h-2.3c-.4 0-.8-.3-.8-.8V7.7c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v8.6c0 .5-.4.8-.8.8z" fill="#E41B23"/><path d="M8.9 11.2c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v2.1c0 .5-.4.8-.8.8H9.7c-.4 0-.8-.3-.8-.8v-2.1z" fill="#E41B23"/></svg>;
-
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -109,9 +100,12 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         const contentType = response.headers.get("content-type");
 
         if (!response.ok) {
+            // ===== INÍCIO DA ALTERAÇÃO =====
+            // Se o erro for de autenticação, avisa o app para deslogar o usuário
             if (response.status === 401 || response.status === 403) {
                 window.dispatchEvent(new Event('auth-error'));
             }
+            // ===== FIM DA ALTERAÇÃO =====
 
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -237,6 +231,7 @@ const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setUser(null);
         setToken(null);
+        // Opcional: redirecionar para a página de login
         window.location.hash = '#login';
     }, []);
 
@@ -255,6 +250,8 @@ const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, []);
 
+    // ===== INÍCIO DA ALTERAÇÃO =====
+    // Este useEffect "ouve" o evento de erro de autenticação e chama o logout
     useEffect(() => {
         const handleAuthError = () => {
             console.log("Erro de autenticação detectado. Deslogando usuário.");
@@ -263,10 +260,12 @@ const AuthProvider = ({ children }) => {
 
         window.addEventListener('auth-error', handleAuthError);
 
+        // Limpa o ouvinte quando o componente for desmontado para evitar vazamentos de memória
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
     }, [logout]);
+    // ===== FIM DA ALTERAÇÃO =====
 
     const login = async (email, password) => {
         const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
@@ -280,6 +279,8 @@ const AuthProvider = ({ children }) => {
     const register = async (name, email, password, cpf) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
+
+    // (A função logout foi movida para cima para ser usada no useEffect)
 
     return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
 };
@@ -430,12 +431,14 @@ const ShopProvider = ({ children }) => {
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
+        // Se for roupa, a identificação é produto + variação. Senão, só produto.
         const cartItemId = productToAdd.product_type === 'clothing' && variation 
             ? `${productToAdd.id}-${variation.color}-${variation.size}` 
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
 
+        // Determina o estoque disponível para a variação específica ou para o produto geral.
         const availableStock = variation ? variation.stock : productToAdd.stock;
         
         const currentQtyInCart = existing ? existing.qty : 0;
@@ -463,6 +466,7 @@ const ShopProvider = ({ children }) => {
                     variationId: variation?.id
                 }).catch(err => {
                     console.error("Falha ao sincronizar carrinho com o backend:", err);
+                    // Opcional: Reverter a alteração no estado local se o backend falhar
                 });
             }
             return updatedCart;
@@ -493,6 +497,7 @@ const ShopProvider = ({ children }) => {
         
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) {
+            // Lançar um erro que pode ser capturado na UI para notificação
             throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         }
 
@@ -797,98 +802,6 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
-// ===== INÍCIO DA ATUALIZAÇÃO: Componente de Parcelamento Revisado =====
-const InstallmentInfo = memo(({ price }) => {
-    const [installments, setInstallments] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        if (!price || price <= 0) {
-            setIsLoading(false);
-            return;
-        }
-        
-        const controller = new AbortController();
-        const fetchInstallments = async () => {
-            if (!isLoading) setIsLoading(true);
-            try {
-                const data = await apiService(`/mercadopago/installments?amount=${price}`, 'GET', null, { signal: controller.signal });
-                setInstallments(data || []);
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        const timer = setTimeout(fetchInstallments, 300);
-        return () => {
-            clearTimeout(timer);
-            controller.abort();
-        };
-    }, [price]);
-
-    const displayOptions = useMemo(() => {
-        if (!installments || installments.length === 0) return null;
-
-        const maxNoInterestInstallments = price >= 100 ? 4 : 1;
-        const noInterestOption = [...installments]
-            .reverse()
-            .find(p => p.installments <= maxNoInterestInstallments && p.installment_rate === 0);
-
-        const maxWithInterestOption = installments.length > 1 
-            ? installments.find(p => p.installments >= 10) || installments[installments.length - 1] 
-            : null;
-            
-        const finalWithInterest = (maxWithInterestOption && noInterestOption && maxWithInterestOption.installments > noInterestOption.installments)
-            ? maxWithInterestOption
-            : null;
-
-        return { noInterestOption, withInterestOption: finalWithInterest };
-    }, [installments, price]);
-
-    if (isLoading) {
-        return <div className="h-5 bg-gray-800 rounded w-10/12 mt-2 animate-pulse"></div>;
-    }
-
-    if (!displayOptions || !displayOptions.noInterestOption) {
-        return <div className="h-12 mt-2"></div>; // Placeholder to maintain card height
-    }
-
-    return (
-        <div className="mt-2 text-sm h-12">
-            {displayOptions.noInterestOption && (
-                <div className="text-green-400">
-                    <span className="font-semibold">em até </span> 
-                    <span className="font-bold">{displayOptions.noInterestOption.installments}x</span> 
-                    <span className="font-semibold"> de </span>
-                    <span className="font-bold">R$&nbsp;{displayOptions.noInterestOption.installment_amount.toFixed(2).replace('.', ',')}</span> 
-                    <span className="font-semibold"> sem juros</span>
-                </div>
-            )}
-            
-            {displayOptions.withInterestOption && (
-                <div className="text-gray-400 text-xs mt-1">
-                    ou {displayOptions.withInterestOption.installments}x de R$&nbsp;{displayOptions.withInterestOption.installment_amount.toFixed(2).replace('.', ',')}
-                </div>
-            )}
-            
-            <div className="flex items-center space-x-2 mt-2.5 opacity-90 h-5">
-                <VisaIcon className="h-full" />
-                <MastercardIcon className="h-full" />
-                <EloIcon className="h-full" />
-                <HipercardIcon className="h-full" />
-                <AmexIcon className="h-full" />
-            </div>
-        </div>
-    );
-});
-// ===== FIM DA ATUALIZAÇÃO =====
-
 
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
@@ -998,10 +911,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         />
                     ))}
                 </div>
-                <div className="flex-grow">
-                    <p className="text-3xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                    <InstallmentInfo price={product.price} />
-                </div>
+                <div className="flex-grow"/>
+                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
                 <div className="mt-4 flex items-stretch space-x-2">
                     <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
@@ -2184,6 +2095,34 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
 
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) {
+            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
+        }
+        if (!installments || installments.length === 0) {
+            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
+        }
+
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) {
+            return (
+                <span>
+                    em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+                </span>
+            );
+        }
+
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) {
+            return (
+                <span>
+                    ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
+                </span>
+            );
+        }
+        return null;
+    };
+    
     const itemsForShipping = useMemo(() => {
         if (!product) return [];
         return [{...product, qty: quantity}];
@@ -2277,17 +2216,21 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <div>
-                            <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg mt-4">
-                                <InstallmentInfo price={product.price} />
-                                <button
-                                    onClick={() => setIsInstallmentModalOpen(true)}
-                                    className="text-amber-400 font-semibold hover:underline mt-3 text-sm disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-                                    disabled={isLoadingInstallments || !installments || installments.length === 0}
-                                >
-                                    Ver todas as parcelas
-                                </button>
+                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
+                                    <button
+                                        onClick={() => setIsInstallmentModalOpen(true)}
+                                        className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
+                                    >
+                                        Ver parcelas disponíveis
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -2396,7 +2339,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-// ===== FIM PARTE 3 =====// ===== INÍCIO PARTE 2 =====
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
@@ -3833,7 +3775,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-// ===== FIM PARTE 2 =====// ===== INÍCIO PARTE 3 =====
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -4053,6 +3994,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     );
 };
 
+// NOVO: Formulário genérico para Admin (Usado por Cupons e Usuários)
 const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     const [formData, setFormData] = useState({});
 
@@ -5777,4 +5719,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-// ===== FIM PARTE 3 =====
