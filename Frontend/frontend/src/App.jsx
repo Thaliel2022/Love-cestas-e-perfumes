@@ -98,7 +98,15 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
     try {
         const response = await fetch(`${API_URL}${endpoint}`, config);
         const contentType = response.headers.get("content-type");
+
         if (!response.ok) {
+            // ===== INÍCIO DA ALTERAÇÃO =====
+            // Se o erro for de autenticação, avisa o app para deslogar o usuário
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
+            // ===== FIM DA ALTERAÇÃO =====
+
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 errorData = await response.json();
@@ -107,6 +115,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
             }
             throw new Error(errorData.message || `Erro ${response.status}`);
         }
+
         if (contentType && contentType.indexOf("application/json") !== -1) {
             return response.json();
         }
@@ -217,6 +226,15 @@ const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const logout = useCallback(() => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+        setToken(null);
+        // Opcional: redirecionar para a página de login
+        window.location.hash = '#login';
+    }, []);
+
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
         const storedToken = localStorage.getItem('token');
@@ -232,6 +250,23 @@ const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, []);
 
+    // ===== INÍCIO DA ALTERAÇÃO =====
+    // Este useEffect "ouve" o evento de erro de autenticação e chama o logout
+    useEffect(() => {
+        const handleAuthError = () => {
+            console.log("Erro de autenticação detectado. Deslogando usuário.");
+            logout();
+        };
+
+        window.addEventListener('auth-error', handleAuthError);
+
+        // Limpa o ouvinte quando o componente for desmontado para evitar vazamentos de memória
+        return () => {
+            window.removeEventListener('auth-error', handleAuthError);
+        };
+    }, [logout]);
+    // ===== FIM DA ALTERAÇÃO =====
+
     const login = async (email, password) => {
         const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
         localStorage.setItem('user', JSON.stringify(loggedUser));
@@ -245,12 +280,7 @@ const AuthProvider = ({ children }) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
 
-    const logout = useCallback(() => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setToken(null);
-    }, []);
+    // (A função logout foi movida para cima para ser usada no useEffect)
 
     return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
 };
