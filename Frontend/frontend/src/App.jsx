@@ -1976,7 +1976,27 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
- const handleVariationSelection = useCallback((variation, color) => {
+
+    const handleVariationSelection = useCallback((variation, color) => {
+        setSelectedVariation(variation);
+
+        if (color && productVariations.length > 0) {
+            const allImagesForColor = productVariations
+                .filter(v => v.color === color)
+                .flatMap(v => v.images || [])
+                .filter((value, index, self) => self.indexOf(value) === index);
+
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setMainImage(allImagesForColor[0]);
+                return;
+            }
+        }
+        
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    }, [productVariations, productImages]);
+    const handleVariationSelection = useCallback((variation, color) => {
         setSelectedVariation(variation);
 
         if (color && productVariations.length > 0) {
@@ -2397,6 +2417,19 @@ const RegisterPage = ({ onNavigate }) => {
     const [cpf, setCpf] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
+    };
     
     const handleRegister = async (e) => {
         e.preventDefault();
@@ -2428,27 +2461,34 @@ const RegisterPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
             <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Criar Conta</h2>
+                <motion.div variants={itemVariants} className="text-center mb-6">
+                    <h2 className="text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
+                    <p className="text-gray-400 mt-2">É rápido e fácil.</p>
+                </motion.div>
+
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                <form onSubmit={handleRegister} className="space-y-6">
-                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                    <button type="submit" disabled={isLoading} className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60">
+                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
+                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    <input type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
-                </form>
-                 <div className="text-center mt-4">
-                    <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="text-sm text-amber-400 hover:underline">Já tem uma conta? Faça o login</a>
-                </div>
+                </motion.form>
+                 <motion.div variants={itemVariants} className="text-center mt-6 text-sm">
+                     <p className="text-gray-400">
+                        Já tem uma conta?{' '}
+                        <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="font-semibold text-amber-400 hover:underline">Faça o login</a>
+                    </p>
+                </motion.div>
             </motion.div>
         </div>
     );
@@ -2462,6 +2502,19 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [step, setStep] = useState(1);
+    
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0 }
+    };
 
     const handleValidation = async (e) => {
         e.preventDefault();
@@ -2503,35 +2556,50 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
             <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-full max-w-md bg-gray-900 text-white p-8 rounded-2xl shadow-lg border border-gray-800"
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
-                <h2 className="text-3xl font-bold text-center mb-6 text-amber-400">Recuperar Senha</h2>
+                <motion.div variants={itemVariants} className="text-center mb-6">
+                    <h2 className="text-3xl font-bold text-amber-400">Recuperar Senha</h2>
+                </motion.div>
+
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
                 
-                {step === 1 ? (
-                    <form onSubmit={handleValidation} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
-                        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
-                    </form>
-                ) : (
-                    <form onSubmit={handlePasswordReset} className="space-y-6">
-                        <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                        <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                        <button type="submit" className="w-full py-2 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
-                    </form>
-                )}
+                <AnimatePresence mode="wait">
+                    {step === 1 ? (
+                        <motion.form 
+                            key="step1"
+                            initial={{ opacity: 0, x: -50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 50 }}
+                            onSubmit={handleValidation} className="space-y-4">
+                            <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
+                            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <button type="submit" className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
+                        </motion.form>
+                    ) : (
+                        <motion.form 
+                            key="step2"
+                            initial={{ opacity: 0, x: -50 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 50 }}
+                            onSubmit={handlePasswordReset} className="space-y-4">
+                            <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
+                            <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <button type="submit" className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
+                        </motion.form>
+                    )}
+                </AnimatePresence>
 
-                <div className="text-center mt-4">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
-                </div>
+                <motion.div variants={itemVariants} className="text-center mt-6">
+                    <a href="#login" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
+                </motion.div>
             </motion.div>
         </div>
     );
