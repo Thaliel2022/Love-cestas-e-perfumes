@@ -1976,27 +1976,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
-
-    const handleVariationSelection = useCallback((variation, color) => {
-        setSelectedVariation(variation);
-
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color)
-                .flatMap(v => v.images || [])
-                .filter((value, index, self) => self.indexOf(value) === index);
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-    }, [productVariations, productImages]);
-    const handleVariationSelection = useCallback((variation, color) => {
+ const handleVariationSelection = useCallback((variation, color) => {
         setSelectedVariation(variation);
 
         if (color && productVariations.length > 0) {
