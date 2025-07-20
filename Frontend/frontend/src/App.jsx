@@ -2931,7 +2931,6 @@ const CartPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-};
 
 const AddressForm = ({ initialData = {}, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
@@ -5239,7 +5238,8 @@ const AdminCoupons = () => {
         </div>
     );
 };
-// ===== FIM PARTE 2 =====const AdminOrders = () => {
+// ===== FIM PARTE 2 =====
+const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
