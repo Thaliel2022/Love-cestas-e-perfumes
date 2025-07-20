@@ -1,4 +1,3 @@
-// ===== INÍCIO PARTE 1 =====
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
@@ -48,11 +47,11 @@ const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" 
 const XMarkIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 
 // --- Ícones de Cartão de Crédito ---
-const VisaIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-visa"><title id="pi-visa">Visa</title><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"/><path d="M28.8 10.1h-4.2c-.2 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h4.2c.2 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5zm-14.3-.3h-4a.5.5 0 00-.5.5v3.5c0 .3.2.5.5.5h4a.5.5 0 00.5-.5v-3.5a.5.5 0 00-.5-.5zm-4.4 2.2c0-.3.2-.5.5-.5h3.4c.3 0 .5.2.5.5v1.1c0 .3-.2.5-.5.5h-3.4a.5.5 0 01-.5-.5v-1.1z" fill="#E6A23C"/><path d="M22.5 10.1h-2.2c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2.2c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M22.1 10.1H20c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2.1c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M12.1 10.1h-2c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h2c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M11.7 10.1H9.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.9c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M9.4 10.1H7.5c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.9c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M16 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5H16c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M15.6 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path d="M15.2 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#E6A23C"/><path d="M14.8 10.1h-1.8c-.3 0-.5.2-.5.5v3.6c0 .3.2.5.5.5h1.8c.3 0 .5-.2.5-.5v-3.6c0-.3-.2-.5-.5-.5z" fill="#fff"/><path fill="#409EFF" d="M1.6 4.3c0-.3.2-.5.5-.5h3.4c.3 0 .5.2.5.5v1.1c0 .3-.2.5-.5.5H2.1a.5.5 0 01-.5-.5V4.3z"/></svg>;
+const VisaIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-visa"><title id="pi-visa">Visa</title><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"/><path d="M28.8 10.1c-.1-.3-.3-.5-.4-.7-.1-.2-.3-.4-.3-.5.1-.2.2-.4.2-.6.1-.3.1-.6.1-.9.2-1.8-1.3-2.9-3.1-2.9h-4.3c-.5 0-.8.3-1 .8l-7.4 12.5c-.2.3-.2.6.1.9.2.3.5.3.8.3h2.3c.5 0 .8-.3.9-.8.9-1.6 2.1-3.6 3.3-5.5 1.4-2.3 2.8-4.6 2.8-4.6.1-.2.2-.3.3-.3.1 0 .2.1.2.2l-1.9 4.1c-.2.2-.3.4-.4.6-.1.2-.2.4-.2.5.1.2.2.4.2.6.1.2.1.5.1.8.1.9-.4 1.5-1.3 1.5h-2.5c-.5 0-.8.3-.9.8-.1.5-.1 1 .2 1.5.2.5.5.8 1.1.8h2.3c1.7 0 3.1-.7 3.9-2.1.6-1.1.8-2.3.6-3.4 0-.1-.1-.3-.1-.4zM11.3 10.1c-.1-.3-.2-.5-.3-.7-.1-.2-.2-.4-.3-.5.1-.2.2-.4.2-.6.1-.3.1-.6.1-.9.2-1.8-1.3-2.9-3.1-2.9H2.8c-.5 0-.8.3-1 .8l-1.5 2.6c-.1.2.1.5.3.5h2.3c.5 0 .8-.3.9-.8.9-1.6 2.1-3.6 3.3-5.5 1.4-2.3 2.8-4.6 2.8-4.6.1-.2.2-.3.3-.3.1 0 .2.1.2.2l-1.9 4.1c-.2.2-.3.4-.4.6-.1.2-.2.4-.2.5.1.2.2.4.2.6.1.2.1.5.1.8.1.9-.4 1.5-1.3 1.5H5c-.5 0-.8.3-.9.8-.1.5-.1 1 .2 1.5.2.5.5.8 1.1.8h2.3c1.7 0 3.1-.7 3.9-2.1.6-1.1.8-2.3.6-3.4 0-.1-.1-.3-.1-.4z" fill="#142688"/></svg>;
 const MastercardIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="pi-mastercard"><title id="pi-mastercard">Mastercard</title><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32"/><circle fill="#EB001B" cx="15" cy="12" r="7"/><circle fill="#F79E1B" cx="23" cy="12" r="7"/><path fill="#FF5F00" d="M22 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z"/></svg>;
-const EloIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><circle fill="#E6A23C" cx="12" cy="12" r="7"/><path d="M26 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z" fill="#F0F0F0"/><path d="M26 12c0-3.9-3.1-7-7-7s-7 3.1-7 7 3.1 7 7 7 7-3.1 7-7z" fill="none" stroke="#000" strokeWidth="2"/><path fill="#409EFF" d="M12 5c-3.9 0-7 3.1-7 7s3.1 7 7 7 7-3.1 7-7-3.1-7-7-7zm0 11c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/></svg>;
-const AmexIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><path d="M15.9 12.3l.5-1.5h2.3l-.5 1.5H16l-.1.3z" fill="#409EFF"/><path d="M14.6 12.3c-.1 0-.1 0-.2-.1l-1.1-3.2-1.1 3.2c-.1.1-.2.1-.2.1H9.3l2.2-6.6h2.2l2.2 6.6h-2.7zM28.7 5.7h-2.2l-2.2 6.6h2.2l.2-.7h1.5l.2.7h2.2l-2.1-6.6zm-1.1 4.2l.6-1.9.6 1.9h-1.2z" fill="#409EFF"/><path d="M22.5 5.7l-2.2 6.6h2.2l2.2-6.6h-2.2z" fill="#409EFF"/></svg>;
-const HipercardIcon = ({ className }) => <svg className={className} viewBox="0 0 38 24" xmlns="http://www.w3.org/2000/svg" role="img"><path opacity=".07" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path fill="#fff" d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z"/><path d="M22.6 16.3c0 .5-.4.8-.8.8h-2.3c-.4 0-.8-.3-.8-.8v-8.6c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v8.6z" fill="#E41B23"/><path d="M30.9 12.6c0 .5-.4.8-.8.8H28c-.4 0-.8-.3-.8-.8V8.9c0-.5.4-.8.8-.8h2.1c.4 0 .8.3.8.8v3.7zM15.4 17.1h-2.3c-.4 0-.8-.3-.8-.8V7.7c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v8.6c0 .5-.4.8-.8.8z" fill="#E41B23"/><path d="M8.9 11.2c0-.5.4-.8.8-.8h2.3c.4 0 .8.3.8.8v2.1c0 .5-.4.8-.8.8H9.7c-.4 0-.8-.3-.8-.8v-2.1z" fill="#E41B23"/></svg>;
+const EloIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 24"><title>Elo</title><path d="M35 0H3C1.343 0 0 1.343 0 3v18c0 1.657 1.343 3 3 3h32c1.657 0 3-1.343 3-3V3c0-1.657-1.343-3-3-3z" fill="#333" opacity=".07"/><path d="M35 1c1.105 0 2 .895 2 2v18c0 1.105-.895 2-2 2H3c-1.105 0-2-.895-2-2V3c0-1.105.895-2 2-2h32z" fill="#fff"/><path d="M12.636 7.429c.563-.562 1.474-.562 2.037 0 .562.563.562 1.475 0 2.038l-4.27 4.27c-.282.28-.738.28-1.02 0-.28-.282-.28-.738 0-1.02l4.253-4.288zm6.577 0c.562-.562 1.475-.562 2.037 0 .563.563.563 1.475 0 2.038l-8.523 8.523c-.28.28-.737.28-1.018 0-.28-.28-.28-.737 0-1.018l7.504-7.505zm6.577 0c.563-.562 1.475-.562 2.037 0 .563.563.563 1.475 0 2.038L21.55 13.74a1.018 1.018 0 01-1.02 0c-.28-.28-.28-.738 0-1.018l5.24-5.24z" fill="#e51a24"/><path d="M2.515 15.01c-.282-.282-.282-.738 0-1.02l4.27-4.27c.28-.28.737-.28 1.018 0 .28.28.28.738 0 1.018L3.533 15.01c-.28.28-.738.28-1.018 0zm6.578-8.523c.28-.28.738-.28 1.018 0l4.253 4.253a.72.72 0 010 1.02c-.28.28-.738.28-1.018 0L9.093 7.505a.72.72 0 010-1.018zm6.577 0c.28-.28.738-.28 1.02 0l8.522 8.522a.72.72 0 010 1.02c-.28.28-.738.28-1.018 0l-8.523-8.523a.72.72 0 010-1.018z" fill="#f58025"/><path d="M2.515 9.774c-.282.28-.282.738 0 1.018l8.523 8.523c.28.28.738.28 1.02 0 .28-.28.28-.738 0-1.02L3.533 9.774c-.28-.282-.738-.282-1.018 0zm6.578-2.96c.28-.282.738-.282 1.018 0l8.523 8.523a.72.72 0 010 1.02c-.28.28-.738.28-1.02 0l-8.522-8.523a.72.72 0 010-1.02zm6.577 0c.28-.28.738-.28 1.02 0l4.252 4.252c.28.28.28.738 0 1.02-.28.28-.738.28-1.018 0l-4.253-4.253a.72.72 0 010-1.018z" fill="#fbb612"/></svg>;
+const HipercardIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 24"><title>Hipercard</title><path fill="#A50C0C" d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z"/><path d="M22.5 16H25l-4-4 4-4h-2.5L19 11.5 22.5 16zM15 8l-3 4.5 3 4.5h2.5l-3-4.5 3-4.5H15z" fill="#fff"/></svg>;
+const AmexIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 24"><title>American Express</title><path d="M35 0H3C1.3 0 0 1.3 0 3v18c0 1.7 1.4 3 3 3h32c1.7 0 3-1.3 3-3V3c0-1.7-1.4-3-3-3z" fill="#0077A6" opacity=".07"/><path d="M35 1c1.1 0 2 .9 2 2v18c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V3c0-1.1.9-2 2-2h32z" fill="#0077A6"/><path d="M21.9 12.3h-4.8l2.4-3.1 2.4 3.1zM14.2 12.3H9.5l2.4-3.1 2.3 3.1zM9.5 15.4h4.7l-2.3 3.1-2.4-3.1zM17.1 15.4h4.8l-2.4 3.1-2.4-3.1zM24.7 12.3h-4.8l2.4-3.1 2.4 3.1zM22.3 15.4h4.7l-2.3 3.1-2.4-3.1zM9.5 9.2h4.7L11.8 6l-2.3 3.2zM17.1 9.2h4.8l-2.4-3.2-2.4 3.2zM24.7 9.2h-4.8l2.4-3.2 2.4 3.2z" fill="#fff"/></svg>;
 
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
@@ -109,9 +108,12 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         const contentType = response.headers.get("content-type");
 
         if (!response.ok) {
+            // ===== INÍCIO DA ALTERAÇÃO =====
+            // Se o erro for de autenticação, avisa o app para deslogar o usuário
             if (response.status === 401 || response.status === 403) {
                 window.dispatchEvent(new Event('auth-error'));
             }
+            // ===== FIM DA ALTERAÇÃO =====
 
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -227,6 +229,48 @@ const useShop = () => useContext(ShopContext);
 const useNotification = () => useContext(NotificationContext);
 const useConfirmation = () => useContext(ConfirmationContext);
 
+// --- HOOK PARA PARCELAMENTO ---
+const installmentCache = new Map();
+
+const useInstallments = (price) => {
+    const [data, setData] = useState({ installments: [], isLoading: true, error: null });
+
+    useEffect(() => {
+        if (!price || price <= 0) {
+            setData({ installments: [], isLoading: false, error: null });
+            return;
+        }
+
+        if (installmentCache.has(price)) {
+            setData({ installments: installmentCache.get(price), isLoading: false, error: null });
+            return;
+        }
+
+        setData(prev => ({ ...prev, isLoading: true }));
+        const controller = new AbortController();
+
+        apiService(`/mercadopago/installments?amount=${price}`, 'GET', null, { signal: controller.signal })
+            .then(installmentData => {
+                if (Array.isArray(installmentData)) {
+                    installmentCache.set(price, installmentData);
+                    setData({ installments: installmentData, isLoading: false, error: null });
+                } else {
+                    setData({ installments: [], isLoading: false, error: "Formato de dados de parcelamento inválido." });
+                }
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') {
+                    setData({ installments: [], isLoading: false, error: "Não foi possível carregar parcelas." });
+                }
+            });
+
+        return () => controller.abort();
+    }, [price]);
+
+    return data;
+};
+
+
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(null);
@@ -237,6 +281,7 @@ const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setUser(null);
         setToken(null);
+        // Opcional: redirecionar para a página de login
         window.location.hash = '#login';
     }, []);
 
@@ -255,6 +300,8 @@ const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, []);
 
+    // ===== INÍCIO DA ALTERAÇÃO =====
+    // Este useEffect "ouve" o evento de erro de autenticação e chama o logout
     useEffect(() => {
         const handleAuthError = () => {
             console.log("Erro de autenticação detectado. Deslogando usuário.");
@@ -263,10 +310,12 @@ const AuthProvider = ({ children }) => {
 
         window.addEventListener('auth-error', handleAuthError);
 
+        // Limpa o ouvinte quando o componente for desmontado para evitar vazamentos de memória
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
     }, [logout]);
+    // ===== FIM DA ALTERAÇÃO =====
 
     const login = async (email, password) => {
         const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
@@ -280,6 +329,8 @@ const AuthProvider = ({ children }) => {
     const register = async (name, email, password, cpf) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
+
+    // (A função logout foi movida para cima para ser usada no useEffect)
 
     return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
 };
@@ -430,12 +481,14 @@ const ShopProvider = ({ children }) => {
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
+        // Se for roupa, a identificação é produto + variação. Senão, só produto.
         const cartItemId = productToAdd.product_type === 'clothing' && variation 
             ? `${productToAdd.id}-${variation.color}-${variation.size}` 
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
 
+        // Determina o estoque disponível para a variação específica ou para o produto geral.
         const availableStock = variation ? variation.stock : productToAdd.stock;
         
         const currentQtyInCart = existing ? existing.qty : 0;
@@ -463,6 +516,7 @@ const ShopProvider = ({ children }) => {
                     variationId: variation?.id
                 }).catch(err => {
                     console.error("Falha ao sincronizar carrinho com o backend:", err);
+                    // Opcional: Reverter a alteração no estado local se o backend falhar
                 });
             }
             return updatedCart;
@@ -493,6 +547,7 @@ const ShopProvider = ({ children }) => {
         
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) {
+            // Lançar um erro que pode ser capturado na UI para notificação
             throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         }
 
@@ -797,86 +852,65 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
-// ===== INÍCIO DA ATUALIZAÇÃO: Componente de Parcelamento =====
 const InstallmentInfo = memo(({ price }) => {
-    const [installments, setInstallments] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { installments, isLoading } = useInstallments(price);
 
-    useEffect(() => {
-        if (!price || price <= 0) {
-            setIsLoading(false);
-            return;
+    const installmentText = useMemo(() => {
+        if (isLoading) {
+            return <div className="mt-2 h-4 bg-gray-700 rounded w-4/5 animate-pulse"></div>;
         }
-        
-        const controller = new AbortController();
-        const fetchInstallments = async () => {
-            setIsLoading(true);
-            try {
-                const data = await apiService(`/mercadopago/installments?amount=${price}`, 'GET', null, { signal: controller.signal });
-                setInstallments(data || []);
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                }
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchInstallments();
-        return () => controller.abort();
-    }, [price]);
-
-    const displayOptions = useMemo(() => {
         if (!installments || installments.length === 0) return null;
 
-        const maxNoInterestInstallments = price >= 100 ? 4 : 1;
-        const noInterestOption = [...installments]
-            .reverse()
-            .find(p => p.installments <= maxNoInterestInstallments && p.installment_rate === 0);
-            
-        const maxWithInterestOption = installments.length > 1 ? installments[installments.length - 1] : null;
+        const noInterestOptions = installments.filter(p => p.installment_rate === 0);
+        let bestOption;
 
-        return { noInterestOption, maxWithInterestOption };
-    }, [installments, price]);
+        if (price < 100) {
+            bestOption = noInterestOptions.find(p => p.installments === 1);
+        } else {
+            const optionsUpTo4 = noInterestOptions.filter(p => p.installments <= 4);
+            if (optionsUpTo4.length > 0) {
+                bestOption = optionsUpTo4.reduce((max, current) => (current.installments > max.installments) ? current : max, optionsUpTo4[0]);
+            } else {
+                bestOption = noInterestOptions.find(p => p.installments === 1);
+            }
+        }
+        
+        if (!bestOption) {
+             const withInterest = installments.find(p => p.installments === 10);
+             if (withInterest) {
+                 return (
+                     <p className="text-xs text-gray-400">
+                        em até <span className="font-bold">{withInterest.installments}x de R$ {withInterest.installment_amount.toFixed(2).replace('.', ',')}</span> com juros
+                     </p>
+                 );
+             }
+             return null;
+        }
 
-    if (isLoading) {
-        return <div className="h-4 bg-gray-800 rounded w-3/4 mt-2 animate-pulse"></div>;
-    }
+        return (
+            <p className="text-xs text-green-400">
+                em até <span className="font-bold">{bestOption.installments}x de R$ {bestOption.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+            </p>
+        );
+    }, [installments, isLoading, price]);
 
-    if (!displayOptions || (!displayOptions.noInterestOption && !displayOptions.maxWithInterestOption)) {
-        return null;
-    }
-
-    return (
-        <div className="mt-2 text-xs">
-            {displayOptions.noInterestOption && (
-                <div className="text-green-400 font-semibold">
-                    <span>em até </span> 
-                    <span className="font-bold text-base">{displayOptions.noInterestOption.installments}x</span> 
-                    <span> de </span>
-                    <span className="font-bold text-base">R$&nbsp;{displayOptions.noInterestOption.installment_amount.toFixed(2).replace('.', ',')}</span> 
-                    <span> sem juros</span>
+    if (isLoading || installmentText) {
+        return (
+            <div className="mt-3 text-left">
+                {installmentText}
+                <div className="flex items-center space-x-1.5 mt-1.5 opacity-80">
+                    <VisaIcon className="h-4"/>
+                    <MastercardIcon className="h-4"/>
+                    <EloIcon className="h-4"/>
+                    <HipercardIcon className="h-4"/>
+                    <AmexIcon className="h-4"/>
                 </div>
-            )}
-            
-            {displayOptions.maxWithInterestOption && (
-                <div className="text-gray-400 mt-1">
-                    <span>ou até {displayOptions.maxWithInterestOption.installments}x de R$&nbsp;{displayOptions.maxWithInterestOption.installment_amount.toFixed(2).replace('.', ',')} com juros</span>
-                </div>
-            )}
-            
-            <div className="flex items-center space-x-1.5 mt-2 opacity-90 h-4">
-                <VisaIcon className="h-full" />
-                <MastercardIcon className="h-full" />
-                <EloIcon className="h-full" />
-                <HipercardIcon className="h-full" />
-                <AmexIcon className="h-full" />
             </div>
-        </div>
-    );
+        );
+    }
+    
+    return null;
 });
-// ===== FIM DA ATUALIZAÇÃO: Componente de Parcelamento =====
 
 
 const ProductCard = memo(({ product, onNavigate }) => {
@@ -987,12 +1021,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         />
                     ))}
                 </div>
-                <div className="flex-grow min-h-[70px]">
-                    <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                    {/* ===== INÍCIO DA ATUALIZAÇÃO: Exibição de Parcelas no Card ===== */}
-                    <InstallmentInfo price={product.price} />
-                    {/* ===== FIM DA ATUALIZAÇÃO ===== */}
-                </div>
+                <div className="flex-grow"/>
+                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                <InstallmentInfo price={product.price} />
                 <div className="mt-4 flex items-stretch space-x-2">
                     <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
                         {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
@@ -2175,6 +2206,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
 
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) {
+            return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
+        }
+        if (!installments || installments.length === 0 || !product) {
+            return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
+        }
+
+        const noInterestOptions = installments.filter(p => p.installment_rate === 0);
+        let bestOption;
+
+        if (product.price < 100) {
+            bestOption = noInterestOptions.find(p => p.installments === 1);
+        } else {
+             const optionsUpTo4 = noInterestOptions.filter(p => p.installments <= 4);
+             if (optionsUpTo4.length > 0) {
+                 bestOption = optionsUpTo4.reduce((max, current) => (current.installments > max.installments) ? current : max, optionsUpTo4[0]);
+             } else {
+                  bestOption = noInterestOptions.find(p => p.installments === 1);
+             }
+        }
+        
+        if (!bestOption) {
+            const withInterest = installments.find(p => p.installments === 10);
+            if (withInterest) {
+                 return <span>ou em até <span className="font-bold">{withInterest.installments}x de R$&nbsp;{withInterest.installment_amount.toFixed(2).replace('.', ',')}</span> com juros</span>;
+            }
+             return <span className="text-gray-500">Pagamento à vista.</span>;
+        }
+
+        return (
+            <span>
+                em até <span className="font-bold">{bestOption.installments}x de R$&nbsp;{bestOption.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+            </span>
+        );
+    };
+    
     const itemsForShipping = useMemo(() => {
         if (!product) return [];
         return [{...product, qty: quantity}];
@@ -2268,20 +2336,29 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <div>
-                            <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
-                            {/* ===== INÍCIO DA ATUALIZAÇÃO: Exibição de Parcelas na Página de Detalhes ===== */}
-                            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg mt-4">
-                                <InstallmentInfo price={product.price} />
-                                <button
-                                    onClick={() => setIsInstallmentModalOpen(true)}
-                                    className="text-amber-400 font-semibold hover:underline mt-3 text-sm disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-                                    disabled={isLoadingInstallments || !installments || installments.length === 0}
-                                >
-                                    Ver todas as parcelas
-                                </button>
+                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-gray-300">{getInstallmentSummary()}</p>
+                                    <button
+                                        onClick={() => setIsInstallmentModalOpen(true)}
+                                        className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
+                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
+                                    >
+                                        Ver todas as parcelas
+                                    </button>
+                                </div>
                             </div>
-                            {/* ===== FIM DA ATUALIZAÇÃO ===== */}
+                             <div className="flex items-center space-x-1.5 mt-2 pt-2 border-t border-gray-700/50">
+                                <VisaIcon className="h-5"/>
+                                <MastercardIcon className="h-5"/>
+                                <EloIcon className="h-5"/>
+                                <HipercardIcon className="h-5"/>
+                                <AmexIcon className="h-5"/>
+                            </div>
                         </div>
 
                         {isClothing && (
@@ -2389,7 +2466,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-// ===== FIM PARTE 1 =====// ===== INÍCIO PARTE 2 =====
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
@@ -2816,7 +2892,7 @@ const CartPage = ({ onNavigate }) => {
         </div>
     );
 };
-const WishlistPage = ({ onNavigate }) => {
+// ===== FIM PARTE 1 =====const WishlistPage = ({ onNavigate }) => {
     const { wishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
     
@@ -3826,7 +3902,6 @@ const AjudaPage = ({ onNavigate }) => (
         </div>
     </div>
 );
-// ===== FIM PARTE 2 =====// ===== INÍCIO PARTE 3 =====
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
@@ -4046,6 +4121,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     );
 };
 
+// NOVO: Formulário genérico para Admin (Usado por Cupons e Usuários)
 const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     const [formData, setFormData] = useState({});
 
@@ -5163,8 +5239,7 @@ const AdminCoupons = () => {
         </div>
     );
 };
-
-const AdminOrders = () => {
+// ===== FIM PARTE 2 =====const AdminOrders = () => {
     const [orders, setOrders] = useState([]);
     const [filteredOrders, setFilteredOrders] = useState([]);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
