@@ -3038,7 +3038,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
-                shipping_delivery_time: autoCalculatedShipping.delivery_time,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
                 discount_amount: discount
             };
@@ -3163,7 +3162,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
-// ===== FIM PARTE 1 =====const OrderSuccessPage = ({ orderId, onNavigate }) => {
+const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
@@ -3272,7 +3271,7 @@ const CheckoutPage = ({ onNavigate }) => {
             </div>
         </div>
     );
-
+};
 
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
@@ -3489,39 +3488,6 @@ const MyOrdersSection = ({ onNavigate }) => {
             .finally(() => setIsLoading(false));
     }, [notification]);
 
-    const ParsedAddress = ({ addressString }) => {
-        try {
-            const addr = JSON.parse(addressString);
-            return (
-                <div className="text-sm text-gray-400">
-                    <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                    <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                    <p className="font-mono">{addr.cep}</p>
-                </div>
-            );
-        } catch (e) {
-            return <p className="text-sm text-red-400">Endereço indisponível ou mal formatado.</p>;
-        }
-    };
-
-    const getDeliveryDeadline = (orderDate, deliveryTime) => {
-        if (!deliveryTime) return "Prazo não informado";
-        const date = new Date(orderDate);
-        let addedDays = 0;
-        // Adiciona um dia extra para postagem
-        date.setDate(date.getDate() + 1);
-
-        while (addedDays < deliveryTime) {
-            date.setDate(date.getDate() + 1);
-            // Considera apenas dias úteis para o prazo
-            if (date.getDay() !== 0 && date.getDay() !== 6) { 
-                addedDays++;
-            }
-        }
-        return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-   };
-
-
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
         
@@ -3566,58 +3532,37 @@ const MyOrdersSection = ({ onNavigate }) => {
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
-                <div className="space-y-8">
+                <div className="space-y-6">
                     {orders.map(order => (
-                        <div key={order.id} className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden shadow-lg">
-                            <div className="bg-gray-900/70 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-gray-700">
+                        <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                            <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                                 <div>
-                                    <p className="text-sm text-gray-400">Pedido Realizado em {new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                    <p className="font-bold text-white">PEDIDO <span className="text-amber-400">#{order.id}</span></p>
+                                    <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
+                                    <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
                                 </div>
-                                <div className="text-left md:text-right">
-                                    <span className="text-sm text-gray-400">Total: </span>
-                                    <span className="font-bold text-lg text-amber-400">R$ {Number(order.total).toFixed(2)}</span>
+                                <div className="text-left sm:text-right">
+                                    <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
                                 </div>
                             </div>
-                             <div className="p-4 md:p-6 space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h4 className="flex items-center gap-2 font-semibold text-white mb-2"><MapPinIcon className="h-5 w-5 text-amber-400"/>Endereço de Entrega</h4>
-                                        <ParsedAddress addressString={order.shipping_address} />
+                            <div className="my-6">
+                                <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                            </div>
+                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
+                                {order.items.map(item => (
+                                    <div key={item.id} className="flex items-center text-sm">
+                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                        <div className="flex-grow">
+                                            <span>{item.quantity}x {item.name}</span>
+                                            {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                                        </div>
+                                        <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
                                     </div>
-                                    <div>
-                                        <h4 className="flex items-center gap-2 font-semibold text-white mb-2"><ClockIcon className="h-5 w-5 text-amber-400"/>Prazo de Entrega</h4>
-                                        <p className="text-sm text-gray-400">Estimativa máxima de entrega: <br/> <span className="font-bold text-white">{getDeliveryDeadline(order.date, order.shipping_delivery_time)}</span></p>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                   <h4 className="font-semibold text-white">Status do Pedido</h4>
-                                   <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                                </div>
-
-                                <details className="group">
-                                    <summary className="list-none flex justify-between items-center cursor-pointer text-white font-semibold">
-                                        Ver Itens do Pedido ({order.items.length})
-                                        <ChevronDownIcon className="h-5 w-5 transition-transform group-open:rotate-180" />
-                                    </summary>
-                                    <div className="mt-4 space-y-3 border-t border-gray-700 pt-4">
-                                        {order.items.map(item => (
-                                            <div key={item.id} className="flex items-center text-sm">
-                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-4 bg-white rounded"/>
-                                                <div className="flex-grow">
-                                                    <span className="font-semibold text-white">{item.name}</span>
-                                                    <p className="text-gray-400">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                    {item.variation && <span className="text-xs block text-gray-300">{item.variation.color} / {item.variation.size}</span>}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </details>
-
-                                <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-700">
-                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-2 rounded-md hover:bg-gray-600 font-semibold">Repetir Pedido</button>
-                                    {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-amber-600 text-white text-sm px-4 py-2 rounded-md hover:bg-amber-700 font-semibold flex items-center gap-2"><TruckIcon className="h-4 w-4" /> Rastrear Pedido</button>}
-                                </div>
+                                ))}
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
+                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
                             </div>
                         </div>
                     ))}
@@ -5774,4 +5719,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-// ===== FIM PARTE 2 =====
