@@ -2343,8 +2343,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             </div>
         </div>
     );
-};
-const LoginPage = ({ onNavigate }) => {
+};const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
     const [email, setEmail] = useState('');
@@ -4156,6 +4155,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const perfumeCategories = ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"];
 
     const perfumeFields = [
+        { name: 'stock', label: 'Estoque', type: 'number', required: true },
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
         { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
         { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
@@ -4188,13 +4188,27 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     useEffect(() => {
         const initialData = {};
         allFields.forEach(field => {
-            initialData[field.name] = item?.[field.name] ?? 
-                (field.type === 'checkbox' ? 1 : 
-                (field.name === 'images' || field.name === 'variations' ? [] : ''));
+            const value = item?.[field.name];
+            // Use the value from the item if it exists
+            if (value !== undefined && value !== null) {
+                initialData[field.name] = value;
+            } else {
+                // Otherwise, set a default based on type for new items
+                if (field.type === 'checkbox') {
+                    initialData[field.name] = 1;
+                } else if (field.type === 'number') {
+                    initialData[field.name] = 0; // Default numbers to 0 instead of ''
+                } else if (field.name === 'images' || field.name === 'variations') {
+                    initialData[field.name] = [];
+                } else {
+                    initialData[field.name] = '';
+                }
+            }
         });
         
         if (item) {
             setProductType(item.product_type || 'perfume');
+            // Ensure JSON fields are parsed correctly
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
         } else {
@@ -4292,6 +4306,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         if (productType === 'perfume') {
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
             dataToSubmit.variations = '[]';
+            dataToSubmit.stock = parseInt(dataToSubmit.stock, 10) || 0;
         } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
 
@@ -4618,8 +4633,7 @@ const DownloadTemplateButton = ({ productType }) => {
             Baixar modelo CSV de {productType === 'perfume' ? 'Perfumes' : 'Roupas'}
         </button>
     );
-};
-const AdminProducts = ({ onNavigate }) => {
+};const AdminProducts = ({ onNavigate }) => {
   const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
