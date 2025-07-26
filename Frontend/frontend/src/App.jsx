@@ -3110,6 +3110,8 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = orderResult;
 
             if (paymentMethod === 'mercadopago') {
+                // Store the order ID before redirecting, so we can verify the return page.
+                sessionStorage.setItem('pendingOrderId', orderId);
                 const mpPayload = { orderId };
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
                 if (paymentResult && paymentResult.init_point) {
@@ -5639,6 +5641,22 @@ function AppContent({ deferredPrompt }) {
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
+  
+  useEffect(() => {
+    // This effect acts as a safeguard to ensure the user lands on the success page
+    // after returning from a payment gateway, even if the backend's back_urls are misconfigured.
+    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
+    // If we have a pending order ID and the user is NOT on the success page
+    if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); // Clear the flag immediately to prevent loops
+      navigate(`order-success/${pendingOrderId}`);
+    } else if (currentPath.startsWith('order-success')) {
+        // If the user lands on the success page correctly, clear the flag.
+        sessionStorage.removeItem('pendingOrderId');
+    }
+  }, [currentPath, navigate]); // Reruns on every navigation change
   
   useEffect(() => {
     const handleHashChange = () => {
