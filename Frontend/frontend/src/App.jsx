@@ -45,6 +45,18 @@ const ShirtIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const RulerIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16M8 4v4m8-4v4" /></svg>;
 const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>;
 const XMarkIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
+const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
+const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7 .946-3.11 3.563-5.524 6.858-6.39M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 4.407A9.953 9.953 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-2.125-.3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 1l22 22" /></svg>;
+
+// --- CONSTANTE GLOBAL DO MENU ---
+const CATEGORIES_FOR_MENU = [
+    { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
+    { name: "Roupas", sub: ["Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos"] },
+    { name: "Conjuntos", sub: ["Conjunto de Calças", "Conjunto de Shorts"] },
+    { name: "Moda Íntima", sub: ["Lingerie", "Moda Praia"] },
+    { name: "Calçados", sub: ["Sandálias"] },
+    { name: "Acessórios", sub: ["Presente"] }
+];
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -1088,14 +1100,7 @@ const Header = memo(({ onNavigate }) => {
         setIsMobileMenuOpen(false);
     };
 
-    const categoriesForMenu = [
-        { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
-        { name: "Roupas", sub: ["Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos"] },
-        { name: "Conjuntos", sub: ["Conjunto de Calças", "Conjunto de Shorts"] },
-        { name: "Moda Íntima", sub: ["Lingerie", "Moda Praia"] },
-        { name: "Calçados", sub: ["Sandálias"] },
-        { name: "Acessórios", sub: ["Presente"] }
-    ];
+    const categoriesForMenu = CATEGORIES_FOR_MENU;
 
     const dropdownVariants = {
         open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
@@ -1498,7 +1503,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     }, [filters, allProducts]);
     
     const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const uniqueCategories = [...new Set(allProducts.map(p => p.category))];
+    const uniqueCategories = useMemo(() => CATEGORIES_FOR_MENU.flatMap(cat => cat.sub), []);
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -2346,6 +2351,7 @@ const LoginPage = ({ onNavigate }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -2400,7 +2406,23 @@ const LoginPage = ({ onNavigate }) => {
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
-                        <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                        <div className="relative">
+                            <input 
+                                type={isPasswordVisible ? 'text' : 'password'} 
+                                placeholder="••••••••" 
+                                value={password} 
+                                onChange={e => setPassword(e.target.value)} 
+                                required 
+                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pr-10" 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setIsPasswordVisible(!isPasswordVisible)} 
+                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
+                            >
+                                {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                            </button>
+                        </div>
                     </div>
                     <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
                          {isLoading ? <SpinnerIcon /> : 'Entrar'}
@@ -2428,6 +2450,7 @@ const RegisterPage = ({ onNavigate }) => {
     const [cpf, setCpf] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -2489,7 +2512,23 @@ const RegisterPage = ({ onNavigate }) => {
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
-                    <input type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                    <div className="relative">
+                        <input 
+                            type={isPasswordVisible ? 'text' : 'password'} 
+                            placeholder="Senha (mín. 6 caracteres)" 
+                            value={password} 
+                            onChange={e => setPassword(e.target.value)} 
+                            required 
+                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pr-10" 
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => setIsPasswordVisible(!isPasswordVisible)} 
+                            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
+                        >
+                            {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                        </button>
+                    </div>
                     <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
@@ -2513,6 +2552,8 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [step, setStep] = useState(1);
+    const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
+    const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
     
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -2601,8 +2642,32 @@ const ForgotPasswordPage = ({ onNavigate }) => {
                             exit={{ opacity: 0, x: 50 }}
                             onSubmit={handlePasswordReset} className="space-y-4">
                             <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
-                            <input type="password" placeholder="Nova Senha" value={newPassword} onChange={e => setNewPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            <input type="password" placeholder="Confirmar Nova Senha" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                            <div className="relative">
+                                <input 
+                                    type={isNewPasswordVisible ? 'text' : 'password'} 
+                                    placeholder="Nova Senha" 
+                                    value={newPassword} 
+                                    onChange={e => setNewPassword(e.target.value)} 
+                                    required 
+                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" 
+                                />
+                                <button type="button" onClick={() => setIsNewPasswordVisible(!isNewPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
+                                    {isNewPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type={isConfirmPasswordVisible ? 'text' : 'password'} 
+                                    placeholder="Confirmar Nova Senha" 
+                                    value={confirmPassword} 
+                                    onChange={e => setConfirmPassword(e.target.value)} 
+                                    required 
+                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" 
+                                />
+                                <button type="button" onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
+                                    {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                </button>
+                            </div>
                             <button type="submit" className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
                         </motion.form>
                     )}
@@ -4086,6 +4151,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         "Conjunto de Calças", "Conjunto de Shorts", "Lingerie", "Moda Praia",
         "Sandálias", "Presente"
     ];
+    
+    const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
+    const perfumeCategories = ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"];
 
     const perfumeFields = [
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
@@ -4105,9 +4173,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
-        // ===== INÍCIO DA ALTERAÇÃO =====
-        { name: 'stock', label: 'Estoque', type: 'number', required: true },
-        // ===== FIM DA ALTERAÇÃO =====
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
         { name: 'description', label: 'Descrição', type: 'textarea' },
@@ -4224,8 +4289,10 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const dataToSubmit = { ...formData };
         dataToSubmit.product_type = productType;
 
-        // ===== INÍCIO DA ALTERAÇÃO =====
-        if (productType === 'clothing') {
+        if (productType === 'perfume') {
+            clothingFields.forEach(field => delete dataToSubmit[field.name]);
+            dataToSubmit.variations = '[]';
+        } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
 
             const colorImageMap = new Map();
@@ -4244,13 +4311,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             
             const totalStock = (dataToSubmit.variations || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
             dataToSubmit.stock = totalStock;
-        } else { // 'perfume' or other simple types
-            clothingFields.forEach(field => delete dataToSubmit[field.name]);
-            dataToSubmit.variations = '[]';
-            // Certifique-se de que o estoque é um número, ou 0 se estiver vazio/inválido.
-            dataToSubmit.stock = parseInt(dataToSubmit.stock, 10) || 0;
         }
-        // ===== FIM DA ALTERAÇÃO =====
 
         dataToSubmit.images = JSON.stringify(dataToSubmit.images?.filter(img => img && img.trim() !== '') || []);
         if (dataToSubmit.variations) {
@@ -4281,63 +4342,77 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {commonFields.map(field => {
-                    // ===== INÍCIO DA ALTERAÇÃO =====
-                    // Esconde o campo de estoque principal se for uma roupa, pois o estoque virá das variações
-                    if (field.name === 'stock' && productType === 'clothing') {
-                        return null;
-                    }
-                    // ===== FIM DA ALTERAÇÃO =====
                     if (field.name === 'category') {
-                         return productType === 'clothing' ? (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <select 
-                                    name="category" 
-                                    value={formData.category || ''} 
-                                    onChange={handleChange} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                    required={field.required}
-                                >
-                                    <option value="">Selecione uma categoria</option>
-                                    {clothingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                </select>
-                            </div>
-                         ) : (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <input
-                                    type="text"
-                                    name={field.name}
-                                    value={formData[field.name] || ''}
-                                    onChange={handleChange}
-                                    list="perfume-categories"
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                    required={field.required}
-                                />
-                                <datalist id="perfume-categories">
-                                    {categories.filter(c => c.type === 'product').map(c => <option key={c.name} value={c.name} />)}
-                                </datalist>
-                            </div>
-                         )
+                         if (productType === 'clothing') {
+                            return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <select 
+                                        name="category" 
+                                        value={formData.category || ''} 
+                                        onChange={handleChange} 
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
+                                        required={field.required}
+                                    >
+                                        <option value="">Selecione uma categoria</option>
+                                        {clothingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                            );
+                         } else {
+                            return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <select 
+                                        name="category" 
+                                        value={formData.category || ''} 
+                                        onChange={handleChange} 
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
+                                        required={field.required}
+                                    >
+                                        <option value="">Selecione uma categoria de perfume</option>
+                                        {perfumeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                    </select>
+                                </div>
+                            );
+                         }
                     }
                     if (field.name === 'brand') {
-                        return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <input
-                                    type="text"
-                                    name={field.name}
-                                    value={formData[field.name] || ''}
-                                    onChange={handleChange}
-                                    list="brand-datalist"
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                    required={field.required}
-                                />
-                                <datalist id="brand-datalist">
-                                    {brands.map(opt => <option key={opt} value={opt} />)}
-                                </datalist>
-                            </div>
-                        );
+                        if (productType === 'perfume') {
+                            return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <select
+                                        name="brand"
+                                        value={formData.brand || ''}
+                                        onChange={handleChange}
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
+                                        required={field.required}
+                                    >
+                                        <option value="">Selecione uma marca</option>
+                                        {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                            )
+                        } else {
+                             return (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                    <input
+                                        type="text"
+                                        name={field.name}
+                                        value={formData[field.name] || ''}
+                                        onChange={handleChange}
+                                        list="brand-datalist"
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                                        required={field.required}
+                                    />
+                                    <datalist id="brand-datalist">
+                                        {brands.map(opt => <option key={opt} value={opt} />)}
+                                    </datalist>
+                                </div>
+                            );
+                        }
                     }
                     if (field.type === 'checkbox') {
                          return (
@@ -5397,6 +5472,7 @@ const AdminOrders = () => {
         </div>
     );
 };
+
 const AdminReports = () => {
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
