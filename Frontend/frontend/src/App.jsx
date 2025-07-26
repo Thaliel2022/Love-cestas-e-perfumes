@@ -2343,7 +2343,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             </div>
         </div>
     );
-};const LoginPage = ({ onNavigate }) => {
+};
+const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
     const [email, setEmail] = useState('');
@@ -3238,12 +3239,12 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
-                return true;
+                return true; // Polling can stop
             }
         } catch (err) {
             console.error("Erro ao verificar status, continuando a verificação.", err);
         }
-        return false;
+        return false; // Polling should continue
     }, [orderId]);
 
     useEffect(() => {
@@ -3251,44 +3252,55 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
         let pollInterval;
         let timeout;
+        let isMounted = true;
+
+        const forceCheck = () => {
+            if (isMounted && pageStatus === 'processing') {
+                console.log("Forçando verificação de status (via focus/pageshow/visibilitychange).");
+                pollStatus();
+            }
+        };
 
         const startPolling = async () => {
+            if (!isMounted) return;
             const isFinished = await pollStatus();
-            if (isFinished) return;
+            if (isFinished || !isMounted) return;
 
             pollInterval = setInterval(async () => {
+                if (!isMounted) {
+                    clearInterval(pollInterval);
+                    return;
+                }
                 const finished = await pollStatus();
                 if (finished) {
                     clearInterval(pollInterval);
                     clearTimeout(timeout);
                 }
-            }, 3000);
+            }, 5000);
 
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
-                if (pageStatus === 'processing') {
+                if (isMounted && pageStatus === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 45000);
+            }, 60000); // Increased timeout to 1 minute
         };
 
         startPolling();
-        
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && pageStatus === 'processing') {
-                console.log("Página ficou visível, forçando nova verificação de status.");
-                pollStatus();
-            }
-        };
-        
-        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        window.addEventListener('focus', forceCheck);
+        window.addEventListener('pageshow', forceCheck);
+        document.addEventListener('visibilitychange', forceCheck);
 
         return () => {
+            isMounted = false;
             clearInterval(pollInterval);
             clearTimeout(timeout);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', forceCheck);
+            window.removeEventListener('pageshow', forceCheck);
+            document.removeEventListener('visibilitychange', forceCheck);
         };
-    }, [orderId, clearOrderState, pollStatus, pageStatus]);
+    }, [orderId, clearOrderState, pageStatus, pollStatus]);
 
 
     const renderContent = () => {
@@ -3302,8 +3314,8 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             case 'timeout':
                 return {
                     icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Pedido Recebido!",
-                    message: `Seu pedido #${orderId} foi recebido. A confirmação do pagamento pode levar alguns minutos. Você pode acompanhar o status final na sua área de cliente.`
+                    title: "Processando seu Pedido!",
+                    message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
                 };
             case 'processing':
             default:
@@ -4633,7 +4645,8 @@ const DownloadTemplateButton = ({ productType }) => {
             Baixar modelo CSV de {productType === 'perfume' ? 'Perfumes' : 'Roupas'}
         </button>
     );
-};const AdminProducts = ({ onNavigate }) => {
+};
+const AdminProducts = ({ onNavigate }) => {
   const [products, setProducts] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
