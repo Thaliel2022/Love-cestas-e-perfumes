@@ -425,9 +425,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ********************************************************************
-// * INÍCIO DA ATUALIZAÇÃO: Lógica de Redefinição de Senha Simplificada *
-// ********************************************************************
 app.post('/api/forgot-password', async (req, res) => {
     const { email, cpf } = req.body;
     if (!email || !cpf) {
@@ -470,9 +467,6 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
     }
 });
-// ******************************************************************
-// * FIM DA ATUALIZAÇÃO: Lógica de Redefinição de Senha Simplificada *
-// ******************************************************************
 
 
 // --- ROTA DE RASTREIO ---
@@ -1371,11 +1365,14 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
+        // ATUALIZAÇÃO: Lógica de parcelas baseada no valor total do pedido.
+        // A configuração de quais parcelas são "sem juros" é feita no painel do Mercado Pago.
+        // Aqui, apenas limitamos o MÁXIMO de parcelas que o cliente pode escolher.
         let maxInstallments;
-        if (total > 100) {
-            maxInstallments = 10;
+        if (total >= 100) {
+            maxInstallments = 10; // Permite até 10x para valores a partir de R$100
         } else {
-            maxInstallments = 1;
+            maxInstallments = 1;  // Permite apenas 1x para valores abaixo de R$100
         }
 
         const preferenceBody = {
@@ -1398,7 +1395,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
             back_urls: {
                 success: `${appUrl}/#order-success/${orderId}`,
                 failure: `${appUrl}/#cart`,
-                pending: `${appUrl}/#account`,
+                pending: `${appUrl}/#account/orders`,
             },
             notification_url: `${backendUrl}/api/mercadopago-webhook`,
         };
@@ -1427,8 +1424,6 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 
-// --- INÍCIO DA ATUALIZAÇÃO ---
-// Rota de parcelas corrigida
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
@@ -1459,7 +1454,6 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         res.status(500).json({ message: error.message || "Erro interno do servidor ao buscar parcelas." });
     }
 });
-// --- FIM DA ATUALIZAÇÃO ---
 
 
 const processPaymentWebhook = async (paymentId) => {
