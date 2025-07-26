@@ -3232,10 +3232,18 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
+    // Use a ref to track the current status inside callbacks without re-triggering the main effect.
+    // This ensures event listeners always have the latest state.
+    const statusRef = useRef(pageStatus);
+    useEffect(() => {
+        statusRef.current = pageStatus;
+    }, [pageStatus]);
+
     const pollStatus = useCallback(async () => {
         console.log(`Verificando status do pedido #${orderId}...`);
         try {
             const response = await apiService(`/orders/${orderId}/status`);
+            // If payment is approved or has a final state, update the page and stop polling.
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
@@ -3249,58 +3257,57 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
     useEffect(() => {
         clearOrderState();
-
         let pollInterval;
         let timeout;
-        let isMounted = true;
 
+        // Function to be called by event listeners when user returns to the page
         const forceCheck = () => {
-            if (isMounted && pageStatus === 'processing') {
-                console.log("Forçando verificação de status (via focus/pageshow/visibilitychange).");
+            // Use the ref to get the LATEST status to avoid stale state issues
+            if (statusRef.current === 'processing') {
+                console.log("Forçando verificação de status (evento de visibilidade/foco)");
                 pollStatus();
             }
         };
 
         const startPolling = async () => {
-            if (!isMounted) return;
+            // Initial check when page loads
             const isFinished = await pollStatus();
-            if (isFinished || !isMounted) return;
+            if (isFinished) return; // If already confirmed, don't start timers
 
+            // Set up a regular check every 5 seconds
             pollInterval = setInterval(async () => {
-                if (!isMounted) {
-                    clearInterval(pollInterval);
-                    return;
-                }
-                const finished = await pollStatus();
-                if (finished) {
-                    clearInterval(pollInterval);
-                    clearTimeout(timeout);
-                }
+                 const finished = await pollStatus();
+                 if (finished) {
+                     clearInterval(pollInterval);
+                     clearTimeout(timeout);
+                 }
             }, 5000);
-
+            
+            // Set a final timeout after 1 minute for async payments (like Boleto)
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
-                if (isMounted && pageStatus === 'processing') {
+                if (statusRef.current === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 60000); // Increased timeout to 1 minute
+            }, 60000);
         };
 
         startPolling();
 
+        // Listen for events that indicate the user has returned to the page
         window.addEventListener('focus', forceCheck);
         window.addEventListener('pageshow', forceCheck);
         document.addEventListener('visibilitychange', forceCheck);
 
+        // Cleanup function to remove timers and listeners when component unmounts
         return () => {
-            isMounted = false;
             clearInterval(pollInterval);
             clearTimeout(timeout);
             window.removeEventListener('focus', forceCheck);
             window.removeEventListener('pageshow', forceCheck);
             document.removeEventListener('visibilitychange', forceCheck);
         };
-    }, [orderId, clearOrderState, pageStatus, pollStatus]);
+    }, [orderId, clearOrderState, pollStatus]); // Main effect only depends on stable values
 
 
     const renderContent = () => {
