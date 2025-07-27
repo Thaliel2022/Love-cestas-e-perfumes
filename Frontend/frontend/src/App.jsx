@@ -2439,7 +2439,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             </motion.div>
         </div>
     );
-};
 
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
@@ -4922,7 +4921,8 @@ const AdminProducts = ({ onNavigate }) => {
     </div>
   )
 };
-// ===== FIM PARTE 2 =====const AdminUsers = () => {
+// ===== FIM PARTE 2 =====
+const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
