@@ -443,14 +443,12 @@ const ShopProvider = ({ children }) => {
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
-        // Se for roupa, a identificação é produto + variação. Senão, só produto.
         const cartItemId = productToAdd.product_type === 'clothing' && variation 
             ? `${productToAdd.id}-${variation.color}-${variation.size}` 
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
 
-        // Determina o estoque disponível para a variação específica ou para o produto geral.
         const availableStock = variation ? variation.stock : productToAdd.stock;
         
         const currentQtyInCart = existing ? existing.qty : 0;
@@ -461,13 +459,25 @@ const ShopProvider = ({ children }) => {
 
         setCart(currentCart => {
             let updatedCart;
+
+            const isOnSale = productToAdd.promo_price && parseFloat(productToAdd.promo_price) < parseFloat(productToAdd.price);
+            const effectivePrice = isOnSale ? parseFloat(productToAdd.promo_price) : parseFloat(productToAdd.price);
+            const originalPrice = isOnSale ? parseFloat(productToAdd.price) : undefined;
+            
             if (existing) {
                 const newQty = existing.qty + qty;
                 updatedCart = currentCart.map(item => 
                     item.cartItemId === cartItemId ? { ...item, qty: newQty } : item
                 );
             } else {
-                const newItem = { ...productToAdd, qty, variation, cartItemId };
+                const newItem = { 
+                    ...productToAdd, 
+                    qty, 
+                    variation, 
+                    cartItemId, 
+                    price: effectivePrice, 
+                    original_price: originalPrice 
+                };
                 updatedCart = [...currentCart, newItem];
             }
 
@@ -478,7 +488,6 @@ const ShopProvider = ({ children }) => {
                     variationId: variation?.id
                 }).catch(err => {
                     console.error("Falha ao sincronizar carrinho com o backend:", err);
-                    // Opcional: Reverter a alteração no estado local se o backend falhar
                 });
             }
             return updatedCart;
@@ -509,7 +518,6 @@ const ShopProvider = ({ children }) => {
         
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) {
-            // Lançar um erro que pode ser capturado na UI para notificação
             throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         }
 
@@ -819,10 +827,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-    const [isBuyingNow, setIsBuyingNow] = useState(false);
-    
+
     const imageUrl = getFirstImage(product.images);
     const avgRating = Math.round(product.avg_rating || 0);
+
+    const isOnSale = product.promo_price && parseFloat(product.promo_price) < parseFloat(product.price);
+    const discountPercent = isOnSale ? Math.round(((product.price - product.promo_price) / product.price) * 100) : 0;
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -839,23 +849,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
             setIsAddingToCart(false);
-        }
-    };
-
-    const handleBuyNow = async (e) => {
-        e.stopPropagation();
-         if (product.product_type === 'clothing') {
-            onNavigate(`product/${product.id}`);
-            return;
-        }
-        setIsBuyingNow(true);
-        try {
-            await addToCart(product, 1);
-            onNavigate('cart');
-        } catch (error) {
-            notification.show(error.message || "Erro ao iniciar compra", "error");
-        } finally {
-            setIsBuyingNow(false);
         }
     };
     
@@ -876,16 +869,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 notification.show(`${product.name} removido da lista de desejos.`, 'error');
             } else {
                 const result = await addToWishlist(product);
-                if (result.success) {
-                    notification.show(result.message);
-                } else {
-                    notification.show(result.message, "error");
-                }
+                notification.show(result.message, result.success ? 'success' : 'error');
             }
         };
 
         return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition-colors duration-300 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
                 <HeartIcon className="h-6 w-6" filled={isWishlisted} />
             </button>
         );
@@ -899,40 +888,65 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
+            whileHover={{ y: -5, boxShadow: "0px 20px 25px -5px rgba(212, 175, 55, 0.2), 0px 10px 10px -5px rgba(212, 175, 55, 0.1)" }}
+            className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col group text-white h-full shadow-lg"
         >
-            <div className="relative h-64 bg-white">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
-                 <WishlistButton product={product} />
-                 {product.product_type === 'clothing' && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
-                        Ver Cores e Tamanhos
+            <div className="relative overflow-hidden cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)}>
+                {isOnSale && (
+                    <div className="absolute top-3 left-0 bg-red-600 text-white text-xs font-bold px-3 py-1 z-10 rounded-r-full shadow-md">
+                        {discountPercent}% OFF
                     </div>
                 )}
+                <img 
+                    src={imageUrl} 
+                    alt={product.name} 
+                    className="w-full h-64 object-contain bg-white group-hover:scale-110 transition-transform duration-500 ease-in-out" 
+                />
+                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button 
+                        onClick={handleAddToCart}
+                        disabled={isAddingToCart}
+                        className="bg-amber-400 text-black font-bold py-2 px-6 rounded-md hover:bg-amber-300 transition-transform hover:scale-105 flex items-center gap-2 disabled:opacity-50"
+                    >
+                         {isAddingToCart ? <SpinnerIcon /> : <CartIcon className="h-5 w-5"/>}
+                         {isAddingToCart ? '' : 'Adicionar'}
+                    </button>
+                </div>
+                <WishlistButton product={product} />
             </div>
-            <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+
+            <div className="p-4 flex-grow flex flex-col">
+                <p className="text-xs text-amber-500 font-semibold tracking-wider uppercase">{product.brand}</p>
+                <h4 className="text-lg font-bold tracking-tight mt-1 cursor-pointer hover:text-amber-400 flex-grow" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                
                 <div className="flex items-center mt-2">
                     {[...Array(5)].map((_, i) => (
                         <StarIcon 
                             key={i} 
-                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
                             isFilled={i < avgRating}
                         />
                     ))}
+                    <span className="text-xs text-gray-500 ml-2">({product.review_count || 0})</span>
                 </div>
-                <div className="flex-grow"/>
-                <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                    </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
+
+                <div className="mt-3 mb-4">
+                    {isOnSale ? (
+                        <div className="flex items-baseline gap-2">
+                            <p className="text-2xl font-bold text-green-400">R$ {Number(product.promo_price).toFixed(2)}</p>
+                            <p className="text-base text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                        </div>
+                    ) : (
+                        <p className="text-2xl font-bold text-white">R$ {Number(product.price).toFixed(2)}</p>
+                    )}
                 </div>
+
+                <button 
+                    onClick={() => onNavigate(`product/${product.id}`)} 
+                    className="w-full border-2 border-amber-500 text-amber-500 font-bold py-2 rounded-md hover:bg-amber-500 hover:text-black transition-colors duration-300 mt-auto text-sm"
+                >
+                    Ver Detalhes
+                </button>
             </div>
         </motion.div>
     );
@@ -1184,7 +1198,7 @@ const Header = memo(({ onNavigate }) => {
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
                 </div>
-                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors">Promoções</a>
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors">Promoções</a>
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 
                 <AnimatePresence>
@@ -1465,7 +1479,7 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
-const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '' }) => {
+const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialPromo = 'false' }) => {
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
@@ -1495,12 +1509,21 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
 
     useEffect(() => {
         let result = allProducts;
-        if (filters.search) result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
-        if (filters.brand) result = result.filter(p => p.brand === filters.brand);
-        if (filters.category) result = result.filter(p => p.category === filters.category);
+        if (filters.search) {
+            result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
+        }
+        if (filters.brand) {
+            result = result.filter(p => p.brand === filters.brand);
+        }
+        if (filters.category) {
+            result = result.filter(p => p.category === filters.category);
+        }
+        if (initialPromo === 'true') {
+            result = result.filter(p => p.promo_price && parseFloat(p.promo_price) < parseFloat(p.price));
+        }
         setFilteredProducts(result);
         setCurrentPage(1);
-    }, [filters, allProducts]);
+    }, [filters, allProducts, initialPromo]);
     
     const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
     const uniqueCategories = useMemo(() => CATEGORIES_FOR_MENU.flatMap(cat => cat.sub), []);
@@ -1536,7 +1559,9 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     return (
         <div className="bg-black text-white py-12 min-h-screen">
             <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">Nossa Coleção</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+                    {initialPromo === 'true' ? '🔥 Promoções 🔥' : 'Nossa Coleção'}
+                </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
                         <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
@@ -2695,21 +2720,30 @@ const CartPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.original_price || item.price) * item.qty, 0), [cart]);
+    const totalSavings = useMemo(() => cart.reduce((sum, item) => {
+        if (item.original_price) {
+            return sum + (item.original_price - item.price) * item.qty;
+        }
+        return sum;
+    }, 0), [cart]);
+    
+    const cartSubtotal = useMemo(() => subtotal - totalSavings, [subtotal, totalSavings]);
+
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
         if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+            discountValue = cartSubtotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
             discountValue = parseFloat(appliedCoupon.value);
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
         return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost]);
+    }, [appliedCoupon, cartSubtotal, shippingCost]);
 
     
     const handleApplyCoupon = (e) => {
@@ -2719,7 +2753,7 @@ const CartPage = ({ onNavigate }) => {
         }
     }
     
-    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+    const total = useMemo(() => cartSubtotal - discount + shippingCost, [cartSubtotal, discount, shippingCost]);
 
     const handleUpdateQuantity = async (cartItemId, newQuantity) => {
         try {
@@ -2758,7 +2792,14 @@ const CartPage = ({ onNavigate }) => {
                                                         {item.variation.color} / {item.variation.size}
                                                     </p>
                                                 )}
-                                                <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
+                                                {item.original_price ? (
+                                                    <div className="flex items-baseline gap-2">
+                                                        <p className="text-md font-bold text-green-400">R$ {Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-sm text-gray-500 line-through">R$ {Number(item.original_price).toFixed(2)}</p>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-md text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
@@ -2779,8 +2820,16 @@ const CartPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                                
+                                <div className="flex justify-between text-gray-300">
+                                    <span>Subtotal</span>
+                                    <span>R$ {subtotal.toFixed(2)}</span>
+                                </div>
+                                {totalSavings > 0 && (
+                                    <div className="flex justify-between text-green-400">
+                                        <span>Economia</span>
+                                        <span>- R$ {totalSavings.toFixed(2)}</span>
+                                    </div>
+                                )}
                                 <div className="flex justify-between text-gray-300">
                                     <span>Frete (PAC)</span>
                                     {isLoadingShipping ? (
@@ -4193,7 +4242,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
-        { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
+        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
+        { name: 'promo_price', label: 'Preço Promocional (opcional)', type: 'number', step: '0.01' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
         { name: 'description', label: 'Descrição', type: 'textarea' },
@@ -4629,12 +4679,12 @@ const DownloadTemplateButton = ({ productType }) => {
     const handleDownload = () => {
         let headers, exampleRow, filename;
         if (productType === 'perfume') {
-            headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type";
-            exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume";
+            headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type,promo_price";
+            exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume,179.90";
             filename = "modelo_perfumes.csv";
         } else { // clothing
-            headers = "name,brand,category,price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type";
-            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing";
+            headers = "name,brand,category,price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type,promo_price";
+            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing,79.90";
             filename = "modelo_roupas.csv";
         }
         
@@ -5676,6 +5726,7 @@ function AppContent({ deferredPrompt }) {
     const initialSearch = searchParams.get('search') || '';
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
+    const initialPromo = searchParams.get('promo') || 'false';
     
     const [mainPage, pageId] = path.split('/');
 
@@ -5717,7 +5768,7 @@ function AppContent({ deferredPrompt }) {
     
     const pages = {
         'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} />,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialPromo={initialPromo}/>,
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
