@@ -2104,28 +2104,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (isLoadingInstallments) {
             return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
         }
-        if (!installments || installments.length === 0) {
+        if (!product || !installments || installments.length === 0) {
             return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
         }
 
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) {
-            return (
-                <span>
-                    em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
-                </span>
-            );
-        }
+        const price = product.price;
 
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) {
-            return (
-                <span>
-                    ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
-                </span>
-            );
+        // ATUALIZAÇÃO: Lógica de parcelamento baseada no preço
+        if (price < 100) {
+            const singleInstallment = installments.find(p => p.installments === 1);
+            if (singleInstallment) {
+                 return <span>em 1x de R$&nbsp;{singleInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>;
+            }
+            return <span>em 1x sem juros</span>;
+        } else { // Preço >= 100
+            const noInterestInstallments = installments.filter(p => p.installment_rate === 0 && p.installments <= 4);
+            
+            if (noInterestInstallments.length > 0) {
+                const maxNoInterest = Math.max(...noInterestInstallments.map(p => p.installments));
+                const bestOption = noInterestInstallments.find(p => p.installments === maxNoInterest);
+                return (
+                    <span>
+                        em até <span className="font-bold">{maxNoInterest}x de R$&nbsp;{bestOption.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+                    </span>
+                );
+            }
+            
+            // Fallback se não houver parcelas sem juros (improvável, mas seguro)
+            const firstInstallment = installments.find(p => p.installments === 1);
+             if (firstInstallment) {
+                return (
+                     <span>
+                        ou em até 10x com juros
+                    </span>
+                );
+            }
         }
-        return null;
+        return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
     };
     
     const itemsForShipping = useMemo(() => {
