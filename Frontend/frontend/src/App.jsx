@@ -2344,7 +2344,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-const LoginPage = ({ onNavigate }) => {
+// ===== FIM PARTE 1 =====const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
     const [email, setEmail] = useState('');
@@ -3110,8 +3110,6 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = orderResult;
 
             if (paymentMethod === 'mercadopago') {
-                // Store the order ID before redirecting, so we can verify the return page.
-                sessionStorage.setItem('pendingOrderId', orderId);
                 const mpPayload = { orderId };
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
                 if (paymentResult && paymentResult.init_point) {
@@ -3234,82 +3232,64 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
-    // Use a ref to track the current status inside callbacks without re-triggering the main effect.
-    // This ensures event listeners always have the latest state.
-    const statusRef = useRef(pageStatus);
-    useEffect(() => {
-        statusRef.current = pageStatus;
-    }, [pageStatus]);
-
     const pollStatus = useCallback(async () => {
         console.log(`Verificando status do pedido #${orderId}...`);
         try {
             const response = await apiService(`/orders/${orderId}/status`);
-            // If payment is approved or has a final state, update the page and stop polling.
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
-                return true; // Polling can stop
+                return true;
             }
         } catch (err) {
             console.error("Erro ao verificar status, continuando a verificação.", err);
         }
-        return false; // Polling should continue
+        return false;
     }, [orderId]);
 
     useEffect(() => {
         clearOrderState();
+
         let pollInterval;
         let timeout;
 
-        // Function to be called by event listeners when user returns to the page
-        const forceCheck = () => {
-            // Use the ref to get the LATEST status to avoid stale state issues
-            if (statusRef.current === 'processing') {
-                console.log("Forçando verificação de status (evento de visibilidade/foco)");
-                pollStatus();
-            }
-        };
-
         const startPolling = async () => {
-            // Initial check when page loads
             const isFinished = await pollStatus();
-            if (isFinished) return; // If already confirmed, don't start timers
+            if (isFinished) return;
 
-            // Set up a regular check every 5 seconds
             pollInterval = setInterval(async () => {
-                 const finished = await pollStatus();
-                 if (finished) {
-                     clearInterval(pollInterval);
-                     clearTimeout(timeout);
-                 }
-            }, 5000);
-            
-            // Set a final timeout after 1 minute for async payments (like Boleto)
+                const finished = await pollStatus();
+                if (finished) {
+                    clearInterval(pollInterval);
+                    clearTimeout(timeout);
+                }
+            }, 3000);
+
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
-                if (statusRef.current === 'processing') {
+                if (pageStatus === 'processing') {
                     setPageStatus('timeout');
                 }
-            }, 60000);
+            }, 45000);
         };
 
         startPolling();
+        
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && pageStatus === 'processing') {
+                console.log("Página ficou visível, forçando nova verificação de status.");
+                pollStatus();
+            }
+        };
+        
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Listen for events that indicate the user has returned to the page
-        window.addEventListener('focus', forceCheck);
-        window.addEventListener('pageshow', forceCheck);
-        document.addEventListener('visibilitychange', forceCheck);
-
-        // Cleanup function to remove timers and listeners when component unmounts
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
-            window.removeEventListener('focus', forceCheck);
-            window.removeEventListener('pageshow', forceCheck);
-            document.removeEventListener('visibilitychange', forceCheck);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [orderId, clearOrderState, pollStatus]); // Main effect only depends on stable values
+    }, [orderId, clearOrderState, pollStatus, pageStatus]);
 
 
     const renderContent = () => {
@@ -3323,8 +3303,8 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             case 'timeout':
                 return {
                     icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Processando seu Pedido!",
-                    message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
+                    title: "Pedido Recebido!",
+                    message: `Seu pedido #${orderId} foi recebido. A confirmação do pagamento pode levar alguns minutos. Você pode acompanhar o status final na sua área de cliente.`
                 };
             case 'processing':
             default:
@@ -4176,7 +4156,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const perfumeCategories = ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"];
 
     const perfumeFields = [
-        { name: 'stock', label: 'Estoque', type: 'number', required: true },
         { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
         { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
         { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
@@ -4209,27 +4188,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     useEffect(() => {
         const initialData = {};
         allFields.forEach(field => {
-            const value = item?.[field.name];
-            // Use the value from the item if it exists
-            if (value !== undefined && value !== null) {
-                initialData[field.name] = value;
-            } else {
-                // Otherwise, set a default based on type for new items
-                if (field.type === 'checkbox') {
-                    initialData[field.name] = 1;
-                } else if (field.type === 'number') {
-                    initialData[field.name] = 0; // Default numbers to 0 instead of ''
-                } else if (field.name === 'images' || field.name === 'variations') {
-                    initialData[field.name] = [];
-                } else {
-                    initialData[field.name] = '';
-                }
-            }
+            initialData[field.name] = item?.[field.name] ?? 
+                (field.type === 'checkbox' ? 1 : 
+                (field.name === 'images' || field.name === 'variations' ? [] : ''));
         });
         
         if (item) {
             setProductType(item.product_type || 'perfume');
-            // Ensure JSON fields are parsed correctly
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
         } else {
@@ -4327,7 +4292,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         if (productType === 'perfume') {
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
             dataToSubmit.variations = '[]';
-            dataToSubmit.stock = parseInt(dataToSubmit.stock, 10) || 0;
         } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
 
@@ -4958,8 +4922,7 @@ const AdminProducts = ({ onNavigate }) => {
     </div>
   )
 };
-
-const AdminUsers = () => {
+// ===== FIM PARTE 2 =====const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
@@ -5643,22 +5606,6 @@ function AppContent({ deferredPrompt }) {
   }, []);
   
   useEffect(() => {
-    // This effect acts as a safeguard to ensure the user lands on the success page
-    // after returning from a payment gateway, even if the backend's back_urls are misconfigured.
-    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
-    // If we have a pending order ID and the user is NOT on the success page
-    if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); // Clear the flag immediately to prevent loops
-      navigate(`order-success/${pendingOrderId}`);
-    } else if (currentPath.startsWith('order-success')) {
-        // If the user lands on the success page correctly, clear the flag.
-        sessionStorage.removeItem('pendingOrderId');
-    }
-  }, [currentPath, navigate]); // Reruns on every navigation change
-  
-  useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
     };
@@ -5859,3 +5806,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+// ===== FIM PARTE 3 =====
