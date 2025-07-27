@@ -276,17 +276,6 @@ const createWelcomeEmail = (customerName) => {
     return createEmailBase(content);
 };
 
-const createPasswordResetEmail = (customerName, resetLink) => {
-    const content = `
-        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Redefinir sua Senha</h1>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Recebemos uma solicitação para redefinir a senha da sua conta. Se não foi você, pode ignorar este e-mail.</p>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Para continuar, clique no botão abaixo. Este link é válido por 1 hora.</p>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${resetLink}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Redefinir Senha</a></td></tr></table>
-    `;
-    return createEmailBase(content);
-};
-
 const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const itemsHtml = createItemsListHtml(items, "Itens no seu pedido:");
@@ -437,61 +426,42 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/forgot-password', async (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({ message: "O e-mail é obrigatório." });
+    const { email, cpf } = req.body;
+    if (!email || !cpf) {
+        return res.status(400).json({ message: "Email e CPF são obrigatórios." });
     }
     try {
-        const [users] = await db.query("SELECT id, name FROM users WHERE email = ?", [email]);
+        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
         if (users.length === 0) {
-            // Resposta genérica para não revelar se um e-mail existe no sistema
-            return res.status(200).json({ message: "Se o e-mail estiver cadastrado, um link de recuperação será enviado." });
+            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
         }
-        const user = users[0];
-        const resetToken = crypto.randomBytes(32).toString('hex');
-        const passwordResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-        const passwordResetExpires = new Date(Date.now() + 3600000); // 1 hora
-
-        await db.query("UPDATE users SET password_reset_token = ?, password_reset_expires = ? WHERE id = ?", [passwordResetToken, passwordResetExpires, user.id]);
-
-        const resetUrl = `${process.env.APP_URL}/#reset-password/${resetToken}`;
-        
-        sendEmailAsync({
-            from: FROM_EMAIL,
-            to: email,
-            subject: 'Redefinição de Senha - Love Cestas e Perfumes',
-            html: createPasswordResetEmail(user.name, resetUrl)
-        });
-
-        res.status(200).json({ message: "Se o e-mail estiver cadastrado, um link de recuperação será enviado." });
+        res.status(200).json({ message: "Usuário validado com sucesso." });
     } catch (err) {
-        console.error("Erro ao processar recuperação de senha:", err);
+        console.error("Erro ao validar usuário para recuperação de senha:", err);
         res.status(500).json({ message: "Erro interno do servidor." });
     }
 });
 
 app.post('/api/reset-password', async (req, res) => {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword) {
-        return res.status(400).json({ message: "Token e nova senha são obrigatórios." });
+    const { email, cpf, newPassword } = req.body;
+    if (!email || !cpf || !newPassword) {
+        return res.status(400).json({ message: "Email, CPF e nova senha são obrigatórios." });
     }
     if (newPassword.length < 6) {
         return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
     }
 
     try {
-        const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-        const [users] = await db.query("SELECT id FROM users WHERE password_reset_token = ? AND password_reset_expires > NOW()", [hashedToken]);
-
+        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
         if (users.length === 0) {
-            return res.status(400).json({ message: "Token inválido ou expirado." });
+            return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
         }
-        const userId = users[0].id;
         
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await db.query("UPDATE users SET password = ?, password_reset_token = NULL, password_reset_expires = NULL WHERE id = ?", [hashedPassword, userId]);
+        await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
         
         res.status(200).json({ message: "Senha redefinida com sucesso." });
+
     } catch (err) {
         console.error("Erro ao redefinir a senha:", err);
         res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
@@ -615,11 +585,13 @@ app.post('/api/shipping/calculate', async (req, res) => {
 // --- ROTAS DE PRODUTOS ---
 app.get('/api/products', async (req, res) => {
     try {
-        // A busca agora usa o campo avg_rating pré-calculado, removendo a necessidade do JOIN e AVG.
         const sql = `
-            SELECT * FROM products
-            WHERE is_active = 1
-            ORDER BY created_at DESC
+            SELECT p.*, AVG(r.rating) as avg_rating
+            FROM products p
+            LEFT JOIN reviews r ON p.id = r.product_id
+            WHERE p.is_active = 1
+            GROUP BY p.id
+            ORDER BY p.created_at DESC
         `;
         const [products] = await db.query(sql);
         res.json(products);
@@ -632,14 +604,18 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
     const { search } = req.query;
     try {
-        let sql = `SELECT * FROM products`;
+        let sql = `
+            SELECT p.*, AVG(r.rating) as avg_rating
+            FROM products p
+            LEFT JOIN reviews r ON p.id = r.product_id
+        `;
         const params = [];
         if (search) {
-            sql += " WHERE name LIKE ? OR brand LIKE ? OR category LIKE ?";
+            sql += " WHERE p.name LIKE ? OR p.brand LIKE ? OR p.category LIKE ?";
             const searchTerm = `%${search}%`;
             params.push(searchTerm, searchTerm, searchTerm);
         }
-        sql += " ORDER BY id DESC";
+        sql += " GROUP BY p.id ORDER BY p.id DESC";
         const [products] = await db.query(sql, params);
         res.json(products);
     } catch (err) {
@@ -713,18 +689,12 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-    // Validação básica
-    if (!productData.name || !productData.price || !productData.brand || !productData.category) {
-        return res.status(400).json({ message: "Nome, preço, marca e categoria são obrigatórios."});
-    }
-
     const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'on_sale', 'images', 'description', 
+        'name', 'brand', 'category', 'price', 'images', 'description', 
         'weight', 'width', 'height', 'length', 'is_active', 'product_type'
     ];
     const values = [
-        productData.name, productData.brand, productData.category, productData.price,
-        productData.sale_price || null, productData.on_sale ? 1 : 0,
+        productData.name, productData.brand, productData.category, productData.price, 
         productData.images, productData.description, productData.weight, productData.width, 
         productData.height, productData.length, productData.is_active ? 1 : 0, product_type
     ];
@@ -754,12 +724,11 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
 
     let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'on_sale', 'images', 'description', 
+        'name', 'brand', 'category', 'price', 'images', 'description', 
         'weight', 'width', 'height', 'length', 'is_active', 'product_type'
     ];
     let values = [
         productData.name, productData.brand, productData.category, productData.price, 
-        productData.sale_price || null, productData.on_sale,
         productData.images, productData.description, productData.weight, productData.width, 
         productData.height, productData.length, productData.is_active, product_type
     ];
@@ -855,8 +824,6 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
                         values = {
                             product_type: 'perfume',
                             name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: row.sale_price ? parseFloat(row.sale_price) : null,
-                            on_sale: row.on_sale === '1' || String(row.on_sale).toLowerCase() === 'true' ? 1 : 0,
                             stock: parseInt(row.stock) || 0, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
                             description: row.description || '', notes: row.notes || '', how_to_use: row.how_to_use || '',
                             ideal_for: row.ideal_for || '', volume: row.volume || '',
@@ -870,8 +837,6 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
                         values = {
                             product_type: 'clothing',
                             name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: row.sale_price ? parseFloat(row.sale_price) : null,
-                            on_sale: row.on_sale === '1' || String(row.on_sale).toLowerCase() === 'true' ? 1 : 0,
                             stock: totalStock, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
                             description: row.description || '', variations: row.variations || '[]',
                             size_guide: row.size_guide || '', care_instructions: row.care_instructions || '',
@@ -910,21 +875,6 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
 
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
-const updateProductAverageRating = async (productId, connection) => {
-    try {
-        const [result] = await connection.query(
-            "SELECT AVG(rating) as avg_rating FROM reviews WHERE product_id = ?",
-            [productId]
-        );
-        const newAvgRating = result[0].avg_rating || 0;
-        await connection.query("UPDATE products SET avg_rating = ? WHERE id = ?", [newAvgRating, productId]);
-        console.log(`Avaliação média do produto #${productId} atualizada para ${newAvgRating}.`);
-    } catch (err) {
-        console.error(`Falha ao atualizar a avaliação média para o produto #${productId}:`, err);
-        // Não lançar erro para não quebrar a transação principal
-    }
-};
-
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -938,20 +888,12 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 app.post('/api/reviews', verifyToken, async (req, res) => {
     const { product_id, rating, comment } = req.body;
     if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são obrigatórios." });
-    
-    const connection = await db.getConnection();
     try {
-        await connection.beginTransaction();
-        await connection.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
-        await updateProductAverageRating(product_id, connection);
-        await connection.commit();
+        await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
     } catch (err) { 
-        await connection.rollback();
         console.error("Erro ao adicionar avaliação:", err);
         res.status(500).json({ message: "Erro interno ao adicionar avaliação." }); 
-    } finally {
-        connection.release();
     }
 });
 
@@ -1423,11 +1365,14 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
         
         description += ` Total: R$ ${total.toFixed(2)}.`;
         
+        // ATUALIZAÇÃO: Lógica de parcelas baseada no valor total do pedido.
+        // A configuração de quais parcelas são "sem juros" é feita no painel do Mercado Pago.
+        // Aqui, apenas limitamos o MÁXIMO de parcelas que o cliente pode escolher.
         let maxInstallments;
         if (total >= 100) {
-            maxInstallments = 10;
+            maxInstallments = 10; // Permite até 10x para valores a partir de R$100
         } else {
-            maxInstallments = 1; 
+            maxInstallments = 1;  // Permite apenas 1x para valores abaixo de R$100
         }
 
         const preferenceBody = {
