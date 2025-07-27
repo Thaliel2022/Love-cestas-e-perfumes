@@ -1943,9 +1943,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setInstallments([]);
             try {
                 const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                // ATUALIZAÇÃO: Garante que o frontend só trabalhe com até 10 parcelas
-                const filteredInstallments = (installmentData || []).filter(p => p.installments <= 10);
-                setInstallments(filteredInstallments);
+                setInstallments(installmentData || []);
             } catch (error) {
                 console.warn("Não foi possível carregar as opções de parcelamento.", error);
             } finally {
@@ -2106,44 +2104,28 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (isLoadingInstallments) {
             return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>;
         }
-        if (!product || !installments || installments.length === 0) {
+        if (!installments || installments.length === 0) {
             return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>;
         }
 
-        const price = product.price;
-
-        // ATUALIZAÇÃO: Lógica de parcelamento baseada no preço
-        if (price < 100) {
-            // Para produtos abaixo de R$100, a única opção é 1x.
-            const singleInstallment = installments.find(p => p.installments === 1);
-            if (singleInstallment) {
-                 return <span>em 1x de R$&nbsp;{singleInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>;
-            }
-            return <span>Pagamento em 1x</span>; // Mensagem simples e direta
-        } else { // Preço >= 100
-            const noInterestInstallments = installments.filter(p => p.installment_rate === 0 && p.installments <= 4);
-            
-            if (noInterestInstallments.length > 0) {
-                const maxNoInterest = Math.max(...noInterestInstallments.map(p => p.installments));
-                const bestOption = installments.find(p => p.installments === maxNoInterest);
-                return (
-                    <span>
-                        em até <span className="font-bold">{maxNoInterest}x de R$&nbsp;{bestOption.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
-                    </span>
-                );
-            }
-            
-            // Fallback se não houver parcelas sem juros, mas o valor é >= 100
-            const firstInstallment = installments.find(p => p.installments === 1);
-             if (firstInstallment) {
-                return (
-                     <span>
-                        em 1x de R$&nbsp;{firstInstallment.installment_amount.toFixed(2).replace('.', ',')} ou em até 10x com juros
-                    </span>
-                );
-            }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) {
+            return (
+                <span>
+                    em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros
+                </span>
+            );
         }
-        return <span className="text-gray-500">Verificar opções de pagamento.</span>;
+
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) {
+            return (
+                <span>
+                    ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span>
+                </span>
+            );
+        }
+        return null;
     };
     
     const itemsForShipping = useMemo(() => {
@@ -2249,7 +2231,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <button
                                         onClick={() => setIsInstallmentModalOpen(true)}
                                         className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed"
-                                        disabled={isLoadingInstallments || !installments || installments.length <= 1 || product.price < 100}
+                                        disabled={isLoadingInstallments || !installments || installments.length === 0}
                                     >
                                         Ver parcelas disponíveis
                                     </button>
