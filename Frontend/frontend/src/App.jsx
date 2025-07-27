@@ -1,4 +1,3 @@
-// ===== INÍCIO PARTE 1 =====
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 
@@ -113,10 +112,12 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         const contentType = response.headers.get("content-type");
 
         if (!response.ok) {
+            // ===== INÍCIO DA ALTERAÇÃO =====
             // Se o erro for de autenticação, avisa o app para deslogar o usuário
             if (response.status === 401 || response.status === 403) {
                 window.dispatchEvent(new Event('auth-error'));
             }
+            // ===== FIM DA ALTERAÇÃO =====
 
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -242,6 +243,7 @@ const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         setUser(null);
         setToken(null);
+        // Opcional: redirecionar para a página de login
         window.location.hash = '#login';
     }, []);
 
@@ -260,6 +262,8 @@ const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, []);
 
+    // ===== INÍCIO DA ALTERAÇÃO =====
+    // Este useEffect "ouve" o evento de erro de autenticação e chama o logout
     useEffect(() => {
         const handleAuthError = () => {
             console.log("Erro de autenticação detectado. Deslogando usuário.");
@@ -267,10 +271,13 @@ const AuthProvider = ({ children }) => {
         };
 
         window.addEventListener('auth-error', handleAuthError);
+
+        // Limpa o ouvinte quando o componente for desmontado para evitar vazamentos de memória
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
     }, [logout]);
+    // ===== FIM DA ALTERAÇÃO =====
 
     const login = async (email, password) => {
         const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
@@ -284,6 +291,8 @@ const AuthProvider = ({ children }) => {
     const register = async (name, email, password, cpf) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
+
+    // (A função logout foi movida para cima para ser usada no useEffect)
 
     return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
 };
@@ -434,12 +443,16 @@ const ShopProvider = ({ children }) => {
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
+        // Se for roupa, a identificação é produto + variação. Senão, só produto.
         const cartItemId = productToAdd.product_type === 'clothing' && variation 
             ? `${productToAdd.id}-${variation.color}-${variation.size}` 
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
+
+        // Determina o estoque disponível para a variação específica ou para o produto geral.
         const availableStock = variation ? variation.stock : productToAdd.stock;
+        
         const currentQtyInCart = existing ? existing.qty : 0;
         
         if (currentQtyInCart + qty > availableStock) {
@@ -465,6 +478,7 @@ const ShopProvider = ({ children }) => {
                     variationId: variation?.id
                 }).catch(err => {
                     console.error("Falha ao sincronizar carrinho com o backend:", err);
+                    // Opcional: Reverter a alteração no estado local se o backend falhar
                 });
             }
             return updatedCart;
@@ -495,6 +509,7 @@ const ShopProvider = ({ children }) => {
         
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) {
+            // Lançar um erro que pode ser capturado na UI para notificação
             throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         }
 
@@ -3095,6 +3110,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = orderResult;
 
             if (paymentMethod === 'mercadopago') {
+                // Store the order ID before redirecting, so we can verify the return page.
                 sessionStorage.setItem('pendingOrderId', orderId);
                 const mpPayload = { orderId };
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
@@ -3218,6 +3234,8 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
+    // Use a ref to track the current status inside callbacks without re-triggering the main effect.
+    // This ensures event listeners always have the latest state.
     const statusRef = useRef(pageStatus);
     useEffect(() => {
         statusRef.current = pageStatus;
@@ -3227,15 +3245,16 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         console.log(`Verificando status do pedido #${orderId}...`);
         try {
             const response = await apiService(`/orders/${orderId}/status`);
+            // If payment is approved or has a final state, update the page and stop polling.
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
-                return true; 
+                return true; // Polling can stop
             }
         } catch (err) {
             console.error("Erro ao verificar status, continuando a verificação.", err);
         }
-        return false;
+        return false; // Polling should continue
     }, [orderId]);
 
     useEffect(() => {
@@ -3243,7 +3262,9 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         let pollInterval;
         let timeout;
 
+        // Function to be called by event listeners when user returns to the page
         const forceCheck = () => {
+            // Use the ref to get the LATEST status to avoid stale state issues
             if (statusRef.current === 'processing') {
                 console.log("Forçando verificação de status (evento de visibilidade/foco)");
                 pollStatus();
@@ -3251,9 +3272,11 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
 
         const startPolling = async () => {
+            // Initial check when page loads
             const isFinished = await pollStatus();
-            if (isFinished) return;
+            if (isFinished) return; // If already confirmed, don't start timers
 
+            // Set up a regular check every 5 seconds
             pollInterval = setInterval(async () => {
                  const finished = await pollStatus();
                  if (finished) {
@@ -3262,6 +3285,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                  }
             }, 5000);
             
+            // Set a final timeout after 1 minute for async payments (like Boleto)
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
@@ -3272,10 +3296,12 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
         startPolling();
 
+        // Listen for events that indicate the user has returned to the page
         window.addEventListener('focus', forceCheck);
         window.addEventListener('pageshow', forceCheck);
         document.addEventListener('visibilitychange', forceCheck);
 
+        // Cleanup function to remove timers and listeners when component unmounts
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
@@ -3283,7 +3309,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             window.removeEventListener('pageshow', forceCheck);
             document.removeEventListener('visibilitychange', forceCheck);
         };
-    }, [orderId, clearOrderState, pollStatus]);
+    }, [orderId, clearOrderState, pollStatus]); // Main effect only depends on stable values
 
 
     const renderContent = () => {
@@ -3331,7 +3357,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         </div>
     );
 };
-// ===== FIM PARTE 1 =====// ===== INÍCIO PARTE 2 =====
+
 const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
         'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
@@ -3553,14 +3579,14 @@ const MyOrdersSection = ({ onNavigate }) => {
         const promises = orderItems.map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
-                return Promise.resolve(0);
+                return Promise.resolve(0); // Resolve para não quebrar o Promise.all
             }
             const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations };
             return addToCart(product, item.quantity, item.variation)
-                .then(() => 1)
+                .then(() => 1) // Sucesso
                 .catch(err => {
                     notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0;
+                    return 0; // Falha
                 });
         });
 
@@ -3855,6 +3881,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
     return (
         <div className="min-h-screen flex bg-gray-100 text-gray-800">
+            {/* Sidebar */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
@@ -3876,6 +3903,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             </aside>
              {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
+            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
                 <header className="bg-white shadow-md lg:hidden h-16 flex items-center px-4 flex-shrink-0">
                      <button onClick={() => setIsSidebarOpen(true)} className="p-2">
@@ -4051,6 +4079,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     );
 };
 
+// NOVO: Formulário genérico para Admin (Usado por Cupons e Usuários)
 const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     const [formData, setFormData] = useState({});
 
@@ -4181,13 +4210,15 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const initialData = {};
         allFields.forEach(field => {
             const value = item?.[field.name];
+            // Use the value from the item if it exists
             if (value !== undefined && value !== null) {
                 initialData[field.name] = value;
             } else {
+                // Otherwise, set a default based on type for new items
                 if (field.type === 'checkbox') {
                     initialData[field.name] = 1;
                 } else if (field.type === 'number') {
-                    initialData[field.name] = 0;
+                    initialData[field.name] = 0; // Default numbers to 0 instead of ''
                 } else if (field.name === 'images' || field.name === 'variations') {
                     initialData[field.name] = [];
                 } else {
@@ -4198,6 +4229,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         
         if (item) {
             setProductType(item.product_type || 'perfume');
+            // Ensure JSON fields are parsed correctly
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
         } else {
@@ -4239,7 +4271,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             
             setFormData(prev => ({...prev, images: [...(prev.images || []), ...newImageUrls]}));
             setUploadStatus('Upload concluído com sucesso!');
-            e.target.value = '';
+            e.target.value = ''; // Limpa o input de arquivo
             setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
             setUploadStatus(`Erro no upload: ${error.message}`);
@@ -4926,7 +4958,7 @@ const AdminProducts = ({ onNavigate }) => {
     </div>
   )
 };
-// ===== FIM PARTE 2 =====// ===== INÍCIO PARTE 3 =====
+
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -5579,6 +5611,7 @@ const AdminReports = () => {
     );
 };
 
+// --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
         if (deferredPrompt) {
@@ -5600,6 +5633,7 @@ const InstallPWAButton = ({ deferredPrompt }) => {
 };
 
 
+// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -5609,16 +5643,20 @@ function AppContent({ deferredPrompt }) {
   }, []);
   
   useEffect(() => {
+    // This effect acts as a safeguard to ensure the user lands on the success page
+    // after returning from a payment gateway, even if the backend's back_urls are misconfigured.
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
+    // If we have a pending order ID and the user is NOT on the success page
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
+      sessionStorage.removeItem('pendingOrderId'); // Clear the flag immediately to prevent loops
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
+        // If the user lands on the success page correctly, clear the flag.
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]);
+  }, [currentPath, navigate]); // Reruns on every navigation change
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -5714,6 +5752,7 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
+        // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
@@ -5777,6 +5816,7 @@ export default function App() {
             console.log('`beforeinstallprompt` event foi disparado.');
         });
         
+        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
@@ -5819,4 +5859,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-// ===== FIM PARTE 3 =====
