@@ -112,12 +112,10 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         const contentType = response.headers.get("content-type");
 
         if (!response.ok) {
-            // ===== INÍCIO DA ALTERAÇÃO =====
             // Se o erro for de autenticação, avisa o app para deslogar o usuário
             if (response.status === 401 || response.status === 403) {
                 window.dispatchEvent(new Event('auth-error'));
             }
-            // ===== FIM DA ALTERAÇÃO =====
 
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -262,8 +260,7 @@ const AuthProvider = ({ children }) => {
         setIsLoading(false);
     }, []);
 
-    // ===== INÍCIO DA ALTERAÇÃO =====
-    // Este useEffect "ouve" o evento de erro de autenticação e chama o logout
+    // Ouve o evento de erro de autenticação e chama o logout
     useEffect(() => {
         const handleAuthError = () => {
             console.log("Erro de autenticação detectado. Deslogando usuário.");
@@ -272,12 +269,10 @@ const AuthProvider = ({ children }) => {
 
         window.addEventListener('auth-error', handleAuthError);
 
-        // Limpa o ouvinte quando o componente for desmontado para evitar vazamentos de memória
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
     }, [logout]);
-    // ===== FIM DA ALTERAÇÃO =====
 
     const login = async (email, password) => {
         const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
@@ -291,8 +286,6 @@ const AuthProvider = ({ children }) => {
     const register = async (name, email, password, cpf) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
-
-    // (A função logout foi movida para cima para ser usada no useEffect)
 
     return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
 };
@@ -448,22 +441,19 @@ const ShopProvider = ({ children }) => {
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
-
         const availableStock = variation ? variation.stock : productToAdd.stock;
-        
         const currentQtyInCart = existing ? existing.qty : 0;
         
         if (currentQtyInCart + qty > availableStock) {
             throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         }
+        
+        const priceForCart = (productToAdd.on_sale && productToAdd.sale_price > 0) 
+            ? productToAdd.sale_price 
+            : productToAdd.price;
 
         setCart(currentCart => {
             let updatedCart;
-
-            const isOnSale = productToAdd.promo_price && parseFloat(productToAdd.promo_price) < parseFloat(productToAdd.price);
-            const effectivePrice = isOnSale ? parseFloat(productToAdd.promo_price) : parseFloat(productToAdd.price);
-            const originalPrice = isOnSale ? parseFloat(productToAdd.price) : undefined;
-            
             if (existing) {
                 const newQty = existing.qty + qty;
                 updatedCart = currentCart.map(item => 
@@ -472,11 +462,11 @@ const ShopProvider = ({ children }) => {
             } else {
                 const newItem = { 
                     ...productToAdd, 
+                    price: priceForCart, 
+                    original_price: productToAdd.price,
                     qty, 
                     variation, 
-                    cartItemId, 
-                    price: effectivePrice, 
-                    original_price: originalPrice 
+                    cartItemId 
                 };
                 updatedCart = [...currentCart, newItem];
             }
@@ -827,31 +817,44 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-
+    const [isBuyingNow, setIsBuyingNow] = useState(false);
+    
     const imageUrl = getFirstImage(product.images);
     const avgRating = Math.round(product.avg_rating || 0);
 
-    const isOnSale = product.promo_price && parseFloat(product.promo_price) < parseFloat(product.price);
-    const discountPercent = isOnSale ? Math.round(((product.price - product.promo_price) / product.price) * 100) : 0;
-
-    const handleAddToCart = async (e) => {
+    const discountPercent = product.on_sale && product.sale_price
+        ? Math.round(((product.price - product.sale_price) / product.price) * 100)
+        : 0;
+        
+    const handleAction = async (e, actionType) => {
         e.stopPropagation();
         if (product.product_type === 'clothing') {
             notification.show("Escolha cor e tamanho na página do produto.", "error");
             onNavigate(`product/${product.id}`);
             return;
         }
-        setIsAddingToCart(true);
+
+        if (actionType === 'buyNow') {
+            setIsBuyingNow(true);
+        } else {
+            setIsAddingToCart(true);
+        }
+
         try {
             await addToCart(product, 1);
-            notification.show(`${product.name} adicionado ao carrinho!`);
+            if (actionType === 'buyNow') {
+                onNavigate('cart');
+            } else {
+                notification.show(`${product.name} adicionado ao carrinho!`);
+            }
         } catch (error) {
-            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
+            notification.show(error.message || "Erro ao executar ação", "error");
         } finally {
             setIsAddingToCart(false);
+            setIsBuyingNow(false);
         }
     };
-    
+
     const WishlistButton = ({ product }) => {
         const { wishlist, addToWishlist, removeFromWishlist } = useShop();
         const { isAuthenticated } = useAuth();
@@ -874,7 +877,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         };
 
         return (
-            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition-colors duration-300 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
                 <HeartIcon className="h-6 w-6" filled={isWishlisted} />
             </button>
         );
@@ -888,65 +891,58 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -5, boxShadow: "0px 20px 25px -5px rgba(212, 175, 55, 0.2), 0px 10px 10px -5px rgba(212, 175, 55, 0.1)" }}
-            className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col group text-white h-full shadow-lg"
+            whileHover={{ y: -8, scale: 1.03, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full cursor-pointer"
+            onClick={() => onNavigate(`product/${product.id}`)}
         >
-            <div className="relative overflow-hidden cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)}>
-                {isOnSale && (
-                    <div className="absolute top-3 left-0 bg-red-600 text-white text-xs font-bold px-3 py-1 z-10 rounded-r-full shadow-md">
-                        {discountPercent}% OFF
+            <div className="relative h-64 bg-white">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain" />
+                <WishlistButton product={product} />
+
+                {product.on_sale && discountPercent > 0 && (
+                     <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                         -{discountPercent}%
+                     </div>
+                )}
+                
+                {product.product_type === 'clothing' && (
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
+                        Ver Cores e Tamanhos
                     </div>
                 )}
-                <img 
-                    src={imageUrl} 
-                    alt={product.name} 
-                    className="w-full h-64 object-contain bg-white group-hover:scale-110 transition-transform duration-500 ease-in-out" 
-                />
-                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <button 
-                        onClick={handleAddToCart}
-                        disabled={isAddingToCart}
-                        className="bg-amber-400 text-black font-bold py-2 px-6 rounded-md hover:bg-amber-300 transition-transform hover:scale-105 flex items-center gap-2 disabled:opacity-50"
-                    >
-                         {isAddingToCart ? <SpinnerIcon /> : <CartIcon className="h-5 w-5"/>}
-                         {isAddingToCart ? '' : 'Adicionar'}
-                    </button>
-                </div>
-                <WishlistButton product={product} />
             </div>
-
-            <div className="p-4 flex-grow flex flex-col">
-                <p className="text-xs text-amber-500 font-semibold tracking-wider uppercase">{product.brand}</p>
-                <h4 className="text-lg font-bold tracking-tight mt-1 cursor-pointer hover:text-amber-400 flex-grow" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                
+            <div className="p-5 flex-grow flex flex-col">
+                <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                <h4 className="text-lg font-bold tracking-tight mt-1 group-hover:text-amber-400 transition-colors duration-300">{product.name}</h4>
                 <div className="flex items-center mt-2">
                     {[...Array(5)].map((_, i) => (
                         <StarIcon 
                             key={i} 
-                            className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
                             isFilled={i < avgRating}
                         />
                     ))}
-                    <span className="text-xs text-gray-500 ml-2">({product.review_count || 0})</span>
                 </div>
-
-                <div className="mt-3 mb-4">
-                    {isOnSale ? (
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-2xl font-bold text-green-400">R$ {Number(product.promo_price).toFixed(2)}</p>
-                            <p className="text-base text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                        </div>
+                
+                <div className="mt-auto pt-4">
+                    {product.on_sale && product.sale_price ? (
+                         <div className="flex items-baseline gap-2">
+                             <p className="text-2xl font-bold text-amber-400">R$ {Number(product.sale_price).toFixed(2)}</p>
+                             <p className="text-base font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                         </div>
                     ) : (
-                        <p className="text-2xl font-bold text-white">R$ {Number(product.price).toFixed(2)}</p>
+                         <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
                     )}
                 </div>
 
-                <button 
-                    onClick={() => onNavigate(`product/${product.id}`)} 
-                    className="w-full border-2 border-amber-500 text-amber-500 font-bold py-2 rounded-md hover:bg-amber-500 hover:text-black transition-colors duration-300 mt-auto text-sm"
-                >
-                    Ver Detalhes
-                </button>
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <button onClick={(e) => handleAction(e, 'buyNow')} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                    </button>
+                    <button onClick={(e) => handleAction(e, 'addToCart')} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                    </button>
+                </div>
             </div>
         </motion.div>
     );
@@ -1272,7 +1268,7 @@ const Header = memo(({ onNavigate }) => {
                                     </div>
                                 ))}
                                 <div className="border-b border-gray-800">
-                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
+                                    <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-red-400 hover:text-red-300">Promoções</a>
                                 </div>
                                 <div className="border-b border-gray-800">
                                     <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
@@ -1393,17 +1389,19 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
+    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [], onSale: [] });
 
     useEffect(() => { 
         apiService('/products')
             .then(data => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+                const onSaleProducts = data.filter(p => p.on_sale && p.sale_price > 0);
                 
                 setProducts({
                     newArrivals: sortedByDate,
-                    bestSellers: sortedBySales
+                    bestSellers: sortedBySales,
+                    onSale: onSaleProducts,
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
@@ -1464,6 +1462,18 @@ const HomePage = ({ onNavigate }) => {
         
         <CollectionsCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
 
+        {products.onSale.length > 0 && (
+            <section className="bg-gradient-to-t from-red-900/40 via-black to-black text-white py-12 md:py-16">
+                <div className="container mx-auto px-4">
+                    <div className="text-center mb-10">
+                        <h2 className="text-3xl md:text-4xl font-bold text-red-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">🔥 Ofertas Imperdíveis 🔥</h2>
+                        <p className="text-gray-400 mt-2">Aproveite descontos exclusivos por tempo limitado!</p>
+                    </div>
+                    <ProductCarousel products={products.onSale} onNavigate={onNavigate} />
+                </div>
+            </section>
+        )}
+
         <section className="bg-black text-white py-12 md:py-16">
           <div className="container mx-auto px-4">
               <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
@@ -1479,7 +1489,7 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
-const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialPromo = 'false' }) => {
+const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialPromo = false }) => {
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
@@ -1509,18 +1519,14 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
 
     useEffect(() => {
         let result = allProducts;
-        if (filters.search) {
-            result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
+        
+        if (initialPromo) {
+            result = result.filter(p => p.on_sale && p.sale_price > 0);
         }
-        if (filters.brand) {
-            result = result.filter(p => p.brand === filters.brand);
-        }
-        if (filters.category) {
-            result = result.filter(p => p.category === filters.category);
-        }
-        if (initialPromo === 'true') {
-            result = result.filter(p => p.promo_price && parseFloat(p.promo_price) < parseFloat(p.price));
-        }
+
+        if (filters.search) result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
+        if (filters.brand) result = result.filter(p => p.brand === filters.brand);
+        if (filters.category) result = result.filter(p => p.category === filters.category);
         setFilteredProducts(result);
         setCurrentPage(1);
     }, [filters, allProducts, initialPromo]);
@@ -1560,7 +1566,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         <div className="bg-black text-white py-12 min-h-screen">
             <div className="container mx-auto px-4">
                 <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-                    {initialPromo === 'true' ? '🔥 Promoções 🔥' : 'Nossa Coleção'}
+                    {initialPromo ? "Promoções" : "Nossa Coleção"}
                 </h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
@@ -1967,7 +1973,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             setIsLoadingInstallments(true);
             setInstallments([]);
             try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                const finalPrice = product.on_sale && product.sale_price > 0 ? product.sale_price : price;
+                const installmentData = await apiService(`/mercadopago/installments?amount=${finalPrice}`);
                 setInstallments(installmentData || []);
             } catch (error) {
                 console.warn("Não foi possível carregar as opções de parcelamento.", error);
@@ -2012,7 +2019,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
             
-            const stockLimit = selectedVariation?.stock;
+            const stockLimit = selectedVariation?.stock || product?.stock;
             if (stockLimit && newQty > stockLimit) {
                 return stockLimit;
             }
@@ -2165,7 +2172,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isClothing = product.product_type === 'clothing';
     const isPerfume = product.product_type === 'perfume';
 
-    const stockLimit = selectedVariation?.stock;
+    const stockLimit = selectedVariation?.stock || product?.stock;
     const isQtyAtMax = stockLimit ? quantity >= stockLimit : false;
     
     return (
@@ -2246,7 +2253,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        {product.on_sale && product.sale_price > 0 ? (
+                            <div className="flex items-baseline gap-3">
+                                <p className="text-4xl font-bold text-amber-400">R$ {Number(product.sale_price).toFixed(2)}</p>
+                                <p className="text-xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                            </div>
+                        ) : (
+                            <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        )}
                         
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
@@ -2324,8 +2338,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
 
-
-                {crossSellProducts.length > 0 && (
+{crossSellProducts.length > 0 && (
                     <div className="mt-20 pt-10 border-t border-gray-800">
                         <ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" />
                     </div>
@@ -2720,30 +2733,21 @@ const CartPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.original_price || item.price) * item.qty, 0), [cart]);
-    const totalSavings = useMemo(() => cart.reduce((sum, item) => {
-        if (item.original_price) {
-            return sum + (item.original_price - item.price) * item.qty;
-        }
-        return sum;
-    }, 0), [cart]);
-    
-    const cartSubtotal = useMemo(() => subtotal - totalSavings, [subtotal, totalSavings]);
-
+    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
         if (appliedCoupon.type === 'percentage') {
-            discountValue = cartSubtotal * (parseFloat(appliedCoupon.value) / 100);
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
             discountValue = parseFloat(appliedCoupon.value);
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
         return discountValue;
-    }, [appliedCoupon, cartSubtotal, shippingCost]);
+    }, [appliedCoupon, subtotal, shippingCost]);
 
     
     const handleApplyCoupon = (e) => {
@@ -2753,7 +2757,7 @@ const CartPage = ({ onNavigate }) => {
         }
     }
     
-    const total = useMemo(() => cartSubtotal - discount + shippingCost, [cartSubtotal, discount, shippingCost]);
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     const handleUpdateQuantity = async (cartItemId, newQuantity) => {
         try {
@@ -2792,14 +2796,12 @@ const CartPage = ({ onNavigate }) => {
                                                         {item.variation.color} / {item.variation.size}
                                                     </p>
                                                 )}
-                                                {item.original_price ? (
-                                                    <div className="flex items-baseline gap-2">
-                                                        <p className="text-md font-bold text-green-400">R$ {Number(item.price).toFixed(2)}</p>
-                                                        <p className="text-sm text-gray-500 line-through">R$ {Number(item.original_price).toFixed(2)}</p>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-md text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
-                                                )}
+                                                <div className="flex items-baseline gap-2 text-sm">
+                                                    <span className="text-amber-400 font-semibold">R$ {Number(item.price).toFixed(2)}</span>
+                                                    {item.on_sale && (
+                                                        <span className="text-gray-500 line-through">R$ {Number(item.original_price).toFixed(2)}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="flex items-center justify-between w-full sm:w-auto">
@@ -2820,16 +2822,8 @@ const CartPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300">
-                                    <span>Subtotal</span>
-                                    <span>R$ {subtotal.toFixed(2)}</span>
-                                </div>
-                                {totalSavings > 0 && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>Economia</span>
-                                        <span>- R$ {totalSavings.toFixed(2)}</span>
-                                    </div>
-                                )}
+                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                                
                                 <div className="flex justify-between text-gray-300">
                                     <span>Frete (PAC)</span>
                                     {isLoadingShipping ? (
@@ -4242,8 +4236,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
-        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'promo_price', label: 'Preço Promocional (opcional)', type: 'number', step: '0.01' },
+        { name: 'price', label: 'Preço', type: 'number', required: true, step: '0.01' },
+        { name: 'sale_price', label: 'Preço Promocional (opcional)', type: 'number', step: '0.01' },
+        { name: 'on_sale', label: 'Em promoção?', type: 'checkbox' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
         { name: 'description', label: 'Descrição', type: 'textarea' },
@@ -4260,15 +4255,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const initialData = {};
         allFields.forEach(field => {
             const value = item?.[field.name];
-            // Use the value from the item if it exists
             if (value !== undefined && value !== null) {
                 initialData[field.name] = value;
             } else {
-                // Otherwise, set a default based on type for new items
                 if (field.type === 'checkbox') {
-                    initialData[field.name] = 1;
+                    initialData[field.name] = (field.name === 'is_active' ? 1 : 0);
                 } else if (field.type === 'number') {
-                    initialData[field.name] = 0; // Default numbers to 0 instead of ''
+                    initialData[field.name] = 0;
                 } else if (field.name === 'images' || field.name === 'variations') {
                     initialData[field.name] = [];
                 } else {
@@ -4279,7 +4272,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         
         if (item) {
             setProductType(item.product_type || 'perfume');
-            // Ensure JSON fields are parsed correctly
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
         } else {
@@ -4321,7 +4313,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             
             setFormData(prev => ({...prev, images: [...(prev.images || []), ...newImageUrls]}));
             setUploadStatus('Upload concluído com sucesso!');
-            e.target.value = ''; // Limpa o input de arquivo
+            e.target.value = '';
             setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
             setUploadStatus(`Erro no upload: ${error.message}`);
@@ -4426,7 +4418,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {commonFields.map(field => {
                     if (field.name === 'category') {
                          if (productType === 'clothing') {
@@ -4510,7 +4502,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     }
                     if (field.type === 'textarea') {
                          return (
-                            <div key={field.name} className="md:col-span-2">
+                            <div key={field.name} className="lg:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                                 <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
                             </div>
@@ -4518,7 +4510,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     }
                     if (field.name === 'images' || field.name === 'images_upload') return null;
                     return (
-                        <div key={field.name} className={field.name === 'name' ? 'md:col-span-2' : ''}>
+                        <div key={field.name} className={field.name === 'name' ? 'lg:col-span-3' : ''}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                             <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
                         </div>
@@ -4679,12 +4671,12 @@ const DownloadTemplateButton = ({ productType }) => {
     const handleDownload = () => {
         let headers, exampleRow, filename;
         if (productType === 'perfume') {
-            headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type,promo_price";
-            exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume,179.90";
+            headers = "name,brand,category,price,sale_price,on_sale,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type";
+            exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,149.90,1,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume";
             filename = "modelo_perfumes.csv";
         } else { // clothing
-            headers = "name,brand,category,price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type,promo_price";
-            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing,79.90";
+            headers = "name,brand,category,price,sale_price,on_sale,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type";
+            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,79.90,1,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing";
             filename = "modelo_roupas.csv";
         }
         
@@ -4967,7 +4959,16 @@ const AdminProducts = ({ onNavigate }) => {
                                     </div>
                                 </td>
                                 <td className="p-4 capitalize">{p.product_type}</td>
-                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
+                                <td className="p-4">
+                                    {p.on_sale && p.sale_price > 0 ? (
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-red-600">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                            <span className="text-xs text-gray-500 line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                        </div>
+                                    ) : (
+                                        `R$ ${Number(p.price).toFixed(2)}`
+                                    )}
+                                </td>
                                 <td className="p-4">{p.stock}</td>
                                 <td className="p-4">{p.sales || 0}</td>
                                 <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
@@ -4992,7 +4993,17 @@ const AdminProducts = ({ onNavigate }) => {
                             <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
-                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
+                             <div>
+                                <strong className="text-gray-500 block">Preço</strong>
+                                {p.on_sale && p.sale_price > 0 ? (
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-red-600">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                        <span className="text-xs text-gray-500 line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                    </div>
+                                ) : (
+                                    `R$ ${Number(p.price).toFixed(2)}`
+                                )}
+                             </div>
                              <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
                              <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                              <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{p.product_type}</span></div>
@@ -5011,7 +5022,7 @@ const AdminProducts = ({ onNavigate }) => {
 
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
-    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const confirmation = useConfirmation();
     const notification = useNotification();
@@ -5693,20 +5704,16 @@ function AppContent({ deferredPrompt }) {
   }, []);
   
   useEffect(() => {
-    // This effect acts as a safeguard to ensure the user lands on the success page
-    // after returning from a payment gateway, even if the backend's back_urls are misconfigured.
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
-    // If we have a pending order ID and the user is NOT on the success page
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); // Clear the flag immediately to prevent loops
+      sessionStorage.removeItem('pendingOrderId');
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
-        // If the user lands on the success page correctly, clear the flag.
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); // Reruns on every navigation change
+  }, [currentPath, navigate]);
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -5726,7 +5733,7 @@ function AppContent({ deferredPrompt }) {
     const initialSearch = searchParams.get('search') || '';
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
-    const initialPromo = searchParams.get('promo') || 'false';
+    const initialPromo = searchParams.get('promo') === 'true';
     
     const [mainPage, pageId] = path.split('/');
 
@@ -5768,7 +5775,7 @@ function AppContent({ deferredPrompt }) {
     
     const pages = {
         'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialPromo={initialPromo}/>,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialPromo={initialPromo} />,
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
@@ -5910,3 +5917,4 @@ export default function App() {
         </AuthProvider>
     );
 }
+// ===== FIM PARTE 3 =====
