@@ -809,21 +809,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const [isBuyingNow, setIsBuyingNow] = useState(false);
     
     const imageUrl = getFirstImage(product.images);
-
-    // --- UPDATES START ---
-    const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
-    const isOnSale = product.is_on_sale && product.sale_price > 0 && product.sale_price < product.price;
-
-    const isNewArrival = useMemo(() => {
-        if (!product.created_at) return false;
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product.created_at]);
-
-    const discountPercentage = isOnSale
-        ? Math.round(((product.price - product.sale_price) / product.price) * 100)
-        : 0;
-    // --- UPDATES END ---
+    const avgRating = Math.round(product.avg_rating || 0);
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -896,6 +882,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
+    
+    const isOnSale = product.is_on_sale && product.sale_price > 0;
 
     return (
         <motion.div 
@@ -906,24 +894,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
             <div className="relative h-64 bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
-
-                 {/* ===== BADGES AREA ===== */}
-                 <div className="absolute top-2 left-2 flex flex-col gap-2">
-                     {isOnSale && (
-                         <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1">
-                             <SaleIcon className="h-3 w-3" />
-                             <span>-{discountPercentage}%</span>
-                         </div>
-                     )}
-                     {isNewArrival && !isOnSale && (
-                         <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1">
-                             <SparklesIcon className="h-3 w-3" />
-                             <span>LANÇAMENTO</span>
-                         </div>
-                     )}
-                 </div>
-                 {/* ======================= */}
-
+                 {isOnSale && (
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">PROMO</div>
+                 )}
                  {product.product_type === 'clothing' && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
                         Ver Cores e Tamanhos
@@ -933,23 +906,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
             <div className="p-5 flex-grow flex flex-col">
                  <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                 <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                
-                {/* ===== RATING FIX ===== */}
-                {avgRating > 0 ? (
-                    <div className="flex items-center mt-2">
-                        {[...Array(5)].map((_, i) => (
-                            <StarIcon 
-                                key={i} 
-                                className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                                isFilled={i < avgRating}
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="h-5 mt-2"></div> // Placeholder to keep layout consistent
-                )}
-                {/* ==================== */}
-
+                <div className="flex items-center mt-2">
+                    {[...Array(5)].map((_, i) => (
+                        <StarIcon 
+                            key={i} 
+                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            isFilled={i < avgRating}
+                        />
+                    ))}
+                </div>
                 <div className="flex-grow"/>
                 
                 {isOnSale ? (
@@ -1931,6 +1896,8 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
         </div>
     );
 };
+
+
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(true);
