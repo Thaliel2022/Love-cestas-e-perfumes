@@ -809,15 +809,26 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const [isBuyingNow, setIsBuyingNow] = useState(false);
     
     const imageUrl = getFirstImage(product.images);
+
+    // ===== INÍCIO DAS ATUALIZAÇÕES =====
+    
+    // 1. Lógica para verificar se o produto está em promoção e calcular o desconto.
+    const isOnSale = product.is_on_sale && product.sale_price > 0 && product.sale_price < product.price;
+    const discountPercentage = isOnSale
+        ? Math.round(((product.price - product.sale_price) / product.price) * 100)
+        : 0;
+
+    // 2. Lógica para verificar se é um lançamento (criado nos últimos 30 dias).
+    const isNewArrival = useMemo(() => {
+        if (!product.created_at) return false;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        return new Date(product.created_at) > thirtyDaysAgo;
+    }, [product.created_at]);
+
+    // 3. Lógica para exibir as estrelas de avaliação apenas se houver avaliações.
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
     
-    const isNew = product.created_at && (new Date() - new Date(product.created_at)) < 15 * 24 * 60 * 60 * 1000;
-    const isOnSale = product.is_on_sale && product.sale_price > 0 && product.price > product.sale_price;
-    
-    let discountPercentage = 0;
-    if (isOnSale) {
-        discountPercentage = Math.round(((product.price - product.sale_price) / product.price) * 100);
-    }
+    // ===== FIM DAS ATUALIZAÇÕES =====
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -899,32 +910,30 @@ const ProductCard = memo(({ product, onNavigate }) => {
         >
             <div className="relative h-64 bg-white">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
-                 <WishlistButton product={product} />
-                 
-                <div className="absolute top-2 left-2 flex flex-col gap-y-2">
-                    {isOnSale && discountPercentage > 0 && (
-                        <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg transform group-hover:scale-110 transition-transform">
-                            {discountPercentage}% OFF
-                        </div>
-                    )}
-                    {isNew && (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg">
-                            LANÇAMENTO
-                        </div>
-                    )}
-                </div>
+                <WishlistButton product={product} />
 
-                 {product.product_type === 'clothing' && (
+                {/* ATUALIZAÇÃO: Etiqueta de Lançamento no canto da imagem */}
+                <div className="absolute top-2 left-2 flex flex-col gap-2">
+                     {isNewArrival && (
+                         <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded-md shadow-lg flex items-center gap-1">
+                             <SparklesIcon className="h-3 w-3" />
+                             <span>LANÇAMENTO</span>
+                         </div>
+                     )}
+                </div>
+                 
+                {product.product_type === 'clothing' && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
                         Ver Cores e Tamanhos
                     </div>
                 )}
             </div>
             <div className="p-5 flex-grow flex flex-col">
-                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                 <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                 
-                {avgRating > 0 && (
+                {/* ATUALIZAÇÃO: Remove as estrelas se não houver avaliação, evitando o "0" */}
+                {avgRating > 0 ? (
                     <div className="flex items-center mt-2">
                         {[...Array(5)].map((_, i) => (
                             <StarIcon 
@@ -934,14 +943,25 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             />
                         ))}
                     </div>
+                ) : (
+                    // Deixa um espaço vazio para manter o layout alinhado
+                    <div className="h-5 mt-2"></div> 
                 )}
 
                 <div className="flex-grow"/>
                 
+                {/* ATUALIZAÇÃO: Nova seção de preço com porcentagem de desconto */}
                 {isOnSale ? (
-                     <div className="mt-4 flex items-baseline gap-3">
-                        <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
-                        <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                     <div className="mt-4">
+                        <div className="flex items-baseline gap-3">
+                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                        </div>
+                        <div className="mt-1">
+                           <span className="text-sm font-bold text-red-500">
+                               {discountPercentage}% OFF
+                           </span>
+                        </div>
                     </div>
                 ) : (
                     <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
