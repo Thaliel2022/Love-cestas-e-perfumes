@@ -895,7 +895,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
                  {isOnSale && (
-                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">PROMO</div>
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">PROMOÇÃO</div>
                  )}
                  {product.product_type === 'clothing' && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
