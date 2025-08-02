@@ -2241,7 +2241,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[540px] cursor-zoom-in relative">
                             {isOnSale && (
-                                <div className="absolute top-3 left-3 bg-red-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-lg z-10">PROMO</div>
+                                <div className="absolute top-3 left-3 bg-red-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-lg z-10">PROMOÇÃO</div>
                             )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
