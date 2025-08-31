@@ -11,7 +11,7 @@ const UserIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" clas
 const AdminIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const MenuIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 const CloseIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>;
-const StarIcon = memo(({ className, isFilled, onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill={isFilled ? "currentColor" : "none"} stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>;
+const StarIcon = memo(({ className, isFilled, onClick }) => <svg onClick={onClick} xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill={isFilled ? "currentColor" : "none"} stroke="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>);
 const PlusIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>;
 const TrashIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>;
 const EditIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>;
@@ -47,6 +47,8 @@ const SparklesIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" 
 const XMarkIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>;
 const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
 const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7 .946-3.11 3.563-5.524 6.858-6.39M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 4.407A9.953 9.953 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-2.125-.3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 1l22 22" /></svg>;
+const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+
 
 // --- CONSTANTE GLOBAL DO MENU ---
 const CATEGORIES_FOR_MENU = [
@@ -266,6 +268,7 @@ const AuthProvider = ({ children }) => {
         };
 
         window.addEventListener('auth-error', handleAuthError);
+
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
@@ -400,7 +403,7 @@ const ShopProvider = ({ children }) => {
                     try {
                         const productsPayload = cart.map(item => ({
                             id: String(item.id),
-                            price: item.price,
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price if available
                             quantity: item.qty || 1,
                         }));
                         const options = await apiService('/shipping/calculate', 'POST', {
@@ -438,9 +441,7 @@ const ShopProvider = ({ children }) => {
             : productToAdd.id;
 
         const existing = cart.find(item => item.cartItemId === cartItemId);
-
         const availableStock = variation ? variation.stock : productToAdd.stock;
-        
         const currentQtyInCart = existing ? existing.qty : 0;
         
         if (currentQtyInCart + qty > availableStock) {
@@ -449,25 +450,13 @@ const ShopProvider = ({ children }) => {
 
         setCart(currentCart => {
             let updatedCart;
-
-            const isOnSale = productToAdd.promo_price && parseFloat(productToAdd.promo_price) > 0 && parseFloat(productToAdd.promo_price) < parseFloat(productToAdd.price);
-            const effectivePrice = isOnSale ? parseFloat(productToAdd.promo_price) : parseFloat(productToAdd.price);
-            const originalPrice = isOnSale ? parseFloat(productToAdd.price) : undefined;
-            
             if (existing) {
                 const newQty = existing.qty + qty;
                 updatedCart = currentCart.map(item => 
                     item.cartItemId === cartItemId ? { ...item, qty: newQty } : item
                 );
             } else {
-                const newItem = { 
-                    ...productToAdd, 
-                    qty, 
-                    variation, 
-                    cartItemId, 
-                    price: effectivePrice, 
-                    original_price: originalPrice 
-                };
+                const newItem = { ...productToAdd, qty, variation, cartItemId };
                 updatedCart = [...currentCart, newItem];
             }
 
@@ -812,15 +801,15 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
+
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-
+    const [isBuyingNow, setIsBuyingNow] = useState(false);
+    
     const imageUrl = getFirstImage(product.images);
-
-    const isOnSale = product.promo_price && parseFloat(product.promo_price) > 0 && parseFloat(product.promo_price) < parseFloat(product.price);
-    const discountPercent = isOnSale ? Math.round(((product.price - product.promo_price) / product.price) * 100) : 0;
+    const avgRating = Math.round(product.avg_rating || 0);
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -839,10 +828,28 @@ const ProductCard = memo(({ product, onNavigate }) => {
             setIsAddingToCart(false);
         }
     };
+
+    const handleBuyNow = async (e) => {
+        e.stopPropagation();
+         if (product.product_type === 'clothing') {
+            onNavigate(`product/${product.id}`);
+            return;
+        }
+        setIsBuyingNow(true);
+        try {
+            await addToCart(product, 1);
+            onNavigate('cart');
+        } catch (error) {
+            notification.show(error.message || "Erro ao iniciar compra", "error");
+        } finally {
+            setIsBuyingNow(false);
+        }
+    };
     
     const WishlistButton = ({ product }) => {
         const { wishlist, addToWishlist, removeFromWishlist } = useShop();
         const { isAuthenticated } = useAuth();
+        const notification = useNotification();
         const isWishlisted = wishlist.some(item => item.id === product.id);
 
         const handleWishlistToggle = async (e) => {
@@ -856,16 +863,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 notification.show(`${product.name} removido da lista de desejos.`, 'error');
             } else {
                 const result = await addToWishlist(product);
-                notification.show(result.message, result.success ? 'success' : 'error');
+                if (result.success) {
+                    notification.show(result.message);
+                } else {
+                    notification.show(result.message, "error");
+                }
             }
         };
 
         return (
-            <button 
-                onClick={handleWishlistToggle} 
-                className={`absolute top-3 right-3 bg-black/40 p-2 rounded-full text-white transition-all duration-300 ${isWishlisted ? 'text-amber-400 scale-110' : 'opacity-50 group-hover:opacity-100 hover:!opacity-100 hover:text-amber-400'}`}
-                title="Adicionar à Lista de Desejos"
-            >
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
                 <HeartIcon className="h-6 w-6" filled={isWishlisted} />
             </button>
         );
@@ -875,70 +882,57 @@ const ProductCard = memo(({ product, onNavigate }) => {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
+    
+    const isOnSale = product.is_on_sale && product.sale_price > 0;
 
     return (
         <motion.div 
             variants={cardVariants}
-            className="bg-gray-900 rounded-lg overflow-hidden flex flex-col group text-white h-full border border-transparent hover:border-amber-500/50 transition-colors duration-300 shadow-lg"
+            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            <div 
-                className="relative overflow-hidden cursor-pointer" 
-            >
-                <img 
-                    src={imageUrl} 
-                    alt={product.name} 
-                    onClick={() => onNavigate(`product/${product.id}`)}
-                    className="w-full h-72 object-contain bg-white group-hover:scale-105 transition-transform duration-500" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-                <div className="absolute inset-0 flex flex-col items-center justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 space-y-3">
-                    <div className="w-full flex gap-2">
-                        <button 
-                            onClick={handleAddToCart}
-                            disabled={isAddingToCart}
-                            className="w-full bg-amber-500 text-black font-bold py-2 px-3 rounded-md hover:bg-amber-400 transition flex items-center justify-center gap-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isAddingToCart ? <SpinnerIcon /> : <CartIcon className="h-5 w-5"/>}
-                            <span>Adicionar</span>
-                        </button>
-                        <button 
-                            onClick={(e) => { e.stopPropagation(); onNavigate(`product/${product.id}`); }}
-                            className="flex-shrink-0 bg-gray-700 text-white font-bold p-2 rounded-md hover:bg-gray-600 transition"
-                            title="Ver Detalhes"
-                        >
-                           <SearchIcon className="h-5 w-5"/>
-                        </button>
-                    </div>
-                </div>
-                
-                {isOnSale && (
-                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                        -{discountPercent}%
+            <div className="relative h-64 bg-white">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
+                 <WishlistButton product={product} />
+                 {isOnSale && (
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">PROMO</div>
+                 )}
+                 {product.product_type === 'clothing' && (
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
+                        Ver Cores e Tamanhos
                     </div>
                 )}
-                
-                <WishlistButton product={product} />
             </div>
-
-            <div className="p-4 flex-grow flex flex-col">
-                <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase">{product.brand}</p>
-                <h4 
-                    className="text-lg font-semibold tracking-tight mt-1 flex-grow cursor-pointer"
-                    onClick={() => onNavigate(`product/${product.id}`)}
-                >
-                    {product.name}
-                </h4>
+            <div className="p-5 flex-grow flex flex-col">
+                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                <div className="flex items-center mt-2">
+                    {[...Array(5)].map((_, i) => (
+                        <StarIcon 
+                            key={i} 
+                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            isFilled={i < avgRating}
+                        />
+                    ))}
+                </div>
+                <div className="flex-grow"/>
                 
-                <div className="mt-3">
-                    {isOnSale ? (
-                        <div>
-                            <p className="text-sm text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                            <p className="text-2xl font-bold text-amber-400">R$ {Number(product.promo_price).toFixed(2)}</p>
-                        </div>
-                    ) : (
-                        <p className="text-2xl font-bold text-white">R$ {Number(product.price).toFixed(2)}</p>
-                    )}
+                {isOnSale ? (
+                     <div className="mt-4 flex items-baseline gap-3">
+                        <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                        <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                    </div>
+                ) : (
+                    <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                )}
+                
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                    </button>
+                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                    </button>
                 </div>
             </div>
         </motion.div>
@@ -1191,7 +1185,11 @@ const Header = memo(({ onNavigate }) => {
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
                 </div>
-                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors">Promoções</a>
+                {/* ===== ATUALIZAÇÃO PROMOÇÕES ===== */}
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
+                    <SaleIcon className="h-4 w-4" /> Promoções
+                </a>
+                {/* =============================== */}
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 
                 <AnimatePresence>
@@ -1264,6 +1262,13 @@ const Header = memo(({ onNavigate }) => {
                                         </AnimatePresence>
                                     </div>
                                 ))}
+                                {/* ===== ATUALIZAÇÃO PROMOÇÕES (MOBILE) ===== */}
+                                <div className="border-b border-gray-800">
+                                    <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
+                                        <SaleIcon className="h-5 w-5"/> Promoções
+                                    </a>
+                                </div>
+                                {/* ======================================== */}
                                 <div className="border-b border-gray-800">
                                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
                                 </div>
@@ -1472,7 +1477,8 @@ const HomePage = ({ onNavigate }) => {
     );
 };
 
-const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialPromo = 'false' }) => {
+// ===== ATUALIZAÇÃO PROMOÇÕES =====
+const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
     const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
@@ -1501,9 +1507,17 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
 
 
     useEffect(() => {
-        let result = allProducts;
+        let result = [...allProducts];
+
+        if (initialIsPromo) {
+            result = result.filter(p => p.is_on_sale);
+        }
+
         if (filters.search) {
-            result = result.filter(p => p.name.toLowerCase().includes(filters.search.toLowerCase()) || p.brand.toLowerCase().includes(filters.search.toLowerCase()));
+            result = result.filter(p => 
+                p.name.toLowerCase().includes(filters.search.toLowerCase()) || 
+                p.brand.toLowerCase().includes(filters.search.toLowerCase())
+            );
         }
         if (filters.brand) {
             result = result.filter(p => p.brand === filters.brand);
@@ -1511,12 +1525,9 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         if (filters.category) {
             result = result.filter(p => p.category === filters.category);
         }
-        if (initialPromo === 'true') {
-            result = result.filter(p => p.promo_price && parseFloat(p.promo_price) > 0 && parseFloat(p.promo_price) < parseFloat(p.price));
-        }
         setFilteredProducts(result);
         setCurrentPage(1);
-    }, [filters, allProducts, initialPromo]);
+    }, [filters, allProducts, initialIsPromo]);
     
     const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
     const uniqueCategories = useMemo(() => CATEGORIES_FOR_MENU.flatMap(cat => cat.sub), []);
@@ -1549,12 +1560,12 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         }
     };
 
+    const pageTitle = initialIsPromo ? 'Produtos em Promoção' : 'Nossa Coleção';
+
     return (
         <div className="bg-black text-white py-12 min-h-screen">
             <div className="container mx-auto px-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
-                    {initialPromo === 'true' ? '🔥 Promoções 🔥' : 'Nossa Coleção'}
-                </h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">{pageTitle}</h2>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1 bg-gray-900 p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-28">
                         <h3 className="text-xl font-bold mb-4 text-amber-400">Filtros</h3>
@@ -1598,6 +1609,7 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
         </div>
     );
 };
+// ===================================
 
 const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     if (!isOpen || !installments || installments.length === 0) return null;
@@ -1643,7 +1655,7 @@ const ShippingCalculator = memo(({ items }) => {
         try {
             const productsPayload = items.map(item => ({
                 id: String(item.id),
-                price: item.price,
+                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price
                 quantity: item.qty || 1,
             }));
             const options = await apiService('/shipping/calculate', 'POST', {
@@ -1911,6 +1923,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
+    
+    const isOnSale = product && product.is_on_sale && product.sale_price > 0;
+    const currentPrice = isOnSale ? product.sale_price : product?.price;
+
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -1969,10 +1985,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         };
 
-        if (product && !product.error) {
-            fetchInstallments(product.price);
+        if (product && !product.error && currentPrice) {
+            fetchInstallments(currentPrice);
         }
-    }, [product]);
+    }, [product, currentPrice]);
 
 
     const handleReviewSubmit = async (e) => {
@@ -2195,7 +2211,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             )}
                             </AnimatePresence>
                             
-                            <div className="w-full sm:h-[460px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                            <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div
                                     className="flex sm:flex-col gap-3"
                                     animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }}
@@ -2223,7 +2239,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </AnimatePresence>
                         </div>
 
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[500px] cursor-zoom-in">
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[540px] cursor-zoom-in relative">
+                            {isOnSale && (
+                                <div className="absolute top-3 left-3 bg-red-600 text-white font-bold px-4 py-2 rounded-full shadow-lg text-lg z-10">PROMO</div>
+                            )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
                     </div>
@@ -2239,7 +2258,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        {isOnSale ? (
+                            <div className="flex items-baseline gap-4">
+                                <p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                                <p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                            </div>
+                        ) : (
+                            <p className="text-4xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        )}
                         
                         <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                             <div className="flex items-start">
@@ -2713,15 +2739,10 @@ const CartPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + (item.original_price || item.price) * item.qty, 0), [cart]);
-    const totalSavings = useMemo(() => cart.reduce((sum, item) => {
-        if (item.original_price) {
-            return sum + (item.original_price - item.price) * item.qty;
-        }
-        return sum;
+    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        return sum + price * item.qty;
     }, 0), [cart]);
-    
-    const cartSubtotal = useMemo(() => subtotal - totalSavings, [subtotal, totalSavings]);
 
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
@@ -2729,14 +2750,14 @@ const CartPage = ({ onNavigate }) => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
         if (appliedCoupon.type === 'percentage') {
-            discountValue = cartSubtotal * (parseFloat(appliedCoupon.value) / 100);
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
             discountValue = parseFloat(appliedCoupon.value);
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
         return discountValue;
-    }, [appliedCoupon, cartSubtotal, shippingCost]);
+    }, [appliedCoupon, subtotal, shippingCost]);
 
     
     const handleApplyCoupon = (e) => {
@@ -2746,7 +2767,7 @@ const CartPage = ({ onNavigate }) => {
         }
     }
     
-    const total = useMemo(() => cartSubtotal - discount + shippingCost, [cartSubtotal, discount, shippingCost]);
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     const handleUpdateQuantity = async (cartItemId, newQuantity) => {
         try {
@@ -2769,7 +2790,10 @@ const CartPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-2 space-y-6">
                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
-                                {cart.map(item => (
+                                {cart.map(item => {
+                                    const isOnSale = item.is_on_sale && item.sale_price > 0;
+                                    const currentPrice = isOnSale ? item.sale_price : item.price;
+                                    return (
                                     <div key={item.cartItemId} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
                                         <div className="flex items-center w-full sm:w-auto">
                                             <div 
@@ -2785,13 +2809,13 @@ const CartPage = ({ onNavigate }) => {
                                                         {item.variation.color} / {item.variation.size}
                                                     </p>
                                                 )}
-                                                {item.original_price ? (
+                                                {isOnSale ? (
                                                     <div className="flex items-baseline gap-2">
-                                                        <p className="text-md font-bold text-green-400">R$ {Number(item.price).toFixed(2)}</p>
-                                                        <p className="text-sm text-gray-500 line-through">R$ {Number(item.original_price).toFixed(2)}</p>
+                                                        <p className="text-sm text-red-500 font-bold">R$ {Number(currentPrice).toFixed(2)}</p>
+                                                        <p className="text-xs text-gray-500 line-through">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 ) : (
-                                                    <p className="text-md text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
+                                                    <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
                                                 )}
                                             </div>
                                         </div>
@@ -2801,11 +2825,12 @@ const CartPage = ({ onNavigate }) => {
                                                 <span className="w-8 text-center">{item.qty}</span>
                                                 <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
                                             </div>
-                                            <p className="font-bold w-28 text-right">R$ {(item.price * item.qty).toFixed(2)}</p>
+                                            <p className="font-bold w-28 text-right">R$ {(currentPrice * item.qty).toFixed(2)}</p>
                                             <button onClick={() => removeFromCart(item.cartItemId)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
                                         </div>
                                     </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                             <ShippingCalculator items={cart} />
                         </div>
@@ -2813,16 +2838,8 @@ const CartPage = ({ onNavigate }) => {
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
                             <h2 className="text-2xl font-bold mb-4">Resumo</h2>
                             <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300">
-                                    <span>Subtotal</span>
-                                    <span>R$ {subtotal.toFixed(2)}</span>
-                                </div>
-                                {totalSavings > 0 && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>Economia</span>
-                                        <span>- R$ {totalSavings.toFixed(2)}</span>
-                                    </div>
-                                )}
+                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
+                                
                                 <div className="flex justify-between text-gray-300">
                                     <span>Frete (PAC)</span>
                                     {isLoadingShipping ? (
@@ -3107,7 +3124,11 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.qty, 0), [cart]);
+    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        return sum + price * item.qty;
+    }, 0), [cart]);
+    
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
     
     const discount = useMemo(() => {
@@ -3137,7 +3158,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 items: cart.map(item => ({ 
                     id: item.id, 
                     qty: item.qty, 
-                    price: item.price,
+                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price
                     variation: item.variation 
                 })),
                 total: total,
@@ -3152,7 +3173,6 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = orderResult;
 
             if (paymentMethod === 'mercadopago') {
-                // Store the order ID before redirecting, so we can verify the return page.
                 sessionStorage.setItem('pendingOrderId', orderId);
                 const mpPayload = { orderId };
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
@@ -3240,7 +3260,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 {cart.map(item => (
                                     <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1">
                                         <span className="truncate pr-2">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
-                                        <span>R$ {(item.price * item.qty).toFixed(2)}</span>
+                                        <span>R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
                                     </div>
                                 ))}
                                 <div className="border-t border-gray-700 mt-4 pt-4">
@@ -3276,8 +3296,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const [pageStatus, setPageStatus] = useState('processing');
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
 
-    // Use a ref to track the current status inside callbacks without re-triggering the main effect.
-    // This ensures event listeners always have the latest state.
     const statusRef = useRef(pageStatus);
     useEffect(() => {
         statusRef.current = pageStatus;
@@ -3287,16 +3305,15 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         console.log(`Verificando status do pedido #${orderId}...`);
         try {
             const response = await apiService(`/orders/${orderId}/status`);
-            // If payment is approved or has a final state, update the page and stop polling.
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
                 setPageStatus('success');
-                return true; // Polling can stop
+                return true; 
             }
         } catch (err) {
             console.error("Erro ao verificar status, continuando a verificação.", err);
         }
-        return false; // Polling should continue
+        return false; 
     }, [orderId]);
 
     useEffect(() => {
@@ -3304,9 +3321,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         let pollInterval;
         let timeout;
 
-        // Function to be called by event listeners when user returns to the page
         const forceCheck = () => {
-            // Use the ref to get the LATEST status to avoid stale state issues
             if (statusRef.current === 'processing') {
                 console.log("Forçando verificação de status (evento de visibilidade/foco)");
                 pollStatus();
@@ -3314,11 +3329,9 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
 
         const startPolling = async () => {
-            // Initial check when page loads
             const isFinished = await pollStatus();
-            if (isFinished) return; // If already confirmed, don't start timers
+            if (isFinished) return; 
 
-            // Set up a regular check every 5 seconds
             pollInterval = setInterval(async () => {
                  const finished = await pollStatus();
                  if (finished) {
@@ -3327,7 +3340,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                  }
             }, 5000);
             
-            // Set a final timeout after 1 minute for async payments (like Boleto)
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
@@ -3338,12 +3350,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
         startPolling();
 
-        // Listen for events that indicate the user has returned to the page
         window.addEventListener('focus', forceCheck);
         window.addEventListener('pageshow', forceCheck);
         document.addEventListener('visibilitychange', forceCheck);
 
-        // Cleanup function to remove timers and listeners when component unmounts
         return () => {
             clearInterval(pollInterval);
             clearTimeout(timeout);
@@ -3351,7 +3361,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             window.removeEventListener('pageshow', forceCheck);
             document.removeEventListener('visibilitychange', forceCheck);
         };
-    }, [orderId, clearOrderState, pollStatus]); // Main effect only depends on stable values
+    }, [orderId, clearOrderState, pollStatus]); 
 
 
     const renderContent = () => {
@@ -3621,14 +3631,14 @@ const MyOrdersSection = ({ onNavigate }) => {
         const promises = orderItems.map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
-                return Promise.resolve(0); // Resolve para não quebrar o Promise.all
+                return Promise.resolve(0);
             }
-            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations };
+            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
             return addToCart(product, item.quantity, item.variation)
-                .then(() => 1) // Sucesso
+                .then(() => 1) 
                 .catch(err => {
                     notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0; // Falha
+                    return 0; 
                 });
         });
 
@@ -4121,7 +4131,6 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     );
 };
 
-// NOVO: Formulário genérico para Admin (Usado por Cupons e Usuários)
 const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     const [formData, setFormData] = useState({});
 
@@ -4236,7 +4245,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'promo_price', label: 'Preço Promocional (opcional)', type: 'number', step: '0.01' },
+        { name: 'sale_price', label: 'Preço Promocional (Opcional)', type: 'number', step: '0.01' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
         { name: 'description', label: 'Descrição', type: 'textarea' },
@@ -4244,7 +4253,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
         { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
         { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
-        { name: 'is_active', label: 'Ativo', type: 'checkbox' },
+        { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
+        { name: 'is_on_sale', label: 'Em Promoção', type: 'checkbox' },
     ];
 
     const allFields = [...commonFields, ...perfumeFields, ...clothingFields];
@@ -4257,9 +4267,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 initialData[field.name] = value;
             } else {
                 if (field.type === 'checkbox') {
-                    initialData[field.name] = 1;
+                    initialData[field.name] = (field.name === 'is_active'); // Ativo por padrão
                 } else if (field.type === 'number') {
-                    initialData[field.name] = 0;
+                    initialData[field.name] = 0; 
                 } else if (field.name === 'images' || field.name === 'variations') {
                     initialData[field.name] = [];
                 } else {
@@ -4311,7 +4321,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             
             setFormData(prev => ({...prev, images: [...(prev.images || []), ...newImageUrls]}));
             setUploadStatus('Upload concluído com sucesso!');
-            e.target.value = '';
+            e.target.value = ''; 
             setTimeout(() => setUploadStatus(''), 3000);
         } catch (error) {
             setUploadStatus(`Erro no upload: ${error.message}`);
@@ -4362,11 +4372,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const handleSubmit = (e) => {
         e.preventDefault();
         const dataToSubmit = { ...formData };
-
-        if (!dataToSubmit.promo_price || parseFloat(dataToSubmit.promo_price) <= 0) {
-            dataToSubmit.promo_price = null;
-        }
-
         dataToSubmit.product_type = productType;
 
         if (productType === 'perfume') {
@@ -4421,42 +4426,27 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {commonFields.map(field => {
+                    if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
+
                     if (field.name === 'category') {
-                         if (productType === 'clothing') {
-                            return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <select 
-                                        name="category" 
-                                        value={formData.category || ''} 
-                                        onChange={handleChange} 
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                        required={field.required}
-                                    >
-                                        <option value="">Selecione uma categoria</option>
-                                        {clothingCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
-                            );
-                         } else {
-                            return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <select 
-                                        name="category" 
-                                        value={formData.category || ''} 
-                                        onChange={handleChange} 
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                        required={field.required}
-                                    >
-                                        <option value="">Selecione uma categoria de perfume</option>
-                                        {perfumeCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </div>
-                            );
-                         }
+                         const options = productType === 'clothing' ? clothingCategories : perfumeCategories;
+                         return (
+                            <div key={field.name}>
+                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                                <select 
+                                    name="category" 
+                                    value={formData.category || ''} 
+                                    onChange={handleChange} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
+                                    required={field.required}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                            </div>
+                        );
                     }
                     if (field.name === 'brand') {
                         if (productType === 'perfume') {
@@ -4470,7 +4460,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
                                         required={field.required}
                                     >
-                                        <option value="">Selecione uma marca</option>
+                                        <option value="">Selecione...</option>
                                         {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
                                     </select>
                                 </div>
@@ -4495,30 +4485,39 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                             );
                         }
                     }
-                    if (field.type === 'checkbox') {
-                         return (
-                            <div key={field.name} className="flex items-center pt-6">
-                                <input type="checkbox" name={field.name} checked={!!formData[field.name]} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                                <label className="ml-2 text-sm font-medium text-gray-700">{field.label}</label>
-                            </div>
-                         )
-                    }
+                   
                     if (field.type === 'textarea') {
                          return (
-                            <div key={field.name} className="md:col-span-2">
+                            <div key={field.name} className="lg:col-span-3">
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                                 <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
                             </div>
                          )
                     }
-                    if (field.name === 'images' || field.name === 'images_upload') return null;
+                    
+                    const isNameField = field.name === 'name';
+                    const isPriceField = field.name === 'price' || field.name === 'sale_price';
+                    const showSalePrice = isPriceField && formData['is_on_sale'];
+                    
                     return (
-                        <div key={field.name} className={field.name === 'name' ? 'md:col-span-2' : ''}>
+                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''} ${!showSalePrice && field.name === 'sale_price' ? 'hidden' : ''}`}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                             <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
                         </div>
                     );
                 })}
+
+                <div className="lg:col-span-3 grid grid-cols-2 gap-4">
+                    <div className="flex items-center pt-6">
+                        <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
+                        <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
+                    </div>
+                     <div className="flex items-center pt-6">
+                        <input type="checkbox" name="is_on_sale" id="is_on_sale_checkbox" checked={!!formData['is_on_sale']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
+                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-sm font-medium text-gray-700">Em Promoção</label>
+                    </div>
+                </div>
+
             </div>
             
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
@@ -4674,12 +4673,12 @@ const DownloadTemplateButton = ({ productType }) => {
     const handleDownload = () => {
         let headers, exampleRow, filename;
         if (productType === 'perfume') {
-            headers = "name,brand,category,price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,product_type,promo_price";
-            exampleRow = "Meu Perfume,Minha Marca,Unissex,199.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,perfume,179.90";
+            headers = "name,brand,category,price,sale_price,stock,images,description,notes,how_to_use,ideal_for,volume,weight,width,height,length,is_active,is_on_sale,product_type";
+            exampleRow = "Meu Perfume,O Boticário,Perfumes Feminino,199.90,149.90,50,https://example.com/img1.png,Descrição do meu perfume,Topo: Limão\\nCorpo: Jasmim,Aplicar na pele,\"Para todos os momentos, dia e noite\",100ml,0.4,12,18,12,1,1,perfume";
             filename = "modelo_perfumes.csv";
         } else { // clothing
-            headers = "name,brand,category,price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,product_type,promo_price";
-            exampleRow = "Minha Camisa,Minha Marca,Roupas,99.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,clothing,79.90";
+            headers = "name,brand,category,price,sale_price,images,description,variations,size_guide,care_instructions,weight,width,height,length,is_active,is_on_sale,product_type";
+            exampleRow = "Minha Camisa,Minha Marca,Blusas,99.90,79.90,[]\t,Descrição da camisa,\"[{\\\"color\\\":\\\"Azul\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":10,\\\"images\\\":[\\\"url1\\\"]},{\\\"color\\\":\\\"Preto\\\",\\\"size\\\":\\\"M\\\",\\\"stock\\\":5,\\\"images\\\":[]}]\",<p>Busto: 90cm</p>,Lavar a mão,0.3,30,40,2,1,1,clothing";
             filename = "modelo_roupas.csv";
         }
         
@@ -4944,7 +4943,7 @@ const AdminProducts = ({ onNavigate }) => {
                             <th className="p-4">Preço</th>
                             <th className="p-4">Estoque</th>
                             <th className="p-4">Vendas</th>
-                            <th className="p-4">Ativo</th>
+                            <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
                         </tr>
                     </thead>
@@ -4962,10 +4961,24 @@ const AdminProducts = ({ onNavigate }) => {
                                     </div>
                                 </td>
                                 <td className="p-4 capitalize">{p.product_type}</td>
-                                <td className="p-4">R$ {Number(p.price).toFixed(2)}</td>
+                                <td className="p-4">
+                                    {p.is_on_sale && p.sale_price > 0 ? (
+                                        <div className="flex flex-col">
+                                            <span className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                            <span className="text-gray-500 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                        </div>
+                                    ) : (
+                                        <span>R$ {Number(p.price).toFixed(2)}</span>
+                                    )}
+                                </td>
                                 <td className="p-4">{p.stock}</td>
                                 <td className="p-4">{p.sales || 0}</td>
-                                <td className="p-4">{p.is_active ? 'Sim' : 'Não'}</td>
+                                <td className="p-4">
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`px-2 py-0.5 text-xs rounded-full text-center ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                        {p.is_on_sale ? <span className="px-2 py-0.5 text-xs rounded-full text-center bg-red-100 text-red-800">Promo</span> : null}
+                                    </div>
+                                </td>
                                 <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
                             </tr>
                         ))}
@@ -4984,10 +4997,19 @@ const AdminProducts = ({ onNavigate }) => {
                                     <p className="text-sm text-gray-500">{p.brand}</p>
                                 </div>
                             </div>
-                            <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                            <div className="flex flex-col items-end gap-1">
+                                <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                {p.is_on_sale && <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Promo</span>}
+                            </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
-                             <div><strong className="text-gray-500 block">Preço</strong> R$ {Number(p.price).toFixed(2)}</div>
+                             <div><strong className="text-gray-500 block">Preço</strong> 
+                                {p.is_on_sale && p.sale_price > 0 ? (
+                                    <span className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                ) : (
+                                    <span>R$ {Number(p.price).toFixed(2)}</span>
+                                )}
+                             </div>
                              <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
                              <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                              <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{p.product_type}</span></div>
@@ -5003,7 +5025,6 @@ const AdminProducts = ({ onNavigate }) => {
     </div>
   )
 };
-
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -5688,20 +5709,16 @@ function AppContent({ deferredPrompt }) {
   }, []);
   
   useEffect(() => {
-    // This effect acts as a safeguard to ensure the user lands on the success page
-    // after returning from a payment gateway, even if the backend's back_urls are misconfigured.
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
-    // If we have a pending order ID and the user is NOT on the success page
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); // Clear the flag immediately to prevent loops
+      sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
-        // If the user lands on the success page correctly, clear the flag.
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); // Reruns on every navigation change
+  }, [currentPath, navigate]); 
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -5721,7 +5738,7 @@ function AppContent({ deferredPrompt }) {
     const initialSearch = searchParams.get('search') || '';
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
-    const initialPromo = searchParams.get('promo') || 'false';
+    const initialIsPromo = searchParams.get('promo') === 'true';
     
     const [mainPage, pageId] = path.split('/');
 
@@ -5763,7 +5780,7 @@ function AppContent({ deferredPrompt }) {
     
     const pages = {
         'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialPromo={initialPromo}/>,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
@@ -5798,7 +5815,6 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        // --- LÓGICA DO PWA ---
         const APP_NAME = "LovecestasePerfumes";
         const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
         const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
@@ -5862,7 +5878,6 @@ export default function App() {
             console.log('`beforeinstallprompt` event foi disparado.');
         });
         
-        // --- CARREGAMENTO DE SCRIPTS EXTERNOS ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if(callback) callback();
