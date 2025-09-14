@@ -801,6 +801,7 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
+
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -808,18 +809,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const [isBuyingNow, setIsBuyingNow] = useState(false);
     
     const imageUrl = getFirstImage(product.images);
-
-    const isOnSale = product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price);
-    const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
-    
-    const isNew = useMemo(() => {
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product.created_at]);
-
-    const hasRating = product.avg_rating && Number(product.avg_rating) > 0;
-    const avgRating = hasRating ? Math.round(product.avg_rating) : 0;
-
+    const avgRating = Math.round(product.avg_rating || 0);
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -892,80 +882,62 @@ const ProductCard = memo(({ product, onNavigate }) => {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
+    
+    const isOnSale = product.is_on_sale && product.sale_price > 0;
 
     return (
         <motion.div 
             variants={cardVariants}
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full"
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col group text-white h-full"
         >
-            <div className="relative h-64 bg-white overflow-hidden group">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
+            <div className="relative h-64 bg-white">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
-                 
-                 <div className="absolute top-3 left-3 flex flex-col gap-2">
-                    {isOnSale && (
-                        <div className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center">
-                            <span>-{discountPercent}%</span>
-                        </div>
-                    )}
-                    {isNew && !isOnSale && (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                            LANÇAMENTO
-                        </div>
-                    )}
-                </div>
-
+                 {isOnSale && (
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">PROMO</div>
+                 )}
                  {product.product_type === 'clothing' && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
                         Ver Cores e Tamanhos
                     </div>
                 )}
             </div>
-            <div className="p-5 flex flex-col flex-grow">
-                <div>
-                    <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[3.5rem]" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                    
-                    <div className="flex items-center mt-2 h-5">
-                        {hasRating && (
-                            [...Array(5)].map((_, i) => (
-                                <StarIcon 
-                                    key={i} 
-                                    className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                                    isFilled={i < avgRating}
-                                />
-                            ))
-                        )}
-                    </div>
+            <div className="p-5 flex-grow flex flex-col">
+                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                <div className="flex items-center mt-2">
+                    {[...Array(5)].map((_, i) => (
+                        <StarIcon 
+                            key={i} 
+                            className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
+                            isFilled={i < avgRating}
+                        />
+                    ))}
                 </div>
+                <div className="flex-grow"/>
                 
-                <div className="mt-auto pt-4">
-                    {isOnSale ? (
-                         <div>
-                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
-                        </div>
-                    ) : (
-                        <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
-                    )}
-                    
-                    <div className="mt-4 flex items-stretch space-x-2">
-                        <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                            {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                        </button>
-                        <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                            {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                        </button>
+                {isOnSale ? (
+                     <div className="mt-4 flex items-baseline gap-3">
+                        <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                        <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
                     </div>
+                ) : (
+                    <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
+                )}
+                
+                <div className="mt-4 flex items-stretch space-x-2">
+                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                    </button>
+                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                    </button>
                 </div>
             </div>
         </motion.div>
     );
 });
-
-
-
 
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
