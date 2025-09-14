@@ -898,7 +898,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         <motion.div 
             variants={cardVariants}
             whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white"
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full"
         >
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
@@ -923,10 +923,10 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
             </div>
-            <div className="p-5 flex flex-col">
+            <div className="p-5 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[3.5rem]" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                     
                     <div className="flex items-center mt-2 h-5">
                         {hasRating && (
@@ -941,7 +941,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
                 
-                <div className="pt-4">
+                <div className="mt-auto pt-4">
                     {isOnSale ? (
                          <div>
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
