@@ -938,10 +938,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         ))
                     )}
                 </div>
-
-                <div className="flex-grow"/>
                 
-                {isOnSale ? (
                 <div className="mt-auto pt-4">
                     {isOnSale ? (
                          <div>
@@ -961,10 +958,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         </button>
                     </div>
                 </div>
-
+            </div>
         </motion.div>
     );
 });
+
+
 
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
