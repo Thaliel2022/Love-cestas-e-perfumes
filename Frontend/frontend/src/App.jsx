@@ -922,7 +922,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
             </div>
-            <div className="p-5 flex-grow flex flex-col">
+            <div className="p-5 flex flex-col">
                 <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                 <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[3.5rem]" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                 
