@@ -942,23 +942,26 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <div className="flex-grow"/>
                 
                 {isOnSale ? (
-                     <div className="mt-4">
-                        <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                        <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                <div className="mt-auto pt-4">
+                    {isOnSale ? (
+                         <div>
+                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
+                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                        </div>
+                    ) : (
+                        <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                    )}
+                    
+                    <div className="mt-4 flex items-stretch space-x-2">
+                        <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                            {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                        </button>
+                        <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                            {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                        </button>
                     </div>
-                ) : (
-                    <p className="text-2xl font-light text-white mt-4">R$ {Number(product.price).toFixed(2)}</p>
-                )}
-                
-                <div className="mt-4 flex items-stretch space-x-2">
-                    <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                        {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                    </button>
-                    <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                        {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                    </button>
                 </div>
-            </div>
+
         </motion.div>
     );
 });
