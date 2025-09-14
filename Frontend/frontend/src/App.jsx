@@ -922,10 +922,10 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
             </div>
-            <div className="p-5 flex flex-col flex-grow">
+            <div className="p-5 flex flex-col">
                 <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[3.5rem]" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                     
                     <div className="flex items-center mt-2 h-5">
                         {hasRating && (
@@ -940,7 +940,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
                 
-                <div className="mt-auto pt-4">
+                <div className="pt-4">
                     {isOnSale ? (
                          <div>
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
@@ -963,7 +963,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         </motion.div>
     );
 });
-
 
 
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
