@@ -801,7 +801,6 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
     );
 });
 
-
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -939,7 +938,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     )}
                 </div>
                 
-                <div className="mt-auto pt-4">
+                <div className="mt-4 pt-4">
                     {isOnSale ? (
                          <div>
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
@@ -962,7 +961,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         </motion.div>
     );
 });
-
 
 
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
