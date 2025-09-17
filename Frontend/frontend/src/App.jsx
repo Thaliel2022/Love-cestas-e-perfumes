@@ -401,10 +401,14 @@ const ShopProvider = ({ children }) => {
                 
                 const calculateAutoShipping = async () => {
                     try {
-                        const productsPayload = cart.map(item => ({
+   const productsPayload = cart.map(item => ({
                             id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price if available
+                            price: item.is_on_sale && item.sale_price ? Number(item.sale_price) : Number(item.price),
                             quantity: item.qty || 1,
+                            weight: item.weight,
+                            width: item.width,
+                            height: item.height,
+                            length: item.length
                         }));
                         const options = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
@@ -1679,10 +1683,14 @@ const ShippingCalculator = memo(({ items }) => {
         setIsLoading(true);
         setError('');
         try {
-            const productsPayload = items.map(item => ({
+        const productsPayload = items.map(item => ({
                 id: String(item.id),
-                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price
+                price: item.is_on_sale && item.sale_price ? Number(item.sale_price) : Number(item.price),
                 quantity: item.qty || 1,
+                weight: item.weight,
+                width: item.width,
+                height: item.height,
+                length: item.length
             }));
             const options = await apiService('/shipping/calculate', 'POST', {
                 cep_destino: location.cep,
