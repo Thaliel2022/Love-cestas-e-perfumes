@@ -502,7 +502,7 @@ app.get('/api/track/:code', async (req, res) => {
     }
 });
 
-22
+
 // --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', async (req, res) => {
     const { cep_destino, products } = req.body;
