@@ -909,11 +909,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     )}
-                    {isNew && !isOnSale && (
+                                  {isNew ? (
                         <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                             LANÇAMENTO
                         </div>
+                    ) : isOnSale && (
+                        <div className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center">
+                            <span>-{discountPercent}%</span>
+                        </div>
                     )}
+
                 </div>
 
                  {product.product_type === 'clothing' && (
