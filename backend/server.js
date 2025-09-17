@@ -535,10 +535,10 @@ app.post('/api/shipping/calculate', async (req, res) => {
         to: { postal_code: cep_destino.replace(/\D/g, '') },
         products: productsWithDetails.map(product => ({
             id: String(product.id),
-            width: Number(product.width),
-            height: Number(product.height),
-            length: Number(product.length),
-            weight: Number(product.weight),
+            width: Math.max(Number(product.width) || 0, 1),    // Mínimo de 1 cm
+            height: Math.max(Number(product.height) || 0, 1),   // Mínimo de 1 cm
+            length: Math.max(Number(product.length) || 0, 1),   // Mínimo de 1 cm
+            weight: Math.max(Number(product.weight) || 0, 0.1), // Mínimo de 0.1 kg
             insurance_value: Number(product.price),
             quantity: product.quantity || product.qty || 1
         }))
@@ -2040,3 +2040,4 @@ const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
     console.log(`Servidor backend completo rodando na porta ${PORT}`);
 });
+
