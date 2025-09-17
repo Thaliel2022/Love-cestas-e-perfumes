@@ -538,8 +538,8 @@ app.post('/api/shipping/calculate', async (req, res) => {
             width: Math.max(Number(product.width) || 0, 1),    // Mínimo de 1 cm
             height: Math.max(Number(product.height) || 0, 1),   // Mínimo de 1 cm
             length: Math.max(Number(product.length) || 0, 1),   // Mínimo de 1 cm
-            weight: Math.max(Number(product.weight) || 0, 0.1), // Mínimo de 0.1 kg
-            insurance_value: Number(product.price),
+              weight: Math.max(Number(product.weight) || 0, 0.1), // Mínimo de 0.1 kg
+            insurance_value: Math.max(Number(product.price), 0.01), // Mínimo de R$ 0,01 para o seguro
             quantity: product.quantity || product.qty || 1
         }))
     };
