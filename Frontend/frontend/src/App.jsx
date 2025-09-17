@@ -818,9 +818,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product.created_at]);
 
-    const hasRating = product.avg_rating && Number(product.avg_rating) > 0;
-    const avgRating = hasRating ? Math.round(product.avg_rating) : 0;
-
+    const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -926,7 +924,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             <div className="p-5 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400 min-h-[3.5rem]" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                     
                     <div className="flex items-center mt-2 h-5">
                         {[...Array(5)].map((_, i) => (
@@ -962,6 +960,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         </motion.div>
     );
 });
+
 
 
 
