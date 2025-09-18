@@ -902,18 +902,17 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
                  
-                 <div className="absolute top-3 left-3 flex flex-col gap-2">
-                    {isOnSale && (
+<div className="absolute top-3 left-3 flex flex-col gap-2">
+                    {isOnSale ? (
                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
-                    )}
-                    {isNew && !isOnSale && (
+                    ) : isNew ? (
                         <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                             LANÇAMENTO
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                  {product.product_type === 'clothing' && (
