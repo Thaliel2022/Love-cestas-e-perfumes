@@ -1416,7 +1416,17 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [] });
+    const [products, setProducts] = useState({
+        newArrivals: [],
+        bestSellers: [],
+        clothing: [],
+        byBrand: {
+            "O Boticário": [],
+            "Avon": [],
+            "Natura": [],
+            "Eudora": []
+        }
+    });
 
     useEffect(() => { 
         apiService('/products')
@@ -1424,9 +1434,22 @@ const HomePage = ({ onNavigate }) => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
+                const clothingProducts = data.filter(p => p.product_type === 'clothing');
+                const boticarioProducts = data.filter(p => p.brand === 'O Boticário');
+                const avonProducts = data.filter(p => p.brand === 'Avon');
+                const naturaProducts = data.filter(p => p.brand === 'Natura');
+                const eudoraProducts = data.filter(p => p.brand === 'Eudora');
+
                 setProducts({
                     newArrivals: sortedByDate,
-                    bestSellers: sortedBySales
+                    bestSellers: sortedBySales,
+                    clothing: clothingProducts,
+                    byBrand: {
+                        "O Boticário": boticarioProducts,
+                        "Avon": avonProducts,
+                        "Natura": naturaProducts,
+                        "Eudora": eudoraProducts
+                    }
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
@@ -1498,6 +1521,22 @@ const HomePage = ({ onNavigate }) => {
              <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} title="Mais Vendidos"/>
           </div>
         </section>
+        
+        <section className="bg-black text-white py-12 md:py-16">
+          <div className="container mx-auto px-4">
+              <ProductCarousel products={products.clothing} onNavigate={onNavigate} title="Roupas"/>
+          </div>
+        </section>
+
+        {Object.entries(products.byBrand).map(([brand, brandProducts]) => (
+            brandProducts.length > 0 && (
+                <section key={brand} className="bg-black text-white py-12 md:py-16">
+                    <div className="container mx-auto px-4">
+                        <ProductCarousel products={brandProducts} onNavigate={onNavigate} title={brand}/>
+                    </div>
+                </section>
+            )
+        ))}
       </>
     );
 };
