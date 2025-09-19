@@ -810,7 +810,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     
     const imageUrl = getFirstImage(product.images);
 
-    const isOnSale = product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price);
+    const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
     const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
     
     const isNew = useMemo(() => {
@@ -2066,7 +2066,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     
-    const isOnSale = product && product.is_on_sale && product.sale_price > 0;
+   const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
