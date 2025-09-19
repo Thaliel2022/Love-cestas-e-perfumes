@@ -529,8 +529,8 @@ app.post('/api/shipping/calculate', async (req, res) => {
             return {...p, ...dbProduct};
         });
 
-        const payload = {
-            from: { postal_code: process.env.ORIGIN_CEP },
+const payload = {
+            from: { postal_code: process.env.ORIGIN_CEP.replace(/\D/g, '') },
             to: { postal_code: cep_destino.replace(/\D/g, '') },
             products: productsWithDetails.map(product => {
                 // Validação e valores padrão para as dimensões e peso
