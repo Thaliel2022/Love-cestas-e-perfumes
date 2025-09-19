@@ -1096,8 +1096,8 @@ const Header = memo(({ onNavigate }) => {
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
-    useEffect(() => {
-        if (searchTerm.length < 2) {
+useEffect(() => {
+        if (searchTerm.length < 1) { // Alterado de 2 para 1
             setSearchSuggestions([]);
             return;
         }
@@ -1162,7 +1162,7 @@ const handleSuggestionClick = (productId) => {
                                 className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
                            <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
-                                {isSearchFocused && searchTerm.length > 1 && (
+                            {isSearchFocused && searchTerm.length > 0 && (
                                     <motion.div
                                         initial={{ opacity: 0, y: -10 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -1307,8 +1307,8 @@ const handleSuggestionClick = (productId) => {
                                     />
                                     {/* A div a seguir é posicionada em relação ao form */}
                                     <div className="relative"> 
-                                        <AnimatePresence>
-                                            {isSearchFocused && searchTerm.length > 1 && (
+                                 <AnimatePresence>
+                                            {isSearchFocused && searchTerm.length > 0 && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -10 }}
                                                     animate={{ opacity: 1, y: 0 }}
