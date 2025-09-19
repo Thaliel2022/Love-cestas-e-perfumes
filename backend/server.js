@@ -39,24 +39,46 @@ const ORDER_STATUS = {
 
 
 // Verificação de Variáveis de Ambiente Essenciais
-const checkRequiredEnvVars = () => {
-    const requiredVars = [
-        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
-        'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
-        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL', 'CRON_SECRET'
-    ];
-    const missingVars = requiredVars.filter(varName => !process.env[varName]);
-    if (missingVars.length > 0) {
-        console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
-        missingVars.forEach(varName => console.error(`- ${varName}`));
-        console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
+// Verificação de Variáveis de Ambiente Essenciais
+const checkRequiredEnvVars = async () => {
+    const requiredVars = [
+        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
+        'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
+        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
+        'RESEND_API_KEY', 'FROM_EMAIL', 'CRON_SECRET'
+    ];
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+        console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
+        missingVars.forEach(varName => console.error(`- ${varName}`));
+        console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
+        process.exit(1);
+    }
+
+    // Validação automática do CEP de Origem
+    const originCep = process.env.ORIGIN_CEP.replace(/\D/g, '');
+    if (originCep.length !== 8) {
+        console.error('ERRO CRÍTICO: O valor de ORIGIN_CEP na sua variável de ambiente é inválido. Deve ser um CEP de 8 dígitos.');
         process.exit(1);
     }
-    console.log('Verificação de variáveis de ambiente concluída com sucesso.');
+    try {
+        console.log(`Validando o CEP de origem (ORIGIN_CEP): ${originCep}...`);
+        const response = await fetch(`https://viacep.com.br/ws/${originCep}/json/`);
+        const data = await response.json();
+        if (data.erro) {
+            console.error(`ERRO CRÍTICO: O CEP de origem '${process.env.ORIGIN_CEP}' não foi encontrado ou é inválido.`);
+            console.error('Por favor, corrija a variável de ambiente ORIGIN_CEP no seu servidor.');
+            process.exit(1);
+        }
+        console.log(`CEP de origem validado com sucesso: ${data.logradouro}, ${data.localidade} - ${data.uf}`);
+    } catch (error) {
+        console.warn('AVISO: Não foi possível validar o CEP de origem automaticamente. O servidor continuará, mas podem ocorrer erros no cálculo de frete se o CEP estiver incorreto.');
+        console.warn('Erro na validação do CEP:', error.message);
+    }
+    
+    console.log('Verificação de variáveis de ambiente concluída com sucesso.');
 };
 checkRequiredEnvVars();
-
 
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
