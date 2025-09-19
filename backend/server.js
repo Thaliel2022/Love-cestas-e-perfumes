@@ -661,19 +661,19 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.get('/api/products/search-suggestions', async (req, res) => {
-    const { q } = req.query;
-    if (!q || q.length < 2) {
-        return res.json([]);
-    }
-    try {
-        const searchTerm = `%${q}%`;
-        const sql = "SELECT id, name FROM products WHERE is_active = 1 AND (name LIKE ? OR brand LIKE ?) LIMIT 10";
-        const [suggestions] = await db.query(sql, [searchTerm, searchTerm]);
-        res.json(suggestions);
-    } catch (err) {
-        console.error("Erro ao buscar sugestões de pesquisa:", err);
-        res.status(500).json({ message: "Erro ao buscar sugestões." });
-    }
+    const { q } = req.query;
+    if (!q || q.length < 2) {
+        return res.json([]);
+    }
+    try {
+        const searchTerm = `%${q}%`;
+        const sql = "SELECT id, name, images, price, sale_price, is_on_sale FROM products WHERE is_active = 1 AND (name LIKE ? OR brand LIKE ?) LIMIT 5";
+        const [suggestions] = await db.query(sql, [searchTerm, searchTerm]);
+        res.json(suggestions);
+    } catch (err) {
+        console.error("Erro ao buscar sugestões de pesquisa:", err);
+        res.status(500).json({ message: "Erro ao buscar sugestões." });
+    }
 });
 
 
