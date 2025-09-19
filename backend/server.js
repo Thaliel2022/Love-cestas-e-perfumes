@@ -1800,27 +1800,34 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
-        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
-    }
-    try {
-        const sql = "UPDATE coupons SET code = ?, type = ?, value = ?, is_active = ?, validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ? WHERE id = ?";
-        const params = [
-            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
-            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0,
-            is_single_use_per_user ? 1 : 0, id
-        ];
-        await db.query(sql, params);
-        res.json({ message: "Cupom atualizado com sucesso." });
-    } catch (err) {
-         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este código de cupom já existe." });
-         }
-        console.error("Erro ao atualizar cupom:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar cupom." });
-    }
+    const { id } = req.params;
+    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
+        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
+    }
+    try {
+        const numericValidityDays = validity_days ? Number(validity_days) : null;
+        const sql = `
+            UPDATE coupons SET 
+                code = ?, type = ?, value = ?, is_active = ?, 
+                validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ?,
+                created_at = IF(? IS NOT NULL AND ? > 0, NOW(), created_at)
+            WHERE id = ?`;
+        const params = [
+            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
+            is_active ? 1 : 0, numericValidityDays, is_first_purchase ? 1 : 0,
+            is_single_use_per_user ? 1 : 0, 
+            numericValidityDays, numericValidityDays, id
+        ];
+        await db.query(sql, params);
+        res.json({ message: "Cupom atualizado com sucesso." });
+    } catch (err) {
+         if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Este código de cupom já existe." });
+         }
+        console.error("Erro ao atualizar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar cupom." });
+    }
 });
 
 app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
