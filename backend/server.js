@@ -662,7 +662,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
-    if (!q || q.length < 2) {
+  if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
