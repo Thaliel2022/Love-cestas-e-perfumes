@@ -4040,10 +4040,10 @@ const AjudaPage = ({ onNavigate }) => (
                     <InstagramIcon className="h-8 w-8 text-amber-400" />
                     <span className="text-lg">@lovecestaseperfumesjp</span>
                 </a>
-                 <div className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg">
+                <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
                     <WhatsappIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">83 98787-8878</span>
-                </div>
+                    <span className="text-lg">83 98737-9573</span>
+                </a>
             </div>
         </div>
     </div>
