@@ -505,82 +505,96 @@ app.get('/api/track/:code', async (req, res) => {
 
 // --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', async (req, res) => {
-    const { cep_destino, products } = req.body;
-    if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
-        return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
-    }
-   
-    try {
-        const cepCheckResponse = await fetch(`https://viacep.com.br/ws/${cep_destino.replace(/\D/g, '')}/json/`);
-        const cepCheckData = await cepCheckResponse.json();
-        if (cepCheckData.erro) {
-            return res.status(404).json({ message: "CEP não encontrado. Por favor, verifique o CEP digitado." });
-        }
-    } catch (cepError) {
-        console.warn("Aviso: Falha ao pré-validar CEP com ViaCEP, o cálculo prosseguirá.", cepError);
-    }
-   
-    const ME_TOKEN = process.env.ME_TOKEN;
-   
-    const productIds = products.map(p => p.id);
-    const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
-   
-    const productsWithDetails = products.map(p => {
-        const dbProduct = dbProducts.find(dbp => dbp.id == p.id);
-        return {...p, ...dbProduct};
-    });
+    const { cep_destino, products } = req.body;
 
-    const payload = {
-        from: { postal_code: process.env.ORIGIN_CEP },
-        to: { postal_code: cep_destino.replace(/\D/g, '') },
-        products: productsWithDetails.map(product => ({
-            id: String(product.id),
-            width: Number(product.width),
-            height: Number(product.height),
-            length: Number(product.length),
-            weight: Number(product.weight),
-            insurance_value: Number(product.price),
-            quantity: product.quantity || product.qty || 1
-        }))
-    };
+    // Log da requisição recebida
+    console.log('[FRETE] Requisição recebida:', { cep_destino, products });
 
-    const ME_API_URL = 'https://www.melhorenvio.com.br/api/v2/me/shipment/calculate';
+    if (!cep_destino || !products || !Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ message: "CEP de destino e informações dos produtos são obrigatórios." });
+    }
+    
+    try {
+        const ME_TOKEN = process.env.ME_TOKEN;
+        
+        const productIds = products.map(p => p.id);
+        const [dbProducts] = await db.query(`SELECT id, weight, width, height, length FROM products WHERE id IN (?)`, [productIds]);
+        
+        const productsWithDetails = products.map(p => {
+            const dbProduct = dbProducts.find(dbp => dbp.id == p.id);
+            if (!dbProduct) {
+                console.error(`[FRETE] ERRO: Produto com ID ${p.id} não encontrado no banco de dados.`);
+                throw new Error(`Produto com ID ${p.id} não foi encontrado.`);
+            }
+            return {...p, ...dbProduct};
+        });
 
-    try {
-        const apiResponse = await fetch(ME_API_URL, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ME_TOKEN}`,
-                'User-Agent': 'Love Cestas e Perfumes (contato@lovecestaseperfumes.com.br)'
-            },
-            body: JSON.stringify(payload)
-        });
+        const payload = {
+            from: { postal_code: process.env.ORIGIN_CEP },
+            to: { postal_code: cep_destino.replace(/\D/g, '') },
+            products: productsWithDetails.map(product => {
+                // Validação e valores padrão para as dimensões e peso
+                const safeHeight = Math.max(Number(product.height) || 0, 1);
+                const safeWidth = Math.max(Number(product.width) || 0, 8);
+                const safeLength = Math.max(Number(product.length) || 0, 13);
+                const safeWeight = Math.max(Number(product.weight) || 0, 0.1);
+                
+                return {
+                    id: String(product.id),
+                    width: safeWidth,
+                    height: safeHeight,
+                    length: safeLength,
+                    weight: safeWeight,
+                    insurance_value: Number(product.price),
+                    quantity: product.quantity || product.qty || 1
+                }
+            })
+        };
 
-        const data = await apiResponse.json();
+        // Log do payload que será enviado para a API
+        console.log('[FRETE] Payload enviado para Melhor Envio:', JSON.stringify(payload, null, 2));
 
-        if (!apiResponse.ok) {
-            const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
-            return res.status(apiResponse.status).json({ message: errorMessage });
-        }
-       
-        const filteredOptions = data
-            .filter(option => !option.error)
-            .map(option => ({
-                name: option.name,
-                price: parseFloat(option.price),
-                delivery_time: option.delivery_time,
-                company: { name: option.company.name, picture: option.company.picture }
-            }));
-       
-        res.json(filteredOptions);
-    } catch (error) {
-        console.error("Erro ao calcular frete com Melhor Envio:", error);
-        res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
-    }
+        const ME_API_URL = 'https://www.melhorenvio.com.br/api/v2/me/shipment/calculate';
+
+        const apiResponse = await fetch(ME_API_URL, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${ME_TOKEN}`,
+                'User-Agent': 'Love Cestas e Perfumes (contato@lovecestaseperfumes.com.br)'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await apiResponse.json();
+
+        if (!apiResponse.ok) {
+            // Log detalhado do erro da API
+            console.error(`[FRETE] Erro da API Melhor Envio (Status: ${apiResponse.status}):`, JSON.stringify(data, null, 2));
+            const errorMessage = data.message || (data.errors ? JSON.stringify(data.errors) : 'Erro desconhecido no cálculo de frete.');
+            return res.status(apiResponse.status).json({ message: `Erro no cálculo do frete: ${errorMessage}` });
+        }
+        
+        const filteredOptions = data
+            .filter(option => !option.error)
+            .map(option => ({
+                name: option.name,
+                price: parseFloat(option.price),
+                delivery_time: option.delivery_time,
+                company: { name: option.company.name, picture: option.company.picture }
+            }));
+        
+        // Log de sucesso
+        console.log('[FRETE] Cálculo bem-sucedido. Opções retornadas:', filteredOptions.length);
+        res.json(filteredOptions);
+
+    } catch (error) {
+        // Log de erro interno
+        console.error("[FRETE] Erro interno no servidor ao calcular frete:", error);
+        res.status(500).json({ message: error.message || "Erro interno no servidor ao tentar calcular o frete." });
+    }
 });
-
 
 // --- ROTAS DE PRODUTOS ---
 app.get('/api/products', async (req, res) => {
