@@ -1498,12 +1498,7 @@ const HomePage = ({ onNavigate }) => {
         newArrivals: [],
         bestSellers: [],
         clothing: [],
-        byBrand: {
-            "O Boticário": [],
-            "Avon": [],
-            "Natura": [],
-            "Eudora": []
-        }
+        perfumes: []
     });
 
     useEffect(() => { 
@@ -1513,21 +1508,13 @@ const HomePage = ({ onNavigate }) => {
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
                 const clothingProducts = data.filter(p => p.product_type === 'clothing');
-                const boticarioProducts = data.filter(p => p.brand === 'O Boticário');
-                const avonProducts = data.filter(p => p.brand === 'Avon');
-                const naturaProducts = data.filter(p => p.brand === 'Natura');
-                const eudoraProducts = data.filter(p => p.brand === 'Eudora');
+                const perfumeProducts = data.filter(p => p.product_type === 'perfume');
 
                 setProducts({
                     newArrivals: sortedByDate,
                     bestSellers: sortedBySales,
                     clothing: clothingProducts,
-                    byBrand: {
-                        "O Boticário": boticarioProducts,
-                        "Avon": avonProducts,
-                        "Natura": naturaProducts,
-                        "Eudora": eudoraProducts
-                    }
+                    perfumes: perfumeProducts
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
@@ -1606,15 +1593,13 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {Object.entries(products.byBrand).map(([brand, brandProducts]) => (
-            brandProducts.length > 0 && (
-                <section key={brand} className="bg-black text-white py-12 md:py-16">
-                    <div className="container mx-auto px-4">
-                        <ProductCarousel products={brandProducts} onNavigate={onNavigate} title={brand}/>
-                    </div>
-                </section>
-            )
-        ))}
+      {products.perfumes.length > 0 && (
+            <section className="bg-black text-white py-12 md:py-16">
+                <div className="container mx-auto px-4">
+                    <ProductCarousel products={products.perfumes} onNavigate={onNavigate} title="Perfumes"/>
+                </div>
+            </section>
+        )}
       </>
     );
 };
