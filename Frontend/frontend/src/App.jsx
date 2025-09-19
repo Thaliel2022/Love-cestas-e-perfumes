@@ -2402,7 +2402,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                          {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>}
+                         {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>}
                             <div className="flex items-center mt-2">
                                 {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
                                 {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
@@ -5150,7 +5150,7 @@ const AdminProducts = ({ onNavigate }) => {
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <span className={`px-2 py-1 text-xs rounded-full ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
-                                {p.is_on_sale && <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Promo</span>}
+                                {p.is_on_sale ? <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Promo</span> : null}
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
