@@ -2402,7 +2402,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                         {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{product.volume}</h2>}
+                         {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2">
                                 {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
                                 {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
@@ -4440,11 +4440,19 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(initialData);
     }, [item, setProductType]);
 
-    const handleChange = (e) => {
+const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
     };
 
+    const handleVolumeBlur = (e) => {
+        let { value } = e.target;
+        // Verifica se o valor não está vazio, é um número e não contém 'ml'
+        if (value && value.trim() !== '' && !isNaN(parseFloat(value)) && !/ml/i.test(value)) {
+            const formattedValue = `${parseFloat(value)}ml`;
+            setFormData(prev => ({ ...prev, volume: formattedValue }));
+        }
+    };
     const handleImageArrayChange = (index, value) => {
         const newImages = [...(formData.images || [])];
         newImages[index] = value;
@@ -4706,7 +4714,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                             {field.type === 'textarea' ? (
                                 <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
                             ) : (
-                                <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
+                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} onBlur={field.name === 'volume' ? handleVolumeBlur : null} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
                             )}
                         </div>
                     ))}
@@ -5125,9 +5133,9 @@ const AdminProducts = ({ onNavigate }) => {
                                 <td className="p-4">{p.stock}</td>
                                 <td className="p-4">{p.sales || 0}</td>
                                 <td className="p-4">
-                                    <div className="flex flex-col gap-1">
+                                 <div className="flex flex-col items-center justify-center gap-1">
                                         <span className={`px-2 py-0.5 text-xs rounded-full text-center ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
-                                      {p.is_on_sale ? <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Promo</span> : null}
+                                        {p.is_on_sale ? <span className="px-2 py-0.5 text-xs rounded-full text-center bg-red-100 text-red-800">Promo</span> : null}
                                     </div>
                                 </td>
                                 <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(p)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(p.id)}><TrashIcon className="h-5 w-5"/></button></td>
