@@ -49,7 +49,7 @@ const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" class
 const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7 .946-3.11 3.563-5.524 6.858-6.39M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 4.407A9.953 9.953 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-2.125-.3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 1l22 22" /></svg>;
 const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
-
+const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.368a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" /></svg>;
 // --- CONSTANTE GLOBAL DO MENU ---
 const CATEGORIES_FOR_MENU = [
     { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
@@ -2048,6 +2048,30 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
+   const handleShare = async () => {
+        const shareData = {
+            title: product.name,
+            text: `Confira este produto incrível: ${product.name}`,
+            url: window.location.href
+        };
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+            } catch (err) {
+                console.error("Erro ao compartilhar:", err);
+            }
+        } else {
+            // Fallback for browsers that do not support navigator.share
+            try {
+                await navigator.clipboard.writeText(window.location.href);
+                notification.show("Link do produto copiado!");
+            } catch (err) {
+                console.error('Falha ao copiar o link:', err);
+                notification.show("Não foi possível copiar o link.", "error");
+            }
+        }
+    };
+    
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     
@@ -2384,10 +2408,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
 
                     <div className="lg:col-span-2 space-y-6">
-                        <div>
+                      <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                         {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-start justify-between gap-4">
+                                <h1 className="text-3xl lg:text-4xl font-bold my-1 flex-grow">{product.name}</h1>
+                                <button onClick={handleShare} title="Compartilhar" className="p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors flex-shrink-0 mt-2">
+                                    <ShareIcon className="h-6 w-6" />
+                                </button>
+                            </div>
+                            {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300 -mt-2">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2">
                                 {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
                                 {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
@@ -4025,7 +4054,21 @@ const MyProfileSection = ({ user }) => {
         </>
     );
 };
-
+<div className="mt-12 p-6 bg-gray-800/50 border border-gray-700 rounded-lg text-center">
+                <h3 className="text-xl font-bold text-amber-400 mb-2">Precisa de Ajuda com um Pedido?</h3>
+                <p className="text-gray-400 mb-6 max-w-md mx-auto">Se tiver qualquer dúvida sobre um pedido, pagamento ou entrega, entre em contato conosco.</p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <a href="https://wa.me/5583987878878" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto flex items-center justify-center gap-3 bg-green-600 text-white font-bold px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
+                        <WhatsappIcon className="h-6 w-6" />
+                        <span>Conversar no WhatsApp</span>
+                    </a>
+                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto flex items-center justify-center gap-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
+                        <InstagramIcon className="h-6 w-6" />
+                        <span>Enviar um Direct</span>
+                    </a>
+                </div>
+            </div>
+       
 
 const AjudaPage = ({ onNavigate }) => (
     <div className="bg-black text-white min-h-screen py-12">
