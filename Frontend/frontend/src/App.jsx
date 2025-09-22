@@ -2408,7 +2408,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
 
                     <div className="lg:col-span-2 space-y-6">
-                      <div>
+                 <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                             <div className="flex items-start justify-between gap-4">
                                 <h1 className="text-3xl lg:text-4xl font-bold my-1 flex-grow">{product.name}</h1>
@@ -4068,6 +4068,8 @@ const MyProfileSection = ({ user }) => {
                     </a>
                 </div>
             </div>
+    
+       
        
 
 const AjudaPage = ({ onNavigate }) => (
