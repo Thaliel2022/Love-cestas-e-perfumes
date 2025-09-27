@@ -3833,9 +3833,17 @@ const MyOrdersSection = ({ onNavigate }) => {
                                     </div>
                                 ))}
                             </div>
-                            <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-800">
-                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-green-600 text-white text-sm px-4 py-1 rounded-md hover:bg-green-700">Rastrear Pedido</button>}
+                            <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-gray-800">
+                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>}
+                                <div className="flex-grow"></div>
+                                <span className="text-xs text-gray-400 mr-2">Dúvidas? Fale conosco:</span>
+                                <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
+                                    <WhatsappIcon className="h-4 w-4" />
+                                </a>
+                                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
+                                    <InstagramIcon className="h-4 w-4" />
+                                </a>
                             </div>
                         </div>
                     ))}
@@ -6064,4 +6072,5 @@ export default function App() {
         </AuthProvider>
     );
 }
+
 
