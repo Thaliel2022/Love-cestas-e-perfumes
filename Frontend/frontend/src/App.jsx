@@ -2100,26 +2100,28 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, []);
 
     const handleShare = async () => {
+        const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
+        
         const shareData = {
-            title: product.name,
-            text: `Confira este produto incrível: ${product.name}`,
+            title: `Love Cestas e Perfumes - ${product.name}`,
+            text: shareText,
             url: window.location.href,
         };
     
         if (navigator.share) {
             try {
                 await navigator.share(shareData);
-                notification.show('Produto compartilhado com sucesso!');
             } catch (err) {
                 console.error('Erro ao compartilhar:', err);
+                // O usuário fechou a caixa de diálogo de compartilhamento, não é necessariamente um erro.
                 if (err.name !== 'AbortError') {
-                     notification.show('Não foi possível compartilhar.', 'error');
+                     notification.show('Compartilhamento cancelado.', 'error');
                 }
             }
         } else {
             try {
-                // Fallback para copiar o link
-                await navigator.clipboard.writeText(window.location.href);
+                // Fallback para copiar o link com o texto
+                await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
                 notification.show('Link do produto copiado para a área de transferência!');
             } catch (err) {
                 console.error('Falha ao copiar o link:', err);
@@ -6108,6 +6110,7 @@ export default function App() {
         </AuthProvider>
     );
 }
+
 
 
 
