@@ -48,6 +48,7 @@ const XMarkIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>;
 const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7 .946-3.11 3.563-5.524 6.858-6.39M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 4.407A9.953 9.953 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-2.125-.3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 1l22 22" /></svg>;
 const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002L15.316 6.342a3 3 0 110 2.684m-6.632-2.684a3 3 0 000 2.684" /></svg>;
 
 
 // --- CONSTANTE GLOBAL DO MENU ---
@@ -2098,6 +2099,35 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => controller.abort();
     }, []);
 
+    const handleShare = async () => {
+        const shareData = {
+            title: product.name,
+            text: `Confira este produto incrível: ${product.name}`,
+            url: window.location.href,
+        };
+    
+        if (navigator.share) {
+            try {
+                await navigator.share(shareData);
+                notification.show('Produto compartilhado com sucesso!');
+            } catch (err) {
+                console.error('Erro ao compartilhar:', err);
+                if (err.name !== 'AbortError') {
+                     notification.show('Não foi possível compartilhar.', 'error');
+                }
+            }
+        } else {
+            try {
+                // Fallback para copiar o link
+                await navigator.clipboard.writeText(window.location.href);
+                notification.show('Link do produto copiado para a área de transferência!');
+            } catch (err) {
+                console.error('Falha ao copiar o link:', err);
+                notification.show('Não foi possível copiar o link.', 'error');
+            }
+        }
+    };
+
     useEffect(() => {
         fetchProductData(productId);
         window.scrollTo(0, 0);
@@ -2388,9 +2418,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
                          {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-2">
-                                {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
-                                {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center">
+                                    {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
+                                    {reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}
+                                </div>
+                                <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800">
+                                    <ShareIcon className="h-5 w-5"/>
+                                    <span className="text-sm font-semibold hidden sm:inline">Compartilhar</span>
+                                </button>
                             </div>
                         </div>
 
@@ -6072,5 +6108,7 @@ export default function App() {
         </AuthProvider>
     );
 }
+
+
 
 
