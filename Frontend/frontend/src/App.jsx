@@ -299,12 +299,12 @@ const ShopProvider = ({ children }) => {
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
     
-    // Estados centralizados para o cálculo de frete
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
-    const [previewShippingItem, setPreviewShippingItem] = useState(null); // <-- NOVO ESTADO
+    const [previewShippingItem, setPreviewShippingItem] = useState(null);
+    const [selectedShippingName, setSelectedShippingName] = useState(null); // <-- NOVO ESTADO PARA GUARDAR A INTENÇÃO
 
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
@@ -372,7 +372,6 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    // EFEITO DE CÁLCULO DE FRETE CENTRALIZADO E CORRIGIDO
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
 
@@ -389,15 +388,10 @@ const ShopProvider = ({ children }) => {
                             quantity: item.qty || 1,
                         }));
                         
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', {
-                            cep_destino: shippingLocation.cep,
-                            products: productsPayload,
-                        });
-
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         let pacOption = null;
                         if (pacOptionRaw) pacOption = { ...pacOptionRaw, name: 'PAC' };
-
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         
                         const finalOptions = [];
@@ -406,21 +400,16 @@ const ShopProvider = ({ children }) => {
 
                         setShippingOptions(finalOptions);
                         
-                        const currentSelection = autoCalculatedShipping;
-                        const isCurrentSelectionValid = currentSelection && finalOptions.some(opt => opt.name === currentSelection.name);
-
-                        if (isCurrentSelectionValid) {
-                            const updatedSelection = finalOptions.find(opt => opt.name === currentSelection.name);
-                            setAutoCalculatedShipping(updatedSelection);
-                        } else {
-                            setAutoCalculatedShipping(pacOption || pickupOption);
-                        }
+                        // LÓGICA DE SELEÇÃO CORRIGIDA E ROBUSTA
+                        const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
+                        setAutoCalculatedShipping(desiredOption || pacOption || pickupOption || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
-                        setAutoCalculatedShipping(pickupOption);
+                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
+                        setAutoCalculatedShipping(desiredOption || pickupOption);
                     } finally {
                         setIsLoadingShipping(false);
                     }
@@ -432,11 +421,11 @@ const ShopProvider = ({ children }) => {
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem]); // <-- DEPENDÊNCIAS CORRIGIDAS
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
-        setPreviewShippingItem(null); // Limpa o item de pré-visualização ao adicionar ao carrinho
+        setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
@@ -524,7 +513,8 @@ const ShopProvider = ({ children }) => {
             autoCalculatedShipping, setAutoCalculatedShipping,
             shippingOptions, isLoadingShipping, shippingError,
             updateDefaultShippingLocation, determineShippingLocation,
-            setPreviewShippingItem, // <-- NOVA FUNÇÃO EXPORTADA
+            setPreviewShippingItem, 
+            setSelectedShippingName, // <-- NOVA FUNÇÃO EXPORTADA
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
@@ -1750,7 +1740,8 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         shippingError,
         autoCalculatedShipping,
         setAutoCalculatedShipping,
-        setPreviewShippingItem
+        setPreviewShippingItem,
+        setSelectedShippingName // <-- Nova função para salvar a intenção
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1768,6 +1759,12 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
             }
         };
     }, [itemsFromProp, cart.length, setPreviewShippingItem]);
+    
+    // Função unificada para seleção de frete
+    const handleSelectShipping = (option) => {
+        setAutoCalculatedShipping(option);
+        setSelectedShippingName(option.name);
+    };
 
     const handleSelectAddress = (addr) => {
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
@@ -1847,7 +1844,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                             {!isLoadingShipping && shippingOptions.length > 0 && (
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className="w-5 h-5 flex items-center justify-center">
                                                     <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
@@ -3207,7 +3204,8 @@ const CheckoutPage = ({ onNavigate }) => {
         fetchAddresses,
         setShippingLocation,
         shippingOptions,
-        setAutoCalculatedShipping
+        setAutoCalculatedShipping,
+        setSelectedShippingName // <-- Nova função para salvar a intenção
     } = useShop();
     const notification = useNotification();
 
@@ -3234,8 +3232,6 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses]);
 
-    // CORREÇÃO: Este useEffect agora só atualiza a localização se a entrega for por PAC/Correios.
-    // Ele não interfere mais quando "Retirar na loja" está selecionado.
     useEffect(() => {
         if (selectedAddress && !autoCalculatedShipping?.isPickup) {
             setShippingLocation({
@@ -3257,6 +3253,10 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     }, [user, isSomeoneElsePickingUp]);
 
+    const handleSelectShipping = (option) => {
+        setAutoCalculatedShipping(option);
+        setSelectedShippingName(option.name);
+    };
 
     const handleAddressSelection = (address) => {
         setSelectedAddress(address);
@@ -3393,7 +3393,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
                                             <div className="flex justify-between items-center">
                                                 <div className="flex items-center gap-3">
                                                     <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
