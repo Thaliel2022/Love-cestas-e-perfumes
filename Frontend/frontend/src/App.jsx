@@ -298,11 +298,14 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
+    
+    // Estados centralizados para o cálculo de frete
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
-    
+    const [previewShippingItem, setPreviewShippingItem] = useState(null); // <-- NOVO ESTADO
+
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -312,10 +315,7 @@ const ShopProvider = ({ children }) => {
         try {
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
-        } catch (err) {
-            console.error("Falha ao buscar carrinho persistente:", err);
-            setCart([]);
-        }
+        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
     }, [isAuthenticated]);
 
     const fetchAddresses = useCallback(async () => {
@@ -324,22 +324,13 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) {
-            console.error("Falha ao buscar endereços:", error);
-            setAddresses([]);
-            return [];
-        }
+        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
         const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
         if (defaultAddr) {
-            setShippingLocation({
-                cep: defaultAddr.cep,
-                city: defaultAddr.localidade,
-                state: defaultAddr.uf,
-                alias: defaultAddr.alias
-            });
+            setShippingLocation({ cep: defaultAddr.cep, city: defaultAddr.localidade, state: defaultAddr.uf, alias: defaultAddr.alias });
             return true;
         }
         return false;
@@ -347,14 +338,12 @@ const ShopProvider = ({ children }) => {
 
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
-
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
             }
         }
-
         if (!locationDetermined && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async (position) => {
                 const { latitude, longitude } = position.coords;
@@ -365,45 +354,36 @@ const ShopProvider = ({ children }) => {
                         const cep = data.address.postcode.replace(/\D/g, '');
                         setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                     }
-                } catch (error) {
-                    console.warn("Não foi possível obter CEP da geolocalização.", error);
-                }
-            }, (error) => {
-                console.warn("Geolocalização negada ou indisponível.", error.message);
-            });
+                } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); }
+            }, (error) => { console.warn("Geolocalização negada ou indisponível.", error.message); });
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-
     useEffect(() => {
         if (isAuthLoading) return;
-
         if (isAuthenticated) {
             fetchPersistentCart();
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            setCart([]);
-            setWishlist([]);
-            setAddresses([]);
-            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null);
-            setCouponCode('');
-            setAppliedCoupon(null);
-            setCouponMessage('');
+            setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+            setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage('');
             determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
+    // EFEITO DE CÁLCULO DE FRETE CENTRALIZADO E CORRIGIDO
     useEffect(() => {
+        const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
+
         const debounceTimer = setTimeout(() => {
-            if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
                 
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = cart.map(item => ({
+                        const productsPayload = itemsToCalculate.map(item => ({
                             id: String(item.id),
                             price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
@@ -416,39 +396,29 @@ const ShopProvider = ({ children }) => {
 
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         let pacOption = null;
-                        if (pacOptionRaw) {
-                            pacOption = { ...pacOptionRaw, name: 'PAC' };
-                        }
+                        if (pacOptionRaw) pacOption = { ...pacOptionRaw, name: 'PAC' };
 
-                        const pickupOption = {
-                            name: "Retirar na loja",
-                            price: 0,
-                            delivery_time: 'Disponível para retirada após confirmação',
-                            isPickup: true,
-                        };
-
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        
                         const finalOptions = [];
-                        if (pacOption) {
-                            finalOptions.push(pacOption);
-                        }
+                        if (pacOption) finalOptions.push(pacOption);
                         finalOptions.push(pickupOption);
 
                         setShippingOptions(finalOptions);
+                        
+                        const currentSelection = autoCalculatedShipping;
+                        const isCurrentSelectionValid = currentSelection && finalOptions.some(opt => opt.name === currentSelection.name);
 
-                        if (pacOption) {
-                            setAutoCalculatedShipping(pacOption);
+                        if (isCurrentSelectionValid) {
+                            const updatedSelection = finalOptions.find(opt => opt.name === currentSelection.name);
+                            setAutoCalculatedShipping(updatedSelection);
                         } else {
-                            setAutoCalculatedShipping(pickupOption);
+                            setAutoCalculatedShipping(pacOption || pickupOption);
                         }
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = {
-                            name: "Retirar na loja",
-                            price: 0,
-                            delivery_time: 'Disponível para retirada após confirmação',
-                            isPickup: true,
-                        };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
                         setAutoCalculatedShipping(pickupOption);
                     } finally {
@@ -457,47 +427,33 @@ const ShopProvider = ({ children }) => {
                 };
                 calculateShipping();
             } else {
-                setAutoCalculatedShipping(null);
                 setShippingOptions([]);
+                setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation]);
+    }, [cart, shippingLocation, previewShippingItem]); // <-- DEPENDÊNCIAS CORRIGIDAS
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
-        const cartItemId = productToAdd.product_type === 'clothing' && variation 
-            ? `${productToAdd.id}-${variation.color}-${variation.size}` 
-            : productToAdd.id;
-
+        setPreviewShippingItem(null); // Limpa o item de pré-visualização ao adicionar ao carrinho
+        const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
         
-        if (currentQtyInCart + qty > availableStock) {
-            throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-        }
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
         setCart(currentCart => {
             let updatedCart;
             if (existing) {
-                const newQty = existing.qty + qty;
-                updatedCart = currentCart.map(item => 
-                    item.cartItemId === cartItemId ? { ...item, qty: newQty } : item
-                );
+                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
             } else {
-                const newItem = { ...productToAdd, qty, variation, cartItemId };
-                updatedCart = [...currentCart, newItem];
+                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
             }
 
             if (isAuthenticated) {
-                apiService('/cart', 'POST', { 
-                    productId: productToAdd.id, 
-                    quantity: existing ? existing.qty + qty : qty,
-                    variationId: variation?.id
-                }).catch(err => {
-                    console.error("Falha ao sincronizar carrinho com o backend:", err);
-                });
+                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
             }
             return updatedCart;
         });
@@ -506,49 +462,24 @@ const ShopProvider = ({ children }) => {
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
-
         const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
         setCart(updatedCart);
-        if (isAuthenticated) {
-            await apiService(`/cart/${itemToRemove.id}`, 'DELETE', {
-                variationId: itemToRemove.variation?.id
-            });
-        }
+        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
-        if (newQuantity < 1) {
-            removeFromCart(cartItemId);
-            return;
-        }
-        
+        if (newQuantity < 1) { removeFromCart(cartItemId); return; }
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
-        
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) {
-            throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-        }
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
         const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
         setCart(updatedCart);
-
-        if (isAuthenticated) {
-            await apiService('/cart', 'POST', { 
-                productId: itemToUpdate.id, 
-                quantity: newQuantity,
-                variationId: itemToUpdate.variation?.id
-            });
-        }
+        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
-
     
-    const clearCart = useCallback(async () => {
-        setCart([]);
-        if (isAuthenticated) {
-            await apiService('/cart', 'DELETE');
-        }
-    }, [isAuthenticated]);
+    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
 
     const addToWishlist = useCallback(async (productToAdd) => {
         if (!isAuthenticated) return; 
@@ -557,10 +488,7 @@ const ShopProvider = ({ children }) => {
             const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
             setWishlist(current => [...current, addedProduct]);
             return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) {
-            console.error("Erro ao adicionar na lista de desejos:", error);
-            return { success: false, message: `Não foi possível adicionar o item: ${error.message}` };
-        }
+        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
     }, [isAuthenticated, wishlist]);
 
     const removeFromWishlist = useCallback(async (productId) => {
@@ -568,16 +496,10 @@ const ShopProvider = ({ children }) => {
         try {
             await apiService(`/wishlist/${productId}`, 'DELETE');
             setWishlist(current => current.filter(p => p.id !== productId));
-        } catch (error) {
-            console.error("Erro ao remover da lista de desejos:", error);
-        }
+        } catch (error) { console.error(error); }
     }, [isAuthenticated]);
     
-    const removeCoupon = useCallback(() => {
-        setAppliedCoupon(null);
-        setCouponCode('');
-        setCouponMessage('');
-    }, []);
+    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
 
     const applyCoupon = useCallback(async (code) => {
         setCouponCode(code);
@@ -585,18 +507,10 @@ const ShopProvider = ({ children }) => {
             const response = await apiService('/coupons/validate', 'POST', { code });
             setAppliedCoupon(response.coupon);
             setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
-        } catch (error) {
-            removeCoupon();
-            setCouponMessage(error.message || "Não foi possível aplicar o cupom.");
-        }
+        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-
-    const clearOrderState = useCallback(() => {
-        clearCart();
-        removeCoupon();
-        determineShippingLocation();
-    }, [clearCart, removeCoupon, determineShippingLocation]);
+    const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
         <ShopContext.Provider value={{
@@ -605,22 +519,14 @@ const ShopProvider = ({ children }) => {
             addToWishlist, removeFromWishlist,
             updateQuantity, removeFromCart,
             userName: user?.name,
-            
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
-            autoCalculatedShipping,
-            setAutoCalculatedShipping,
-            shippingOptions,
-            isLoadingShipping,
-            shippingError,
-            updateDefaultShippingLocation,
-            determineShippingLocation,
-
+            autoCalculatedShipping, setAutoCalculatedShipping,
+            shippingOptions, isLoadingShipping, shippingError,
+            updateDefaultShippingLocation, determineShippingLocation,
+            setPreviewShippingItem, // <-- NOVA FUNÇÃO EXPORTADA
             couponCode, setCouponCode,
-            couponMessage,
-            applyCoupon,
-            appliedCoupon,
-            removeCoupon
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
             {children}
         </ShopContext.Provider>
@@ -1833,9 +1739,10 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-const ShippingCalculator = memo(() => {
-    // Usa apenas o estado global do ShopProvider. Sem mais estado local.
+const ShippingCalculator = memo(({ items: itemsFromProp }) => {
+    // Busca tudo do context. Não há mais estado local para o cálculo.
     const { 
+        cart,
         addresses, 
         shippingLocation, 
         setShippingLocation,
@@ -1843,29 +1750,28 @@ const ShippingCalculator = memo(() => {
         isLoadingShipping,
         shippingError,
         autoCalculatedShipping,
-        setAutoCalculatedShipping
+        setAutoCalculatedShipping,
+        setPreviewShippingItem // <-- Nova função para pré-visualização
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
-    
-    // Mostra o modal para inserir CEP manualmente se o usuário não estiver logado e não tivermos um CEP.
+
+    // Efeito que informa ao ShopProvider sobre o item em pré-visualização
     useEffect(() => {
-        const hasNoCep = !shippingLocation || !shippingLocation.cep || shippingLocation.cep.replace(/\D/g, '').length !== 8;
-        const hasNoAddresses = !addresses || addresses.length === 0;
-
-        if (hasNoCep && hasNoAddresses) {
-            // Pequeno delay para permitir que a geolocalização tente primeiro
-            setTimeout(() => {
-                const currentCep = shippingLocation.cep.replace(/\D/g, '');
-                if (currentCep.length !== 8) {
-                    setIsModalOpen(true);
-                }
-            }, 2000);
+        const isProductPage = cart.length === 0 && itemsFromProp && itemsFromProp.length > 0;
+        if (isProductPage) {
+            setPreviewShippingItem(itemsFromProp);
         }
-    }, []); // Executa apenas uma vez na montagem do componente
 
+        // Limpa o item de pré-visualização ao sair da página do produto
+        return () => {
+            if (isProductPage) {
+                setPreviewShippingItem(null);
+            }
+        };
+    }, [itemsFromProp, cart.length, setPreviewShippingItem]);
 
     const handleSelectAddress = (addr) => {
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
@@ -1904,13 +1810,6 @@ const ShippingCalculator = memo(() => {
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    const getDestinationText = () => {
-        if (shippingLocation.cep.replace(/\D/g, '').length === 8) {
-             return `Opções para ${shippingLocation.cep}`;
-        }
-        return 'Informe o CEP';
-    };
-
     return (
         <>
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Informe o CEP de Entrega" size="md">
@@ -1935,50 +1834,58 @@ const ShippingCalculator = memo(() => {
             </Modal>
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
-                        <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
-                        <span className="truncate">{getDestinationText()}</span>
-                    </div>
-                    <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
-                        Alterar
-                    </button>
-                </div>
-                
-                <div className="pt-4 mt-4 border-t border-gray-700">
-                    <div className="min-h-[60px]">
-                        {isLoadingShipping && <div className="flex items-center gap-2 animate-pulse"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
-                        
-                        {!isLoadingShipping && shippingError && (
-                            <div className="text-red-400 text-sm">{shippingError}</div>
-                        )}
-
-                        {!isLoadingShipping && shippingOptions.length > 0 ? (
-                            <div className="space-y-3">
-                                {shippingOptions.map(option => (
-                                    <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-5 h-5 flex items-center justify-center">
-                                                <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                    {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                <div className="min-h-[60px]">
+                    {shippingLocation.cep.replace(/\D/g, '').length === 8 ? (
+                        <>
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+                                <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
+                                    <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                                    <span className="truncate">Opções para {shippingLocation.cep}</span>
+                                </div>
+                                <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                                    Alterar
+                                </button>
+                            </div>
+                            {isLoadingShipping && <div className="flex items-center gap-2 animate-pulse"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                            {!isLoadingShipping && shippingError && (<div className="text-red-400 text-sm">{shippingError}</div>)}
+                            {!isLoadingShipping && shippingOptions.length > 0 && (
+                                <div className="space-y-3">
+                                    {shippingOptions.map(option => (
+                                        <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-5 h-5 flex items-center justify-center">
+                                                    <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                        {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                                    </div>
+                                                </div>
+                                                <div className="text-gray-300">{option.isPickup ? <BoxIcon className="h-6 w-6"/> : <TruckIcon className="h-6 w-6"/>}</div>
+                                                <div>
+                                                    <p className="font-semibold text-white">{option.name}</p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <div className="text-gray-300">{option.isPickup ? <BoxIcon className="h-6 w-6"/> : <TruckIcon className="h-6 w-6"/>}</div>
-                                            <div>
-                                                <p className="font-semibold text-white">{option.name}</p>
-                                                <p className="text-xs text-gray-400">
-                                                    {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
-                                                </p>
-                                            </div>
+                                            <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
                                         </div>
-                                        <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : !isLoadingShipping && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
-                        )}
-                    </div>
+                                    ))}
+                                </div>
+                            )}
+                            {/* Mostra mensagem apenas se não estiver carregando e não tiver opções */}
+                            {!isLoadingShipping && shippingOptions.length === 0 && (
+                                <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
+                            )}
+                        </>
+                    ) : (
+                        <div>
+                            <p className="text-sm font-medium text-gray-200 mb-2">Calcular frete e prazo</p>
+                            <form onSubmit={handleManualCepSubmit} className="flex gap-2">
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="Digite seu CEP" className="w-full p-2 bg-gray-800 border-gray-700 border rounded-md text-white"/>
+                                <button type="submit" className="bg-amber-400 text-black font-bold px-4 rounded-md hover:bg-amber-300">Calcular</button>
+                            </form>
+                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
+                        </div>
+                    )}
                 </div>
             </div>
         </>
