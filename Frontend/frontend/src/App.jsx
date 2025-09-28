@@ -298,7 +298,8 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+    const [shippingOptions, setShippingOptions] = useState([]);
+    const [selectedShippingOption, setSelectedShippingOption] = useState(null);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     
@@ -400,40 +401,53 @@ const ShopProvider = ({ children }) => {
                 setIsLoadingShipping(true);
                 setShippingError('');
                 
-                const calculateAutoShipping = async () => {
+                const calculateShippingOptions = async () => {
+                    const allOptions = [];
+                    
+                    const pickupOption = {
+                        name: 'Retirar na loja',
+                        price: 0,
+                        delivery_time: 0, // Prazo a ser definido pelo admin
+                        type: 'pickup'
+                    };
+                    allOptions.push(pickupOption);
+
                     try {
                         const productsPayload = cart.map(item => ({
                             id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price if available
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
-                        const options = await apiService('/shipping/calculate', 'POST', {
+                        const deliveryOptions = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
                             products: productsPayload,
                         });
                         
-                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const pacOption = deliveryOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         
                         if (pacOption) {
-                            setAutoCalculatedShipping(pacOption);
+                            allOptions.push({ ...pacOption, type: 'delivery' });
                         } else {
-                            setShippingError('Frete PAC não disponível para este CEP.');
-                            setAutoCalculatedShipping(null);
+                             console.warn('Frete PAC não disponível para este CEP.');
                         }
                     } catch (error) {
-                        setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        setAutoCalculatedShipping(null);
+                        setShippingError(error.message || 'Não foi possível calcular o frete PAC.');
                     } finally {
+                        setShippingOptions(allOptions);
+                        // Define a opção de entrega como padrão, se houver, caso contrário, a primeira opção (retirada)
+                        const defaultOption = allOptions.find(opt => opt.type === 'delivery') || allOptions[0];
+                        setSelectedShippingOption(defaultOption);
                         setIsLoadingShipping(false);
                     }
                 };
-                calculateAutoShipping();
+                calculateShippingOptions();
             } else {
-                setAutoCalculatedShipping(null);
+                setShippingOptions([]);
+                setSelectedShippingOption(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation]);
+    }, [cart, shippingLocation.cep]);
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
@@ -579,7 +593,9 @@ const ShopProvider = ({ children }) => {
             
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
-            autoCalculatedShipping,
+            shippingOptions,
+            selectedShippingOption,
+            setSelectedShippingOption,
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
@@ -2904,12 +2920,14 @@ const CartPage = ({ onNavigate }) => {
         cart,
         updateQuantity,
         removeFromCart,
-        autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon
+        couponMessage, appliedCoupon,
+        shippingOptions,
+        selectedShippingOption,
+        setSelectedShippingOption
     } = useShop();
     const notification = useNotification();
 
@@ -2918,7 +2936,7 @@ const CartPage = ({ onNavigate }) => {
         return sum + price * item.qty;
     }, 0), [cart]);
 
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => selectedShippingOption ? selectedShippingOption.price : 0, [selectedShippingOption]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -3006,7 +3024,35 @@ const CartPage = ({ onNavigate }) => {
                                     )
                                 })}
                             </div>
-                            <ShippingCalculator items={cart} />
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6">
+                                <h3 className="font-semibold text-lg mb-4 text-amber-400">Opções de Entrega</h3>
+                                <div className="space-y-3">
+                                    {isLoadingShipping ? (
+                                        <div className="flex items-center gap-2 text-gray-400"><SpinnerIcon className="h-5 w-5"/> Calculando...</div>
+                                    ) : shippingOptions.length > 0 ? (
+                                        shippingOptions.map((option, index) => (
+                                            <div key={index} onClick={() => setSelectedShippingOption(option)} className={`p-3 rounded-md border-2 cursor-pointer transition-all ${selectedShippingOption?.name === option.name ? 'border-amber-400 bg-amber-900/30' : 'border-gray-700 hover:border-gray-600'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedShippingOption?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                            {selectedShippingOption?.name === option.name && <div className="w-2.5 h-2.5 bg-amber-400 rounded-full"></div>}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold">{option.name}</p>
+                                                            {option.type === 'delivery' && <p className="text-xs text-gray-400">Receba em até {option.delivery_time} dias úteis</p>}
+                                                            {option.type === 'pickup' && <p className="text-xs text-gray-400">Disponível para retirada no endereço da loja</p>}
+                                                        </div>
+                                                    </div>
+                                                    <p className="font-semibold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-gray-500">Informe o CEP no seu perfil para ver as opções.</p>
+                                    )}
+                                    {shippingError && <p className="text-red-400 text-sm mt-2">{shippingError}</p>}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
@@ -3015,13 +3061,13 @@ const CartPage = ({ onNavigate }) => {
                                 <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                 
                                 <div className="flex justify-between text-gray-300">
-                                    <span>Frete (PAC)</span>
+                                    <span>Frete</span>
                                     {isLoadingShipping ? (
                                         <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                    ) : autoCalculatedShipping ? (
+                                    ) : selectedShippingOption ? (
                                         <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                     ) : (
-                                        <span className="text-xs text-gray-500">Informe o CEP</span>
+                                        <span className="text-xs text-gray-500">Selecione uma opção</span>
                                     )}
                                 </div>
                                 
@@ -3054,8 +3100,8 @@ const CartPage = ({ onNavigate }) => {
                                 </div>
                             )}
                             
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!selectedShippingOption || cart.length === 0}>Ir para o Checkout</button>
+                            {!selectedShippingOption && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário selecionar uma opção de entrega para continuar.</p>}
                         </div>
                     </div>
                 )}
@@ -6110,8 +6156,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-
-
-
-
-
