@@ -1850,8 +1850,8 @@ const ShippingCalculator = memo(() => {
         shippingOptions,
         isLoadingShipping,
         shippingError,
-        autoCalculatedShipping, // O selecionado atualmente
-        setAutoCalculatedShipping // Função para atualizar a seleção
+        autoCalculatedShipping,
+        setAutoCalculatedShipping
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1894,7 +1894,7 @@ const ShippingCalculator = memo(() => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
-        if (!deliveryTime || isNaN(deliveryTime)) return 'N/A';
+        if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
@@ -1903,17 +1903,14 @@ const ShippingCalculator = memo(() => {
                 addedDays++;
             }
         }
-        return `Previsão: ${date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
+        return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
     const getDestinationText = () => {
-        if (shippingLocation.alias) {
-             return `Calcular para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.cep}`;
+        if (shippingLocation.cep.replace(/\D/g, '').length === 8) {
+             return `Opções para ${shippingLocation.cep}`;
         }
-        if (shippingLocation.city) {
-            return `Calcular para ${shippingLocation.city}, ${shippingLocation.cep}`;
-        }
-        return 'Calcular frete e prazo';
+        return 'Informe o CEP';
     };
 
     return (
@@ -1928,7 +1925,7 @@ const ShippingCalculator = memo(() => {
                     ))}
                     <div className="pt-4 border-t">
                         <form onSubmit={handleManualCepSubmit} className="space-y-2">
-                             <label className="block text-sm font-medium text-gray-700">Ou insira um CEP do Brasil</label>
+                             <label className="block text-sm font-medium text-gray-700">Ou insira um CEP</label>
                              <div className="flex gap-2">
                                 <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
                                 <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
@@ -1941,8 +1938,8 @@ const ShippingCalculator = memo(() => {
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
-                        <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
+                        <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
                         <span className="truncate">{getDestinationText()}</span>
                     </div>
                     <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
@@ -1951,33 +1948,37 @@ const ShippingCalculator = memo(() => {
                 </div>
                 
                 <div className="pt-4 mt-4 border-t border-gray-700">
-                    <h3 className="font-semibold text-gray-300 mb-3">Opções de Entrega</h3>
                     <div className="min-h-[60px]">
-                        {isLoadingShipping && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                        {isLoadingShipping && <div className="flex items-center gap-2 animate-pulse"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
                         
                         {!isLoadingShipping && shippingError && shippingOptions.length <= 1 && (
-                            <div><p className="text-red-400 font-semibold text-sm">{shippingError}</p></div>
+                            <div className="text-red-400 text-sm">{shippingError}</div>
                         )}
 
                         {!isLoadingShipping && shippingOptions.length > 0 ? (
                             <div className="space-y-3">
                                 {shippingOptions.map(option => (
-                                    <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-3">
-                                                <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
-                                                <span className="font-bold">{option.name}</span>
+                                    <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-5 h-5 flex items-center justify-center">
+                                                <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                    {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                                </div>
                                             </div>
-                                            <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
+                                            <div className="text-gray-300">{option.isPickup ? <BoxIcon className="h-6 w-6"/> : <TruckIcon className="h-6 w-6"/>}</div>
+                                            <div>
+                                                <p className="font-semibold text-white">{option.name}</p>
+                                                <p className="text-xs text-gray-400">
+                                                    {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <p className="text-sm text-gray-400 pl-7">
-                                            {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
-                                        </p>
+                                        <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
                                     </div>
                                 ))}
                             </div>
                         ) : !isLoadingShipping && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções.</p></div>
+                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
                         )}
                     </div>
                 </div>
@@ -3726,14 +3727,18 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
 const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
+        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
         'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
         'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
         'Pronto para Retirada': { title: 'Pronto para Retirada', description: 'Seu pedido está pronto! Você já pode vir retirá-lo em nosso endereço dentro do horário de funcionamento.', icon: <CheckCircleIcon className="h-6 w-6" />, color: 'blue' },
         'Entregue': { title: 'Pedido Retirado', description: 'Seu pedido foi retirado com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
         'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
+        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
     }), []);
 
     const colorClasses = useMemo(() => ({
+        amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
         green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
         blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
         red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
@@ -3741,13 +3746,13 @@ const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) =>
     }), []);
     
     const timelineOrder = useMemo(() => [
-        'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'
     ], []);
 
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    if (['Cancelado'].includes(currentStatus)) {
+    if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
         return (
@@ -3767,6 +3772,32 @@ const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) =>
 
     return (
         <div className="w-full">
+            {/* --- VISTA DESKTOP --- */}
+            <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
+                {timelineOrder.map((statusKey, index) => {
+                    const statusInfo = historyMap.get(statusKey);
+                    const isStepActive = index <= currentStatusIndex;
+                    const isCurrent = statusKey === currentStatus;
+                    const definition = STATUS_DEFINITIONS[statusKey];
+                    if (!definition) return null;
+                    const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+                    
+                    return (
+                        <React.Fragment key={statusKey}>
+                            <div 
+                                className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
+                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
+                                    {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                </div>
+                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
+                                {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
+                            </div>
+                            {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
+                        </React.Fragment>
+                    );
+                })}
+            </div>
             {/* --- VISTA MOBILE --- */}
             <div className="md:hidden flex flex-col">
                 {timelineOrder.map((statusKey, index) => {
