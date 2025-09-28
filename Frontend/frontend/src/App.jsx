@@ -298,7 +298,8 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+   const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+    const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     
@@ -394,42 +395,66 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    useEffect(() => {
+   useEffect(() => {
         const debounceTimer = setTimeout(() => {
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
                 
-                const calculateAutoShipping = async () => {
+                const calculateShipping = async () => {
                     try {
                         const productsPayload = cart.map(item => ({
                             id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price if available
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
+
                         const options = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
                             products: productsPayload,
                         });
-                        
+
+                        const pickupOption = {
+                            name: "Retirar na loja",
+                            price: 0,
+                            delivery_time: 'Disponível para retirada após confirmação',
+                            isPickup: true,
+                        };
+
+                        const allOptions = [...options, pickupOption];
+                        setShippingOptions(allOptions);
+
+                        // Define o PAC como padrão, se disponível. Senão, define a retirada.
                         const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-                        
                         if (pacOption) {
                             setAutoCalculatedShipping(pacOption);
+                        } else if (allOptions.length > 0) {
+                            setAutoCalculatedShipping(pickupOption);
                         } else {
-                            setShippingError('Frete PAC não disponível para este CEP.');
+                            setShippingError('Nenhuma opção de entrega disponível.');
                             setAutoCalculatedShipping(null);
                         }
+
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         setAutoCalculatedShipping(null);
+                        // Adiciona a opção de retirada mesmo em caso de erro no cálculo do PAC
+                        const pickupOption = {
+                            name: "Retirar na loja",
+                            price: 0,
+                            delivery_time: 'Disponível para retirada após confirmação',
+                            isPickup: true,
+                        };
+                        setShippingOptions([pickupOption]);
+                        setAutoCalculatedShipping(pickupOption);
                     } finally {
                         setIsLoadingShipping(false);
                     }
                 };
-                calculateAutoShipping();
+                calculateShipping();
             } else {
                 setAutoCalculatedShipping(null);
+                setShippingOptions([]);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
@@ -580,6 +605,8 @@ const ShopProvider = ({ children }) => {
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
+            setAutoCalculatedShipping, // Para permitir a seleção
+            shippingOptions,          // Novas opções de frete
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
@@ -747,19 +774,21 @@ const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
   );
 });
 
-const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
+const TrackingModal = memo(({ isOpen, onClose, order }) => {
     const [trackingInfo, setTrackingInfo] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const isPickupOrder = order?.shipping_method === 'Retirar na loja';
+
     useEffect(() => {
-        if (isOpen && trackingCode) {
+        if (isOpen && order && !isPickupOrder && order.tracking_code) {
             const fetchTracking = async () => {
                 setIsLoading(true);
                 setError('');
                 setTrackingInfo([]);
                 try {
-                    const data = await apiService(`/track/${trackingCode}`);
+                    const data = await apiService(`/track/${order.tracking_code}`);
                     setTrackingInfo(data);
                 } catch (err) {
                     setError(err.message || "Não foi possível obter informações de rastreio.");
@@ -769,39 +798,76 @@ const TrackingModal = memo(({ isOpen, onClose, trackingCode }) => {
             };
             fetchTracking();
         }
-    }, [isOpen, trackingCode]);
+    }, [isOpen, order, isPickupOrder]);
+
+    const renderPickupStatus = () => (
+        <div className="space-y-6 text-gray-800">
+            <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">Status Atual: <span className="text-blue-600">{order.status}</span></h3>
+                <div className="p-4 bg-gray-100 rounded-lg border">
+                    {order.status === 'Pronto para Retirada' ? (
+                        <p className="flex items-center gap-2 text-green-700"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>
+                    ) : (
+                        <p className="flex items-center gap-2 text-amber-700"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
+                    )}
+                </div>
+            </div>
+
+            <div>
+                <h3 className="font-bold text-gray-900 mb-2">Instruções para Retirada</h3>
+                <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
+                    <p><strong>Endereço:</strong><br/> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                    <p><strong>Horário:</strong><br/> Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+                    <p className="font-semibold pt-2 border-t">No momento da retirada, é necessário apresentar:</p>
+                    <ul className="list-disc list-inside">
+                        <li>Documento com foto (RG ou CNH)</li>
+                        <li>O número do pedido: <span className="font-bold">#{order.id}</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderShippingTracking = () => (
+        <>
+            {isLoading && <p>Buscando informações...</p>}
+            {error && <p className="text-red-500">{error}</p>}
+            {!isLoading && !error && (
+                <div className="space-y-6">
+                    {trackingInfo.map((event, index) => (
+                        <div key={index} className="flex space-x-4">
+                            <div className="flex flex-col items-center">
+                                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                                    {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                                </div>
+                                {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-800">{event.status}</p>
+                                <p className="text-sm text-gray-600">{event.location}</p>
+                                <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </>
+    );
 
     return (
         <AnimatePresence>
-            {isOpen && (
-                <Modal isOpen={isOpen} onClose={onClose} title={`Rastreio do Pedido: ${trackingCode}`}>
-                    {isLoading && <p>Buscando informações...</p>}
-                    {error && <p className="text-red-500">{error}</p>}
-                    {!isLoading && !error && (
-                        <div className="space-y-6">
-                            {trackingInfo.map((event, index) => (
-                                <div key={index} className="flex space-x-4">
-                                    <div className="flex flex-col items-center">
-                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center ${index === 0 ? 'bg-amber-500' : 'bg-gray-300'}`}>
-                                            {index === 0 && <div className="w-2 h-2 bg-white rounded-full"></div>}
-                                        </div>
-                                        {index < trackingInfo.length - 1 && <div className="w-px h-full bg-gray-300"></div>}
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-gray-800">{event.status}</p>
-                                        <p className="text-sm text-gray-600">{event.location}</p>
-                                        <p className="text-xs text-gray-400">{new Date(event.date).toLocaleString('pt-BR')}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+            {isOpen && order && (
+                <Modal 
+                    isOpen={isOpen} 
+                    onClose={onClose} 
+                    title={isPickupOrder ? `Status da Retirada: Pedido #${order.id}` : `Rastreio do Pedido: ${order.tracking_code}`}
+                >
+                    {isPickupOrder ? renderPickupStatus() : renderShippingTracking()}
                 </Modal>
             )}
         </AnimatePresence>
     );
 });
-
 
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
@@ -3234,25 +3300,32 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 
 
 const CheckoutPage = ({ onNavigate }) => {
-    const { 
-        cart, 
-        autoCalculatedShipping, 
-        appliedCoupon, 
+    const { user } = useAuth(); // Adicionado para obter dados do usuário logado
+    const {
+        cart,
+        autoCalculatedShipping,
+        appliedCoupon,
         clearOrderState,
         addresses,
         fetchAddresses,
-        setShippingLocation
+        setShippingLocation,
+        shippingOptions,          // Adicionado
+        setAutoCalculatedShipping // Adicionado
     } = useShop();
     const notification = useNotification();
-    
+
     const [selectedAddress, setSelectedAddress] = useState(null);
-    
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
-    
+
+    // Novos estados para a lógica de retirada
+    const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
+    const [pickupPersonName, setPickupPersonName] = useState('');
+    const [pickupPersonCpf, setPickupPersonCpf] = useState('');
+
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3275,6 +3348,18 @@ const CheckoutPage = ({ onNavigate }) => {
             });
         }
     }, [selectedAddress, setShippingLocation]);
+    
+    useEffect(() => {
+        // Preenche o nome para retirada se for o próprio usuário
+        if (user && !isSomeoneElsePickingUp) {
+            setPickupPersonName(user.name);
+            setPickupPersonCpf(user.cpf);
+        } else {
+            setPickupPersonName('');
+            setPickupPersonCpf('');
+        }
+    }, [user, isSomeoneElsePickingUp]);
+
 
     const handleAddressSelection = (address) => {
         setSelectedAddress(address);
@@ -3291,7 +3376,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
             await fetchAddresses();
-            setSelectedAddress(savedAddress); 
+            setSelectedAddress(savedAddress);
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
@@ -3302,9 +3387,9 @@ const CheckoutPage = ({ onNavigate }) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
         return sum + price * item.qty;
     }, 0), [cart]);
-    
+
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
-    
+
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
@@ -3317,31 +3402,42 @@ const CheckoutPage = ({ onNavigate }) => {
         }
         return discountValue;
     }, [appliedCoupon, subtotal, shippingCost]);
-    
+
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     const handlePlaceOrderAndPay = async () => {
-        if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
+        const isPickup = autoCalculatedShipping?.isPickup;
+        if ((!selectedAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
+            notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
             return;
         }
+        
+        if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
+            notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
             const orderPayload = {
-                items: cart.map(item => ({ 
-                    id: item.id, 
-                    qty: item.qty, 
-                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price
-                    variation: item.variation 
+                items: cart.map(item => ({
+                    id: item.id,
+                    qty: item.qty,
+                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                    variation: item.variation
                 })),
                 total: total,
-                shippingAddress: selectedAddress,
+                shippingAddress: isPickup ? null : selectedAddress, // Endereço nulo se for retirada
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
-                discount_amount: discount
+                discount_amount: discount,
+                pickup_details: isPickup ? JSON.stringify({ // Detalhes da retirada
+                    personName: isSomeoneElsePickingUp ? pickupPersonName : user.name,
+                    personCpf: isSomeoneElsePickingUp ? pickupPersonCpf.replace(/\D/g, '') : user.cpf,
+                }) : null,
             };
             const orderResult = await apiService('/orders', 'POST', orderPayload);
             const { orderId } = orderResult;
@@ -3365,7 +3461,7 @@ const CheckoutPage = ({ onNavigate }) => {
             setIsLoading(false);
         }
     };
-    
+
     const getShippingName = (name) => {
         if (name) {
             const lowerCaseName = name.toLowerCase();
@@ -3378,7 +3474,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     return (
         <>
-            <AddressSelectionModal 
+            <AddressSelectionModal
                 isOpen={isAddressModalOpen}
                 onClose={() => setIsAddressModalOpen(false)}
                 addresses={addresses}
@@ -3394,29 +3490,77 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
+                            
+                            {/* SEÇÃO DE ENTREGA / RETIRADA */}
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
-                                {isAddressLoading ? (
-                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
-                                            Alterar Endereço
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                            Adicionar Endereço
-                                        </button>
-                                    </div>
-                                )}
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
+                                <div className="space-y-3">
+                                    {shippingOptions.map(option => (
+                                        <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
+                                                    <span className="font-bold">{option.name}</span>
+                                                </div>
+                                                <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : `Prazo estimado: ${option.delivery_time} dias úteis`}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
+                            
+                            {/* DETALHES DA ENTREGA/RETIRADA */}
+                            {autoCalculatedShipping?.isPickup ? (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
+                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
+                                        <p className="font-bold">Endereço para Retirada:</p>
+                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p className="font-bold mt-2">Horário:</p>
+                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                        <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
+                                    </div>
+                                    <div className="mt-4 space-y-3">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
+                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
+                                        </div>
+                                        <AnimatePresence>
+                                        {isSomeoneElsePickingUp && (
+                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2 overflow-hidden">
+                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                            </motion.div>
+                                        )}
+                                        </AnimatePresence>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
+                                    {isAddressLoading ? (
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : selectedAddress ? (
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg">{selectedAddress.alias}</p>
+                                            <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
+                                            <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
+                                            <p className="text-gray-400">{selectedAddress.cep}</p>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
+                                                Alterar Endereço
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                 <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
@@ -3441,16 +3585,16 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
                                         <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)}):</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o método de entrega.</div>
                                     )}
                                     <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
-                                
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!selectedAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
                                         <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
@@ -3459,7 +3603,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </button>
                             </div>
                         </div>
-                     </div>
+                    </div>
                 </div>
             </div>
         </>
@@ -3584,21 +3728,16 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     );
 };
 
-const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
+const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     const STATUS_DEFINITIONS = useMemo(() => ({
-        'Pendente': { title: 'Pedido Pendente', description: 'Aguardando a confirmação do pagamento. Se você pagou com boleto, pode levar até 2 dias úteis.', icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido para o envio.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
-        'Pagamento Recusado': { title: 'Pagamento Recusado', description: 'A operadora não autorizou o pagamento. Por favor, tente novamente ou use outra forma de pagamento.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado em nosso estoque.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-        'Enviado': { title: 'Pedido Enviado', description: 'Seu pedido foi coletado pela transportadora e está a caminho do seu endereço. Use o código de rastreio para acompanhar.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-        'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
+        'Pagamento Aprovado': { title: 'Pagamento Aprovado', description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.', icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+        'Separando Pedido': { title: 'Separando Pedido', description: 'Seu pedido está sendo cuidadosamente separado e embalado.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+        'Pronto para Retirada': { title: 'Pronto para Retirada', description: 'Seu pedido está pronto! Você já pode vir retirá-lo em nosso endereço dentro do horário de funcionamento.', icon: <CheckCircleIcon className="h-6 w-6" />, color: 'blue' },
+        'Entregue': { title: 'Pedido Retirado', description: 'Seu pedido foi retirado com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
         'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
     }), []);
 
     const colorClasses = useMemo(() => ({
-        amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
         green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
         blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
         red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
@@ -3606,13 +3745,13 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
     }), []);
     
     const timelineOrder = useMemo(() => [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'
+        'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'
     ], []);
 
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
-    if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
+    if (['Cancelado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
         return (
@@ -3632,33 +3771,6 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
 
     return (
         <div className="w-full">
-            {/* --- VISTA DESKTOP --- */}
-            <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
-                {timelineOrder.map((statusKey, index) => {
-                    const statusInfo = historyMap.get(statusKey);
-                    const isStepActive = index <= currentStatusIndex;
-                    const isCurrent = statusKey === currentStatus;
-                    const definition = STATUS_DEFINITIONS[statusKey];
-                    if (!definition) return null;
-                    const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
-                    
-                    return (
-                        <React.Fragment key={statusKey}>
-                            <div 
-                                className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
-                                onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
-                                <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
-                                    {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
-                                </div>
-                                <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{definition.title}</p>
-                                {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
-                            </div>
-                            {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
-                        </React.Fragment>
-                    );
-                })}
-            </div>
-
             {/* --- VISTA MOBILE --- */}
             <div className="md:hidden flex flex-col">
                 {timelineOrder.map((statusKey, index) => {
@@ -3787,8 +3899,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const notification = useNotification();
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
-    const [currentTrackingCode, setCurrentTrackingCode] = useState('');
+    const [orderForTracking, setOrderForTracking] = useState(null); // Estado para o modal de rastreio/status
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
@@ -3825,11 +3936,6 @@ const MyOrdersSection = ({ onNavigate }) => {
         });
     };
 
-    const handleOpenTrackingModal = (trackingCode) => {
-        setCurrentTrackingCode(trackingCode);
-        setIsTrackingModalOpen(true);
-    };
-
     const handleOpenStatusModal = (statusDetails) => {
         setSelectedStatusDetails(statusDetails);
         setIsStatusModalOpen(true);
@@ -3839,52 +3945,87 @@ const MyOrdersSection = ({ onNavigate }) => {
 
     return (
         <>
-            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} trackingCode={currentTrackingCode} />
+            <TrackingModal isOpen={!!orderForTracking} onClose={() => setOrderForTracking(null)} order={orderForTracking} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {orders.length > 0 ? (
                 <div className="space-y-6">
-                    {orders.map(order => (
-                        <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                                <div>
-                                    <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                    <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                    <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                                </div>
-                            </div>
-                            <div className="my-6">
-                                <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                            </div>
-                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
-                            <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
-                                {order.items.map(item => (
-                                    <div key={item.id} className="flex items-center text-sm">
-                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
-                                        <div className="flex-grow">
-                                            <span>{item.quantity}x {item.name}</span>
-                                            {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
-                                        </div>
-                                        <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                    {orders.map(order => {
+                        const isPickupOrder = order.shipping_method === 'Retirar na loja';
+                        let pickupDetails = null;
+                        if (isPickupOrder) {
+                            try {
+                                pickupDetails = JSON.parse(order.pickup_details || '{}');
+                            } catch (e) {
+                                console.error("Erro ao parsear detalhes da retirada:", e);
+                                pickupDetails = {};
+                            }
+                        }
+
+                        return (
+                            <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                                    <div>
+                                        <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
+                                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
                                     </div>
-                                ))}
+                                    <div className="text-left sm:text-right">
+                                        <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                    </div>
+                                </div>
+                                <div className="my-6">
+                                    {isPickupOrder ? (
+                                        <PickupOrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                    ) : (
+                                        <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                    )}
+                                </div>
+                                
+                                {isPickupOrder ? (
+                                    <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
+                                        <p><strong>Informações para Retirada:</strong></p>
+                                        <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                                        <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
+                                        {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
+                                        <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
+                                    </div>
+                                ) : (
+                                     order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
+                                )}
+
+                                <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
+                                    {order.items.map(item => (
+                                        <div key={item.id} className="flex items-center text-sm">
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                            <div className="flex-grow">
+                                                <span>{item.quantity}x {item.name}</span>
+                                                {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                                            </div>
+                                            <span className="ml-auto">R$ {Number(item.price).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-gray-800">
+                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                    
+                                    {isPickupOrder ? (
+                                         <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                                    ) : (
+                                        order.tracking_code && <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                    )}
+
+                                    <div className="flex-grow"></div>
+                                    <span className="text-xs text-gray-400 mr-2">Dúvidas? Fale conosco:</span>
+                                    <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
+                                        <WhatsappIcon className="h-4 w-4" />
+                                    </a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
+                                        <InstagramIcon className="h-4 w-4" />
+                                    </a>
+                                </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-gray-800">
-                                <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                {order.tracking_code && <button onClick={() => handleOpenTrackingModal(order.tracking_code)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>}
-                                <div className="flex-grow"></div>
-                                <span className="text-xs text-gray-400 mr-2">Dúvidas? Fale conosco:</span>
-                                <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
-                                    <WhatsappIcon className="h-4 w-4" />
-                                </a>
-                                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
-                                    <InstagramIcon className="h-4 w-4" />
-                                </a>
-                            </div>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             ) : (
                  <EmptyState 
@@ -5510,7 +5651,7 @@ const AdminOrders = () => {
     });
     const statuses = [
         'Pendente', 'Pagamento Aprovado', 'Pagamento Recusado', 'Separando Pedido', 
-        'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
+        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Reembolsado'
     ];
 
     const fetchOrders = useCallback(() => {
@@ -5615,27 +5756,47 @@ const AdminOrders = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
-                                 <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                     {(() => {
-                                         try {
-                                             const addr = JSON.parse(editingOrder.shipping_address);
-                                             return (
-                                                 <>
-                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                                     <p>{addr.cep}</p>
-                                                 </>
-                                             )
-                                         } catch { return <p>Endereço mal formatado.</p> }
-                                     })()}
-                                 </div>
-                            </div>
+                            {editingOrder.shipping_method === 'Retirar na loja' ? (
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
+                                    <div className="text-sm bg-blue-50 p-3 rounded-md border border-blue-200">
+                                        <p className="font-semibold text-blue-800 flex items-center gap-2"><BoxIcon className="h-5 w-5"/> Este pedido será retirado na loja.</p>
+                                        {(() => {
+                                            try {
+                                                const details = JSON.parse(editingOrder.pickup_details);
+                                                return (
+                                                    <div className="mt-2 pt-2 border-t">
+                                                        <p><strong>Nome:</strong> {details.personName}</p>
+                                                        <p><strong>CPF:</strong> {maskCPF(details.personCpf)}</p>
+                                                    </div>
+                                                )
+                                            } catch { return <p className="text-red-600 mt-2">Erro: Detalhes de retirada mal formatados.</p> }
+                                        })()}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                    <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                        {editingOrder.shipping_address ? (() => {
+                                            try {
+                                                const addr = JSON.parse(editingOrder.shipping_address);
+                                                return (
+                                                    <>
+                                                        <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                        <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                                                        <p>{addr.cep}</p>
+                                                    </>
+                                                )
+                                            } catch { return <p>Endereço mal formatado.</p> }
+                                        })() : <p>Nenhum endereço de entrega.</p>}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
-                                <div className="space-y-2 border-t pt-2">
+                                <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
                                     {editingOrder.items?.map(item => (
                                         <div key={item.id} className="flex items-center text-sm">
                                             <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
@@ -5675,10 +5836,12 @@ const AdminOrders = () => {
                                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                  </div>
-                                 <div>
-                                     <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                     <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
-                                 </div>
+                                {editingOrder.shipping_method !== 'Retirar na loja' && (
+                                     <div>
+                                         <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
+                                         <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                     </div>
+                                )}
                                  <div className="flex justify-end space-x-3 pt-4">
                                     <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
                                     <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
@@ -5719,8 +5882,8 @@ const AdminOrders = () => {
                                 <th className="p-4 font-semibold">Cliente</th>
                                 <th className="p-4 font-semibold">Data</th>
                                 <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Entrega</th>
                                 <th className="p-4 font-semibold">Status</th>
-                                <th className="p-4 font-semibold">Cód. Rastreio</th>
                                 <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
@@ -5731,8 +5894,14 @@ const AdminOrders = () => {
                                     <td className="p-4">{o.user_name}</td>
                                     <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
                                     <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4">
+                                        {o.shipping_method === 'Retirar na loja' ? (
+                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
+                                        ) : (
+                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
+                                        )}
+                                    </td>
                                     <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
-                                    <td className="p-4 font-mono">{o.tracking_code || 'N/A'}</td>
                                     <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
                                 </tr>
                             ))}
@@ -5752,7 +5921,14 @@ const AdminOrders = () => {
                             <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                 <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
                                 <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                <div className="col-span-2"><strong className="text-gray-500 block">Cód. Rastreio</strong> {o.tracking_code || 'N/A'}</div>
+                                <div className="col-span-2">
+                                    <strong className="text-gray-500 block">Entrega</strong>
+                                    {o.shipping_method === 'Retirar na loja' ? (
+                                        <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
+                                    ) : (
+                                        <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex justify-end mt-4 pt-2 border-t">
                                 <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
@@ -5764,7 +5940,6 @@ const AdminOrders = () => {
         </div>
     );
 };
-
 const AdminReports = () => {
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
@@ -6110,8 +6285,3 @@ export default function App() {
         </AuthProvider>
     );
 }
-
-
-
-
-
