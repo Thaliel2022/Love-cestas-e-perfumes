@@ -298,7 +298,8 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+    const [shippingOptions, setShippingOptions] = useState([]);
+    const [selectedShippingOption, setSelectedShippingOption] = useState(null);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     
@@ -400,40 +401,53 @@ const ShopProvider = ({ children }) => {
                 setIsLoadingShipping(true);
                 setShippingError('');
                 
-                const calculateAutoShipping = async () => {
+                const calculateShippingOptions = async () => {
+                    const allOptions = [];
+                    
+                    const pickupOption = {
+                        name: 'Retirar na loja',
+                        price: 0,
+                        delivery_time: 0, // Prazo a ser definido pelo admin
+                        type: 'pickup'
+                    };
+                    allOptions.push(pickupOption);
+
                     try {
                         const productsPayload = cart.map(item => ({
                             id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price if available
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
-                        const options = await apiService('/shipping/calculate', 'POST', {
+                        const deliveryOptions = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
                             products: productsPayload,
                         });
                         
-                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const pacOption = deliveryOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         
                         if (pacOption) {
-                            setAutoCalculatedShipping(pacOption);
+                            allOptions.push({ ...pacOption, type: 'delivery' });
                         } else {
-                            setShippingError('Frete PAC não disponível para este CEP.');
-                            setAutoCalculatedShipping(null);
+                             console.warn('Frete PAC não disponível para este CEP.');
                         }
                     } catch (error) {
-                        setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        setAutoCalculatedShipping(null);
+                        setShippingError(error.message || 'Não foi possível calcular o frete PAC.');
                     } finally {
+                        setShippingOptions(allOptions);
+                        // Define a opção de entrega como padrão, se houver, caso contrário, a primeira opção (retirada)
+                        const defaultOption = allOptions.find(opt => opt.type === 'delivery') || allOptions[0];
+                        setSelectedShippingOption(defaultOption);
                         setIsLoadingShipping(false);
                     }
                 };
-                calculateAutoShipping();
+                calculateShippingOptions();
             } else {
-                setAutoCalculatedShipping(null);
+                setShippingOptions([]);
+                setSelectedShippingOption(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation]);
+    }, [cart, shippingLocation.cep]);
 
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
@@ -579,7 +593,9 @@ const ShopProvider = ({ children }) => {
             
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
-            autoCalculatedShipping,
+            shippingOptions,
+            selectedShippingOption,
+            setSelectedShippingOption,
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
@@ -2904,12 +2920,14 @@ const CartPage = ({ onNavigate }) => {
         cart,
         updateQuantity,
         removeFromCart,
-        autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon
+        couponMessage, appliedCoupon,
+        shippingOptions,
+        selectedShippingOption,
+        setSelectedShippingOption
     } = useShop();
     const notification = useNotification();
 
@@ -2918,7 +2936,7 @@ const CartPage = ({ onNavigate }) => {
         return sum + price * item.qty;
     }, 0), [cart]);
 
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => selectedShippingOption ? selectedShippingOption.price : 0, [selectedShippingOption]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -3006,7 +3024,35 @@ const CartPage = ({ onNavigate }) => {
                                     )
                                 })}
                             </div>
-                            <ShippingCalculator items={cart} />
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6">
+                                <h3 className="font-semibold text-lg mb-4 text-amber-400">Opções de Entrega</h3>
+                                <div className="space-y-3">
+                                    {isLoadingShipping ? (
+                                        <div className="flex items-center gap-2 text-gray-400"><SpinnerIcon className="h-5 w-5"/> Calculando...</div>
+                                    ) : shippingOptions.length > 0 ? (
+                                        shippingOptions.map((option, index) => (
+                                            <div key={index} onClick={() => setSelectedShippingOption(option)} className={`p-3 rounded-md border-2 cursor-pointer transition-all ${selectedShippingOption?.name === option.name ? 'border-amber-400 bg-amber-900/30' : 'border-gray-700 hover:border-gray-600'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedShippingOption?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                            {selectedShippingOption?.name === option.name && <div className="w-2.5 h-2.5 bg-amber-400 rounded-full"></div>}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold">{option.name}</p>
+                                                            {option.type === 'delivery' && <p className="text-xs text-gray-400">Receba em até {option.delivery_time} dias úteis</p>}
+                                                            {option.type === 'pickup' && <p className="text-xs text-gray-400">Disponível para retirada no endereço da loja</p>}
+                                                        </div>
+                                                    </div>
+                                                    <p className="font-semibold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-xs text-gray-500">Informe o CEP no seu perfil para ver as opções.</p>
+                                    )}
+                                    {shippingError && <p className="text-red-400 text-sm mt-2">{shippingError}</p>}
+                                </div>
+                            </div>
                         </div>
 
                         <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
@@ -3015,13 +3061,13 @@ const CartPage = ({ onNavigate }) => {
                                 <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
                                 
                                 <div className="flex justify-between text-gray-300">
-                                    <span>Frete (PAC)</span>
+                                    <span>Frete</span>
                                     {isLoadingShipping ? (
                                         <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                    ) : autoCalculatedShipping ? (
+                                    ) : selectedShippingOption ? (
                                         <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                     ) : (
-                                        <span className="text-xs text-gray-500">Informe o CEP</span>
+                                        <span className="text-xs text-gray-500">Selecione uma opção</span>
                                     )}
                                 </div>
                                 
@@ -3054,8 +3100,8 @@ const CartPage = ({ onNavigate }) => {
                                 </div>
                             )}
                             
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!selectedShippingOption || cart.length === 0}>Ir para o Checkout</button>
+                            {!selectedShippingOption && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário selecionar uma opção de entrega para continuar.</p>}
                         </div>
                     </div>
                 )}
@@ -3236,7 +3282,7 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 const CheckoutPage = ({ onNavigate }) => {
     const { 
         cart, 
-        autoCalculatedShipping, 
+        selectedShippingOption, // Changed from autoCalculatedShipping
         appliedCoupon, 
         clearOrderState,
         addresses,
@@ -3246,6 +3292,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const notification = useNotification();
     
     const [selectedAddress, setSelectedAddress] = useState(null);
+    const [pickupPersonName, setPickupPersonName] = useState(''); // New state
     
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
@@ -3253,28 +3300,28 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     
+    // This effect now depends on selectedShippingOption
     useEffect(() => {
-        setIsAddressLoading(true);
-        fetchAddresses().then(userAddresses => {
-            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
-            if (defaultAddress) {
-                setSelectedAddress(defaultAddress);
-            }
-        }).finally(() => {
-            setIsAddressLoading(false);
-        });
-    }, [fetchAddresses]);
-
-    useEffect(() => {
-        if (selectedAddress) {
-            setShippingLocation({
-                cep: selectedAddress.cep,
-                city: selectedAddress.localidade,
-                state: selectedAddress.uf,
-                alias: selectedAddress.alias
+        if (selectedShippingOption?.type === 'delivery') {
+            setIsAddressLoading(true);
+            fetchAddresses().then(userAddresses => {
+                const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
+                if (defaultAddress) {
+                    setSelectedAddress(defaultAddress);
+                } else if (userAddresses.length === 0) {
+                    // If delivery is selected but no address exists, prompt user
+                    setIsNewAddressModalOpen(true);
+                }
+            }).finally(() => {
+                setIsAddressLoading(false);
             });
+        } else {
+            // No need to load address for pickup
+            setSelectedAddress(null); 
+            setIsAddressLoading(false);
         }
-    }, [selectedAddress, setShippingLocation]);
+    }, [fetchAddresses, selectedShippingOption]);
+
 
     const handleAddressSelection = (address) => {
         setSelectedAddress(address);
@@ -3303,7 +3350,7 @@ const CheckoutPage = ({ onNavigate }) => {
         return sum + price * item.qty;
     }, 0), [cart]);
     
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => selectedShippingOption ? selectedShippingOption.price : 0, [selectedShippingOption]);
     
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
@@ -3321,8 +3368,12 @@ const CheckoutPage = ({ onNavigate }) => {
     const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
 
     const handlePlaceOrderAndPay = async () => {
-        if (!selectedAddress || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, selecione um endereço e aguarde o cálculo do frete.", 'error');
+        if (selectedShippingOption?.type === 'delivery' && !selectedAddress) {
+             notification.show("Por favor, selecione um endereço de entrega.", 'error');
+             return;
+        }
+        if (!paymentMethod || !selectedShippingOption) {
+            notification.show("Ocorreu um erro. Por favor, volte ao carrinho e selecione a entrega novamente.", 'error');
             return;
         }
         setIsLoading(true);
@@ -3336,9 +3387,10 @@ const CheckoutPage = ({ onNavigate }) => {
                     variation: item.variation 
                 })),
                 total: total,
-                shippingAddress: selectedAddress,
+                shippingAddress: selectedShippingOption.type === 'delivery' ? selectedAddress : null,
+                pickupDetails: selectedShippingOption.type === 'pickup' ? { pickupPersonName: pickupPersonName || user.name } : null,
                 paymentMethod: paymentMethod,
-                shipping_method: autoCalculatedShipping.name,
+                shipping_method: selectedShippingOption.name,
                 shipping_cost: shippingCost,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
                 discount_amount: discount
@@ -3394,29 +3446,65 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
-                                {isAddressLoading ? (
-                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                ) : selectedAddress ? (
-                                    <div className="p-4 bg-gray-800 rounded-md">
-                                        <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                        <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                        <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                        <p className="text-gray-400">{selectedAddress.cep}</p>
-                                        <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
-                                            Alterar Endereço
-                                        </button>
+                            {selectedShippingOption?.type === 'delivery' ? (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Endereço de Entrega</h2>
+                                    {isAddressLoading ? (
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : selectedAddress ? (
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg">{selectedAddress.alias}</p>
+                                            <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
+                                            <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
+                                            <p className="text-gray-400">{selectedAddress.cep}</p>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
+                                                Alterar Endereço
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Informações de Retirada</h2>
+                                    <div className="space-y-4 text-gray-300">
+                                        <div>
+                                            <h3 className="font-semibold text-white">Endereço da Loja:</h3>
+                                            <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-white">Horário de Funcionamento:</h3>
+                                            <p>Segunda a sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-white">Regras para Retirada:</h3>
+                                            <ul className="list-disc list-inside text-sm space-y-1 text-gray-400">
+                                                <li>Você receberá uma notificação quando o pedido estiver pronto.</li>
+                                                <li>Apresentar documento com foto (RG ou CNH) e o número do pedido.</li>
+                                            </ul>
+                                        </div>
+                                        <div className="pt-4 border-t border-gray-700">
+                                             <label htmlFor="pickupPersonName" className="block text-sm font-medium text-white mb-2">
+                                                Nome de quem irá retirar (se não for você, informe aqui):
+                                             </label>
+                                             <input
+                                                type="text"
+                                                id="pickupPersonName"
+                                                value={pickupPersonName}
+                                                onChange={(e) => setPickupPersonName(e.target.value)}
+                                                placeholder="Nome completo"
+                                                className="w-full p-2 bg-gray-800 border border-gray-600 rounded-md focus:ring-amber-500 focus:border-amber-500"
+                                             />
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="text-center p-4 bg-gray-800 rounded-md">
-                                        <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
-                                        <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                            Adicionar Endereço
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                 <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
@@ -3439,18 +3527,18 @@ const CheckoutPage = ({ onNavigate }) => {
                                 ))}
                                 <div className="border-t border-gray-700 mt-4 pt-4">
                                     {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                                    {autoCalculatedShipping ? (
+                                    {selectedShippingOption ? (
                                         <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span>Frete ({getShippingName(selectedShippingOption.name)})</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o endereço para calcular o frete.</div>
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione a entrega no carrinho.</div>
                                     )}
                                     <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
                                 
-                                <button onClick={handlePlaceOrderAndPay} disabled={!selectedAddress || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                <button onClick={handlePlaceOrderAndPay} disabled={ (selectedShippingOption?.type === 'delivery' && !selectedAddress) || !paymentMethod || !selectedShippingOption || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
                                         <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
@@ -3594,7 +3682,11 @@ const OrderStatusTimeline = ({ history, currentStatus, onStatusClick }) => {
         'Saiu para Entrega': { title: 'Saiu para Entrega', description: 'O carteiro ou entregador saiu com sua encomenda para fazer a entrega no seu endereço hoje.', icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
         'Entregue': { title: 'Pedido Entregue', description: 'Seu pedido foi entregue com sucesso! Esperamos que goste.', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
         'Cancelado': { title: 'Pedido Cancelado', description: 'Este pedido foi cancelado. Se tiver alguma dúvida, entre em contato conosco.', icon: <XCircleIcon className="h-6 w-6" />, color: 'red' },
-        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' }
+        'Reembolsado': { title: 'Pedido Reembolsado', description: 'O valor deste pedido foi estornado. O prazo para aparecer na sua fatura depende da operadora do cartão.', icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray' },
+        // Status de Retirada
+        'Preparando para Retirada': { title: 'Preparando para Retirada', description: 'Estamos preparando e embalando seu pedido. Você será notificado assim que estiver pronto.', icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+        'Pronto para Retirada': { title: 'Pronto para Retirada', description: 'Seu pedido está pronto! Você já pode retirá-lo na loja dentro do nosso horário de funcionamento.', icon: <CheckCircleIcon className="h-6 w-6" />, color: 'green' },
+        'Retirado': { title: 'Pedido Retirado', description: 'Seu pedido foi retirado com sucesso!', icon: <HomeIcon className="h-6 w-6" />, color: 'green' },
     }), []);
 
     const colorClasses = useMemo(() => ({
@@ -3835,6 +3927,8 @@ const MyOrdersSection = ({ onNavigate }) => {
         setIsStatusModalOpen(true);
     };
     
+    const isPickupOrder = (order) => order.shipping_method?.toLowerCase() === 'retirar na loja';
+
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
 
     return (
@@ -3853,12 +3947,28 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 </div>
                                 <div className="text-left sm:text-right">
                                     <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                                    <p className={`text-sm font-semibold ${isPickupOrder(order) ? 'text-indigo-400' : 'text-gray-400'}`}>
+                                        {isPickupOrder(order) ? 'Retirada na Loja' : 'Entrega via PAC'}
+                                    </p>
                                 </div>
                             </div>
                             <div className="my-6">
-                                <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                {isPickupOrder(order) ? (
+                                    <PickupStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                ) : (
+                                    <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                )}
                             </div>
-                            {order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            {order.tracking_code && !isPickupOrder(order) && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            
+                            {isPickupOrder(order) && (
+                                <div className="my-4 p-4 bg-gray-800 rounded-md text-sm space-y-2">
+                                    <h4 className="font-bold text-white">Informações para Retirada:</h4>
+                                    <p><strong className="text-gray-400">Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                    <p><strong className="text-gray-400">Horário:</strong> Seg. a Sáb. das 9h-11h30 e 15h-17h30.</p>
+                                </div>
+                            )}
+
                             <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
                                 {order.items.map(item => (
                                     <div key={item.id} className="flex items-center text-sm">
@@ -5613,25 +5723,41 @@ const AdminOrders = () => {
                                     <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
                                     <p className="capitalize">{editingOrder.payment_method}</p>
                                 </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Entrega</h4>
+                                    <p className="font-semibold text-indigo-600">{editingOrder.shipping_method}</p>
+                                </div>
                             </div>
 
-                            <div>
-                                 <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
-                                 <div className="text-sm bg-gray-100 p-3 rounded-md">
-                                     {(() => {
-                                         try {
-                                             const addr = JSON.parse(editingOrder.shipping_address);
-                                             return (
-                                                 <>
-                                                     <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                     <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                                     <p>{addr.cep}</p>
-                                                 </>
-                                             )
-                                         } catch { return <p>Endereço mal formatado.</p> }
-                                     })()}
-                                 </div>
-                            </div>
+                            {editingOrder.shipping_method?.toLowerCase() !== 'retirar na loja' ? (
+                                <div>
+                                     <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                     <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                         {(() => {
+                                             try {
+                                                 const addr = JSON.parse(editingOrder.shipping_address);
+                                                 return (
+                                                     <>
+                                                         <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                         <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
+                                                         <p>{addr.cep}</p>
+                                                     </>
+                                                 )
+                                             } catch { return <p>Endereço mal formatado.</p> }
+                                         })()}
+                                     </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-1">Retirada por</h4>
+                                    <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                        <p className="font-semibold">
+                                            {editingOrder.pickup_details?.pickupPersonName || editingOrder.user_name}
+                                        </p>
+                                        {editingOrder.pickup_details?.pickupPersonName && <p className="text-xs text-gray-500">Autorizado pelo comprador: {editingOrder.user_name}</p>}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
@@ -6110,8 +6236,4 @@ export default function App() {
         </AuthProvider>
     );
 }
-
-
-
-
 
