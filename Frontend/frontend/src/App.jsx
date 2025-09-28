@@ -397,7 +397,6 @@ const ShopProvider = ({ children }) => {
     
     useEffect(() => {
         const debounceTimer = setTimeout(() => {
-            // Condição para calcular o frete: carrinho não vazio e CEP válido
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
@@ -409,21 +408,18 @@ const ShopProvider = ({ children }) => {
                             price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
-
-                        // 1. Busca todas as opções da API
+                        
                         const apiOptions = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
                             products: productsPayload,
                         });
 
-                        // 2. Filtra para pegar APENAS a opção PAC
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         let pacOption = null;
                         if (pacOptionRaw) {
-                            pacOption = { ...pacOptionRaw, name: 'PAC' }; // Garante que o nome seja "PAC"
+                            pacOption = { ...pacOptionRaw, name: 'PAC' };
                         }
 
-                        // 3. Cria a opção de retirada na loja
                         const pickupOption = {
                             name: "Retirar na loja",
                             price: 0,
@@ -431,7 +427,6 @@ const ShopProvider = ({ children }) => {
                             isPickup: true,
                         };
 
-                        // 4. Monta a lista final de opções
                         const finalOptions = [];
                         if (pacOption) {
                             finalOptions.push(pacOption);
@@ -440,7 +435,6 @@ const ShopProvider = ({ children }) => {
 
                         setShippingOptions(finalOptions);
 
-                        // 5. Define uma opção padrão (prioriza PAC, se existir)
                         if (pacOption) {
                             setAutoCalculatedShipping(pacOption);
                         } else {
@@ -448,7 +442,6 @@ const ShopProvider = ({ children }) => {
                         }
 
                     } catch (error) {
-                        // Em caso de erro na API de frete, ainda oferece a opção de retirada
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         const pickupOption = {
                             name: "Retirar na loja",
@@ -457,14 +450,13 @@ const ShopProvider = ({ children }) => {
                             isPickup: true,
                         };
                         setShippingOptions([pickupOption]);
-                        setAutoCalculatedShipping(pickupOption); // Define a retirada como padrão
+                        setAutoCalculatedShipping(pickupOption);
                     } finally {
                         setIsLoadingShipping(false);
                     }
                 };
                 calculateShipping();
             } else {
-                // Limpa as opções se o carrinho estiver vazio
                 setAutoCalculatedShipping(null);
                 setShippingOptions([]);
             }
@@ -617,8 +609,8 @@ const ShopProvider = ({ children }) => {
             addresses, fetchAddresses,
             shippingLocation, setShippingLocation,
             autoCalculatedShipping,
-            setAutoCalculatedShipping, // Para permitir a seleção
-            shippingOptions,          // Novas opções de frete
+            setAutoCalculatedShipping,
+            shippingOptions,
             isLoadingShipping,
             shippingError,
             updateDefaultShippingLocation,
@@ -634,7 +626,6 @@ const ShopProvider = ({ children }) => {
         </ShopContext.Provider>
     );
 };
-
 const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
 
@@ -3930,7 +3921,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const notification = useNotification();
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [orderForTracking, setOrderForTracking] = useState(null); // Estado para o modal de rastreio/status
+    const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
 
@@ -3944,7 +3935,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
         
-        const promises = orderItems.map(item => {
+        const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
                 return Promise.resolve(0);
@@ -3984,14 +3975,17 @@ const MyOrdersSection = ({ onNavigate }) => {
                     {orders.map(order => {
                         const isPickupOrder = order.shipping_method === 'Retirar na loja';
                         let pickupDetails = null;
-                        if (isPickupOrder) {
+                        if (isPickupOrder && typeof order.pickup_details === 'string') {
                             try {
-                                pickupDetails = JSON.parse(order.pickup_details || '{}');
+                                pickupDetails = JSON.parse(order.pickup_details);
                             } catch (e) {
                                 console.error("Erro ao parsear detalhes da retirada:", e);
                                 pickupDetails = {};
                             }
                         }
+
+                        // Verificação de segurança para o histórico de status
+                        const safeHistory = Array.isArray(order.history) ? order.history : [];
 
                         return (
                             <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
@@ -4006,9 +4000,9 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 </div>
                                 <div className="my-6">
                                     {isPickupOrder ? (
-                                        <PickupOrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                        <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
                                     ) : (
-                                        <OrderStatusTimeline history={order.history || []} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                                        <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
                                     )}
                                 </div>
                                 
@@ -4025,7 +4019,7 @@ const MyOrdersSection = ({ onNavigate }) => {
                                 )}
 
                                 <div className="space-y-2 mb-4 border-t border-gray-800 pt-4">
-                                    {order.items.map(item => (
+                                    {(Array.isArray(order.items) ? order.items : []).map(item => (
                                         <div key={item.id} className="flex items-center text-sm">
                                             <img src={getFirstImage(item.images)} alt={item.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
                                             <div className="flex-grow">
