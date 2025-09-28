@@ -3984,15 +3984,16 @@ const MyOrdersSection = ({ onNavigate }) => {
                             }
                         }
 
-                        // Verificação de segurança para o histórico de status
                         const safeHistory = Array.isArray(order.history) ? order.history : [];
+                        const orderDate = new Date(order.date);
+                        const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data indisponível';
 
                         return (
                             <div key={order.id} className="border border-gray-800 rounded-lg p-4 sm:p-6">
                                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
                                     <div>
                                         <p className="text-lg">Pedido <span className="font-bold text-amber-400">#{order.id}</span></p>
-                                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
+                                        <p className="text-sm text-gray-400">{formattedDate}</p>
                                     </div>
                                     <div className="text-left sm:text-right">
                                         <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
