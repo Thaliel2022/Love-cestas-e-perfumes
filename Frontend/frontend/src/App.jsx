@@ -3752,8 +3752,12 @@ const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) =>
     const historyMap = useMemo(() => new Map(history.map(h => [h.status, h])), [history]);
     const currentStatusIndex = timelineOrder.indexOf(currentStatus);
 
+    // Lógica para status que não estão na linha do tempo principal (erros, cancelamentos)
     if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
         const specialStatus = STATUS_DEFINITIONS[currentStatus];
+        // Se por algum motivo o status não for encontrado, evita que a página quebre
+        if (!specialStatus) return <div className="text-red-500">Status desconhecido: {currentStatus}</div>;
+        
         const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
         return (
             <div className="p-4 bg-gray-800 rounded-lg">
@@ -3779,7 +3783,7 @@ const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) =>
                     const isStepActive = index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
-                    if (!definition) return null;
+                    if (!definition) return null; // Prevenção de erro
                     const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
                     
                     return (
@@ -3805,7 +3809,7 @@ const PickupOrderStatusTimeline = ({ history, currentStatus, onStatusClick }) =>
                     const isStepActive = index <= currentStatusIndex;
                     const isCurrent = statusKey === currentStatus;
                     const definition = STATUS_DEFINITIONS[statusKey];
-                    if (!definition) return null;
+                    if (!definition) return null; // Prevenção de erro
                     const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
 
                     return (
