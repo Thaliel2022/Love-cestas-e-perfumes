@@ -1831,47 +1831,17 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
 });
 
 const ShippingCalculator = memo(({ items }) => {
-    const { addresses, shippingLocation, setShippingLocation } = useShop();
+    const { 
+        addresses, 
+        shippingLocation, 
+        setShippingLocation,
+        shippingOptions,
+        isLoadingShipping,
+        shippingError
+    } = useShop();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [shippingResult, setShippingResult] = useState(null);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
-
-    const calculateShipping = useCallback(async (location) => {
-        if (!location.cep || location.cep.replace(/\D/g, '').length !== 8 || items.length === 0) {
-            setShippingResult(null);
-            return;
-        }
-        setIsLoading(true);
-        setError('');
-        try {
-            const productsPayload = items.map(item => ({
-                id: String(item.id),
-                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, // Use sale price
-                quantity: item.qty || 1,
-            }));
-            const options = await apiService('/shipping/calculate', 'POST', {
-                cep_destino: location.cep,
-                products: productsPayload,
-            });
-            const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
-            if (pacOption) {
-                setShippingResult(pacOption);
-            } else {
-                setError('Frete PAC não disponível para este CEP.');
-            }
-        } catch (err) {
-            setError(err.message || 'Erro ao calcular o frete.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [items]);
-
-    useEffect(() => {
-        calculateShipping(shippingLocation);
-    }, [shippingLocation, items, calculateShipping]);
 
     const handleSelectAddress = (addr) => {
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
@@ -1909,6 +1879,7 @@ const ShippingCalculator = memo(({ items }) => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
+        if (!deliveryTime || isNaN(deliveryTime)) return 'N/A';
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
@@ -1965,21 +1936,25 @@ const ShippingCalculator = memo(({ items }) => {
                         </button>
                     </div>
                     
-                    <div className="min-h-[44px] flex flex-col justify-center">
-                        {isLoading && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                    <div className="min-h-[44px] flex flex-col justify-center pt-2 mt-2 border-t border-gray-700">
+                        {isLoadingShipping && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
                         
-                        {!isLoading && error && (
-                            <div><p className="text-red-400 font-semibold text-sm">{error}</p></div>
+                        {!isLoadingShipping && shippingError && !shippingOptions.some(opt => opt.isPickup) && (
+                            <div><p className="text-red-400 font-semibold text-sm">{shippingError}</p></div>
                         )}
 
-                        {!isLoading && shippingResult && (
-                            <div>
-                                <p className="text-green-400">Frete via PAC: <span className="font-bold ml-2">{shippingResult.price > 0 ? `R$ ${shippingResult.price.toFixed(2)}` : 'Grátis'}</span></p>
-                                <p className="text-sm text-gray-400">Prazo estimado: {getDeliveryDate(shippingResult.delivery_time)}</p>
+                        {!isLoadingShipping && shippingOptions.length > 0 ? (
+                            <div className="space-y-3">
+                                {shippingOptions.map(opt => (
+                                    <div key={opt.name}>
+                                        <p className="text-green-400">{opt.name}: <span className="font-bold ml-2">{opt.price > 0 ? `R$ ${opt.price.toFixed(2)}` : 'Grátis'}</span></p>
+                                        <p className="text-sm text-gray-400">
+                                            {opt.isPickup ? opt.delivery_time : `Prazo estimado: ${getDeliveryDate(opt.delivery_time)}`}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
-                        )}
-                        
-                        {!isLoading && !shippingResult && !error && (
+                        ) : !isLoadingShipping && (
                             <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
                         )}
                     </div>
