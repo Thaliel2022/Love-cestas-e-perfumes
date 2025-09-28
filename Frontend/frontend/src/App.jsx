@@ -1740,7 +1740,6 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
 });
 
 const ShippingCalculator = memo(({ items: itemsFromProp }) => {
-    // Busca tudo do context. Não há mais estado local para o cálculo.
     const { 
         cart,
         addresses, 
@@ -1751,21 +1750,18 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         shippingError,
         autoCalculatedShipping,
         setAutoCalculatedShipping,
-        setPreviewShippingItem // <-- Nova função para pré-visualização
+        setPreviewShippingItem
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
 
-    // Efeito que informa ao ShopProvider sobre o item em pré-visualização
     useEffect(() => {
         const isProductPage = cart.length === 0 && itemsFromProp && itemsFromProp.length > 0;
         if (isProductPage) {
             setPreviewShippingItem(itemsFromProp);
         }
-
-        // Limpa o item de pré-visualização ao sair da página do produto
         return () => {
             if (isProductPage) {
                 setPreviewShippingItem(null);
@@ -1812,7 +1808,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 
     return (
         <>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Informe o CEP de Entrega" size="md">
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Alterar Endereço de Entrega" size="md">
                 <div className="space-y-4">
                     {addresses && addresses.length > 0 && addresses.map(addr => (
                          <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
@@ -1871,9 +1867,8 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                                     ))}
                                 </div>
                             )}
-                            {/* Mostra mensagem apenas se não estiver carregando e não tiver opções */}
-                            {!isLoadingShipping && shippingOptions.length === 0 && (
-                                <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
+                            {!isLoadingShipping && shippingOptions.length === 0 && !shippingError && (
+                                <div><p className="text-gray-400 text-sm">Nenhuma opção de entrega encontrada para este CEP.</p></div>
                             )}
                         </>
                     ) : (
