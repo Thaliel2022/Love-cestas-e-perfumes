@@ -397,6 +397,7 @@ const ShopProvider = ({ children }) => {
     
    useEffect(() => {
         const debounceTimer = setTimeout(() => {
+            // Condição para calcular o frete: carrinho não vazio e CEP válido
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
@@ -409,11 +410,16 @@ const ShopProvider = ({ children }) => {
                             quantity: item.qty || 1,
                         }));
 
-                        const options = await apiService('/shipping/calculate', 'POST', {
+                        // 1. Busca todas as opções da API
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', {
                             cep_destino: shippingLocation.cep,
                             products: productsPayload,
                         });
 
+                        // 2. Filtra para pegar APENAS a opção PAC
+                        const pacOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+
+                        // 3. Cria a opção de retirada na loja
                         const pickupOption = {
                             name: "Retirar na loja",
                             price: 0,
@@ -421,24 +427,25 @@ const ShopProvider = ({ children }) => {
                             isPickup: true,
                         };
 
-                        const allOptions = [...options, pickupOption];
-                        setShippingOptions(allOptions);
+                        // 4. Monta a lista final de opções
+                        const finalOptions = [];
+                        if (pacOption) {
+                            finalOptions.push(pacOption);
+                        }
+                        finalOptions.push(pickupOption);
 
-                        // Define o PAC como padrão, se disponível. Senão, define a retirada.
-                        const pacOption = options.find(opt => opt.name.toLowerCase().includes('pac'));
+                        setShippingOptions(finalOptions);
+
+                        // 5. Define uma opção padrão (prioriza PAC, se existir)
                         if (pacOption) {
                             setAutoCalculatedShipping(pacOption);
-                        } else if (allOptions.length > 0) {
-                            setAutoCalculatedShipping(pickupOption);
                         } else {
-                            setShippingError('Nenhuma opção de entrega disponível.');
-                            setAutoCalculatedShipping(null);
+                            setAutoCalculatedShipping(pickupOption);
                         }
 
                     } catch (error) {
+                        // Em caso de erro na API de frete, ainda oferece a opção de retirada
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        setAutoCalculatedShipping(null);
-                        // Adiciona a opção de retirada mesmo em caso de erro no cálculo do PAC
                         const pickupOption = {
                             name: "Retirar na loja",
                             price: 0,
@@ -446,13 +453,14 @@ const ShopProvider = ({ children }) => {
                             isPickup: true,
                         };
                         setShippingOptions([pickupOption]);
-                        setAutoCalculatedShipping(pickupOption);
+                        setAutoCalculatedShipping(pickupOption); // Define a retirada como padrão
                     } finally {
                         setIsLoadingShipping(false);
                     }
                 };
                 calculateShipping();
             } else {
+                // Limpa as opções se o carrinho estiver vazio
                 setAutoCalculatedShipping(null);
                 setShippingOptions([]);
             }
@@ -1830,15 +1838,18 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-const ShippingCalculator = memo(({ items }) => {
+const ShippingCalculator = memo(() => {
     const { 
         addresses, 
         shippingLocation, 
         setShippingLocation,
         shippingOptions,
         isLoadingShipping,
-        shippingError
+        shippingError,
+        autoCalculatedShipping, // O selecionado atualmente
+        setAutoCalculatedShipping // Função para atualizar a seleção
     } = useShop();
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
@@ -1888,15 +1899,15 @@ const ShippingCalculator = memo(({ items }) => {
                 addedDays++;
             }
         }
-        return date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+        return `Previsão: ${date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}`;
     };
 
     const getDestinationText = () => {
         if (shippingLocation.alias) {
-             return `Enviar para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.city}, ${shippingLocation.cep}`;
+             return `Calcular para ${shippingLocation.alias.split(' ')[0]} - ${shippingLocation.cep}`;
         }
         if (shippingLocation.city) {
-            return `Entregar em ${shippingLocation.city}, ${shippingLocation.cep}`;
+            return `Calcular para ${shippingLocation.city}, ${shippingLocation.cep}`;
         }
         return 'Calcular frete e prazo';
     };
@@ -1925,37 +1936,44 @@ const ShippingCalculator = memo(({ items }) => {
             </Modal>
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                <div className="space-y-2">
-                    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                        <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
-                            <MapPinIcon className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">{getDestinationText()}</span>
-                        </div>
-                        <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
-                            Alterar
-                        </button>
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                    <div className="flex min-w-0 items-center gap-2 text-sm text-gray-400">
+                        <MapPinIcon className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{getDestinationText()}</span>
                     </div>
-                    
-                    <div className="min-h-[44px] flex flex-col justify-center pt-2 mt-2 border-t border-gray-700">
+                    <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                        Alterar
+                    </button>
+                </div>
+                
+                <div className="pt-4 mt-4 border-t border-gray-700">
+                    <h3 className="font-semibold text-gray-300 mb-3">Opções de Entrega</h3>
+                    <div className="min-h-[60px]">
                         {isLoadingShipping && <div className="flex items-center gap-2"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
                         
-                        {!isLoadingShipping && shippingError && !shippingOptions.some(opt => opt.isPickup) && (
+                        {!isLoadingShipping && shippingError && shippingOptions.length <= 1 && (
                             <div><p className="text-red-400 font-semibold text-sm">{shippingError}</p></div>
                         )}
 
                         {!isLoadingShipping && shippingOptions.length > 0 ? (
                             <div className="space-y-3">
-                                {shippingOptions.map(opt => (
-                                    <div key={opt.name}>
-                                        <p className="text-green-400">{opt.name}: <span className="font-bold ml-2">{opt.price > 0 ? `R$ ${opt.price.toFixed(2)}` : 'Grátis'}</span></p>
-                                        <p className="text-sm text-gray-400">
-                                            {opt.isPickup ? opt.delivery_time : `Prazo estimado: ${getDeliveryDate(opt.delivery_time)}`}
+                                {shippingOptions.map(option => (
+                                    <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
+                                                <span className="font-bold">{option.name}</span>
+                                            </div>
+                                            <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
+                                        </div>
+                                        <p className="text-sm text-gray-400 pl-7">
+                                            {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
                                         </p>
                                     </div>
                                 ))}
                             </div>
                         ) : !isLoadingShipping && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para calcular.</p></div>
+                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções.</p></div>
                         )}
                     </div>
                 </div>
@@ -1963,7 +1981,6 @@ const ShippingCalculator = memo(({ items }) => {
         </>
     );
 });
-
 const VariationSelector = ({ product, variations, onSelectionChange }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
