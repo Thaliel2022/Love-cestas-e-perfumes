@@ -298,7 +298,7 @@ const ShopProvider = ({ children }) => {
     
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-   const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
+    const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
@@ -395,7 +395,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-   useEffect(() => {
+    useEffect(() => {
         const debounceTimer = setTimeout(() => {
             // Condição para calcular o frete: carrinho não vazio e CEP válido
             if (cart.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
@@ -417,7 +417,11 @@ const ShopProvider = ({ children }) => {
                         });
 
                         // 2. Filtra para pegar APENAS a opção PAC
-                        const pacOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        let pacOption = null;
+                        if (pacOptionRaw) {
+                            pacOption = { ...pacOptionRaw, name: 'PAC' }; // Garante que o nome seja "PAC"
+                        }
 
                         // 3. Cria a opção de retirada na loja
                         const pickupOption = {
