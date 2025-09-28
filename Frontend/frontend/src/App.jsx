@@ -1833,21 +1833,83 @@ const InstallmentModal = memo(({ isOpen, onClose, installments }) => {
     );
 });
 
-const ShippingCalculator = memo(() => {
+const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     const { 
+        cart,
         addresses, 
         shippingLocation, 
         setShippingLocation,
-        shippingOptions,
-        isLoadingShipping,
-        shippingError,
-        autoCalculatedShipping,
-        setAutoCalculatedShipping
+        shippingOptions: globalShippingOptions,
+        isLoadingShipping: isGlobalLoading,
+        shippingError: globalShippingError,
+        autoCalculatedShipping: globalSelectedShipping,
+        setAutoCalculatedShipping: setGlobalSelectedShipping
     } = useShop();
+
+    const [localOptions, setLocalOptions] = useState([]);
+    const [isLocalLoading, setIsLocalLoading] = useState(false);
+    const [localError, setLocalError] = useState('');
+    const [localSelected, setLocalSelected] = useState(null);
+    
+    const isCartContext = cart.length > 0;
+    const isLoading = isCartContext ? isGlobalLoading : isLocalLoading;
+    const shippingOptions = isCartContext ? globalShippingOptions : localOptions;
+    const selectedShipping = isCartContext ? globalSelectedShipping : localSelected;
+    const shippingError = isCartContext ? globalShippingError : localError;
+    const setSelectedShipping = isCartContext ? setGlobalSelectedShipping : setLocalSelected;
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [apiError, setApiError] = useState('');
+
+    useEffect(() => {
+        if (isCartContext) return;
+
+        const calculateLocalShipping = async () => {
+            if (!itemsFromProp || itemsFromProp.length === 0 || shippingLocation.cep.replace(/\D/g, '').length !== 8) {
+                setLocalOptions([]);
+                return;
+            }
+            setIsLocalLoading(true);
+            setLocalError('');
+            try {
+                const productsPayload = itemsFromProp.map(item => ({
+                    id: String(item.id),
+                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                    quantity: item.qty || 1,
+                }));
+
+                const apiOptions = await apiService('/shipping/calculate', 'POST', {
+                    cep_destino: shippingLocation.cep,
+                    products: productsPayload,
+                });
+
+                const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                let pacOption = null;
+                if (pacOptionRaw) pacOption = { ...pacOptionRaw, name: 'PAC' };
+
+                const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível após confirmação', isPickup: true };
+                
+                const finalOptions = [];
+                if (pacOption) finalOptions.push(pacOption);
+                finalOptions.push(pickupOption);
+
+                setLocalOptions(finalOptions);
+                setLocalSelected(pacOption || pickupOption);
+
+            } catch (error) {
+                setLocalError(error.message || 'Não foi possível calcular.');
+                const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível após confirmação', isPickup: true };
+                setLocalOptions([pickupOption]);
+                setLocalSelected(pickupOption);
+            } finally {
+                setIsLocalLoading(false);
+            }
+        };
+
+        const timer = setTimeout(calculateLocalShipping, 500);
+        return () => clearTimeout(timer);
+    }, [itemsFromProp, shippingLocation, isCartContext]);
 
     const handleSelectAddress = (addr) => {
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
@@ -1858,30 +1920,21 @@ const ShippingCalculator = memo(() => {
         e.preventDefault();
         setApiError('');
         const cleanCep = manualCep.replace(/\D/g, '');
-        if (cleanCep.length !== 8) {
-            setApiError("CEP inválido.");
-            return;
-        }
+        if (cleanCep.length !== 8) { setApiError("CEP inválido."); return; }
         try {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
-            if (data.erro) {
-                setApiError("CEP não encontrado.");
-            } else {
+            if (data.erro) { setApiError("CEP não encontrado."); } else {
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsModalOpen(false);
                 setManualCep('');
             }
-        } catch {
-            setApiError("Não foi possível buscar o CEP. Tente novamente.");
-        }
+        } catch { setApiError("Não foi possível buscar o CEP."); }
     };
     
     const handleCepInputChange = (e) => {
         setManualCep(maskCEP(e.target.value));
-        if (apiError) {
-            setApiError('');
-        }
+        if (apiError) setApiError('');
     };
 
     const getDeliveryDate = (deliveryTime) => {
@@ -1890,18 +1943,9 @@ const ShippingCalculator = memo(() => {
         let addedDays = 0;
         while (addedDays < deliveryTime) {
             date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedDays++;
-            }
+            if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
         }
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
-    };
-
-    const getDestinationText = () => {
-        if (shippingLocation.cep.replace(/\D/g, '').length === 8) {
-             return `Opções para ${shippingLocation.cep}`;
-        }
-        return 'Informe o CEP';
     };
 
     return (
@@ -1928,50 +1972,54 @@ const ShippingCalculator = memo(() => {
             </Modal>
 
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
-                        <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
-                        <span className="truncate">{getDestinationText()}</span>
-                    </div>
-                    <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
-                        Alterar
-                    </button>
-                </div>
-                
-                <div className="pt-4 mt-4 border-t border-gray-700">
-                    <div className="min-h-[60px]">
-                        {isLoadingShipping && <div className="flex items-center gap-2 animate-pulse"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
-                        
-                        {!isLoadingShipping && shippingError && shippingOptions.length <= 1 && (
-                            <div className="text-red-400 text-sm">{shippingError}</div>
-                        )}
-
-                        {!isLoadingShipping && shippingOptions.length > 0 ? (
-                            <div className="space-y-3">
-                                {shippingOptions.map(option => (
-                                    <div key={option.name} onClick={() => setAutoCalculatedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-5 h-5 flex items-center justify-center">
-                                                <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                    {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                <div className="min-h-[60px]">
+                    {shippingLocation.cep.replace(/\D/g, '').length === 8 ? (
+                        <>
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+                                <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
+                                    <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                                    <span className="truncate">Opções para {shippingLocation.cep}</span>
+                                </div>
+                                <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
+                                    Alterar
+                                </button>
+                            </div>
+                            {isLoading && <div className="flex items-center gap-2 animate-pulse"><SpinnerIcon className="h-5 w-5 text-amber-400" /><span className="text-gray-400">Calculando...</span></div>}
+                            {!isLoading && shippingError && (<div className="text-red-400 text-sm">{shippingError}</div>)}
+                            {!isLoading && shippingOptions.length > 0 && (
+                                <div className="space-y-3">
+                                    {shippingOptions.map(option => (
+                                        <div key={option.name} onClick={() => setSelectedShipping(option)} className={`flex items-center justify-between p-3 rounded-md border-2 transition-all cursor-pointer ${selectedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-5 h-5 flex items-center justify-center">
+                                                    <div className={`w-4 h-4 rounded-full border-2 ${selectedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
+                                                        {selectedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                                    </div>
+                                                </div>
+                                                <div className="text-gray-300">{option.isPickup ? <BoxIcon className="h-6 w-6"/> : <TruckIcon className="h-6 w-6"/>}</div>
+                                                <div>
+                                                    <p className="font-semibold text-white">{option.name}</p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
+                                                    </p>
                                                 </div>
                                             </div>
-                                            <div className="text-gray-300">{option.isPickup ? <BoxIcon className="h-6 w-6"/> : <TruckIcon className="h-6 w-6"/>}</div>
-                                            <div>
-                                                <p className="font-semibold text-white">{option.name}</p>
-                                                <p className="text-xs text-gray-400">
-                                                    {option.isPickup ? option.delivery_time : getDeliveryDate(option.delivery_time)}
-                                                </p>
-                                            </div>
+                                            <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
                                         </div>
-                                        <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : !isLoadingShipping && (
-                            <div><p className="text-gray-400 text-sm">Informe um CEP para ver as opções de entrega.</p></div>
-                        )}
-                    </div>
+                                    ))}
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div>
+                            <p className="text-sm font-medium text-gray-200 mb-2">Calcular frete e prazo</p>
+                            <form onSubmit={handleManualCepSubmit} className="flex gap-2">
+                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="Digite seu CEP" className="w-full p-2 bg-gray-800 border-gray-700 border rounded-md text-white"/>
+                                <button type="submit" className="bg-amber-400 text-black font-bold px-4 rounded-md hover:bg-amber-300">Calcular</button>
+                            </form>
+                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
+                        </div>
+                    )}
                 </div>
             </div>
         </>
@@ -3288,7 +3336,7 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 
 
 const CheckoutPage = ({ onNavigate }) => {
-    const { user } = useAuth(); // Adicionado para obter dados do usuário logado
+    const { user } = useAuth();
     const {
         cart,
         autoCalculatedShipping,
@@ -3297,8 +3345,8 @@ const CheckoutPage = ({ onNavigate }) => {
         addresses,
         fetchAddresses,
         setShippingLocation,
-        shippingOptions,          // Adicionado
-        setAutoCalculatedShipping // Adicionado
+        shippingOptions,
+        setAutoCalculatedShipping
     } = useShop();
     const notification = useNotification();
 
@@ -3309,7 +3357,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
 
-    // Novos estados para a lógica de retirada
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
@@ -3327,7 +3374,7 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [fetchAddresses]);
 
     useEffect(() => {
-        if (selectedAddress) {
+        if (selectedAddress && !autoCalculatedShipping?.isPickup) {
             setShippingLocation({
                 cep: selectedAddress.cep,
                 city: selectedAddress.localidade,
@@ -3335,10 +3382,9 @@ const CheckoutPage = ({ onNavigate }) => {
                 alias: selectedAddress.alias
             });
         }
-    }, [selectedAddress, setShippingLocation]);
+    }, [selectedAddress, autoCalculatedShipping, setShippingLocation]);
     
     useEffect(() => {
-        // Preenche o nome para retirada se for o próprio usuário
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name);
             setPickupPersonCpf(user.cpf);
@@ -3363,8 +3409,9 @@ const CheckoutPage = ({ onNavigate }) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
-            await fetchAddresses();
-            setSelectedAddress(savedAddress);
+            const updatedAddresses = await fetchAddresses();
+            const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
+            setSelectedAddress(newAddress); 
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
@@ -3416,13 +3463,13 @@ const CheckoutPage = ({ onNavigate }) => {
                     variation: item.variation
                 })),
                 total: total,
-                shippingAddress: isPickup ? null : selectedAddress, // Endereço nulo se for retirada
+                shippingAddress: isPickup ? null : selectedAddress,
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
                 discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ // Detalhes da retirada
+                pickup_details: isPickup ? JSON.stringify({
                     personName: isSomeoneElsePickingUp ? pickupPersonName : user.name,
                     personCpf: isSomeoneElsePickingUp ? pickupPersonCpf.replace(/\D/g, '') : user.cpf,
                 }) : null,
@@ -3479,7 +3526,6 @@ const CheckoutPage = ({ onNavigate }) => {
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
                             
-                            {/* SEÇÃO DE ENTREGA / RETIRADA */}
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
                                 <div className="space-y-3">
@@ -3498,7 +3544,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </div>
                             
-                            {/* DETALHES DA ENTREGA/RETIRADA */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
@@ -3514,14 +3559,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
                                         </div>
-                                        <AnimatePresence>
                                         {isSomeoneElsePickingUp && (
-                                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2 overflow-hidden">
+                                            <div className="space-y-2 overflow-hidden">
                                                 <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
                                                 <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
-                                            </motion.div>
+                                            </div>
                                         )}
-                                        </AnimatePresence>
                                     </div>
                                 </div>
                             ) : (
