@@ -1456,7 +1456,7 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const { setSampleShippingProduct } = useShop(); // <-- Pega a função do context
+    const { setSampleShippingProduct } = useShop();
     const [products, setProducts] = useState({
         newArrivals: [],
         bestSellers: [],
@@ -1470,7 +1470,6 @@ const HomePage = ({ onNavigate }) => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
-                // Define o primeiro "mais vendido" como produto de exemplo para o cálculo de frete
                 if (sortedBySales.length > 0) {
                     setSampleShippingProduct(sortedBySales[0]);
                 }
@@ -1486,20 +1485,60 @@ const HomePage = ({ onNavigate }) => {
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
-    }, [setSampleShippingProduct]); // Adiciona a dependência
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // <-- Array de dependência vazio para executar apenas uma vez
 
     const categoryCards = [
         { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
-        // ... (resto das categorias)
+        { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
+        { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
+        { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
+        { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
+        { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
+        { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
+        { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
+        { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
+        { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
+        { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
+        { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
+        { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
+        { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
+        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
     ];
 
-    const bannerVariants = { /* ... */ };
-    const itemVariants = { /* ... */ };
+    const bannerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.3, delayChildren: 0.2 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { 
+            opacity: 1, 
+            y: 0,
+            transition: { type: 'spring', stiffness: 100 }
+        }
+    };
 
     return (
       <>
         <section className="relative h-[90vh] sm:h-[70vh] flex items-center justify-center text-white bg-black">
-          {/* ... (conteúdo da seção) */}
+          <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{backgroundImage: "url('https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png')"}}></div>
+          <motion.div 
+            className="relative z-10 text-center p-4"
+            variants={bannerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+              <motion.h1 variants={itemVariants} className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg">Elegância que Veste e Perfuma</motion.h1>
+              <motion.p variants={itemVariants} className="text-lg md:text-xl mt-4 text-gray-300">Descubra fragrâncias e peças que definem seu estilo e marcam momentos.</motion.p>
+              <motion.div variants={itemVariants}>
+                <button onClick={() => onNavigate('products')} className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">Explorar Coleção</button>
+              </motion.div>
+          </motion.div>
         </section>
         
         <CollectionsCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
