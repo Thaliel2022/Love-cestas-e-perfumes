@@ -4313,6 +4313,18 @@ const AjudaPage = ({ onNavigate }) => (
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [newOrdersCount, setNewOrdersCount] = useState(0); // Estado para o contador
+
+    // Busca o número de novos pedidos quando o layout é carregado
+    useEffect(() => {
+        apiService('/orders')
+            .then(data => {
+                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const recentOrders = data.filter(o => new Date(o.date) > twentyFourHoursAgo);
+                setNewOrdersCount(recentOrders.length);
+            })
+            .catch(err => console.error("Falha ao buscar contagem de novos pedidos:", err));
+    }, [activePage]); // Recarrega a contagem ao navegar entre páginas do admin
 
     const handleLogout = () => {
         logout();
@@ -4340,8 +4352,21 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 </div>
                 <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
                     {menuItems.map(item => (
-                        <a href="#" key={item.key} onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} className={`flex items-center px-4 py-2 space-x-3 rounded-md transition-colors ${activePage.startsWith(item.key) ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}>
-                            {item.icon}<span>{item.label}</span>
+                        <a 
+                            href="#" 
+                            key={item.key} 
+                            onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
+                            className={`flex items-center justify-between px-4 py-2 rounded-md transition-colors ${activePage.startsWith(item.key) ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}
+                        >
+                            <div className="flex items-center space-x-3">
+                                {item.icon}
+                                <span>{item.label}</span>
+                            </div>
+                            {item.key === 'orders' && newOrdersCount > 0 && (
+                                <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                                    {newOrdersCount}
+                                </span>
+                            )}
                         </a>
                     ))}
                 </nav>
@@ -5716,7 +5741,6 @@ const AdminOrders = () => {
     const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
     const notification = useNotification();
 
-    // Novos estados para paginação, busca e notificação
     const [currentPage, setCurrentPage] = useState(1);
     const [orderIdSearch, setOrderIdSearch] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
@@ -5741,9 +5765,7 @@ const AdminOrders = () => {
             .then(data => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
-                setFilteredOrders(sortedData);
 
-                // Lógica de notificação de novos pedidos
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = sortedData.filter(o => new Date(o.date) > twentyFourHoursAgo);
                 setNewOrdersCount(recentOrders.length);
@@ -5799,33 +5821,35 @@ const AdminOrders = () => {
         let tempOrders = [...orders];
 
         if (orderIdSearch) {
-            tempOrders = tempOrders.filter(o => String(o.id) === orderIdSearch);
-        } else {
-            if (filters.startDate) {
-                tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
-            }
-            if (filters.endDate) {
-                const endOfDay = new Date(filters.endDate);
-                endOfDay.setHours(23, 59, 59, 999);
-                tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
-            }
-            if (filters.status) {
-                tempOrders = tempOrders.filter(o => o.status === filters.status);
-            }
-            if (filters.customerName) {
-                tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
-            }
-            if (filters.minPrice) {
-                tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
-            }
-            if (filters.maxPrice) {
-                tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
-            }
+            tempOrders = tempOrders.filter(o => String(o.id).includes(orderIdSearch));
         }
+        
+        if (filters.startDate) {
+            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        }
+        if (filters.endDate) {
+            const endOfDay = new Date(filters.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+        }
+        if (filters.status) {
+            tempOrders = tempOrders.filter(o => o.status === filters.status);
+        }
+        if (filters.customerName) {
+            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+        }
+        if (filters.minPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+        }
+        if (filters.maxPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+        }
+        
         setFilteredOrders(tempOrders);
-        setCurrentPage(1); // Reseta para a primeira página após a busca
+        setCurrentPage(1);
     }, [orders, filters, orderIdSearch]);
     
+    // Deixei apenas um useEffect para chamar applyFilters para evitar re-renderizações múltiplas
     useEffect(() => {
         applyFilters();
     }, [filters, orderIdSearch, orders, applyFilters]);
@@ -5834,11 +5858,11 @@ const AdminOrders = () => {
     const clearFilters = () => {
         setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
         setOrderIdSearch('');
-        setFilteredOrders(orders);
+        // A linha abaixo não é mais necessária pois o useEffect acima já fará o trabalho
+        // setFilteredOrders(orders); 
         setCurrentPage(1);
     }
     
-    // Lógica de paginação
     const indexOfLastOrder = currentPage * ordersPerPage;
     const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
     const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
@@ -5982,16 +6006,22 @@ const AdminOrders = () => {
             <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
             
             <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID do Pedido..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md"/>
+                <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-3 gap-4">
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md"/>
                     <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
+                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
+                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
+                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                 </div>
-                <div>
-                     <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline">Limpar Filtros</button>
+                <div className="mt-4 flex gap-2 flex-wrap">
+                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
+                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
 
