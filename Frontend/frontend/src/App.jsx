@@ -5715,6 +5715,14 @@ const AdminOrders = () => {
     const [editingOrder, setEditingOrder] = useState(null);
     const [editFormData, setEditFormData] = useState({ status: '', tracking_code: '' });
     const notification = useNotification();
+
+    // Novos estados para paginação, busca e notificação
+    const [currentPage, setCurrentPage] = useState(1);
+    const [orderIdSearch, setOrderIdSearch] = useState('');
+    const [newOrdersCount, setNewOrdersCount] = useState(0);
+    const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
+    const ordersPerPage = 10;
+
     const [filters, setFilters] = useState({
         startDate: '',
         endDate: '',
@@ -5734,6 +5742,12 @@ const AdminOrders = () => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
                 setFilteredOrders(sortedData);
+
+                // Lógica de notificação de novos pedidos
+                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const recentOrders = sortedData.filter(o => new Date(o.date) > twentyFourHoursAgo);
+                setNewOrdersCount(recentOrders.length);
+
             })
             .catch(err => console.error("Falha ao buscar pedidos:", err));
     }, []);
@@ -5784,34 +5798,52 @@ const AdminOrders = () => {
     const applyFilters = useCallback(() => {
         let tempOrders = [...orders];
 
-        if (filters.startDate) {
-            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        if (orderIdSearch) {
+            tempOrders = tempOrders.filter(o => String(o.id) === orderIdSearch);
+        } else {
+            if (filters.startDate) {
+                tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+            }
+            if (filters.endDate) {
+                const endOfDay = new Date(filters.endDate);
+                endOfDay.setHours(23, 59, 59, 999);
+                tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+            }
+            if (filters.status) {
+                tempOrders = tempOrders.filter(o => o.status === filters.status);
+            }
+            if (filters.customerName) {
+                tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+            }
+            if (filters.minPrice) {
+                tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+            }
+            if (filters.maxPrice) {
+                tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+            }
         }
-        if (filters.endDate) {
-            const endOfDay = new Date(filters.endDate);
-            endOfDay.setHours(23, 59, 59, 999);
-            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
-        }
-        if (filters.status) {
-            tempOrders = tempOrders.filter(o => o.status === filters.status);
-        }
-        if (filters.customerName) {
-            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
-        }
-        if (filters.minPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
-        }
-        if (filters.maxPrice) {
-            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
-        }
-
         setFilteredOrders(tempOrders);
-    }, [orders, filters]);
+        setCurrentPage(1); // Reseta para a primeira página após a busca
+    }, [orders, filters, orderIdSearch]);
+    
+    useEffect(() => {
+        applyFilters();
+    }, [filters, orderIdSearch, orders, applyFilters]);
+
 
     const clearFilters = () => {
         setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setOrderIdSearch('');
         setFilteredOrders(orders);
+        setCurrentPage(1);
     }
+    
+    // Lógica de paginação
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
+
 
     return (
         <div>
@@ -5925,92 +5957,87 @@ const AdminOrders = () => {
                     </Modal>
                 )}
             </AnimatePresence>
+            
+            <AnimatePresence>
+                {newOrdersCount > 0 && showNewOrderNotification && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -50 }}
+                        className="relative bg-blue-600 text-white p-4 rounded-lg shadow-lg mb-6 flex justify-between items-center"
+                    >
+                        <div className="flex items-center gap-3">
+                            <CheckCircleIcon className="h-6 w-6"/>
+                            <span className="font-semibold">
+                                Você tem {newOrdersCount} novo(s) pedido(s) nas últimas 24 horas!
+                            </span>
+                        </div>
+                        <button onClick={() => setShowNewOrderNotification(false)} className="p-1 rounded-full hover:bg-blue-500">
+                            <XMarkIcon className="h-5 w-5"/>
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
             
-            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-                <h2 className="text-xl font-semibold mb-4">Pesquisa Avançada</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                    <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
-                    <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID do Pedido..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md"/>
+                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
                         {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                 </div>
-                <div className="mt-4 flex gap-2 flex-wrap">
-                    <button onClick={applyFilters} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Aplicar Filtros</button>
-                    <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
+                <div>
+                     <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline">Limpar Filtros</button>
                 </div>
             </div>
 
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <div className="hidden lg:block">
-                     <table className="w-full text-left">
-                         <thead className="bg-gray-100">
-                            <tr>
-                                <th className="p-4 font-semibold">Pedido ID</th>
-                                <th className="p-4 font-semibold">Cliente</th>
-                                <th className="p-4 font-semibold">Data</th>
-                                <th className="p-4 font-semibold">Total</th>
-                                <th className="p-4 font-semibold">Entrega</th>
-                                <th className="p-4 font-semibold">Status</th>
-                                <th className="p-4 font-semibold">Ações</th>
-                            </tr>
-                         </thead>
-                         <tbody>
-                            {filteredOrders.map(o => (
-                                <tr key={o.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-mono">#{o.id}</td>
-                                    <td className="p-4">{o.user_name}</td>
-                                    <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
-                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        {o.shipping_method === 'Retirar na loja' ? (
-                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                        ) : (
-                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
-                                    <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
-                                </tr>
-                            ))}
-                         </tbody>
-                     </table>
-                </div>
-                <div className="lg:hidden space-y-4 p-4">
-                    {filteredOrders.map(o => (
-                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                             <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-bold">Pedido #{o.id}</p>
-                                    <p className="text-sm text-gray-600">{o.user_name}</p>
-                                </div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
-                                <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
-                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                <div className="col-span-2">
-                                    <strong className="text-gray-500 block">Entrega</strong>
+            <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                 <table className="w-full text-left">
+                     <thead className="bg-gray-100">
+                        <tr>
+                            <th className="p-4 font-semibold">Pedido ID</th>
+                            <th className="p-4 font-semibold">Cliente</th>
+                            <th className="p-4 font-semibold">Data</th>
+                            <th className="p-4 font-semibold">Total</th>
+                            <th className="p-4 font-semibold">Entrega</th>
+                            <th className="p-4 font-semibold">Status</th>
+                            <th className="p-4 font-semibold">Ações</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        {currentOrders.map(o => (
+                            <tr key={o.id} className="border-b hover:bg-gray-50">
+                                <td className="p-4 font-mono">#{o.id}</td>
+                                <td className="p-4">{o.user_name}</td>
+                                <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
+                                <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                <td className="p-4">
                                     {o.shipping_method === 'Retirar na loja' ? (
-                                        <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
+                                        <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
                                     ) : (
-                                        <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
+                                        <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
                                     )}
-                                </div>
-                            </div>
-                            <div className="flex justify-end mt-4 pt-2 border-t">
-                                <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                </td>
+                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                            </tr>
+                        ))}
+                     </tbody>
+                 </table>
             </div>
+
+            {totalPages > 1 && (
+                <div className="flex justify-between items-center mt-6">
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Anterior</button>
+                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Próxima</button>
+                </div>
+            )}
+
         </div>
     );
 };
