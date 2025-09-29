@@ -4350,16 +4350,25 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     useEffect(() => {
         apiService('/orders')
             .then(data => {
+                // VERIFICAÇÃO DE SEGURANÇA FINAL E DEFINITIVA
+                if (!Array.isArray(data)) {
+                    console.error("Os dados recebidos da API de pedidos não são uma lista (array). Isso causou o erro da página branca. Dados recebidos:", data);
+                    setNewOrdersCount(0); // Define um valor padrão e impede a quebra
+                    return;
+                }
+
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = data.filter(o => {
-                    // Verificação de segurança para datas inválidas ou nulas
                     if (!o || !o.date) return false;
                     const orderDate = new Date(o.date);
                     return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
                 });
                 setNewOrdersCount(recentOrders.length);
             })
-            .catch(err => console.error("Falha ao buscar contagem de novos pedidos:", err));
+            .catch(err => {
+                console.error("Falha crítica ao buscar contagem de novos pedidos:", err);
+                setNewOrdersCount(0); // Garante que não quebre em caso de erro de rede
+            });
     }, [activePage]);
 
     const handleLogout = () => {
