@@ -709,39 +709,66 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
         }
     }, [isOpen, order, isPickupOrder]);
 
-    const renderPickupStatus = () => (
-        <div className="space-y-6 text-gray-800">
-            <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Status Atual: <span className="text-blue-600">{order.status}</span></h3>
-                <div className="p-4 bg-gray-100 rounded-lg border">
-                    {order.status === 'Pronto para Retirada' ? (
-                        <p className="flex items-center gap-2 text-green-700"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>
-                    ) : (
-                        <p className="flex items-center gap-2 text-amber-700"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
-                    )}
-                </div>
-            </div>
+    const renderPickupStatus = () => {
+        let statusMessage;
+        switch (order.status) {
+            case 'Pronto para Retirada':
+                statusMessage = (
+                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckCircleIcon className="h-5 w-5"/> Seu pedido já está separado e pronto para ser retirado!</p>
+                );
+                break;
+            case 'Entregue':
+                statusMessage = (
+                    <p className="flex items-center gap-2 text-green-700 font-semibold"><CheckBadgeIcon className="h-5 w-5"/> Este pedido já foi retirado.</p>
+                );
+                break;
+            case 'Reembolsado':
+                statusMessage = (
+                    <p className="flex items-center gap-2 text-gray-700 font-semibold"><CurrencyDollarIcon className="h-5 w-5"/> O pagamento para este pedido foi reembolsado.</p>
+                );
+                break;
+            case 'Cancelado':
+            case 'Pagamento Recusado':
+                 statusMessage = (
+                    <p className="flex items-center gap-2 text-red-700 font-semibold"><XCircleIcon className="h-5 w-5"/> Este pedido foi cancelado.</p>
+                );
+                break;
+            default: // Pendente, Pagamento Aprovado, Separando Pedido
+                statusMessage = (
+                    <p className="flex items-center gap-2 text-amber-700 font-semibold"><ClockIcon className="h-5 w-5"/> Estamos preparando seu pedido. Você será notificado assim que estiver pronto.</p>
+                );
+        }
 
-            <div>
-                <h3 className="font-bold text-gray-900 mb-2">Instruções para Retirada</h3>
-                <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
-                    <p><strong>Endereço:</strong><br/> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                    <p><strong>Horário:</strong><br/> Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
-                    <p className="font-semibold pt-2 border-t">No momento da retirada, é necessário apresentar:</p>
-                    <ul className="list-disc list-inside">
-                        <li>Documento com foto (RG ou CNH)</li>
-                        <li>O número do pedido: <span className="font-bold">#{order.id}</span></li>
-                    </ul>
+        return (
+            <div className="space-y-6 text-gray-800">
+                <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">Status Atual: <span className="text-blue-600">{order.status}</span></h3>
+                    <div className="p-4 bg-gray-100 rounded-lg border">
+                        {statusMessage}
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="font-bold text-gray-900 mb-2">Instruções para Retirada</h3>
+                    <div className="text-sm bg-gray-100 p-4 rounded-lg border space-y-3">
+                        <p><strong>Endereço:</strong><br/> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                        <p><strong>Horário:</strong><br/> Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).</p>
+                        <p className="font-semibold pt-2 border-t">No momento da retirada, é necessário apresentar:</p>
+                        <ul className="list-disc list-inside">
+                            <li>Documento com foto (RG ou CNH)</li>
+                            <li>O número do pedido: <span className="font-bold">#{order.id}</span></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const renderShippingTracking = () => (
         <>
             {isLoading && <p>Buscando informações...</p>}
             {error && <p className="text-red-500">{error}</p>}
-            {!isLoading && !error && (
+            {!isLoading && !error && trackingInfo.length > 0 && (
                 <div className="space-y-6">
                     {trackingInfo.map((event, index) => (
                         <div key={index} className="flex space-x-4">
@@ -759,6 +786,9 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
                         </div>
                     ))}
                 </div>
+            )}
+             {!isLoading && !error && trackingInfo.length === 0 && (
+                <p>Nenhuma informação de rastreio disponível no momento.</p>
             )}
         </>
     );
