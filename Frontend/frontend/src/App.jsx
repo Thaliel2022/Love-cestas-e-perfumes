@@ -3972,6 +3972,7 @@ const MyOrdersSection = ({ onNavigate }) => {
     const [orderForTracking, setOrderForTracking] = useState(null);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
+    const [isPaying, setIsPaying] = useState(null); // Estado para o botão "Pagar Agora"
 
     useEffect(() => {
         apiService('/orders/my-orders')
@@ -3979,6 +3980,22 @@ const MyOrdersSection = ({ onNavigate }) => {
             .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
             .finally(() => setIsLoading(false));
     }, [notification]);
+
+    const handleRetryPayment = async (orderId) => {
+        setIsPaying(orderId);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                window.location.href = paymentResult.init_point;
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
+        } finally {
+            setIsPaying(null);
+        }
+    };
 
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
@@ -4047,6 +4064,20 @@ const MyOrdersSection = ({ onNavigate }) => {
                                         <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
                                     </div>
                                 </div>
+
+                                {order.status === 'Pendente' && (
+                                    <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
+                                        <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
+                                        <button
+                                            onClick={() => handleRetryPayment(order.id)}
+                                            disabled={isPaying === order.id}
+                                            className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto"
+                                        >
+                                            {isPaying === order.id ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
+                                        </button>
+                                    </div>
+                                )}
+
                                 <div className="my-6">
                                     {isPickupOrder ? (
                                         <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
@@ -4079,23 +4110,24 @@ const MyOrdersSection = ({ onNavigate }) => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-gray-800">
-                                    <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
-                                    
-                                    {isPickupOrder ? (
-                                         <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
-                                    ) : (
-                                        order.tracking_code && <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
-                                    )}
-
-                                    <div className="flex-grow"></div>
-                                    <span className="text-xs text-gray-400 mr-2">Dúvidas? Fale conosco:</span>
-                                    <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
-                                        <WhatsappIcon className="h-4 w-4" />
-                                    </a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
-                                        <InstagramIcon className="h-4 w-4" />
-                                    </a>
+                                <div className="pt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                                        {isPickupOrder ? (
+                                            <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                                        ) : (
+                                            order.tracking_code && <button onClick={() => setOrderForTracking(order)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2 text-xs text-gray-400">
+                                        <span>Dúvidas?</span>
+                                        <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
+                                            <WhatsappIcon className="h-4 w-4" />
+                                        </a>
+                                        <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
+                                            <InstagramIcon className="h-4 w-4" />
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         )
@@ -4313,9 +4345,8 @@ const AjudaPage = ({ onNavigate }) => (
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [newOrdersCount, setNewOrdersCount] = useState(0); // Estado para o contador
+    const [newOrdersCount, setNewOrdersCount] = useState(0);
 
-    // Busca o número de novos pedidos quando o layout é carregado
     useEffect(() => {
         apiService('/orders')
             .then(data => {
@@ -4324,7 +4355,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 setNewOrdersCount(recentOrders.length);
             })
             .catch(err => console.error("Falha ao buscar contagem de novos pedidos:", err));
-    }, [activePage]); // Recarrega a contagem ao navegar entre páginas do admin
+    }, [activePage]);
 
     const handleLogout = () => {
         logout();
@@ -4388,6 +4419,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 <main className="flex-grow p-4 sm:p-6 overflow-y-auto">
                     {children}
                 </main>
+                <BackToTopButton />
             </div>
         </div>
     );
