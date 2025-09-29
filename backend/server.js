@@ -1518,12 +1518,33 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 app.get('/api/mercadopago/installments', async (req, res) => {
     const { amount } = req.query;
 
-    if (!amount) {
-        return res.status(400).json({ message: "O valor (amount) é obrigatório." });
+    if (!amount || isNaN(parseFloat(amount))) {
+        return res.status(400).json({ message: "O valor (amount) é obrigatório e deve ser um número." });
     }
     
+    const numericAmount = parseFloat(amount);
+
     try {
-        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${amount}&payment_method_id=master`, {
+        // Regra 1: Abaixo de R$100, apenas 1x sem juros
+        if (numericAmount < 100) {
+            const singleInstallment = [{
+                installments: 1,
+                installment_rate: 0,
+                discount_rate: 0,
+                reimbursement_rate: null,
+                labels: [],
+                installment_payment_type: "credit_card",
+                min_allowed_amount: 0,
+                max_allowed_amount: 0,
+                recommended_message: `1x de R$ ${numericAmount.toFixed(2).replace('.', ',')} sem juros`,
+                installment_amount: numericAmount,
+                total_amount: numericAmount
+            }];
+            return res.json(singleInstallment);
+        }
+
+        // Regra 2: Igual ou acima de R$100
+        const installmentsResponse = await fetch(`https://api.mercadopago.com/v1/payment_methods/installments?amount=${numericAmount}&issuer.id=24&payment_method_id=master`, {
             headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
         });
 
@@ -1535,7 +1556,30 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         const installmentsData = await installmentsResponse.json();
         
         if (installmentsData.length > 0 && installmentsData[0].payer_costs) {
-            res.json(installmentsData[0].payer_costs);
+            const allPayerCosts = installmentsData[0].payer_costs;
+
+            const processedInstallments = allPayerCosts
+                .filter(pc => pc.installments <= 10) // Limita a 10x
+                .map(pc => {
+                    // De 1x a 4x: força a ser SEM juros
+                    if (pc.installments <= 4) {
+                        const installmentAmount = numericAmount / pc.installments;
+                        return {
+                            ...pc,
+                            installment_rate: 0,
+                            total_amount: numericAmount,
+                            installment_amount: installmentAmount,
+                            recommended_message: `${pc.installments}x de R$ ${installmentAmount.toFixed(2).replace('.', ',')} sem juros`
+                        };
+                    }
+                    // De 5x a 10x: usa os juros calculados pelo Mercado Pago
+                    return {
+                        ...pc,
+                        recommended_message: pc.recommended_message.replace('.', ',') // Apenas formata o ponto para vírgula
+                    };
+                });
+
+            res.json(processedInstallments);
         } else {
             res.status(404).json({ message: 'Não foram encontradas opções de parcelamento.' });
         }
@@ -1545,6 +1589,7 @@ app.get('/api/mercadopago/installments', async (req, res) => {
         res.status(500).json({ message: error.message || "Erro interno do servidor ao buscar parcelas." });
     }
 });
+
 
 
 const processPaymentWebhook = async (paymentId) => {
