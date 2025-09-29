@@ -853,7 +853,7 @@ const BackToTopButton = () => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart } = useShop();
+    const { addToCart, autoCalculatedShipping, isLoadingShipping, shippingLocation } = useShop();
     const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [isBuyingNow, setIsBuyingNow] = useState(false);
@@ -861,6 +861,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const imageUrl = getFirstImage(product.images);
 
     const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
+    const currentPrice = isOnSale ? product.sale_price : product.price;
     const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
     
     const isNew = useMemo(() => {
@@ -869,6 +870,42 @@ const ProductCard = memo(({ product, onNavigate }) => {
     }, [product.created_at]);
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
+
+    const installmentInfo = useMemo(() => {
+        if (currentPrice >= 100) {
+            const installmentValue = currentPrice / 4;
+            return `em até 4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} sem juros`;
+        }
+        return null;
+    }, [currentPrice]);
+
+    const shippingInfo = useMemo(() => {
+        if (isLoadingShipping) {
+            return <span className="text-gray-500">Calculando frete...</span>;
+        }
+        if (autoCalculatedShipping && shippingLocation.cep) {
+            // Evita mostrar frete PAC para opção de retirada
+            if (autoCalculatedShipping.isPickup) return null;
+            
+            const date = new Date();
+            // Adiciona dias úteis
+            let deliveryTime = autoCalculatedShipping.delivery_time;
+            let addedDays = 0;
+            while(addedDays < deliveryTime) {
+                date.setDate(date.getDate() + 1);
+                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                    addedDays++;
+                }
+            }
+            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+            return (
+                <span className="text-green-400">
+                    Entrega R$ {Number(autoCalculatedShipping.price).toFixed(2).replace('.', ',')} : previsão {formattedDate}.
+                </span>
+            );
+        }
+        return null;
+    }, [autoCalculatedShipping, isLoadingShipping, shippingLocation.cep]);
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -952,7 +989,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
                  <WishlistButton product={product} />
                  
-<div className="absolute top-3 left-3 flex flex-col gap-2">
+                <div className="absolute top-3 left-3 flex flex-col gap-2">
                     {isOnSale ? (
                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
                             <SaleIcon className="h-4 w-4"/>
@@ -990,11 +1027,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <div className="mt-auto pt-4">
                     {isOnSale ? (
                          <div>
-                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                         </div>
                     ) : (
-                        <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                    )}
+
+                    {installmentInfo && (
+                        <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p>
                     )}
                     
                     <div className="mt-4 flex items-stretch space-x-2">
@@ -1007,6 +1048,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
             </div>
+            {shippingInfo && (
+                <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
+                    {shippingInfo}
+                </div>
+            )}
         </motion.div>
     );
 });
