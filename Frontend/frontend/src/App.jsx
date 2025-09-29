@@ -3953,10 +3953,11 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isPaying, setIsPaying] = useState(false);
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
+    const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     
     useEffect(() => {
         setIsLoading(true);
-        // Busca os detalhes de um único pedido
+        // A API agora busca o pedido específico pelo ID
         apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
@@ -3983,6 +3984,32 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         }
     };
 
+    const handleRepeatOrder = (orderItems) => {
+        if (!orderItems) return;
+        
+        const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
+            if (item.product_type === 'clothing') {
+                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
+                return Promise.resolve(0);
+            }
+            const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
+            return addToCart(product, item.quantity, item.variation)
+                .then(() => 1) 
+                .catch(err => {
+                    notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
+                    return 0; 
+                });
+        });
+
+        Promise.all(promises).then(results => {
+            const count = results.reduce((sum, val) => sum + val, 0);
+            if (count > 0) {
+                notification.show(`${count} item(ns) adicionado(s) ao carrinho!`);
+                onNavigate('cart');
+            }
+        });
+    };
+
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
     if (!order) return <p className="text-center text-gray-400">Pedido não encontrado.</p>;
 
@@ -3991,71 +4018,94 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const safeHistory = Array.isArray(order.history) ? order.history : [];
 
     return (
-        <div>
-            <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                Voltar para todos os pedidos
-            </button>
-            <div className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                    <div>
-                        <p className="text-2xl font-bold">Detalhes do Pedido <span className="text-amber-400">#{order.id}</span></p>
-                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
+        <>
+            <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            <div>
+                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                    Voltar para todos os pedidos
+                </button>
+                <div className="border border-gray-800 rounded-lg p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
+                        <div>
+                            <p className="text-2xl font-bold">Detalhes do Pedido <span className="text-amber-400">#{order.id}</span></p>
+                            <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                            <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
+                        </div>
                     </div>
-                    <div className="text-left sm:text-right">
-                        <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                    </div>
-                </div>
 
-                {order.status === 'Pendente' && (
-                    <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
-                        <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
-                        <button onClick={() => handleRetryPayment(order.id)} disabled={isPaying} className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto">
-                            {isPaying ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
+                    {order.status === 'Pendente' && (
+                        <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
+                            <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
+                            <button onClick={() => handleRetryPayment(order.id)} disabled={isPaying} className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto">
+                                {isPaying ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="my-6">
+                        {isPickupOrder ? <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} /> : <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} />}
+                    </div>
+
+                    {isPickupOrder ? (
+                        <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
+                            <p><strong>Informações para Retirada:</strong></p>
+                            <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
+                            <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
+                            {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
+                            <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
+                        </div>
+                    ) : ( order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p> )}
+
+                    <div className="border-t border-gray-800 pt-4">
+                        <button onClick={() => setIsItemsExpanded(!isItemsExpanded)} className="flex justify-between items-center w-full mb-2 text-left">
+                            <h4 className="font-bold text-lg text-gray-200">Itens do Pedido ({(order.items || []).length})</h4>
+                            <ChevronDownIcon className={`h-6 w-6 text-gray-400 transition-transform ${isItemsExpanded ? 'rotate-180' : ''}`} />
                         </button>
-                    </div>
-                )}
-
-                <div className="my-6">
-                    {isPickupOrder ? <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} /> : <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} />}
-                </div>
-
-                {isPickupOrder ? (
-                    <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
-                         <p><strong>Informações para Retirada:</strong></p>
-                         <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
-                         <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
-                         {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                         <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
-                    </div>
-                ) : ( order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p> )}
-
-                <div className="border-t border-gray-800 pt-4">
-                    <button onClick={() => setIsItemsExpanded(!isItemsExpanded)} className="flex justify-between items-center w-full mb-2 text-left">
-                        <h4 className="font-bold text-lg text-gray-200">Itens do Pedido ({(order.items || []).length})</h4>
-                        <ChevronDownIcon className={`h-6 w-6 text-gray-400 transition-transform ${isItemsExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence>
-                        {isItemsExpanded && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                <div className="space-y-2 pt-2">
-                                    {(order.items || []).map(item => (
-                                        <div key={item.id} className="flex items-center text-sm p-2 bg-gray-800 rounded-md">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-4 bg-white rounded"/>
-                                            <div className="flex-grow">
-                                                <span>{item.quantity}x {item.name}</span>
-                                                {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                        <AnimatePresence>
+                            {isItemsExpanded && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                    <div className="space-y-2 pt-2">
+                                        {(order.items || []).map(item => (
+                                            <div key={item.id} className="flex items-center text-sm p-2 bg-gray-800 rounded-md">
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-4 bg-white rounded"/>
+                                                <div className="flex-grow">
+                                                    <span>{item.quantity}x {item.name}</span>
+                                                    {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                                                </div>
+                                                <span className="ml-auto font-semibold">R$ {Number(item.price).toFixed(2)}</span>
                                             </div>
-                                            <span className="ml-auto font-semibold">R$ {Number(item.price).toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-600">Repetir Pedido</button>
+                            {isPickupOrder ? (
+                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                            ) : (
+                                order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-end gap-2 text-xs text-gray-400">
+                            <span>Dúvidas?</span>
+                            <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
+                                <WhatsappIcon className="h-4 w-4" />
+                            </a>
+                            <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
+                                <InstagramIcon className="h-4 w-4" />
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 };
 
