@@ -5804,7 +5804,11 @@ const AdminOrders = () => {
                 setOrders(sortedData);
 
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recentOrders = sortedData.filter(o => new Date(o.date) > twentyFourHoursAgo);
+                const recentOrders = sortedData.filter(o => {
+                    if (!o || !o.date) return false;
+                    const orderDate = new Date(o.date);
+                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
+                });
                 setNewOrdersCount(recentOrders.length);
 
             })
@@ -6060,8 +6064,7 @@ const AdminOrders = () => {
             </div>
 
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                {/* VISTA DESKTOP (TABELA) - VISÍVEL APENAS EM TELAS GRANDES */}
-                <div className="hidden lg:block">
+                <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
                          <thead className="bg-gray-100">
                             <tr>
@@ -6075,55 +6078,62 @@ const AdminOrders = () => {
                             </tr>
                          </thead>
                          <tbody>
-                            {currentOrders.map(o => (
-                                <tr key={o.id} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-mono">#{o.id}</td>
-                                    <td className="p-4">{o.user_name}</td>
-                                    <td className="p-4">{new Date(o.date).toLocaleString('pt-BR')}</td>
-                                    <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        {o.shipping_method === 'Retirar na loja' ? (
-                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                        ) : (
-                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
-                                        )}
-                                    </td>
-                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
-                                    <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
-                                </tr>
-                            ))}
+                            {currentOrders.map(o => {
+                                const orderDate = new Date(o.date);
+                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
+                                return (
+                                    <tr key={o.id} className="border-b hover:bg-gray-50">
+                                        <td className="p-4 font-mono">#{o.id}</td>
+                                        <td className="p-4">{o.user_name}</td>
+                                        <td className="p-4">{formattedDate}</td>
+                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4">
+                                            {o.shipping_method === 'Retirar na loja' ? (
+                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
+                                            ) : (
+                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                    </tr>
+                                );
+                            })}
                          </tbody>
                      </table>
                 </div>
 
-                {/* VISTA MOBILE (CARTÕES) - VISÍVEL APENAS EM TELAS PEQUENAS */}
                 <div className="lg:hidden space-y-4 p-4">
-                    {currentOrders.map(o => (
-                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                             <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-bold">Pedido #{o.id}</p>
-                                    <p className="text-sm text-gray-600">{o.user_name}</p>
+                    {currentOrders.map(o => {
+                        const orderDate = new Date(o.date);
+                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
+                        return (
+                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold">Pedido #{o.id}</p>
+                                        <p className="text-sm text-gray-600">{o.user_name}</p>
+                                    </div>
+                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' || o.status === 'Pagamento Recusado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
                                 </div>
-                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' || o.status === 'Pagamento Recusado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
-                                <div><strong className="text-gray-500 block">Data</strong> {new Date(o.date).toLocaleDateString('pt-BR')}</div>
-                                <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                <div className="col-span-2">
-                                    <strong className="text-gray-500 block">Entrega</strong>
-                                    {o.shipping_method === 'Retirar na loja' ? (
-                                        <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                    ) : (
-                                        <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
-                                    )}
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                    <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
+                                    <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                    <div className="col-span-2">
+                                        <strong className="text-gray-500 block">Entrega</strong>
+                                        {o.shipping_method === 'Retirar na loja' ? (
+                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
+                                        ) : (
+                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex justify-end mt-4 pt-2 border-t">
+                                    <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
                                 </div>
                             </div>
-                            <div className="flex justify-end mt-4 pt-2 border-t">
-                                <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
