@@ -305,7 +305,8 @@ const ShopProvider = ({ children }) => {
     const [shippingError, setShippingError] = useState('');
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
-    const [isGeolocating, setIsGeolocating] = useState(false); // <-- NOVO ESTADO
+    const [isGeolocating, setIsGeolocating] = useState(false);
+    const [sampleShippingProduct, setSampleShippingProduct] = useState(null);
 
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
@@ -346,7 +347,7 @@ const ShopProvider = ({ children }) => {
             }
         }
         if (!locationDetermined && navigator.geolocation) {
-            setIsGeolocating(true); // <-- ATIVA O FEEDBACK
+            setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude, longitude } = position.coords;
@@ -358,13 +359,13 @@ const ShopProvider = ({ children }) => {
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
                     } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
-                    finally { setIsGeolocating(false); } // <-- DESATIVA O FEEDBACK
+                    finally { setIsGeolocating(false); }
                 }, 
                 (error) => { 
                     console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false); // <-- DESATIVA O FEEDBACK
+                    setIsGeolocating(false);
                 },
-                { timeout: 10000 } // <-- TEMPO LIMITE DE 10 SEGUNDOS
+                { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
@@ -383,7 +384,10 @@ const ShopProvider = ({ children }) => {
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
     useEffect(() => {
-        const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
+        const itemsToCalculate = cart.length > 0 ? cart 
+                               : previewShippingItem ? previewShippingItem 
+                               : sampleShippingProduct ? [sampleShippingProduct] 
+                               : null;
 
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
@@ -430,8 +434,7 @@ const ShopProvider = ({ children }) => {
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
-
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, sampleShippingProduct]);
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
@@ -524,7 +527,8 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation,
             setPreviewShippingItem, 
             setSelectedShippingName,
-            isGeolocating, // <-- NOVO VALOR EXPORTADO
+            isGeolocating,
+            setSampleShippingProduct,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
@@ -871,7 +875,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
-    // Lógica para exibir o parcelamento
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -880,7 +883,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    // Lógica para exibir o frete
     const shippingInfo = useMemo(() => {
         if (isLoadingShipping) {
             return <span className="text-gray-500">Calculando frete...</span>;
@@ -1031,10 +1033,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                         </div>
                     ) : (
-                        <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                        <p className="text-2xl font-light text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                     )}
-                    
-                    {/* Exibição do parcelamento */}
+
                     {installmentInfo && (
                         <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p>
                     )}
@@ -1049,7 +1050,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
             </div>
-            {/* Exibição do frete */}
             {shippingInfo && (
                 <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
                     {shippingInfo}
@@ -1170,328 +1170,110 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 
 const Header = memo(({ onNavigate }) => {
-    const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist } = useShop();
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [searchSuggestions, setSearchSuggestions] = useState([]);
+    const { isAuthenticated } = useAuth();
+    const { cart = [] } = useShop() || {}; // <-- CORREÇÃO: Garante que o carrinho seja sempre uma lista, mesmo que o context falhe.
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [suggestions, setSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [activeMenu, setActiveMenu] = useState(null);
-    const [mobileAccordion, setMobileAccordion] = useState(null);
+    const searchRef = useRef(null);
 
-    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
-    const prevTotalCartItems = useRef(totalCartItems);
-    const cartAnimationControls = useAnimation();
+    const totalItems = useMemo(() => {
+        return cart.reduce((sum, item) => sum + item.qty, 0);
+    }, [cart]);
 
-    useEffect(() => {
-        if (totalCartItems > prevTotalCartItems.current) {
-            cartAnimationControls.start({
-                scale: [1, 1.25, 0.9, 1.1, 1],
-                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
-            });
+    const handleSearchChange = (e) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+        if (query.length > 0) {
+            apiService(`/products/search-suggestions?q=${query}`)
+                .then(setSuggestions)
+                .catch(console.error);
+        } else {
+            setSuggestions([]);
         }
-        prevTotalCartItems.current = totalCartItems;
-    }, [totalCartItems, cartAnimationControls]);
-
-useEffect(() => {
-        if (searchTerm.length < 1) { // Alterado de 2 para 1
-            setSearchSuggestions([]);
-            return;
-        }
-        const debounceTimer = setTimeout(() => {
-            apiService(`/products/search-suggestions?q=${searchTerm}`)
-                .then(data => setSearchSuggestions(data))
-                .catch(err => console.error(err));
-        }, 300);
-        return () => clearTimeout(debounceTimer);
-    }, [searchTerm]);
+    };
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
-        if (searchTerm.trim()) {
-            onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setSearchTerm('');
-            setSearchSuggestions([]);
-            setIsMobileMenuOpen(false);
-        }
-    };
-    
-const handleSuggestionClick = (productId) => {
-        onNavigate(`product/${productId}`);
-        setSearchTerm('');
-        setSearchSuggestions([]);
+        onNavigate(`products?search=${searchQuery}`);
+        setSuggestions([]);
         setIsSearchFocused(false);
-        setIsMobileMenuOpen(false);
+        if (searchRef.current) searchRef.current.blur();
     };
 
-    const categoriesForMenu = CATEGORIES_FOR_MENU;
+    const handleSuggestionClick = (product) => {
+        onNavigate(`product/${product.id}`);
+        setSearchQuery('');
+        setSuggestions([]);
+        setIsSearchFocused(false);
+    };
 
-    const dropdownVariants = {
-        open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
-        closed: { opacity: 0, y: -20, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
-    };
-    
-    const mobileMenuVariants = {
-        open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
-        closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
-    };
+    useClickOutside(searchRef, () => setIsSearchFocused(false));
 
     return (
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            {/* Top Bar */}
-            <div className="container mx-auto px-4 sm:px-6">
-                <div className="flex justify-between items-center py-3">
-                    <div className="flex items-center">
-                        <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4 text-white">
-                            <MenuIcon className="h-6 w-6" />
-                        </button>
-                        <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-                    </div>
-                    
-<div className="hidden lg:block flex-1 max-w-xl mx-8">
-                         <form onSubmit={handleSearchSubmit} className="relative">
-                           <input 
-                                type="text" value={searchTerm} 
-                                onChange={e => setSearchTerm(e.target.value)}
-                                onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+        <header className="bg-black text-white p-4 sticky top-0 z-40 border-b border-gray-800">
+            <div className="container mx-auto flex justify-between items-center">
+                <h1 className="text-2xl font-bold cursor-pointer" onClick={() => onNavigate('home')}>LovecestasePerfumes</h1>
+                <nav className="hidden md:flex items-center space-x-6">
+                    <a href="#home" onClick={() => onNavigate('home')} className="hover:text-amber-400">Início</a>
+                    <a href="#products" onClick={() => onNavigate('products')} className="hover:text-amber-400">Coleções</a>
+                    <a href="#products?promo=true" onClick={() => onNavigate('products?promo=true')} className="text-red-500 hover:text-red-400 font-semibold flex items-center gap-1"><SaleIcon className="h-4 w-4"/>Promoções</a>
+                    <a href="#ajuda" onClick={() => onNavigate('ajuda')} className="hover:text-amber-400">Ajuda</a>
+                </nav>
+                <div className="flex items-center space-x-4">
+                    <div ref={searchRef} className="relative hidden md:block">
+                        <form onSubmit={handleSearchSubmit}>
+                            <input 
+                                type="text" 
                                 placeholder="O que você procura?" 
-                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
-                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                            <AnimatePresence>
-                            {isSearchFocused && searchTerm.length > 0 && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: -10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -10 }}
-                                        className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
-                                    >
-                                        <div className="max-h-96 overflow-y-auto">
-                                            {searchSuggestions.length > 0 ? (
-                                                searchSuggestions.map(p => (
-                                                    <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
-                                                        <img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" />
-                                                        <div className="flex-grow">
-                                                            <p className="font-semibold text-gray-800">{p.name}</p>
-                                                            {p.is_on_sale && p.sale_price > 0 ? (
-                                                                <div className="flex items-baseline gap-2">
-                                                                    <p className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</p>
-                                                                    <p className="text-gray-500 text-sm line-through">R$ {Number(p.price).toFixed(2)}</p>
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-gray-700 font-bold">R$ {Number(p.price).toFixed(2)}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p>
-                                            )}
-                                        </div>
-                                        {searchTerm.trim() && (
-                                            <button
-                                                type="submit"
-                                                className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors"
-                                            >
-                                                Ver todos os resultados para "{searchTerm}"
-                                            </button>
-                                        )}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-                        </form>
-                    </div>
-
-                    <div className="flex items-center space-x-2 sm:space-x-4">
-                        {isAuthenticated && (
-                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex flex-col items-center text-xs hover:text-amber-400 transition px-2">
-                                <span>Devoluções</span>
-                                <span className="font-bold">& Pedidos</span>
+                                value={searchQuery}
+                                onChange={handleSearchChange}
+                                onFocus={() => setIsSearchFocused(true)}
+                                className="bg-gray-800 text-white px-4 py-2 rounded-full w-64 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                <SearchIcon className="h-5 w-5"/>
                             </button>
+                        </form>
+                        {isSearchFocused && suggestions.length > 0 && (
+                            <div className="absolute top-full mt-2 w-full bg-gray-900 border border-gray-800 rounded-md shadow-lg max-h-80 overflow-y-auto">
+                                {suggestions.map(p => (
+                                    <div key={p.id} onClick={() => handleSuggestionClick(p)} className="flex items-center p-2 hover:bg-gray-800 cursor-pointer">
+                                        <img src={getFirstImage(p.images)} alt={p.name} className="h-10 w-10 object-contain mr-3 bg-white rounded"/>
+                                        <span className="text-sm">{p.name}</span>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                        <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition p-1">
-                            <HeartIcon className="h-6 w-6"/>
-                            {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
-                        </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition p-1">
-                            <CartIcon className="h-6 w-6"/>
-                            {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                        </motion.button>
-                        <div className="hidden md:block">
-                            {isAuthenticated ? (
-                                <div className="relative group">
-                                   <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
-                                   <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
-                                       <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
-                                       <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
-                                       {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm text-amber-400 hover:bg-gray-800">Painel Admin</a>}
-                                       <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a>
-                                   </div>
-                                </div>
-                            ) : (
-                                <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                            )}
-                        </div>
                     </div>
+                    <a href="#wishlist" onClick={() => onNavigate('wishlist')} className="hover:text-amber-400 p-2 rounded-full"><HeartIcon className="h-6 w-6"/></a>
+                    <a href="#cart" onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 p-2 rounded-full">
+                        <CartIcon className="h-6 w-6"/>
+                        {totalItems > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{totalItems}</span>
+                        )}
+                    </a>
+                    {isAuthenticated ? (
+                        <a href="#account" onClick={() => onNavigate('account')} className="hover:text-amber-400 p-2 rounded-full"><UserIcon className="h-6 w-6"/></a>
+                    ) : (
+                        <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md font-bold text-sm hover:bg-amber-300">Login</button>
+                    )}
+                    <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                        <MenuIcon className="h-6 w-6"/>
+                    </button>
                 </div>
             </div>
-
-            {/* Bottom Bar (Desktop Navigation) */}
-            <nav className="hidden md:flex container mx-auto px-4 sm:px-6 h-12 items-center justify-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
-                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
-                <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
-                    <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
+            {isMenuOpen && (
+                <div className="md:hidden mt-4">
+                    <nav className="flex flex-col space-y-2">
+                        <a href="#home" onClick={() => { onNavigate('home'); setIsMenuOpen(false); }} className="hover:text-amber-400 py-2">Início</a>
+                        <a href="#products" onClick={() => { onNavigate('products'); setIsMenuOpen(false); }} className="hover:text-amber-400 py-2">Coleções</a>
+                        <a href="#products?promo=true" onClick={() => { onNavigate('products?promo=true'); setIsMenuOpen(false); }} className="text-red-500 hover:text-red-400 font-semibold py-2">Promoções</a>
+                        <a href="#ajuda" onClick={() => { onNavigate('ajuda'); setIsMenuOpen(false); }} className="hover:text-amber-400 py-2">Ajuda</a>
+                    </nav>
                 </div>
-                {/* ===== ATUALIZAÇÃO PROMOÇÕES ===== */}
-                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
-                    <SaleIcon className="h-4 w-4" /> Promoções
-                </a>
-                {/* =============================== */}
-                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
-                
-                <AnimatePresence>
-                    {activeMenu === 'Coleções' && (
-                        <motion.div 
-                            initial="closed" animate="open" exit="closed" variants={dropdownVariants}
-                            className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
-                        >
-                            <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {categoriesForMenu.map(cat => (
-                                    <div key={cat.name}>
-                                        <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
-                                        <ul className="space-y-2">
-                                            {cat.sub.map(subCat => (
-                                                <li key={subCat}>
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </nav>
-            
-            {/* Mobile Menu */}
-            <AnimatePresence>
-                {isMobileMenuOpen && (
-                    <>
-                        <motion.div 
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/60 z-50 md:hidden"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                        />
-                        <motion.div 
-                            variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
-                            className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
-                        >
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800">
-                                <h2 className="font-bold text-amber-400">Menu</h2>
-                                <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
-                            </div>
-                            <div className="flex-grow overflow-y-auto p-4">
-                                   <form onSubmit={handleSearchSubmit} className="relative mb-4">
-                                    <input
-                                        type="text"
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        onFocus={() => setIsSearchFocused(true)}
-                                        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                        placeholder="O que você procura?"
-                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                    />
-                                    {/* A div a seguir é posicionada em relação ao form */}
-                                    <div className="relative"> 
-                                 <AnimatePresence>
-                                            {isSearchFocused && searchTerm.length > 0 && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
-                                                >
-                                                    <div className="max-h-60 overflow-y-auto">
-                                                        {searchSuggestions.length > 0 ? (
-                                                            searchSuggestions.map(p => (
-                                                                <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
-                                                                    <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" />
-                                                                    <div className="flex-grow">
-                                                                        <p className="font-semibold text-gray-800 text-sm">{p.name}</p>
-                                                                        {p.is_on_sale && p.sale_price > 0 ? (
-                                                                            <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p>
-                                                                        ) : (
-                                                                            <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p>
-                                                        )}
-                                                    </div>
-                                                    {searchTerm.trim() && (
-                                                        <button
-                                                            type="submit"
-                                                            className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"
-                                                        >
-                                                            Ver todos os resultados
-                                                        </button>
-                                                    )}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                </form>
-
-                                {categoriesForMenu.map((cat, index) => (
-                                    <div key={cat.name} className="border-b border-gray-800">
-                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
-                                            <span>{cat.name}</span>
-                                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        <AnimatePresence>
-                                        {mobileAccordion === index && (
-                                            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
-                                                {cat.sub.map(subCat => (
-                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
-                                                ))}
-                                            </motion.ul>
-                                        )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                                {/* ===== ATUALIZAÇÃO PROMOÇÕES (MOBILE) ===== */}
-                                <div className="border-b border-gray-800">
-                                    <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
-                                        <SaleIcon className="h-5 w-5"/> Promoções
-                                    </a>
-                                </div>
-                                {/* ======================================== */}
-                                <div className="border-b border-gray-800">
-                                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
-                                </div>
-                                <div className="border-b border-gray-800">
-                                    <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a>
-                                </div>
-                                <div className="pt-4 space-y-3">
-                                    {isAuthenticated ? (
-                                        <>
-                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a>
-                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a>
-                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>}
-                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button>
-                                        </>
-                                    ) : (
-                                        <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    </>
-                )}
-            </AnimatePresence>
+            )}
         </header>
     );
 });
@@ -1591,6 +1373,7 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
+    const { setSampleShippingProduct } = useShop();
     const [products, setProducts] = useState({
         newArrivals: [],
         bestSellers: [],
@@ -1604,6 +1387,10 @@ const HomePage = ({ onNavigate }) => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
                 
+                if (sortedBySales.length > 0) {
+                    setSampleShippingProduct(sortedBySales[0]);
+                }
+
                 const clothingProducts = data.filter(p => p.product_type === 'clothing');
                 const perfumeProducts = data.filter(p => p.product_type === 'perfume');
 
@@ -1615,7 +1402,8 @@ const HomePage = ({ onNavigate }) => {
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // <-- Array de dependência vazio para executar apenas uma vez
 
     const categoryCards = [
         { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
