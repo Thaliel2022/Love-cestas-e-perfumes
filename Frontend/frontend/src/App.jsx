@@ -3946,202 +3946,13 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     );
 };
 
-const OrderDetailPage = ({ orderId, onNavigate }) => {
-    const { addToCart } = useShop();
-    const notification = useNotification();
-    const [order, setOrder] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isPaying, setIsPaying] = useState(false);
-    const [isItemsExpanded, setIsItemsExpanded] = useState(true);
-    
-    useEffect(() => {
-        setIsLoading(true);
-        // Busca os detalhes de um único pedido
-        apiService(`/orders/my-orders?id=${orderId}`)
-            .then(data => {
-                if (data && data.length > 0) {
-                    setOrder(data[0]);
-                } else {
-                    throw new Error("Pedido não encontrado.");
-                }
-            })
-            .catch(err => notification.show(err.message, 'error'))
-            .finally(() => setIsLoading(false));
-    }, [orderId, notification]);
 
-    const handleRetryPayment = async (orderId) => {
-        setIsPaying(true);
-        try {
-            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-            if (paymentResult && paymentResult.init_point) {
-                window.location.href = paymentResult.init_point;
-            } else { throw new Error("Não foi possível obter o link de pagamento."); }
-        } catch (error) {
-            notification.show(`Erro ao tentar realizar o pagamento: ${error.message}`, 'error');
-        } finally {
-            setIsPaying(false);
-        }
-    };
-
-    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
-    if (!order) return <p className="text-center text-gray-400">Pedido não encontrado.</p>;
-
-    const isPickupOrder = order.shipping_method === 'Retirar na loja';
-    const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
-    const safeHistory = Array.isArray(order.history) ? order.history : [];
-
-    return (
-        <div>
-            <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-                Voltar para todos os pedidos
-            </button>
-            <div className="border border-gray-800 rounded-lg p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-2">
-                    <div>
-                        <p className="text-2xl font-bold">Detalhes do Pedido <span className="text-amber-400">#{order.id}</span></p>
-                        <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="text-left sm:text-right">
-                        <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                    </div>
-                </div>
-
-                {order.status === 'Pendente' && (
-                    <div className="my-4 p-4 bg-amber-900/50 border border-amber-700 rounded-lg text-center">
-                        <p className="font-semibold text-amber-300 mb-3">Este pedido está aguardando pagamento.</p>
-                        <button onClick={() => handleRetryPayment(order.id)} disabled={isPaying} className="bg-amber-400 text-black font-bold px-8 py-2 rounded-md hover:bg-amber-300 transition-all disabled:opacity-50 disabled:cursor-wait flex items-center justify-center mx-auto">
-                            {isPaying ? <SpinnerIcon className="h-5 w-5" /> : 'Pagar Agora'}
-                        </button>
-                    </div>
-                )}
-
-                <div className="my-6">
-                    {isPickupOrder ? <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} /> : <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} />}
-                </div>
-
-                {isPickupOrder ? (
-                    <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
-                         <p><strong>Informações para Retirada:</strong></p>
-                         <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
-                         <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
-                         {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                         <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
-                    </div>
-                ) : ( order.tracking_code && <p className="my-4 p-3 bg-gray-800 rounded-md text-sm"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p> )}
-
-                <div className="border-t border-gray-800 pt-4">
-                    <button onClick={() => setIsItemsExpanded(!isItemsExpanded)} className="flex justify-between items-center w-full mb-2 text-left">
-                        <h4 className="font-bold text-lg text-gray-200">Itens do Pedido ({(order.items || []).length})</h4>
-                        <ChevronDownIcon className={`h-6 w-6 text-gray-400 transition-transform ${isItemsExpanded ? 'rotate-180' : ''}`} />
-                    </button>
-                    <AnimatePresence>
-                        {isItemsExpanded && (
-                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                <div className="space-y-2 pt-2">
-                                    {(order.items || []).map(item => (
-                                        <div key={item.id} className="flex items-center text-sm p-2 bg-gray-800 rounded-md">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-4 bg-white rounded"/>
-                                            <div className="flex-grow">
-                                                <span>{item.quantity}x {item.name}</span>
-                                                {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
-                                            </div>
-                                            <span className="ml-auto font-semibold">R$ {Number(item.price).toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-const MyOrdersListPage = ({ onNavigate }) => {
-    const [orders, setOrders] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const notification = useNotification();
-
-    useEffect(() => {
-        apiService('/orders/my-orders')
-            .then(data => setOrders(data))
-            .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
-            .finally(() => setIsLoading(false));
-    }, [notification]);
-
-    const getStatusChipClass = (status) => {
-        const lowerStatus = status.toLowerCase();
-        if (lowerStatus.includes('entregue') || lowerStatus.includes('retirado')) return 'bg-green-200 text-green-800';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-yellow-200 text-yellow-800';
-        return 'bg-blue-200 text-blue-800';
-    };
-
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
-            {isLoading ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>
-            ) : orders.length > 0 ? (
-                <div className="space-y-4">
-                    {orders.map(order => (
-                        <motion.div 
-                            key={order.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 * orders.indexOf(order) }}
-                            className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                        >
-                            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
-                                <div>
-                                    <p className="text-xs text-gray-400">Pedido</p>
-                                    <p className="font-bold text-white">#{order.id}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Data</p>
-                                    <p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Status</p>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Total</p>
-                                    <p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p>
-                                </div>
-                            </div>
-                            <div className="flex-shrink-0 w-full sm:w-auto">
-                                <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full sm:w-auto bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">
-                                    Ver Detalhes
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
-                </div>
-            ) : (
-                <EmptyState 
-                    icon={<PackageIcon className="h-12 w-12"/>}
-                    title="Nenhum pedido encontrado"
-                    message="Você ainda não fez nenhuma compra. Explore nossos produtos!"
-                    buttonText="Ver Produtos"
-                    onButtonClick={() => onNavigate('products')}
-                />
-            )}
-        </div>
-    );
-};
-
-const MyAccountPage = ({ onNavigate, path }) => {
+const MyAccountPage = ({ onNavigate, subPage }) => {
     const { user, logout } = useAuth();
+    const [activeTab, setActiveTab] = useState(subPage || 'orders');
     
-    // A lógica agora extrai a aba principal e o ID do detalhe
-    const pathParts = (path || 'orders').split('/');
-    const activeTab = pathParts[0];
-    const detailId = pathParts[1];
-
     const handleNavigation = (tab) => {
+        setActiveTab(tab);
         onNavigate(`account/${tab}`);
     };
 
@@ -4151,28 +3962,10 @@ const MyAccountPage = ({ onNavigate, path }) => {
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
     ];
 
-    const renderContent = () => {
-        switch (activeTab) {
-            case 'addresses':
-                return <MyAddressesSection />;
-            case 'profile':
-                return <MyProfileSection user={user} />;
-            case 'orders':
-            default:
-                // Se houver um ID na URL, mostra a página de detalhes
-                if (detailId && !isNaN(detailId)) {
-                    return <OrderDetailPage orderId={detailId} onNavigate={onNavigate} />;
-                }
-                // Senão, mostra a lista de pedidos
-                return <MyOrdersListPage onNavigate={onNavigate} />;
-        }
-    };
-
     return (
         <div className="bg-black text-white min-h-screen py-8 sm:py-12">
             <div className="container mx-auto px-4">
-                {/* Oculta o título principal na página de detalhes para evitar repetição */}
-                {!detailId && <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>}
+                <h1 className="text-3xl md:text-4xl font-bold mb-8">Minha Conta</h1>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                     <aside className="lg:col-span-1">
                         <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
@@ -4190,7 +3983,9 @@ const MyAccountPage = ({ onNavigate, path }) => {
                     </aside>
                     <main className="lg:col-span-3">
                         <div className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
-                            {renderContent()}
+                            {activeTab === 'orders' && <MyOrdersSection onNavigate={onNavigate} />}
+                            {activeTab === 'addresses' && <MyAddressesSection />}
+                            {activeTab === 'profile' && <MyProfileSection user={user} />}
                         </div>
                     </main>
                 </div>
@@ -6571,11 +6366,7 @@ function AppContent({ deferredPrompt }) {
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
     
-    // Lógica de roteamento aprimorada
-    const pathParts = path.split('/');
-    const mainPage = pathParts[0];
-    const pageId = pathParts[1];
-    const detailId = pathParts[2];
+    const [mainPage, pageId] = path.split('/');
 
     if (mainPage === 'admin') {
         if (isLoading) return null;
@@ -6613,11 +6404,6 @@ function AppContent({ deferredPrompt }) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
     
-    // Passa o caminho completo para MyAccountPage para sub-roteamento
-    if (mainPage === 'account') {
-        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
-    }
-
     const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
@@ -6626,6 +6412,7 @@ function AppContent({ deferredPrompt }) {
         'cart': <CartPage onNavigate={navigate} />,
         'checkout': <CheckoutPage onNavigate={navigate} />,
         'wishlist': <WishlistPage onNavigate={navigate} />,
+        'account': <MyAccountPage onNavigate={navigate} subPage={pageId} />,
         'ajuda': <AjudaPage onNavigate={navigate} />,
         'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
     };
