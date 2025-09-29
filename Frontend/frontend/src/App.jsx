@@ -871,6 +871,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
+    // Lógica para exibir o parcelamento
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -879,16 +880,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
+    // Lógica para exibir o frete
     const shippingInfo = useMemo(() => {
         if (isLoadingShipping) {
             return <span className="text-gray-500">Calculando frete...</span>;
         }
         if (autoCalculatedShipping && shippingLocation.cep) {
-            // Evita mostrar frete PAC para opção de retirada
             if (autoCalculatedShipping.isPickup) return null;
             
             const date = new Date();
-            // Adiciona dias úteis
             let deliveryTime = autoCalculatedShipping.delivery_time;
             let addedDays = 0;
             while(addedDays < deliveryTime) {
@@ -1033,7 +1033,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : (
                         <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                     )}
-
+                    
+                    {/* Exibição do parcelamento */}
                     {installmentInfo && (
                         <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p>
                     )}
@@ -1048,6 +1049,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
             </div>
+            {/* Exibição do frete */}
             {shippingInfo && (
                 <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
                     {shippingInfo}
@@ -1056,7 +1058,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         </motion.div>
     );
 });
-
 
 
 
