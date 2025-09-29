@@ -150,12 +150,7 @@ const memoryUpload = multer({ storage: memoryStorage });
 
 
 // --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
-
-// Validador de email
-const isValidEmail = (email) => {
-    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return re.test(String(email).toLowerCase());
-};
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
 
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -178,10 +173,7 @@ const verifyAdmin = (req, res, next) => {
 
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
-    await connection.query(
-        "INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)",
-        [orderId, newStatus, notes]
-    );
+    await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, newStatus, notes]);
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
 };
 
@@ -297,7 +289,6 @@ const createWelcomeEmail = (customerName) => {
     return createEmailBase(content);
 };
 
-// NOVO E-MAIL: Pronto para Retirada
 const createReadyForPickupEmail = (customerName, orderId, pickupDetails) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     const personName = pickupDetails?.personName || customerName;
@@ -314,7 +305,7 @@ const createReadyForPickupEmail = (customerName, orderId, pickupDetails) => {
             <p style="margin: 15px 0 10px 0; color: #E5E7EB; font-family: Arial, sans-serif; font-weight: bold;">Instruções:</p>
             <p style="margin: 0; color: #E5E7EB; font-family: Arial, sans-serif;">Apresentar um documento com foto de <strong>${personName}</strong> e o número do pedido (#${orderId}).</p>
         </div>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders/${orderId}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
     `;
     return createEmailBase(content);
 };
@@ -341,7 +332,7 @@ const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
         <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">${introMessage}</p>
         <div style="font-size: 18px; font-weight: bold; color: #111827; padding: 12px; background-color: #D4AF37; border-radius: 5px; text-align: center; margin: 20px 0; font-family: Arial, sans-serif;">${newStatus}</div>
         ${itemsHtml}
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders/${orderId}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
     `;
     return createEmailBase(content);
 };
@@ -349,6 +340,7 @@ const createGeneralUpdateEmail = (customerName, orderId, newStatus, items) => {
 const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     const trackingUrl = `https://www.linketrack.com.br/track/${trackingCode}`;
     const itemsHtml = createItemsListHtml(items, "Itens enviados:");
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
 
     const content = `
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido Foi Enviado!</h1>
@@ -358,7 +350,8 @@ const createShippedEmail = (customerName, orderId, trackingCode, items) => {
             <p style="margin: 0 0 10px 0; color: #E5E7EB; font-family: Arial, sans-serif;">Use o código de rastreio abaixo:</p>
             <div style="font-size: 18px; font-weight: bold; color: #E5E7EB; letter-spacing: 2px; font-family: 'Courier New', Courier, monospace;">${trackingCode}</div>
         </div>
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Rastrear Pedido</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 10px 0 20px;"><a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Rastrear na Transportadora</a></td></tr></table>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 0px 0 20px;"><a href="${appUrl}/#account/orders/${orderId}" target="_blank" style="font-size: 14px; color: #D4AF37; text-decoration: underline; font-family: Arial, sans-serif;">Ver detalhes do pedido em nossa loja</a></td></tr></table>
         ${itemsHtml}
     `;
     return createEmailBase(content);
@@ -571,7 +564,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
             return {...p, ...dbProduct};
         });
 
-const payload = {
+        const payload = {
             from: { postal_code: process.env.ORIGIN_CEP.replace(/\D/g, '') },
             to: { postal_code: cep_destino.replace(/\D/g, '') },
             products: productsWithDetails.map(product => {
@@ -741,13 +734,13 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
     const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'is_on_sale', 'product_type'
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type'
     ];
     const values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null,
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
         productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active ? 1 : 0, productData.is_on_sale ? 1 : 0, product_type
+        productData.height, productData.length, productData.is_active ? 1 : 0, product_type
     ];
 
     if (product_type === 'perfume') {
@@ -775,13 +768,13 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
 
     let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'is_on_sale', 'product_type'
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type'
     ];
     let values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null,
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
         productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active, productData.is_on_sale, product_type
+        productData.height, productData.length, productData.is_active, product_type
     ];
 
     if (product_type === 'perfume') {
@@ -1070,8 +1063,21 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
 // --- ROTAS DE PEDIDOS ---
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
+    const { id: orderId } = req.query; 
+
     try {
-        const [orders] = await db.query("SELECT * FROM orders WHERE user_id = ? ORDER BY date DESC", [userId]);
+        let sql = "SELECT * FROM orders WHERE user_id = ?";
+        const params = [userId];
+
+        if (orderId) {
+            sql += " AND id = ?";
+            params.push(orderId);
+        }
+
+        sql += " ORDER BY date DESC";
+        
+        const [orders] = await db.query(sql, params);
+        
         const detailedOrders = await Promise.all(orders.map(async (order) => {
             const [items] = await db.query("SELECT oi.*, p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
             const parsedItems = items.map(item => ({
@@ -1079,7 +1085,7 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
                 variation: item.variation_details ? JSON.parse(item.variation_details) : null
             }));
             const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
-            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] }; // CORREÇÃO DE BUG: Garante que 'history' seja sempre um array
+            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
         }));
         res.json(detailedOrders);
     } catch (err) {
@@ -1240,7 +1246,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         ORDER_STATUS.PENDING,
         ORDER_STATUS.PAYMENT_APPROVED,
         ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP, // <-- NOVO
+        ORDER_STATUS.READY_FOR_PICKUP,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
         ORDER_STATUS.DELIVERED
@@ -1248,7 +1254,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     
     const statusesThatTriggerEmail = [
         ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP, // <-- NOVO
+        ORDER_STATUS.READY_FOR_PICKUP,
         ORDER_STATUS.SHIPPED,
         ORDER_STATUS.OUT_FOR_DELIVERY,
         ORDER_STATUS.DELIVERED,
@@ -1372,7 +1378,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
-
 app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
