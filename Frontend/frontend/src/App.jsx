@@ -49,7 +49,7 @@ const EyeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" class
 const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.477 0-8.268-2.943-9.542-7 .946-3.11 3.563-5.524 6.858-6.39M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.593 4.407A9.953 9.953 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-2.125-.3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M1 1l22 22" /></svg>;
 const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002L15.316 6.342a3 3 0 110 2.684m-6.632-2.684a3 3 0 000 2.684" /></svg>;
-
+const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 
 // --- CONSTANTE GLOBAL DO MENU ---
 const CATEGORIES_FOR_MENU = [
@@ -777,6 +777,50 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
         </AnimatePresence>
     );
 });
+
+// --- COMPONENTE DO BOTÃO DE VOLTAR AO TOPO ---
+const BackToTopButton = () => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    const toggleVisibility = useCallback(() => {
+        if (window.pageYOffset > 300) {
+            setIsVisible(true);
+        } else {
+            setIsVisible(false);
+        }
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    };
+
+    useEffect(() => {
+        window.addEventListener('scroll', toggleVisibility);
+        return () => {
+            window.removeEventListener('scroll', toggleVisibility);
+        };
+    }, [toggleVisibility]);
+
+    return (
+        <AnimatePresence>
+            {isVisible && (
+                <motion.button
+                    onClick={scrollToTop}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="fixed bottom-6 right-6 z-50 bg-amber-500 text-black p-3 rounded-full shadow-lg hover:bg-amber-400 transition-colors"
+                    aria-label="Voltar ao topo"
+                >
+                    <ChevronUpIcon className="h-6 w-6" />
+                </motion.button>
+            )}
+        </AnimatePresence>
+    );
+};
 
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart } = useShop();
