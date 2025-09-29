@@ -24,13 +24,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
 
 
-// ---> Constantes para status de pedidos (COM A NOVA OPÇÃO)
+// ---> Constantes para status de pedidos
 const ORDER_STATUS = {
     PENDING: 'Pendente',
     PAYMENT_APPROVED: 'Pagamento Aprovado',
     PAYMENT_REJECTED: 'Pagamento Recusado',
     PROCESSING: 'Separando Pedido',
-    READY_FOR_PICKUP: 'Pronto para Retirada', // <-- NOVO STATUS
+    READY_FOR_PICKUP: 'Pronto para Retirada',
     SHIPPED: 'Enviado',
     OUT_FOR_DELIVERY: 'Saiu para Entrega',
     DELIVERED: 'Entregue',
