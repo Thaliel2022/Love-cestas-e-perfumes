@@ -304,7 +304,8 @@ const ShopProvider = ({ children }) => {
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
     const [shippingError, setShippingError] = useState('');
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
-    const [selectedShippingName, setSelectedShippingName] = useState(null); // <-- NOVO ESTADO PARA GUARDAR A INTENÇÃO
+    const [selectedShippingName, setSelectedShippingName] = useState(null);
+    const [isGeolocating, setIsGeolocating] = useState(false); // <-- NOVO ESTADO
 
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
@@ -345,17 +346,26 @@ const ShopProvider = ({ children }) => {
             }
         }
         if (!locationDetermined && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const { latitude, longitude } = position.coords;
-                try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                    const data = await response.json();
-                    if (data.address && data.address.postcode) {
-                        const cep = data.address.postcode.replace(/\D/g, '');
-                        setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
-                    }
-                } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); }
-            }, (error) => { console.warn("Geolocalização negada ou indisponível.", error.message); });
+            setIsGeolocating(true); // <-- ATIVA O FEEDBACK
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const data = await response.json();
+                        if (data.address && data.address.postcode) {
+                            const cep = data.address.postcode.replace(/\D/g, '');
+                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+                        }
+                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    finally { setIsGeolocating(false); } // <-- DESATIVA O FEEDBACK
+                }, 
+                (error) => { 
+                    console.warn("Geolocalização negada ou indisponível.", error.message);
+                    setIsGeolocating(false); // <-- DESATIVA O FEEDBACK
+                },
+                { timeout: 10000 } // <-- TEMPO LIMITE DE 10 SEGUNDOS
+            );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
@@ -400,7 +410,6 @@ const ShopProvider = ({ children }) => {
 
                         setShippingOptions(finalOptions);
                         
-                        // LÓGICA DE SELEÇÃO CORRIGIDA E ROBUSTA
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         setAutoCalculatedShipping(desiredOption || pacOption || pickupOption || null);
 
@@ -514,7 +523,8 @@ const ShopProvider = ({ children }) => {
             shippingOptions, isLoadingShipping, shippingError,
             updateDefaultShippingLocation, determineShippingLocation,
             setPreviewShippingItem, 
-            setSelectedShippingName, // <-- NOVA FUNÇÃO EXPORTADA
+            setSelectedShippingName,
+            isGeolocating, // <-- NOVO VALOR EXPORTADO
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
@@ -1741,7 +1751,8 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         autoCalculatedShipping,
         setAutoCalculatedShipping,
         setPreviewShippingItem,
-        setSelectedShippingName // <-- Nova função para salvar a intenção
+        setSelectedShippingName,
+        isGeolocating // <-- NOVO ESTADO
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1760,7 +1771,6 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         };
     }, [itemsFromProp, cart.length, setPreviewShippingItem]);
     
-    // Função unificada para seleção de frete
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
@@ -1869,14 +1879,21 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                             )}
                         </>
                     ) : (
-                        <div>
-                            <p className="text-sm font-medium text-gray-200 mb-2">Calcular frete e prazo</p>
-                            <form onSubmit={handleManualCepSubmit} className="flex gap-2">
-                                <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="Digite seu CEP" className="w-full p-2 bg-gray-800 border-gray-700 border rounded-md text-white"/>
-                                <button type="submit" className="bg-amber-400 text-black font-bold px-4 rounded-md hover:bg-amber-300">Calcular</button>
-                            </form>
-                             {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
-                        </div>
+                        isGeolocating ? (
+                            <div className="flex items-center gap-2 animate-pulse py-4">
+                                <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                <span className="text-gray-400 text-sm">Obtendo sua localização para calcular o frete...</span>
+                            </div>
+                        ) : (
+                            <div>
+                                <p className="text-sm font-medium text-gray-200 mb-2">Calcular frete e prazo</p>
+                                <form onSubmit={handleManualCepSubmit} className="flex gap-2">
+                                    <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="Digite seu CEP" className="w-full p-2 bg-gray-800 border-gray-700 border rounded-md text-white"/>
+                                    <button type="submit" className="bg-amber-400 text-black font-bold px-4 rounded-md hover:bg-amber-300">Calcular</button>
+                                </form>
+                                {apiError && <p className="text-red-500 text-xs mt-1">{apiError}</p>}
+                            </div>
+                        )
                     )}
                 </div>
             </div>
