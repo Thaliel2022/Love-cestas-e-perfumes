@@ -4351,7 +4351,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         apiService('/orders')
             .then(data => {
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recentOrders = data.filter(o => new Date(o.date) > twentyFourHoursAgo);
+                const recentOrders = data.filter(o => {
+                    // Verificação de segurança para datas inválidas ou nulas
+                    if (!o || !o.date) return false;
+                    const orderDate = new Date(o.date);
+                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
+                });
                 setNewOrdersCount(recentOrders.length);
             })
             .catch(err => console.error("Falha ao buscar contagem de novos pedidos:", err));
