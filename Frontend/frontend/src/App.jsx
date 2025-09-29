@@ -3953,11 +3953,14 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isPaying, setIsPaying] = useState(false);
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
+    
+    // Lógica e estados para o modal de status restaurados
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
     
     useEffect(() => {
         setIsLoading(true);
-        // A API agora busca o pedido específico pelo ID
         apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
@@ -3969,6 +3972,11 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
             .catch(err => notification.show(err.message, 'error'))
             .finally(() => setIsLoading(false));
     }, [orderId, notification]);
+
+    const handleOpenStatusModal = (statusDetails) => {
+        setSelectedStatusDetails(statusDetails);
+        setIsStatusModalOpen(true);
+    };
 
     const handleRetryPayment = async (orderId) => {
         setIsPaying(true);
@@ -4020,6 +4028,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     return (
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
+            <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
             <div>
                 <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -4046,7 +4055,11 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                     )}
 
                     <div className="my-6">
-                        {isPickupOrder ? <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} /> : <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={() => {}} />}
+                        {isPickupOrder ? 
+                            <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} /> 
+                            : 
+                            <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                        }
                     </div>
 
                     {isPickupOrder ? (
