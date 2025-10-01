@@ -1096,8 +1096,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
     );
 });
 
-
-
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -4243,7 +4241,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     useEffect(() => {
         apiService('/orders/my-orders')
-            .then(data => setOrders(data))
+            .then(data => setOrders(data.sort((a,b) => new Date(b.date) - new Date(a.date)))) // Ordena pelos mais recentes
             .catch(err => notification.show("Falha ao buscar pedidos.", 'error'))
             .finally(() => setIsLoading(false));
     }, [notification]);
@@ -4263,39 +4261,61 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>
             ) : orders.length > 0 ? (
                 <div className="space-y-4">
-                    {orders.map(order => (
-                        <motion.div 
-                            key={order.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 * orders.indexOf(order) }}
-                            className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-                        >
-                            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
-                                <div>
-                                    <p className="text-xs text-gray-400">Pedido</p>
-                                    <p className="font-bold text-white">#{order.id}</p>
+                    {orders.map(order => {
+                        const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
+                        return (
+                            <motion.div 
+                                key={order.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 * orders.indexOf(order) }}
+                                className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                            >
+                                {firstItem && (
+                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                        <img 
+                                            src={getFirstImage(firstItem.images)} 
+                                            alt={firstItem.name} 
+                                            className="w-16 h-16 object-contain bg-white rounded-md flex-shrink-0"
+                                        />
+                                        <div className="flex-grow">
+                                            <p className="font-semibold text-white">{firstItem.name}</p>
+                                            {order.items.length > 1 && (
+                                                <p className="text-sm text-gray-400 mt-1">
+                                                    + {order.items.length - 1} outro(s) item(ns)
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+                                        <div>
+                                            <p className="text-xs text-gray-400">Pedido</p>
+                                            <p className="font-bold text-white">#{order.id}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Data</p>
+                                            <p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Status</p>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Total</p>
+                                            <p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex-shrink-0 w-full sm:w-auto">
+                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full sm:w-auto bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">
+                                            Ver Detalhes
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Data</p>
-                                    <p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Status</p>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span>
-                                </div>
-                                <div>
-                                    <p className="text-xs text-gray-400">Total</p>
-                                    <p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p>
-                                </div>
-                            </div>
-                            <div className="flex-shrink-0 w-full sm:w-auto">
-                                <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full sm:w-auto bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">
-                                    Ver Detalhes
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
+                            </motion.div>
+                        );
+                    })}
                 </div>
             ) : (
                 <EmptyState 
