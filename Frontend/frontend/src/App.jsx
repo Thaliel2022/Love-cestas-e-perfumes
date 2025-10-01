@@ -4080,12 +4080,9 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
-    
-    const [reviewingItem, setReviewingItem] = useState(null); // Estado para controlar o modal de avaliação
 
-    // Função para buscar os detalhes do pedido, agora reutilizável
     const fetchOrderDetails = useCallback(() => {
-        apiService(`/orders/my-orders?id=${orderId}`)
+        return apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
@@ -4098,15 +4095,10 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
 
     useEffect(() => {
         setIsLoading(true);
-        fetchOrderDetails();
-        setIsLoading(false);
+        fetchOrderDetails().finally(() => {
+            setIsLoading(false);
+        });
     }, [fetchOrderDetails]);
-
-    // Função chamada quando a avaliação é enviada com sucesso
-    const handleReviewSuccess = () => {
-        setReviewingItem(null); // Fecha o modal
-        fetchOrderDetails(); // Recarrega os dados do pedido para atualizar o status "Avaliado"
-    };
 
     const handleOpenStatusModal = (statusDetails) => {
         setSelectedStatusDetails(statusDetails);
@@ -4129,7 +4121,6 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
 
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
-        
         const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
@@ -4137,10 +4128,10 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
             }
             const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
             return addToCart(product, item.quantity, item.variation)
-                .then(() => 1) 
+                .then(() => 1)
                 .catch(err => {
                     notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0; 
+                    return 0;
                 });
         });
 
@@ -4153,8 +4144,8 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         });
     };
 
-    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
-    if (!order) return <p className="text-center text-gray-400">Pedido não encontrado.</p>;
+    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400" /></div>;
+    if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
@@ -4164,18 +4155,6 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
-            
-            <AnimatePresence>
-                {reviewingItem && (
-                    <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
-                        <ProductReviewForm 
-                            productId={reviewingItem.product_id}
-                            onReviewSubmitted={handleReviewSuccess}
-                        />
-                    </Modal>
-                )}
-            </AnimatePresence>
-
             <div>
                 <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -4238,23 +4217,6 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
-                                                {['Entregue', 'Pronto para Retirada'].includes(order.status) && (
-                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
-                                                        {item.is_reviewed ? (
-                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
-                                                                <CheckCircleIcon className="h-5 w-5" />
-                                                                <span>Você já avaliou este produto.</span>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setReviewingItem(item)}
-                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
-                                                            >
-                                                                Avaliar Produto
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -4274,12 +4236,8 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                         </div>
                         <div className="flex items-center justify-end gap-2 text-xs text-gray-400">
                             <span>Dúvidas?</span>
-                            <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp">
-                                <WhatsappIcon className="h-4 w-4" />
-                            </a>
-                            <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram">
-                                <InstagramIcon className="h-4 w-4" />
-                            </a>
+                            <a href={`https://wa.me/5583987379573?text=Olá,%20gostaria%20de%20falar%20sobre%20meu%20pedido%20%23${order.id}`} target="_blank" rel="noopener noreferrer" className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors" title="Contato via WhatsApp"><WhatsappIcon className="h-4 w-4" /></a>
+                            <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="bg-pink-500 text-white p-2 rounded-full hover:bg-pink-600 transition-colors" title="Contato via Instagram"><InstagramIcon className="h-4 w-4" /></a>
                         </div>
                     </div>
                 </div>
@@ -4292,8 +4250,10 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const notification = useNotification();
+    const [orderToReview, setOrderToReview] = useState(null);
+    const [itemToReview, setItemToReview] = useState(null);
 
-    useEffect(() => {
+    const fetchOrders = useCallback(() => {
         apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -4303,9 +4263,20 @@ const MyOrdersListPage = ({ onNavigate }) => {
                     window.ordersErrorShown = true;
                     setTimeout(() => { window.ordersErrorShown = false; }, 5000);
                 }
-            })
-            .finally(() => setIsLoading(false));
+            });
     }, [notification]);
+
+    useEffect(() => {
+        setIsLoading(true);
+        fetchOrders();
+        setIsLoading(false);
+    }, [fetchOrders]);
+
+    const handleReviewSuccess = () => {
+        setItemToReview(null);
+        setOrderToReview(null);
+        fetchOrders();
+    };
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status.toLowerCase();
@@ -4318,6 +4289,44 @@ const MyOrdersListPage = ({ onNavigate }) => {
     return (
         <div>
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
+
+            <AnimatePresence>
+                {orderToReview && (
+                    <Modal isOpen={true} onClose={() => setOrderToReview(null)} title={`Avaliar Itens do Pedido #${orderToReview.id}`}>
+                        <div className="space-y-3">
+                            {(orderToReview.items || []).map(item => (
+                                <div key={`${item.product_id}-${item.variation?.id || 'base'}`} className="flex items-center justify-between gap-4 p-2 bg-gray-100 rounded-md">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded-md flex-shrink-0"/>
+                                        <div className="overflow-hidden">
+                                            <p className="font-semibold text-gray-800 truncate">{item.name}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                        {!item.is_reviewed ? (
+                                            <button onClick={() => setItemToReview(item)} className="bg-amber-500 text-black text-xs font-bold px-3 py-1.5 rounded-md hover:bg-amber-400 transition">Avaliar</button>
+                                        ) : (
+                                            <span className="text-xs text-green-600 font-semibold flex items-center gap-1"><CheckIcon className="h-4 w-4"/> Avaliado</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+                {itemToReview && (
+                    <Modal isOpen={true} onClose={() => { setItemToReview(null); setOrderToReview(null); }} title={`Deixe sua opinião sobre: ${itemToReview.name}`}>
+                        <ProductReviewForm 
+                            productId={itemToReview.product_id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400" /></div>
             ) : orders.length > 0 ? (
@@ -4336,48 +4345,24 @@ const MyOrdersListPage = ({ onNavigate }) => {
                             >
                                 {firstItem && (
                                     <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
-                                        <img
-                                            src={getFirstImage(firstItem.images)}
-                                            alt={firstItem.name}
-                                            className="w-16 h-16 object-contain bg-white rounded-md flex-shrink-0"
-                                        />
+                                        <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-16 h-16 object-contain bg-white rounded-md flex-shrink-0"/>
                                         <div className="flex-grow overflow-hidden">
                                             <p className="font-semibold text-white truncate">{firstItem.name}</p>
-                                            {order.items.length > 1 && (
-                                                <p className="text-sm text-gray-400 mt-1">
-                                                    + {order.items.length - 1} outro(s) item(ns)
-                                                </p>
-                                            )}
+                                            {order.items.length > 1 && ( <p className="text-sm text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
                                         </div>
                                     </div>
                                 )}
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                     <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
-                                        <div>
-                                            <p className="text-xs text-gray-400">Pedido</p>
-                                            <p className="font-bold text-white">#{order.id}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-400">Data</p>
-                                            <p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-400">Status</p>
-                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-gray-400">Total</p>
-                                            <p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p>
-                                        </div>
+                                        <div><p className="text-xs text-gray-400">Pedido</p><p className="font-bold text-white">#{order.id}</p></div>
+                                        <div><p className="text-xs text-gray-400">Data</p><p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p></div>
+                                        <div><p className="text-xs text-gray-400">Status</p><span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span></div>
+                                        <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">
-                                            Ver Detalhes
-                                        </button>
+                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">Ver Detalhes</button>
                                         {canReviewOrder && (
-                                             <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">
-                                                Avaliar Pedido
-                                            </button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
@@ -4385,15 +4370,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                         );
                     })}
                 </div>
-            ) : (
-                <EmptyState
-                    icon={<PackageIcon className="h-12 w-12" />}
-                    title="Nenhum pedido encontrado"
-                    message="Você ainda não fez nenhuma compra. Explore nossos produtos!"
-                    buttonText="Ver Produtos"
-                    onButtonClick={() => onNavigate('products')}
-                />
-            )}
+            ) : ( <EmptyState icon={<PackageIcon className="h-12 w-12" />} title="Nenhum pedido encontrado" message="Você ainda não fez nenhuma compra." buttonText="Ver Produtos" onButtonClick={() => onNavigate('products')}/> )}
         </div>
     );
 };
