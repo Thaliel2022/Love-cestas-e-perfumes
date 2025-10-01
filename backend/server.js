@@ -733,15 +733,15 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-    const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type'
-    ];
-    const values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active ? 1 : 0, product_type
-    ];
+  const fields = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    const values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
+    ];
 
     if (product_type === 'perfume') {
         fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
@@ -767,15 +767,15 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
 
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type'
-    ];
-    let values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active, product_type
-    ];
+   let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    let values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
+    ];
 
     if (product_type === 'perfume') {
         fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
