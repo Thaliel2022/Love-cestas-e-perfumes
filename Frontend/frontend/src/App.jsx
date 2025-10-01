@@ -4831,7 +4831,6 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     const cameraInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        // Passa o evento para a função onImageUpload que já existe
         onImageUpload(index, e);
     };
 
@@ -4989,6 +4988,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
     const [uploadingStatus, setUploadingStatus] = useState({});
+    const mainGalleryInputRef = useRef(null);
+    const mainCameraInputRef = useRef(null);
 
     const clothingCategories = [
         "Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos", 
@@ -5305,12 +5306,17 @@ const handleChange = (e) => {
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
                 <div>
-                     <label className="block text-sm font-medium text-gray-700">Fazer Upload de Novas Imagens</label>
-                    <input type="file" name="images_upload" accept="image/*" onChange={handleImageChange} multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+                     <label className="block text-sm font-medium text-gray-700 mb-1">Fazer Upload de Novas Imagens</label>
+                     <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
+                     <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
+                     <div className="flex gap-2">
+                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><UploadIcon className="h-5 w-5" /> Galeria</button>
+                        <button type="button" onClick={() => mainCameraInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" /> Câmera</button>
+                     </div>
                      {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                 </div>
                  <div>
-                     <label className="block text-sm font-medium text-gray-700">URLs das Imagens</label>
+                     <label className="block text-sm font-medium text-gray-700 mt-4">URLs das Imagens</label>
                      {(formData.images || []).map((img, index) => (
                         <div key={index} className="flex items-center space-x-2 mt-2">
                             <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumbnail" className="w-10 h-10 object-cover rounded-md border" />
