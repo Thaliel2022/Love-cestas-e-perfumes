@@ -1119,15 +1119,13 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         const [orders] = await db.query(sql, params);
         
       const detailedOrders = await Promise.all(orders.map(async (order) => {
-            const [items] = await db.query(`
-                SELECT 
-                    oi.*, 
-                    p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
-                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id) AS is_reviewed
-                FROM order_items oi 
-                JOIN products p ON oi.product_id = p.id 
-                WHERE oi.order_id = ?
-            `, [order.user_id, order.id]);
+         const [items] = await db.query(`SELECT 
+                    oi.*, 
+                    p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
+                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id) AS is_reviewed
+                FROM order_items oi 
+                JOIN products p ON oi.product_id = p.id 
+                WHERE oi.order_id = ?`, [order.user_id, order.id]);
 
             const parsedItems = items.map(item => ({
                 ...item,
