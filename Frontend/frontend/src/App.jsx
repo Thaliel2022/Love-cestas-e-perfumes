@@ -6717,6 +6717,15 @@ export default function App() {
             setDeferredPrompt(e);
             console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
+        
+        // Registra o Service Worker a partir do arquivo estático
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
+                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
+            });
+        }
 
         // --- Carregamento de Scripts Externos ---
         const loadScript = (src, id, callback) => {
