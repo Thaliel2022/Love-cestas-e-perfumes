@@ -50,6 +50,7 @@ const EyeOffIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5a2 2 0 012 2v5a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002L15.316 6.342a3 3 0 110 2.684m-6.632-2.684a3 3 0 000 2.684" /></svg>;
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
+const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
 // --- CONSTANTE GLOBAL DO MENU ---
 const CATEGORIES_FOR_MENU = [
@@ -4826,7 +4827,13 @@ const AdminDashboard = () => {
 };
 
 const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes, onImageUpload, uploadStatus, isFirstOfColor }) => {
-    const fileInputRef = useRef(null);
+    const galleryInputRef = useRef(null);
+    const cameraInputRef = useRef(null);
+
+    const handleFileChange = (e) => {
+        // Passa o evento para a função onImageUpload que já existe
+        onImageUpload(index, e);
+    };
 
     const handleRemoveImage = (imgIndex) => {
         const updatedImages = variation.images.filter((_, i) => i !== imgIndex);
@@ -4837,41 +4844,20 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
             <div className="md:col-span-3">
                 <label className="text-xs text-gray-500">Cor</label>
-                <select
-                    value={variation.color}
-                    onChange={(e) => onVariationChange(index, 'color', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md bg-white"
-                >
+                <select value={variation.color} onChange={(e) => onVariationChange(index, 'color', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white">
                     <option value="">Selecione a Cor</option>
                     {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
             </div>
             <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Tamanho</label>
-                <input 
-                    type="text"
-                    list="available-sizes"
-                    value={variation.size}
-                    onChange={(e) => onVariationChange(index, 'size', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Ex: M ou 42"
-                />
-                <datalist id="available-sizes">
-                    {availableSizes.map(s => <option key={s} value={s}>{s}</option>)}
-                </datalist>
+                <input type="text" list="available-sizes" value={variation.size} onChange={(e) => onVariationChange(index, 'size', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: M ou 42"/>
+                <datalist id="available-sizes">{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
             </div>
             <div className="md:col-span-2">
                 <label className="text-xs text-gray-500">Estoque</label>
-                <input 
-                    type="number"
-                    min="0"
-                    value={variation.stock}
-                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="0"
-                />
+                <input type="number" min="0" value={variation.stock} onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="0"/>
             </div>
-
             <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
                  {isFirstOfColor ? (
                     <>
@@ -4882,25 +4868,19 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                                     {variation.images.map((img, imgIndex) => (
                                         <div key={imgIndex} className="relative group">
                                             <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
-                                            <button 
-                                                type="button"
-                                                onClick={() => handleRemoveImage(imgIndex)}
-                                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <XMarkIcon className="h-3 w-3" />
-                                            </button>
+                                            <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><XMarkIcon className="h-3 w-3" /></button>
                                         </div>
                                     ))}
                                 </div>
-                            ) : (
-                                <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p>
-                            )}
+                            ) : ( <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p> )}
                         </div>
-
                         <div>
-                          <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
-                            <button type="button" onClick={() => fileInputRef.current.click()} className="w-full text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1">
-                                <UploadIcon className="h-4 w-4" /> Anexar Imagens
-                            </button>
+                            <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
+                            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
+                            <div className="flex gap-2 mt-1">
+                                <button type="button" onClick={() => galleryInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><UploadIcon className="h-4 w-4" /> Galeria</button>
+                                <button type="button" onClick={() => cameraInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><CameraIcon className="h-4 w-4" /> Câmera</button>
+                            </div>
                             {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                         </div>
                     </>
@@ -4912,13 +4892,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                  )}
             </div>
             <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
-                <button 
-                    type="button" 
-                    onClick={() => onRemoveVariation(index)}
-                    className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"
-                >
-                    <TrashIcon className="h-5 w-5 mx-auto"/>
-                </button>
+                <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
             </div>
         </div>
     );
