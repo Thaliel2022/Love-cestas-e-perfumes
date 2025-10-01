@@ -1025,13 +1025,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
                 
                 <div className="mt-auto pt-4">
-                    {isOnSale ? (
+         {isOnSale ? (
                          <div>
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                         </div>
                     ) : (
-                        <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                        <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                     )}
                     
                     {/* Exibição do parcelamento */}
