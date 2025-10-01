@@ -2180,15 +2180,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
-    
+
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-    
+
     const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
-        if (isOnSale && product) { return Math.round(((product.price - product.sale_price) / product.price) * 100); }
+        if (isOnSale && product) {
+            return Math.round(((product.price - product.sale_price) / product.price) * 100);
+        }
         return 0;
     }, [isOnSale, product]);
 
@@ -2209,7 +2211,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
-    const handleDeleteReview = (reviewId) => {
+    const handleDeleteReview = (reviewId, fetchProductDataCallback) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
                 await apiService(`/reviews/${reviewId}`, 'DELETE');
@@ -2221,7 +2223,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         });
     };
-
+    
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2233,9 +2235,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     apiService(`/products/${productId}`, 'GET', null, { signal }),
                     apiService(`/products/${productId}/reviews`, 'GET', null, { signal }),
                     apiService('/products', 'GET', null, { signal }),
-                    apiService(`/products/${productId}/related-by-purchase`, 'GET', null, { signal }).catch(() => []) 
+                    apiService(`/products/${productId}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
                 ]);
-                
+
                 if (signal.aborted) return;
 
                 const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
@@ -2246,13 +2248,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
 
                 if (productData && allProductsData) {
-                    const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8); 
+                    const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                     setRelatedProducts(related);
                 }
             } catch (err) {
                 if (err.name !== 'AbortError') {
-                     console.error("Falha ao buscar dados do produto:", err);
-                     setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
+                    console.error("Falha ao buscar dados do produto:", err);
+                    setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
                 }
             } finally {
                 if (!signal.aborted) {
@@ -2268,7 +2270,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             controller.abort();
         };
     }, [productId]);
-    
+
     useEffect(() => {
         const fetchInstallments = async (price) => {
             if (!price || price <= 0) return;
@@ -2277,26 +2279,93 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         };
         if (product && !product.error && currentPrice) { fetchInstallments(currentPrice); }
     }, [product, currentPrice]);
-    
-    // ... (O restante das funções de handlers, helpers e a renderização JSX permanecem os mesmos que na sua versão anterior, pois estavam corretos)
-    // Para garantir, estou incluindo o componente completo abaixo.
 
-    const handleShare = async () => { /* ... (código existente sem alterações) ... */ };
-    const handleQuantityChange = (amount) => { /* ... (código existente sem alterações) ... */ };
-    const handleAction = async (action) => { /* ... (código existente sem alterações) ... */ };
-    const handleVariationSelection = useCallback((variation, color) => { /* ... (código existente sem alterações) ... */ }, [productVariations, productImages]);
+    const handleShare = async () => {
+        const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
+        const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
+        if (navigator.share) {
+            try { await navigator.share(shareData); } catch (err) { if (err.name !== 'AbortError') { notification.show('Compartilhamento cancelado.', 'error'); } }
+        } else {
+            try { await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`); notification.show('Link do produto copiado!'); } catch (err) { notification.show('Não foi possível copiar o link.', 'error'); }
+        }
+    };
+
+    const handleQuantityChange = (amount) => {
+        setQuantity(prev => {
+            const newQty = prev + amount;
+            if (newQty < 1) return 1;
+            const stockLimit = selectedVariation?.stock;
+            if (stockLimit && newQty > stockLimit) { return stockLimit; }
+            return newQty;
+        });
+    };
+
+    const handleAction = async (action) => {
+        if (!product) return;
+        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        try {
+            await addToCart(product, quantity, selectedVariation);
+            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
+            if (action === 'buyNow') { onNavigate('cart'); }
+        } catch (error) { notification.show(error.message, 'error'); }
+    };
+
+    const handleVariationSelection = useCallback((variation, color) => {
+        setSelectedVariation(variation);
+        if (color && productVariations.length > 0) {
+            const allImagesForColor = productVariations.filter(v => v.color === color).flatMap(v => v.images || []).filter((value, index, self) => self.indexOf(value) === index);
+            if (allImagesForColor.length > 0) { setGalleryImages(allImagesForColor); setMainImage(allImagesForColor[0]); return; }
+        }
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    }, [productVariations, productImages]);
+    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    const TabButton = ({ label, tabName, isVisible = true }) => { /* ... (código existente sem alterações) ... */ };
-    const parseTextToList = (text) => { /* ... (código existente sem alterações) ... */ };
-    const Lightbox = ({ mainImage, onClose }) => { /* ... (código existente sem alterações) ... */ };
+    
+    const TabButton = ({ label, tabName, isVisible = true }) => {
+        if (!isVisible) return null;
+        return <button onClick={() => setActiveTab(tabName)} className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300 ${activeTab === tabName ? 'border-amber-400 text-amber-400' : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`}>{label}</button>;
+    };
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-2">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1">&#10003;</span><span>{line}</span></li>)}</ul>;
+    };
+
+    const Lightbox = ({ mainImage, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
+            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
+        </div>
+    );
+    
     const THUMBNAIL_ITEM_HEIGHT = 92; 
     const VISIBLE_THUMBNAILS = 5; 
     const canScrollUp = thumbnailIndex > 0;
     const canScrollDown = (galleryImages.length + (product?.video_url ? 1 : 0)) > VISIBLE_THUMBNAILS && thumbnailIndex < (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
-    const scrollThumbs = (direction) => { /* ... (código existente sem alterações) ... */ };
+
+    const scrollThumbs = (direction) => {
+        setThumbnailIndex(prev => {
+            const newIndex = prev + direction;
+            const maxIndex = (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
+            if (newIndex < 0) return 0;
+            if (newIndex > maxIndex) return maxIndex;
+            return newIndex;
+        });
+    };
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-    const getInstallmentSummary = () => { /* ... (código existente sem alterações) ... */ };
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>; }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) { return <span>em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) { return <span>ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        return null;
+    };
+    
     const itemsForShipping = useMemo(() => { if (!product) return []; return [{...product, qty: quantity}]; }, [product, quantity]);
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
@@ -2324,7 +2393,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4 py-8">
-                <div className="mb-4">
+                 <div className="mb-4">
                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
@@ -2336,9 +2405,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     {product.video_url && (
                                         <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
                                             <img src={mainImage || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                                                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
-                                            </div>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                         </div>
                                     )}
                                     {galleryImages.map((img, index) => ( <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}><img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" /></div> ))}
@@ -2351,7 +2418,71 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
                     </div>
-                    {/* ... O restante da renderização do componente continua aqui ... */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div>
+                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}{reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}</div>
+                                <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
+                            </div>
+                        </div>
+                        {isOnSale ? ( <div className="flex items-baseline gap-4"><p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p><p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p></div> ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2)}</p> )}
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div><p className="text-gray-300">{getInstallmentSummary()}</p><button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed" disabled={isLoadingInstallments || !installments || installments.length === 0}>Ver parcelas disponíveis</button></div>
+                            </div>
+                        </div>
+                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+                        <div className="flex items-center space-x-4">
+                            <p className="font-semibold">Quantidade:</p>
+                            <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
+                            {stockLimit && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
+                        </div>
+                        <div className="space-y-3">
+                            <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation) || stockLimit === 0}>Comprar Agora</button>
+                            <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation) || stockLimit === 0}>Adicionar ao Carrinho</button>
+                        </div>
+                        <ShippingCalculator items={itemsForShipping} />
+                    </div>
+                </div>
+                <div className="mt-16 pt-10 border-t border-gray-800">
+                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
+                        <TabButton label="Descrição" tabName="description" /><TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} /><TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} /><TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} /><TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} /><TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                    </div>
+                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
+                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
+                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
+                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
+                    </div>
+                </div>
+                {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
+                {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
+                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
+                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
+                    <div className="space-y-6 mb-8">
+                        {reviews.length > 0 ? reviews.map((review) => (
+                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
+                                {user && user.role === 'admin' && (
+                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
+                                )}
+                                <div className="flex items-center mb-2">
+                                    <p className="font-bold mr-4">{review.user_name}</p>
+                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                </div>
+                                <p className="text-gray-300 pr-6">{review.comment}</p>
+                            </div>
+                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
+                    </div>
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
+                        <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
+                        <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
+                    </div>
                 </div>
             </div>
         </div>
