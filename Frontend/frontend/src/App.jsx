@@ -4221,7 +4221,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
-                                                {['Entregue', 'Retirado'].includes(order.status) && (
+                                                {['Entregue', 'Pronto para Retirada'].includes(order.status) && (
                                                     <div className="mt-3 pt-3 border-t border-gray-700 text-right">
                                                         {item.is_reviewed ? (
                                                             <div className="flex items-center justify-end gap-2 text-sm text-green-400">
