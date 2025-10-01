@@ -927,6 +927,46 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
 
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
+
+app.get('/api/reviews/can-review/:productId', verifyToken, async (req, res) => {
+    const { productId } = req.params;
+    const userId = req.user.id;
+
+    try {
+        // 1. Verifica se o usuário comprou o produto e se o pedido foi entregue ou está pronto para retirada
+        const [purchase] = await db.query(`
+            SELECT o.id
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+              AND oi.product_id = ? 
+              AND o.status IN (?, ?)
+            LIMIT 1
+        `, [userId, productId, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP]);
+
+        if (purchase.length === 0) {
+            return res.json({ canReview: false });
+        }
+
+        // 2. Verifica se o usuário já avaliou este produto
+        const [review] = await db.query(
+            "SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1",
+            [userId, productId]
+        );
+
+        // Se já avaliou, não pode avaliar de novo
+        if (review.length > 0) {
+            return res.json({ canReview: false });
+        }
+        
+        // Se comprou e ainda não avaliou, pode avaliar
+        return res.json({ canReview: true });
+
+    } catch (err) {
+        console.error("Erro ao verificar permissão de avaliação:", err);
+        res.status(500).json({ message: "Erro ao verificar permissão de avaliação." });
+    }
+});
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -1078,16 +1118,26 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         
         const [orders] = await db.query(sql, params);
         
-        const detailedOrders = await Promise.all(orders.map(async (order) => {
-            const [items] = await db.query("SELECT oi.*, p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [order.id]);
-            const parsedItems = items.map(item => ({
-                ...item,
-                variation: item.variation_details ? JSON.parse(item.variation_details) : null
-            }));
-            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
-            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
-        }));
-        res.json(detailedOrders);
+      const detailedOrders = await Promise.all(orders.map(async (order) => {
+            const [items] = await db.query(`
+                SELECT 
+                    oi.*, 
+                    p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
+                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id) AS is_reviewed
+                FROM order_items oi 
+                JOIN products p ON oi.product_id = p.id 
+                WHERE oi.order_id = ?
+            `, [order.user_id, order.id]);
+
+            const parsedItems = items.map(item => ({
+                ...item,
+                is_reviewed: !!item.is_reviewed, // Converte 0/1 para false/true
+                variation: item.variation_details ? JSON.parse(item.variation_details) : null
+            }));
+            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
+            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
+        }));
+        res.json(detailedOrders);
     } catch (err) {
         console.error("Erro ao buscar histórico de pedidos:", err);
         res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
