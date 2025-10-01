@@ -2235,20 +2235,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, []);
 
     // NOVO EFEITO: Verifica se o usuário pode avaliar o produto
-    useEffect(() => {
-        // Se a URL contiver #review-form, significa que o usuário veio de "Meus Pedidos" e tem permissão.
-        if (window.location.hash.endsWith('#review-form')) {
-            setCanReview(true);
-            // Rola a tela suavemente até o formulário de avaliação
-            setTimeout(() => {
-                const form = document.getElementById('review-form');
-                if (form) {
-                    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 300); // Pequeno atraso para garantir que a página renderizou
-        } 
-        // Caso contrário, faz a verificação normal via API
-        else if (user && productId) {
+useEffect(() => {
+        if (user && productId) {
             apiService(`/reviews/can-review/${productId}`)
                 .then(response => {
                     setCanReview(response.canReview);
@@ -4290,13 +4278,12 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     useEffect(() => {
         apiService('/orders/my-orders')
-            .then(data => setOrders(data.sort((a,b) => new Date(b.date) - new Date(a.date)))) // Ordena pelos mais recentes
+            .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
                 console.error("Falha ao buscar pedidos:", err);
-                // Apenas uma notificação para não poluir a tela em caso de loop de erros
                 if (!window.ordersErrorShown) {
                     notification.show("Falha ao buscar pedidos.", 'error');
-                    window.ordersErrorShown = true; 
+                    window.ordersErrorShown = true;
                     setTimeout(() => { window.ordersErrorShown = false; }, 5000);
                 }
             })
@@ -4315,62 +4302,75 @@ const MyOrdersListPage = ({ onNavigate }) => {
         <div>
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
             {isLoading ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400" /></div>
             ) : orders.length > 0 ? (
-                <div className="space-y-6">
-                    {orders.map(order => (
-                        <motion.div 
-                            key={order.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 * orders.indexOf(order) }}
-                            className="bg-gray-800 p-4 rounded-lg border border-gray-700"
-                        >
-                            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 mb-4">
-                                <div>
-                                    <p className="font-bold text-white text-lg">Pedido #{order.id}</p>
-                                    <p className="text-xs text-gray-400">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <div className="text-left sm:text-right">
-                                     <p className="font-bold text-amber-400 text-lg">R$ {Number(order.total).toFixed(2)}</p>
-                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block mt-1 ${getStatusChipClass(order.status)}`}>{order.status}</span>
-                                </div>
-                            </div>
-                            
-                            <div className="space-y-3 border-t border-gray-700 pt-4">
-                                {(order.items || []).map(item => (
-                                    <div key={`${item.product_id}-${item.variation?.id || 'base'}`} className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3 overflow-hidden">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded-md flex-shrink-0"/>
-                                            <div className="overflow-hidden">
-                                                <p className="font-semibold text-white truncate">{item.name}</p>
-                                                {item.variation && <p className="text-xs text-gray-400">{item.variation.color} / {item.variation.size}</p>}
-                                            </div>
+                <div className="space-y-4">
+                    {orders.map(order => {
+                        const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
+                        const canReviewOrder = ['Entregue', 'Pronto para Retirada'].includes(order.status) && order.items?.some(item => !item.is_reviewed);
+
+                        return (
+                            <motion.div
+                                key={order.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 * orders.indexOf(order) }}
+                                className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                            >
+                                {firstItem && (
+                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                        <img
+                                            src={getFirstImage(firstItem.images)}
+                                            alt={firstItem.name}
+                                            className="w-16 h-16 object-contain bg-white rounded-md flex-shrink-0"
+                                        />
+                                        <div className="flex-grow overflow-hidden">
+                                            <p className="font-semibold text-white truncate">{firstItem.name}</p>
+                                            {order.items.length > 1 && (
+                                                <p className="text-sm text-gray-400 mt-1">
+                                                    + {order.items.length - 1} outro(s) item(ns)
+                                                </p>
+                                            )}
                                         </div>
-                                        {['Entregue', 'Pronto para Retirada'].includes(order.status) && (
-                                            <div className="flex-shrink-0">
-                                                {!item.is_reviewed ? (
-                                                    <button onClick={() => onNavigate(`product/${item.product_id}#review-form`)} className="bg-amber-500 text-black text-xs font-bold px-3 py-1.5 rounded-md hover:bg-amber-400 transition">Avaliar</button>
-                                                ) : (
-                                                    <span className="text-xs text-green-400 flex items-center gap-1"><CheckIcon className="h-4 w-4"/> Avaliado</span>
-                                                )}
-                                            </div>
+                                    </div>
+                                )}
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+                                        <div>
+                                            <p className="text-xs text-gray-400">Pedido</p>
+                                            <p className="font-bold text-white">#{order.id}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Data</p>
+                                            <p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Status</p>
+                                            <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-400">Total</p>
+                                            <p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
+                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">
+                                            Ver Detalhes
+                                        </button>
+                                        {canReviewOrder && (
+                                             <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">
+                                                Avaliar Pedido
+                                            </button>
                                         )}
                                     </div>
-                                ))}
-                            </div>
-
-                            <div className="flex justify-end mt-4 pt-3 border-t border-gray-700">
-                                <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition text-sm">
-                                    Ver Detalhes
-                                </button>
-                            </div>
-                        </motion.div>
-                    ))}
+                                </div>
+                            </motion.div>
+                        );
+                    })}
                 </div>
             ) : (
-                <EmptyState 
-                    icon={<PackageIcon className="h-12 w-12"/>}
+                <EmptyState
+                    icon={<PackageIcon className="h-12 w-12" />}
                     title="Nenhum pedido encontrado"
                     message="Você ainda não fez nenhuma compra. Explore nossos produtos!"
                     buttonText="Ver Produtos"
