@@ -4930,7 +4930,13 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
     useEffect(() => {
         const initialData = {};
         fieldsConfig.forEach(field => {
-            initialData[field.name] = item?.[field.name] ?? (field.type === 'checkbox' ? 0 : '');
+            let defaultValue = ''; // Valor padrão para campos de texto
+            if (field.type === 'checkbox') {
+                defaultValue = 0;
+            } else if (field.type === 'select' && field.options && field.options.length > 0) {
+                defaultValue = field.options[0].value; // Define o padrão como o valor da primeira opção
+            }
+            initialData[field.name] = item?.[field.name] ?? defaultValue;
         });
         setFormData(initialData);
     }, [item, fieldsConfig]);
