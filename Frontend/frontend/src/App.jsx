@@ -1722,6 +1722,19 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const productsPerPage = 12;
+    const { setPreviewShippingItem } = useShop();
+
+    useEffect(() => {
+        // Define um produto de amostra para o cálculo de frete quando a lista de produtos é carregada.
+        // Isso fará com que os cards na página de produtos mostrem uma estimativa de frete.
+        if (filteredProducts.length > 0) {
+            setPreviewShippingItem([filteredProducts[0]]);
+        }
+        // Limpa a amostra ao sair da página.
+        return () => {
+            setPreviewShippingItem(null);
+        };
+    }, [filteredProducts, setPreviewShippingItem]);
 
     useEffect(() => {
         const controller = new AbortController();
