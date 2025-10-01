@@ -935,14 +935,14 @@ app.get('/api/reviews/can-review/:productId', verifyToken, async (req, res) => {
     try {
         // 1. Verifica se o usuário comprou o produto e se o pedido foi entregue ou está pronto para retirada
         const [purchase] = await db.query(`
-            SELECT o.id
-            FROM orders o
-            JOIN order_items oi ON o.id = oi.order_id
-            WHERE o.user_id = ? 
-              AND oi.product_id = ? 
-              AND o.status IN (?, ?)
-            LIMIT 1
-        `, [userId, productId, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP]);
+            SELECT o.id
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+              AND oi.product_id = ? 
+              AND o.status IN (?, ?, ?)
+            LIMIT 1
+        `, [userId, productId, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED]);
 
         if (purchase.length === 0) {
             return res.json({ canReview: false });
@@ -979,17 +979,69 @@ app.get('/api/products/:id/reviews', async (req, res) => {
 
 app.post('/api/reviews', verifyToken, async (req, res) => {
     const { product_id, rating, comment } = req.body;
-    if (!product_id || !rating || !req.user.id) return res.status(400).json({ message: "ID do produto, avaliação e ID do usuário são obrigatórios." });
+    const userId = req.user.id;
+    if (!product_id || !rating) return res.status(400).json({ message: "ID do produto e avaliação são obrigatórios." });
+
+    const connection = await db.getConnection();
     try {
-        await db.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, req.user.id, rating, comment]);
+        await connection.beginTransaction();
+
+        // 1. Verifica se o usuário comprou o produto e se o pedido foi concluído
+       const [purchase] = await connection.query(`
+            SELECT o.id
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+              AND oi.product_id = ? 
+              AND o.status IN (?, ?, ?)
+            LIMIT 1
+        `, [userId, product_id, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED]);
+
+        if (purchase.length === 0) {
+            throw new Error("Você só pode avaliar produtos que comprou e que já foram entregues/retirados.");
+        }
+
+        // 2. Verifica se o usuário já avaliou este produto
+        const [review] = await connection.query(
+            "SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1",
+            [userId, product_id]
+        );
+
+        if (review.length > 0) {
+            throw new Error("Você já avaliou este produto.");
+        }
+
+        // 3. Insere a avaliação no banco de dados
+        await connection.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, userId, rating, comment || '']);
+
+        await connection.commit();
         res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
+
     } catch (err) {
+        await connection.rollback();
+        if (err.message.includes("Você só pode avaliar") || err.message.includes("Você já avaliou")) {
+             return res.status(403).json({ message: err.message });
+        }
         console.error("Erro ao adicionar avaliação:", err);
         res.status(500).json({ message: "Erro interno ao adicionar avaliação." });
+    } finally {
+        connection.release();
     }
 });
 
-
+app.delete('/api/reviews/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM reviews WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Avaliação não encontrada." });
+        }
+        res.status(200).json({ message: "Avaliação deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar avaliação:", err);
+        res.status(500).json({ message: "Erro interno ao deletar avaliação." });
+    }
+});
 // --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
