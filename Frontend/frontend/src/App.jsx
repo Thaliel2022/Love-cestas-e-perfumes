@@ -853,10 +853,12 @@ const BackToTopButton = () => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, autoCalculatedShipping, isLoadingShipping, shippingLocation } = useShop();
+    const { addToCart, shippingLocation } = useShop();
     const notification = useNotification();
     const [isAddingToCart, setIsAddingToCart] = useState(false);
     const [isBuyingNow, setIsBuyingNow] = useState(false);
+    const [cardShippingInfo, setCardShippingInfo] = useState(null);
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
     
     const imageUrl = getFirstImage(product.images);
 
@@ -871,7 +873,67 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
-    // Lógica para exibir o parcelamento
+    useEffect(() => {
+        const controller = new AbortController();
+        const signal = controller.signal;
+
+        const debounceTimer = setTimeout(() => {
+            if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+                setIsCardShippingLoading(true);
+                setCardShippingInfo(null);
+
+                const calculateShipping = async () => {
+                    try {
+                        const productsPayload = [{
+                            id: String(product.id),
+                            price: currentPrice,
+                            quantity: 1,
+                        }];
+                        
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', {
+                            cep_destino: shippingLocation.cep,
+                            products: productsPayload,
+                        }, { signal });
+
+                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        if (pacOptionRaw) {
+                            const date = new Date();
+                            let deliveryTime = pacOptionRaw.delivery_time;
+                            let addedDays = 0;
+                            while (addedDays < deliveryTime) {
+                                date.setDate(date.getDate() + 1);
+                                if (date.getDay() !== 0 && date.getDay() !== 6) {
+                                    addedDays++;
+                                }
+                            }
+                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                            setCardShippingInfo(`Entrega R$ ${Number(pacOptionRaw.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
+                        } else {
+                            setCardShippingInfo('Entrega não disponível.');
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AbortError') {
+                            console.error(`Erro ao calcular frete para o produto ${product.id}:`, error);
+                            setCardShippingInfo('Não foi possível calcular.');
+                        }
+                    } finally {
+                        if (!signal.aborted) {
+                            setIsCardShippingLoading(false);
+                        }
+                    }
+                };
+                calculateShipping();
+            } else {
+                setCardShippingInfo(null);
+            }
+        }, 500); // Debounce de 500ms para evitar muitas chamadas à API
+
+        return () => {
+            clearTimeout(debounceTimer);
+            controller.abort();
+        };
+    }, [product, shippingLocation.cep, currentPrice]);
+
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -879,33 +941,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
         return null;
     }, [currentPrice]);
-
-    // Lógica para exibir o frete
-    const shippingInfo = useMemo(() => {
-        if (isLoadingShipping) {
-            return <span className="text-gray-500">Calculando frete...</span>;
-        }
-        if (autoCalculatedShipping && shippingLocation.cep) {
-            if (autoCalculatedShipping.isPickup) return null;
-            
-            const date = new Date();
-            let deliveryTime = autoCalculatedShipping.delivery_time;
-            let addedDays = 0;
-            while(addedDays < deliveryTime) {
-                date.setDate(date.getDate() + 1);
-                if (date.getDay() !== 0 && date.getDay() !== 6) {
-                    addedDays++;
-                }
-            }
-            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-            return (
-                <span className="text-green-400">
-                    Entrega R$ {Number(autoCalculatedShipping.price).toFixed(2).replace('.', ',')} : previsão {formattedDate}.
-                </span>
-            );
-        }
-        return null;
-    }, [autoCalculatedShipping, isLoadingShipping, shippingLocation.cep]);
 
     const handleAddToCart = async (e) => {
         e.stopPropagation();
@@ -1025,7 +1060,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
                 
                 <div className="mt-auto pt-4">
-         {isOnSale ? (
+                    {isOnSale ? (
                          <div>
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
@@ -1034,7 +1069,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                     )}
                     
-                    {/* Exibição do parcelamento */}
                     {installmentInfo && (
                         <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p>
                     )}
@@ -1049,10 +1083,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
             </div>
-            {/* Exibição do frete */}
-            {shippingInfo && (
+            {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
-                    {shippingInfo}
+                    {isCardShippingLoading ? (
+                        <span className="text-gray-500">Calculando frete...</span>
+                    ) : (
+                        <span className="text-green-400">{cardShippingInfo}</span>
+                    )}
                 </div>
             )}
         </motion.div>
@@ -1591,8 +1628,7 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const { setPreviewShippingItem } = useShop();
-    const [products, setProducts] = useState({
+const [products, setProducts] = useState({
         newArrivals: [],
         bestSellers: [],
         clothing: [],
@@ -1600,18 +1636,6 @@ const HomePage = ({ onNavigate }) => {
     });
 
     useEffect(() => {
-        // Se não houver itens no carrinho, define um produto de amostra para o cálculo do frete.
-        // Isso fará com que todos os cards na página inicial mostrem uma estimativa de frete.
-        if (products.newArrivals.length > 0) {
-            setPreviewShippingItem([products.newArrivals[0]]);
-        }
-        // Limpa o item de amostra quando o componente é desmontado para não afetar outras páginas.
-        return () => {
-            setPreviewShippingItem(null);
-        };
-    }, [products.newArrivals, setPreviewShippingItem]);
-
-    useEffect(() => { 
         apiService('/products')
             .then(data => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -1716,25 +1740,12 @@ const HomePage = ({ onNavigate }) => {
 
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-    const [allProducts, setAllProducts] = useState([]);
+const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
     const productsPerPage = 12;
-    const { setPreviewShippingItem } = useShop();
-
-    useEffect(() => {
-        // Define um produto de amostra para o cálculo de frete quando a lista de produtos é carregada.
-        // Isso fará com que os cards na página de produtos mostrem uma estimativa de frete.
-        if (filteredProducts.length > 0) {
-            setPreviewShippingItem([filteredProducts[0]]);
-        }
-        // Limpa a amostra ao sair da página.
-        return () => {
-            setPreviewShippingItem(null);
-        };
-    }, [filteredProducts, setPreviewShippingItem]);
 
     useEffect(() => {
         const controller = new AbortController();
