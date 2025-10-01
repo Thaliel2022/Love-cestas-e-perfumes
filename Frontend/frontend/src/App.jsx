@@ -4897,7 +4897,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                         </div>
 
                         <div>
-                           <input type="file" multiple accept="image/*" capture="environment" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
+                          <input type="file" multiple accept="image/*" ref={fileInputRef} onChange={onImageUpload} className="hidden" />
                             <button type="button" onClick={() => fileInputRef.current.click()} className="w-full text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1">
                                 <UploadIcon className="h-4 w-4" /> Anexar Imagens
                             </button>
@@ -5332,7 +5332,7 @@ const handleChange = (e) => {
                 <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
                 <div>
                      <label className="block text-sm font-medium text-gray-700">Fazer Upload de Novas Imagens</label>
-                     <input type="file" name="images_upload" accept="image/*" capture="environment" onChange={handleImageChange} multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
+                    <input type="file" name="images_upload" accept="image/*" onChange={handleImageChange} multiple className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100" />
                      {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                 </div>
                  <div>
