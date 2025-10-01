@@ -2182,10 +2182,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
+    const [canReview, setCanReview] = useState(false); // NOVO ESTADO: permissão para avaliar
+
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     
-   const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
+    const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
@@ -2232,6 +2234,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => controller.abort();
     }, []);
 
+    // NOVO EFEITO: Verifica se o usuário pode avaliar o produto
+    useEffect(() => {
+        if (user && productId) {
+            apiService(`/reviews/can-review/${productId}`)
+                .then(response => {
+                    setCanReview(response.canReview);
+                })
+                .catch(err => {
+                    console.warn('Não foi possível verificar a permissão de avaliação:', err);
+                    setCanReview(false);
+                });
+        } else {
+            setCanReview(false);
+        }
+    }, [user, productId]);
+
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
         
@@ -2245,15 +2263,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             try {
                 await navigator.share(shareData);
             } catch (err) {
-                console.error('Erro ao compartilhar:', err);
-                // O usuário fechou a caixa de diálogo de compartilhamento, não é necessariamente um erro.
                 if (err.name !== 'AbortError') {
                      notification.show('Compartilhamento cancelado.', 'error');
                 }
             }
         } else {
             try {
-                // Fallback para copiar o link com o texto
                 await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
                 notification.show('Link do produto copiado para a área de transferência!');
             } catch (err) {
@@ -2288,12 +2303,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, currentPrice]);
 
-
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
-        if (!user) {
-            notification.show("Você precisa estar logado para avaliar.", 'error');
-            onNavigate('login');
+        if (!user || !canReview) {
+            notification.show("Você não tem permissão para avaliar este produto.", 'error');
             return;
         }
         if (newReview.rating === 0) {
@@ -2309,6 +2322,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             notification.show("Avaliação enviada com sucesso!");
             setNewReview({ rating: 0, comment: '' });
             fetchProductData(productId); 
+            setCanReview(false); // Impede uma segunda avaliação na mesma sessão
         } catch (error) {
             notification.show(`Erro ao enviar avaliação: ${error.message}`, 'error');
         }
@@ -2344,7 +2358,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
- const handleVariationSelection = useCallback((variation, color) => {
+    const handleVariationSelection = useCallback((variation, color) => {
         setSelectedVariation(variation);
 
         if (color && productVariations.length > 0) {
@@ -2399,10 +2413,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const Lightbox = ({ mainImage, onClose }) => (
         <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
             <button 
-                onClick={(e) => { 
-                    e.stopPropagation();
-                    onClose(); 
-                }} 
+                onClick={(e) => { e.stopPropagation(); onClose(); }} 
                 className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2"
             >
                 &times;
@@ -2674,22 +2685,30 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <p className="text-gray-300">{review.comment}</p>
                             </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Seja o primeiro a avaliar!</p>}
+                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda. Seja o primeiro!</p>}
                     </div>
-                     {user ? (
-                         <form onSubmit={handleReviewSubmit} className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                           <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
-                           <div className="flex items-center space-x-1 mb-4">
-                                {[...Array(5)].map((_, i) => (
-                                    <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
-                                ))}
-                           </div>
-                           <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
-                           <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
-                        </form>
-                     ) : (
+
+                    {user ? (
+                        canReview ? (
+                            <form onSubmit={handleReviewSubmit} id="review-form" className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
+                                <div className="flex items-center space-x-1 mb-4">
+                                    {[...Array(5)].map((_, i) => (
+                                        <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
+                                    ))}
+                                </div>
+                                <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
+                                <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
+                            </form>
+                        ) : (
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
+                                <p className="text-gray-400">Apenas clientes que compraram este produto podem avaliá-lo.</p>
+                                <p className="text-sm text-gray-500 mt-2">Você pode encontrar seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
+                            </div>
+                        )
+                    ) : (
                         <p className="text-gray-400 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-400 underline">logado</a> para deixar uma avaliação.</p>
-                     )}
+                    )}
                 </div>
             </div>
         </div>
@@ -4066,7 +4085,6 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isPaying, setIsPaying] = useState(false);
     const [isItemsExpanded, setIsItemsExpanded] = useState(true);
     
-    // Lógica e estados para o modal de status restaurados
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
@@ -4192,15 +4210,34 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                         <AnimatePresence>
                             {isItemsExpanded && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                    <div className="space-y-2 pt-2">
+                                    <div className="space-y-3 pt-2">
                                         {(order.items || []).map(item => (
-                                            <div key={item.id} className="flex items-center text-sm p-2 bg-gray-800 rounded-md">
-                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-4 bg-white rounded"/>
-                                                <div className="flex-grow">
-                                                    <span>{item.quantity}x {item.name}</span>
-                                                    {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                                            <div key={`${item.product_id}-${item.variation?.id || 'base'}`} className="bg-gray-800 p-3 rounded-md">
+                                                <div className="flex items-center text-sm">
+                                                    <img src={getFirstImage(item.images)} alt={item.name} className="h-16 w-16 object-contain mr-4 bg-white rounded"/>
+                                                    <div className="flex-grow">
+                                                        <p className="font-semibold text-white">{item.quantity}x {item.name}</p>
+                                                        {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
+                                                        <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
+                                                    </div>
                                                 </div>
-                                                <span className="ml-auto font-semibold">R$ {Number(item.price).toFixed(2)}</span>
+                                                {['Entregue', 'Retirado'].includes(order.status) && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
+                                                        {item.is_reviewed ? (
+                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
+                                                                <CheckCircleIcon className="h-5 w-5" />
+                                                                <span>Você já avaliou este produto.</span>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => onNavigate(`product/${item.product_id}`)}
+                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
+                                                            >
+                                                                Avaliar Produto
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
