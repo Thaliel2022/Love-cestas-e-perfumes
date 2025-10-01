@@ -1591,12 +1591,25 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
+    const { setPreviewShippingItem } = useShop();
     const [products, setProducts] = useState({
         newArrivals: [],
         bestSellers: [],
         clothing: [],
         perfumes: []
     });
+
+    useEffect(() => {
+        // Se não houver itens no carrinho, define um produto de amostra para o cálculo do frete.
+        // Isso fará com que todos os cards na página inicial mostrem uma estimativa de frete.
+        if (products.newArrivals.length > 0) {
+            setPreviewShippingItem([products.newArrivals[0]]);
+        }
+        // Limpa o item de amostra quando o componente é desmontado para não afetar outras páginas.
+        return () => {
+            setPreviewShippingItem(null);
+        };
+    }, [products.newArrivals, setPreviewShippingItem]);
 
     useEffect(() => { 
         apiService('/products')
