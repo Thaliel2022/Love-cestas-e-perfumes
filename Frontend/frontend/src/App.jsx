@@ -6737,72 +6737,17 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        const APP_NAME = "LovecestasePerfumes";
-        const FAVICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png";
-        const ICON_URL = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png";
-
-        document.title = APP_NAME;
-
-        const manifestContent = {
-            "name": APP_NAME,
-            "short_name": "Love Cestas",
-            "description": "Sua loja de cestas e perfumes.",
-            "start_url": "/",
-            "display": "standalone",
-            "background_color": "#111827",
-            "theme_color": "#D4AF37",
-            "icons": [
-                { "src": ICON_URL, "type": "image/png", "sizes": "192x192" },
-                { "src": ICON_URL, "type": "image/png", "sizes": "512x512" }
-            ]
-        };
-        
-        const manifestBlob = new Blob([JSON.stringify(manifestContent)], { type: 'application/json' });
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-        
-        let manifestLink = document.querySelector('link[rel="manifest"]');
-        if (!manifestLink) {
-            manifestLink = document.createElement('link');
-            manifestLink.rel = 'manifest';
-            document.head.appendChild(manifestLink);
-        }
-        manifestLink.href = manifestUrl;
-
-        let faviconLink = document.querySelector('link[rel="icon"]');
-        if (!faviconLink) {
-            faviconLink = document.createElement('link');
-            faviconLink.rel = 'icon';
-            document.head.appendChild(faviconLink);
-        }
-        faviconLink.type = 'image/png';
-        faviconLink.href = FAVICON_URL;
-
-        const serviceWorkerContent = `
-            self.addEventListener('install', (event) => {
-                console.log('Service Worker: Instalado');
-            });
-            self.addEventListener('fetch', (event) => {
-                event.respondWith(fetch(event.request));
-            });
-        `;
-        const swBlob = new Blob([serviceWorkerContent], { type: 'application/javascript' });
-        const swUrl = URL.createObjectURL(swBlob);
-        
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl)
-                .then(registration => console.log('Service Worker registrado com sucesso:', registration))
-                .catch(error => console.log('Falha no registro do Service Worker:', error));
-        }
-
+        // --- Configuração PWA ---
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            console.log('`beforeinstallprompt` event foi disparado.');
+            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
-        
+
+        // --- Carregamento de Scripts Externos ---
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
-                if(callback) callback();
+                if (callback) callback();
                 return;
             }
             const script = document.createElement('script');
@@ -6820,14 +6765,6 @@ export default function App() {
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
-        return () => {
-            if (document.head.contains(manifestLink)) {
-                document.head.removeChild(manifestLink);
-            }
-            if (document.head.contains(faviconLink)) {
-                document.head.removeChild(faviconLink);
-            }
-        };
     }, []);
 
     return (
