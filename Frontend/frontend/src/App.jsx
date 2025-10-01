@@ -2166,7 +2166,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [reviews, setReviews] = useState([]);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
-    const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
     const { addToCart } = useShop();
     const notification = useNotification();
     const [mainImage, setMainImage] = useState('');
@@ -2182,8 +2181,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
-    const [canReview, setCanReview] = useState(false); // NOVO ESTADO: permissão para avaliar
-
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     
@@ -2233,22 +2230,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         
         return () => controller.abort();
     }, []);
-
-    // NOVO EFEITO: Verifica se o usuário pode avaliar o produto
-useEffect(() => {
-        if (user && productId) {
-            apiService(`/reviews/can-review/${productId}`)
-                .then(response => {
-                    setCanReview(response.canReview);
-                })
-                .catch(err => {
-                    console.warn('Não foi possível verificar a permissão de avaliação:', err);
-                    setCanReview(false);
-                });
-        } else {
-            setCanReview(false);
-        }
-    }, [user, productId]);
 
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
@@ -2302,31 +2283,6 @@ useEffect(() => {
             fetchInstallments(currentPrice);
         }
     }, [product, currentPrice]);
-
-    const handleReviewSubmit = async (e) => {
-        e.preventDefault();
-        if (!user || !canReview) {
-            notification.show("Você não tem permissão para avaliar este produto.", 'error');
-            return;
-        }
-        if (newReview.rating === 0) {
-            notification.show("Por favor, selecione uma nota (clicando nas estrelas).", 'error');
-            return;
-        }
-        try {
-            await apiService(`/reviews`, 'POST', {
-                product_id: productId,
-                rating: newReview.rating,
-                comment: newReview.comment,
-            });
-            notification.show("Avaliação enviada com sucesso!");
-            setNewReview({ rating: 0, comment: '' });
-            fetchProductData(productId); 
-            setCanReview(false); // Impede uma segunda avaliação na mesma sessão
-        } catch (error) {
-            notification.show(`Erro ao enviar avaliação: ${error.message}`, 'error');
-        }
-    };
     
     const handleQuantityChange = (amount) => {
         setQuantity(prev => {
@@ -2685,30 +2641,13 @@ useEffect(() => {
                                 </div>
                                 <p className="text-gray-300">{review.comment}</p>
                             </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda. Seja o primeiro!</p>}
+                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
                     </div>
-
-                    {user ? (
-                        canReview ? (
-                            <form onSubmit={handleReviewSubmit} id="review-form" className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h3 className="text-xl font-bold mb-4">Deixe sua avaliação</h3>
-                                <div className="flex items-center space-x-1 mb-4">
-                                    {[...Array(5)].map((_, i) => (
-                                        <StarIcon key={i} onClick={() => setNewReview({...newReview, rating: i + 1})} className={`h-8 w-8 cursor-pointer ${i < newReview.rating ? 'text-amber-400' : 'text-gray-600 hover:text-amber-300'}`} isFilled={i < newReview.rating} />
-                                    ))}
-                                </div>
-                                <textarea value={newReview.comment} onChange={e => setNewReview({...newReview, comment: e.target.value})} placeholder="Escreva seu comentário..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded h-28 mb-4 focus:ring-amber-400 focus:border-amber-400" required></textarea>
-                                <button type="submit" className="bg-amber-400 text-black px-6 py-2 rounded-md font-bold">Enviar Avaliação</button>
-                            </form>
-                        ) : (
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
-                                <p className="text-gray-400">Apenas clientes que compraram este produto podem avaliá-lo.</p>
-                                <p className="text-sm text-gray-500 mt-2">Você pode encontrar seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
-                            </div>
-                        )
-                    ) : (
-                        <p className="text-gray-400 text-center">Você precisa estar <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login');}} className="text-amber-400 underline">logado</a> para deixar uma avaliação.</p>
-                    )}
+                    
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
+                        <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
+                        <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4077,6 +4016,59 @@ const StatusDescriptionModal = ({ isOpen, onClose, details }) => {
     );
 };
 
+const ProductReviewForm = ({ productId, onReviewSubmitted }) => {
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const notification = useNotification();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (rating === 0) {
+            notification.show("Por favor, selecione uma nota clicando nas estrelas.", 'error');
+            return;
+        }
+        setIsSubmitting(true);
+        try {
+            await apiService(`/reviews`, 'POST', {
+                product_id: productId,
+                rating: rating,
+                comment: comment,
+            });
+            notification.show("Avaliação enviada com sucesso!");
+            if (onReviewSubmitted) {
+                onReviewSubmitted();
+            }
+        } catch (error) {
+            notification.show(error.message || "Não foi possível enviar sua avaliação.", 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4 text-gray-800">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Sua Nota</label>
+                <div className="flex items-center space-x-1">
+                    {[...Array(5)].map((_, i) => (
+                        <StarIcon key={i} onClick={() => setRating(i + 1)} className={`h-8 w-8 cursor-pointer ${i < rating ? 'text-amber-400' : 'text-gray-400 hover:text-amber-300'}`} isFilled={i < rating} />
+                    ))}
+                </div>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Seu Comentário (opcional)</label>
+                <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Conte o que você achou do produto..." className="w-full p-2 border border-gray-300 rounded-md h-24 bg-white" />
+            </div>
+            <div className="flex justify-end pt-4">
+                <button type="submit" disabled={isSubmitting} className="bg-gray-800 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
+                    {isSubmitting ? <SpinnerIcon /> : "Enviar Avaliação"}
+                </button>
+            </div>
+        </form>
+    );
+};
+
 const OrderDetailPage = ({ orderId, onNavigate }) => {
     const { addToCart } = useShop();
     const notification = useNotification();
@@ -4089,8 +4081,10 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
     
-    useEffect(() => {
-        setIsLoading(true);
+    const [reviewingItem, setReviewingItem] = useState(null); // Estado para controlar o modal de avaliação
+
+    // Função para buscar os detalhes do pedido, agora reutilizável
+    const fetchOrderDetails = useCallback(() => {
         apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
@@ -4099,9 +4093,20 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                     throw new Error("Pedido não encontrado.");
                 }
             })
-            .catch(err => notification.show(err.message, 'error'))
-            .finally(() => setIsLoading(false));
+            .catch(err => notification.show(err.message, 'error'));
     }, [orderId, notification]);
+
+    useEffect(() => {
+        setIsLoading(true);
+        fetchOrderDetails();
+        setIsLoading(false);
+    }, [fetchOrderDetails]);
+
+    // Função chamada quando a avaliação é enviada com sucesso
+    const handleReviewSuccess = () => {
+        setReviewingItem(null); // Fecha o modal
+        fetchOrderDetails(); // Recarrega os dados do pedido para atualizar o status "Avaliado"
+    };
 
     const handleOpenStatusModal = (statusDetails) => {
         setSelectedStatusDetails(statusDetails);
@@ -4127,7 +4132,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         
         const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
             if (item.product_type === 'clothing') {
-                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto para selecionar cor e tamanho.`, 'error');
+                notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
                 return Promise.resolve(0);
             }
             const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
@@ -4159,6 +4164,18 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
+            <AnimatePresence>
+                {reviewingItem && (
+                    <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
+                        <ProductReviewForm 
+                            productId={reviewingItem.product_id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <div>
                 <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -4230,7 +4247,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                                                             </div>
                                                         ) : (
                                                             <button
-                                                                onClick={() => onNavigate(`product/${item.product_id}`)}
+                                                                onClick={() => setReviewingItem(item)}
                                                                 className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
                                                             >
                                                                 Avaliar Produto
