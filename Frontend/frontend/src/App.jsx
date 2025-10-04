@@ -2263,22 +2263,92 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product && !product.error && currentPrice) { fetchInstallments(currentPrice); }
     }, [product, currentPrice]);
 
-    const handleShare = async () => { /* (código existente sem alterações) */ };
-    const handleQuantityChange = (amount) => { /* (código existente sem alterações) */ };
-    const handleAction = async (action) => { /* (código existente sem alterações) */ };
-    const handleVariationSelection = useCallback((variation, color) => { /* (código existente sem alterações) */ }, [productVariations, productImages]);
+    const handleShare = async () => {
+        const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
+        const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
+        if (navigator.share) {
+            try { await navigator.share(shareData); } catch (err) { if (err.name !== 'AbortError') { notification.show('Compartilhamento cancelado.', 'error'); } }
+        } else {
+            try { await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`); notification.show('Link do produto copiado!'); } catch (err) { notification.show('Não foi possível copiar o link.', 'error'); }
+        }
+    };
+
+    const handleQuantityChange = (amount) => {
+        setQuantity(prev => {
+            const newQty = prev + amount;
+            if (newQty < 1) return 1;
+            const stockLimit = selectedVariation?.stock || product?.stock;
+            if (stockLimit && newQty > stockLimit) { return stockLimit; }
+            return newQty;
+        });
+    };
+
+    const handleAction = async (action) => {
+        if (!product) return;
+        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        try {
+            await addToCart(product, quantity, selectedVariation);
+            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
+            if (action === 'buyNow') { onNavigate('cart'); }
+        } catch (error) { notification.show(error.message, 'error'); }
+    };
+
+    const handleVariationSelection = useCallback((variation, color) => {
+        setSelectedVariation(variation);
+        if (color && productVariations.length > 0) {
+            const allImagesForColor = productVariations.filter(v => v.color === color).flatMap(v => v.images || []).filter((value, index, self) => self.indexOf(value) === index);
+            if (allImagesForColor.length > 0) { setGalleryImages(allImagesForColor); setMainImage(allImagesForColor[0]); return; }
+        }
+        setGalleryImages(productImages);
+        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    }, [productVariations, productImages]);
+    
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    const TabButton = ({ label, tabName, isVisible = true }) => { /* (código existente sem alterações) */ };
-    const parseTextToList = (text) => { /* (código existente sem alterações) */ };
-    const Lightbox = ({ mainImage, onClose }) => { /* (código existente sem alterações) */ };
+    
+    const TabButton = ({ label, tabName, isVisible = true }) => {
+        if (!isVisible) return null;
+        return <button onClick={() => setActiveTab(tabName)} className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300 ${activeTab === tabName ? 'border-amber-400 text-amber-400' : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`}>{label}</button>;
+    };
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-2">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1">&#10003;</span><span>{line}</span></li>)}</ul>;
+    };
+
+    const Lightbox = ({ mainImage, onClose }) => (
+        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
+            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
+            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
+        </div>
+    );
+    
     const THUMBNAIL_ITEM_HEIGHT = 92; 
     const VISIBLE_THUMBNAILS = 5; 
     const canScrollUp = thumbnailIndex > 0;
     const canScrollDown = (galleryImages.length + (product?.video_url ? 1 : 0)) > VISIBLE_THUMBNAILS && thumbnailIndex < (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
-    const scrollThumbs = (direction) => { /* (código existente sem alterações) */ };
+
+    const scrollThumbs = (direction) => {
+        setThumbnailIndex(prev => {
+            const newIndex = prev + direction;
+            const maxIndex = (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
+            if (newIndex < 0) return 0;
+            if (newIndex > maxIndex) return maxIndex;
+            return newIndex;
+        });
+    };
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-    const getInstallmentSummary = () => { /* (código existente sem alterações) */ };
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>; }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) { return <span>em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) { return <span>ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        return null;
+    };
+    
     const itemsForShipping = useMemo(() => { if (!product) return []; return [{...product, qty: quantity}]; }, [product, quantity]);
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
@@ -2307,15 +2377,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4 py-8">
-                <div className="mb-4">
+                 <div className="mb-4">
                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
                 </div>
-                
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:sticky lg:top-28">
                         <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
                             <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
-                            <div className="w-full sm:h-[640px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                            <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
                                     {product.video_url && (
                                         <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
@@ -2328,7 +2397,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                             <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
                         </div>
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[640px] cursor-zoom-in relative">
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[540px] cursor-zoom-in relative">
                             {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
@@ -2389,7 +2458,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="space-y-6 mb-8">
                         {reviews.length > 0 ? reviews.map((review) => (
                              <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
-                                {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
+                                {user && user.role === 'admin' && (
+                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
+                                )}
                                 <div className="flex items-center mb-2">
                                     <p className="font-bold mr-4">{review.user_name}</p>
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
