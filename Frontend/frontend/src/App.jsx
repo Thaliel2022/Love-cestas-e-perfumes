@@ -883,7 +883,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
-useEffect(() => {
+    useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
 
@@ -894,19 +894,10 @@ useEffect(() => {
 
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = [{
-                            id: String(product.id),
-                            price: currentPrice,
-                            quantity: 1,
-                        }];
-                        
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', {
-                            cep_destino: shippingLocation.cep,
-                            products: productsPayload,
-                        }, { signal });
+                        const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
 
                         let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-
                         if (!shippingOption) {
                             shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
                         }
@@ -917,12 +908,9 @@ useEffect(() => {
                             let addedDays = 0;
                             while (addedDays < deliveryTime) {
                                 date.setDate(date.getDate() + 1);
-                                if (date.getDay() !== 0 && date.getDay() !== 6) {
-                                    addedDays++;
-                                }
+                                if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                             }
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            
                             setCardShippingInfo(`Entrega R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
                         } else {
                             setCardShippingInfo('Entrega não disponível.');
@@ -933,9 +921,7 @@ useEffect(() => {
                             setCardShippingInfo('Não foi possível calcular.');
                         }
                     } finally {
-                        if (!signal.aborted) {
-                            setIsCardShippingLoading(false);
-                        }
+                        if (!signal.aborted) { setIsCardShippingLoading(false); }
                     }
                 };
                 calculateShipping();
@@ -1010,11 +996,7 @@ useEffect(() => {
                 notification.show(`${product.name} removido da lista de desejos.`, 'error');
             } else {
                 const result = await addToWishlist(product);
-                if (result.success) {
-                    notification.show(result.message);
-                } else {
-                    notification.show(result.message, "error");
-                }
+                notification.show(result.message, result.success ? 'success' : 'error');
             }
         };
 
@@ -1030,6 +1012,8 @@ useEffect(() => {
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
 
+    const isOutOfStock = product.stock <= 0;
+
     return (
         <motion.div 
             variants={cardVariants}
@@ -1038,43 +1022,31 @@ useEffect(() => {
         >
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
-                 <WishlistButton product={product} />
-                 
-                <div className="absolute top-3 left-3 flex flex-col gap-2">
-                    {isOnSale ? (
-                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-                            <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span>
-                        </div>
-                    ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
-                            LANÇAMENTO
-                        </div>
-                    ) : null}
-                </div>
-
-                 {product.product_type === 'clothing' && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">
-                        Ver Cores e Tamanhos
+                <WishlistButton product={product} />
+                {isOutOfStock && (
+                    <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">ESGOTADO</div>
+                )}
+                {!isOutOfStock && (
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        {isOnSale ? (
+                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                                <SaleIcon className="h-4 w-4"/>
+                                <span>PROMOÇÃO {discountPercent}%</span>
+                            </div>
+                        ) : isNew ? (
+                            <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div>
+                        ) : null}
                     </div>
                 )}
+                 {product.product_type === 'clothing' && ( <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">Ver Cores e Tamanhos</div> )}
             </div>
             <div className="p-5 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                     <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
-                    
                     <div className="flex items-center mt-2 h-5 gap-1">
-                        {[...Array(5)].map((_, i) => (
-                            <StarIcon 
-                                key={i} 
-                                className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} 
-                                isFilled={i < avgRating}
-                            />
-                        ))}
-                        {product.review_count > 0 && (
-                            <span className="text-xs text-gray-400">({product.review_count})</span>
-                        )}
+                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
+                        {product.review_count > 0 && ( <span className="text-xs text-gray-400">({product.review_count})</span> )}
                     </div>
                 </div>
                 
@@ -1084,31 +1056,29 @@ useEffect(() => {
                             <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                         </div>
+                    ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
+                    
+                    {installmentInfo && ( <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p> )}
+                    
+                    {isOutOfStock ? (
+                        <div className="mt-4">
+                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-4 rounded-md font-bold text-center">Produto Esgotado</div>
+                        </div>
                     ) : (
-                        <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                        <div className="mt-4 flex items-stretch space-x-2">
+                            <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                                {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
+                            </button>
+                            <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                                {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
+                            </button>
+                        </div>
                     )}
-                    
-                    {installmentInfo && (
-                        <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p>
-                    )}
-                    
-                    <div className="mt-4 flex items-stretch space-x-2">
-                        <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
-                            {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
-                        </button>
-                        <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
-                            {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
-                        </button>
-                    </div>
                 </div>
             </div>
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
-                    {isCardShippingLoading ? (
-                        <span className="text-gray-500">Calculando frete...</span>
-                    ) : (
-                        <span className="text-green-400">{cardShippingInfo}</span>
-                    )}
+                    {isCardShippingLoading ? ( <span className="text-gray-500">Calculando frete...</span> ) : ( <span className="text-green-400">{cardShippingInfo}</span> )}
                 </div>
             )}
         </motion.div>
@@ -2230,12 +2200,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
-    const handleDeleteReview = (reviewId, fetchProductDataCallback) => {
+    const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
                 await apiService(`/reviews/${reviewId}`, 'DELETE');
                 notification.show('Avaliação excluída com sucesso.');
-                // Apenas recarrega as reviews, não a página inteira
                 apiService(`/products/${productId}/reviews`).then(data => setReviews(Array.isArray(data) ? data : []));
             } catch (error) {
                 notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
@@ -2256,7 +2225,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     apiService('/products', 'GET', null, { signal }),
                     apiService(`/products/${productId}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
                 ]);
-
+                
                 if (signal.aborted) return;
 
                 const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
@@ -2272,24 +2241,19 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 }
             } catch (err) {
                 if (err.name !== 'AbortError') {
-                    console.error("Falha ao buscar dados do produto:", err);
-                    setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
+                     console.error("Falha ao buscar dados do produto:", err);
+                     setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
                 }
             } finally {
-                if (!signal.aborted) {
-                    setIsLoading(false);
-                }
+                if (!signal.aborted) { setIsLoading(false); }
             }
         };
 
         fetchData();
         window.scrollTo(0, 0);
-
-        return () => {
-            controller.abort();
-        };
+        return () => { controller.abort(); };
     }, [productId]);
-
+    
     useEffect(() => {
         const fetchInstallments = async (price) => {
             if (!price || price <= 0) return;
@@ -2313,7 +2277,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const stockLimit = selectedVariation?.stock;
+            const stockLimit = selectedVariation?.stock || product?.stock;
             if (stockLimit && newQty > stockLimit) { return stockLimit; }
             return newQty;
         });
@@ -2393,8 +2357,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     
     const isClothing = product.product_type === 'clothing';
     const isPerfume = product.product_type === 'perfume';
-    const stockLimit = selectedVariation?.stock;
-    const isQtyAtMax = stockLimit ? quantity >= stockLimit : false;
+    const isProductOutOfStock = product.stock <= 0;
+    const stockLimit = isClothing ? selectedVariation?.stock : product.stock;
+    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
     
     return (
         <div className="bg-black text-white min-h-screen">
@@ -2455,14 +2420,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
                         {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
-                        <div className="flex items-center space-x-4">
-                            <p className="font-semibold">Quantidade:</p>
-                            <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
-                            {stockLimit && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
-                        </div>
+                        
+                        {!isProductOutOfStock && (
+                            <div className="flex items-center space-x-4">
+                                <p className="font-semibold">Quantidade:</p>
+                                <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
+                                {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
+                            </div>
+                        )}
+
                         <div className="space-y-3">
-                            <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation) || stockLimit === 0}>Comprar Agora</button>
-                            <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation) || stockLimit === 0}>Adicionar ao Carrinho</button>
+                            {isProductOutOfStock ? (
+                                <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div>
+                            ) : isClothing && selectedVariation && stockLimit === 0 ? (
+                                <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div>
+                            ) : (
+                                <>
+                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
+                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
+                                </>
+                            )}
                         </div>
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
