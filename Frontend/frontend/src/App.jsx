@@ -2263,22 +2263,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product && !product.error && currentPrice) { fetchInstallments(currentPrice); }
     }, [product, currentPrice]);
 
-    const handleShare = async () => { /* ... (código existente sem alterações) ... */ };
-    const handleQuantityChange = (amount) => { /* ... (código existente sem alterações) ... */ };
-    const handleAction = async (action) => { /* ... (código existente sem alterações) ... */ };
-    const handleVariationSelection = useCallback((variation, color) => { /* ... (código existente sem alterações) ... */ }, [productVariations, productImages]);
+    const handleShare = async () => { /* (código existente sem alterações) */ };
+    const handleQuantityChange = (amount) => { /* (código existente sem alterações) */ };
+    const handleAction = async (action) => { /* (código existente sem alterações) */ };
+    const handleVariationSelection = useCallback((variation, color) => { /* (código existente sem alterações) */ }, [productVariations, productImages]);
     const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    const TabButton = ({ label, tabName, isVisible = true }) => { /* ... (código existente sem alterações) ... */ };
-    const parseTextToList = (text) => { /* ... (código existente sem alterações) ... */ };
-    const Lightbox = ({ mainImage, onClose }) => { /* ... (código existente sem alterações) ... */ };
+    const TabButton = ({ label, tabName, isVisible = true }) => { /* (código existente sem alterações) */ };
+    const parseTextToList = (text) => { /* (código existente sem alterações) */ };
+    const Lightbox = ({ mainImage, onClose }) => { /* (código existente sem alterações) */ };
     const THUMBNAIL_ITEM_HEIGHT = 92; 
     const VISIBLE_THUMBNAILS = 5; 
     const canScrollUp = thumbnailIndex > 0;
     const canScrollDown = (galleryImages.length + (product?.video_url ? 1 : 0)) > VISIBLE_THUMBNAILS && thumbnailIndex < (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
-    const scrollThumbs = (direction) => { /* ... (código existente sem alterações) ... */ };
+    const scrollThumbs = (direction) => { /* (código existente sem alterações) */ };
     const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
     const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
-    const getInstallmentSummary = () => { /* ... (código existente sem alterações) ... */ };
+    const getInstallmentSummary = () => { /* (código existente sem alterações) */ };
     const itemsForShipping = useMemo(() => { if (!product) return []; return [{...product, qty: quantity}]; }, [product, quantity]);
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
@@ -2315,7 +2315,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
                         <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
                             <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
-                            <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                            <div className="w-full sm:h-[640px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
                                     {product.video_url && (
                                         <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
@@ -2328,7 +2328,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                             <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
                         </div>
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-full cursor-zoom-in relative">
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[640px] cursor-zoom-in relative">
                             {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
