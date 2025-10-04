@@ -940,9 +940,9 @@ app.get('/api/reviews/can-review/:productId', verifyToken, async (req, res) => {
             JOIN order_items oi ON o.id = oi.order_id
             WHERE o.user_id = ? 
               AND oi.product_id = ? 
-              AND o.status IN (?, ?, ?)
+              AND o.status = ?
             LIMIT 1
-        `, [userId, productId, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED]);
+        `, [userId, productId, ORDER_STATUS.DELIVERED]);
 
         if (purchase.length === 0) {
             return res.json({ canReview: false });
@@ -987,15 +987,15 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
         await connection.beginTransaction();
 
         // 1. Verifica se o usuário comprou o produto e se o pedido foi concluído
-       const [purchase] = await connection.query(`
+const [purchase] = await connection.query(`
             SELECT o.id
             FROM orders o
             JOIN order_items oi ON o.id = oi.order_id
             WHERE o.user_id = ? 
               AND oi.product_id = ? 
-              AND o.status IN (?, ?, ?)
+              AND o.status = ?
             LIMIT 1
-        `, [userId, product_id, ORDER_STATUS.DELIVERED, ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED]);
+        `, [userId, product_id, ORDER_STATUS.DELIVERED]);
 
         if (purchase.length === 0) {
             throw new Error("Você só pode avaliar produtos que comprou e que já foram entregues/retirados.");

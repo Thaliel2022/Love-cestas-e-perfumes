@@ -4187,7 +4187,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="space-y-4">
                     {orders.map(order => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
-                        const canReviewOrder = ['Enviado', 'Entregue', 'Pronto para Retirada'].includes(order.status) && order.items?.some(item => !item.is_reviewed);
+const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
 
                         return (
                             <motion.div
