@@ -2381,7 +2381,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:self-start">
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:sticky lg:top-28">
                         <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
                             <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
                             <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
@@ -2420,7 +2420,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
                         {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
-                        
                         {!isProductOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold">Quantidade:</p>
@@ -2428,13 +2427,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
                             </div>
                         )}
-
                         <div className="space-y-3">
-                            {isProductOutOfStock ? (
-                                <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div>
-                            ) : isClothing && selectedVariation && stockLimit === 0 ? (
-                                <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div>
-                            ) : (
+                            {isProductOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div> ) : isClothing && selectedVariation && stockLimit === 0 ? ( <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div> ) : (
                                 <>
                                     <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
                                     <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
