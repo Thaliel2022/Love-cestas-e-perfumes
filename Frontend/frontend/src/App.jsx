@@ -4105,7 +4105,8 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [itemToReview, setItemToReview] = useState(null);
 
     const fetchOrders = useCallback(() => {
-        apiService('/orders/my-orders')
+        // Retorna a promise para que o useEffect possa esperar por ela
+        return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
                 console.error("Falha ao buscar pedidos:", err);
@@ -4119,8 +4120,10 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     useEffect(() => {
         setIsLoading(true);
-        fetchOrders();
-        setIsLoading(false);
+        // Espera a busca de pedidos terminar para então definir isLoading como false
+        fetchOrders().finally(() => {
+            setIsLoading(false);
+        });
     }, [fetchOrders]);
 
     const handleReviewSuccess = () => {
@@ -4184,7 +4187,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="space-y-4">
                     {orders.map(order => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
-                       const canReviewOrder = ['Enviado', 'Entregue', 'Pronto para Retirada'].includes(order.status) && order.items?.some(item => !item.is_reviewed);
+                        const canReviewOrder = ['Enviado', 'Entregue', 'Pronto para Retirada'].includes(order.status) && order.items?.some(item => !item.is_reviewed);
 
                         return (
                             <motion.div
