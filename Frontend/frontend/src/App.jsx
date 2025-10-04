@@ -906,15 +906,12 @@ useEffect(() => {
                         }, { signal });
 
                         let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        let isPac = true;
 
                         if (!shippingOption) {
                             shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                            isPac = false;
                         }
 
                         if (shippingOption) {
-                            const displayName = isPac ? 'PAC' : shippingOption.name;
                             const date = new Date();
                             let deliveryTime = shippingOption.delivery_time;
                             let addedDays = 0;
@@ -926,7 +923,7 @@ useEffect(() => {
                             }
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                             
-                            setCardShippingInfo(`${displayName} R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
+                            setCardShippingInfo(`Entrega R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
                         } else {
                             setCardShippingInfo('Entrega não disponível.');
                         }
