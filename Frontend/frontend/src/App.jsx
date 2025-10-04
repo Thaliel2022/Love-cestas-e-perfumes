@@ -383,7 +383,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    useEffect(() => {
+useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
 
         const debounceTimer = setTimeout(() => {
@@ -400,19 +400,25 @@ const ShopProvider = ({ children }) => {
                         }));
                         
                         const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        let pacOption = null;
-                        if (pacOptionRaw) pacOption = { ...pacOptionRaw, name: 'PAC' };
+                        
+                        const correiosOptions = apiOptions.filter(opt => 
+                            opt.name.toLowerCase().includes('pac') || opt.name.toLowerCase().includes('sedex')
+                        );
+
+                        const shippingApiOptions = correiosOptions.map(opt => ({ ...opt, name: opt.name }));
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         
-                        const finalOptions = [];
-                        if (pacOption) finalOptions.push(pacOption);
-                        finalOptions.push(pickupOption);
-
+                        const finalOptions = [...shippingApiOptions, pickupOption].sort((a,b) => a.price - b.price);
                         setShippingOptions(finalOptions);
                         
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        setAutoCalculatedShipping(desiredOption || pacOption || pickupOption || null);
+                        
+                        // Lógica de priorização para a pré-seleção
+                        const pacOption = shippingApiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        const sedexOption = shippingApiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                        
+                        // Define a opção pré-selecionada: 1. A já escolhida pelo usuário, 2. PAC, 3. SEDEX, 4. Retirada
+                        setAutoCalculatedShipping(desiredOption || pacOption || sedexOption || pickupOption || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
@@ -874,7 +880,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
-    useEffect(() => {
+useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
 
@@ -896,10 +902,17 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             products: productsPayload,
                         }, { signal });
 
-                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        if (pacOptionRaw) {
+                        // 1. Tenta encontrar a opção PAC
+                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+
+                        // 2. Se não encontrar PAC, tenta encontrar SEDEX
+                        if (!shippingOption) {
+                            shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                        }
+
+                        if (shippingOption) {
                             const date = new Date();
-                            let deliveryTime = pacOptionRaw.delivery_time;
+                            let deliveryTime = shippingOption.delivery_time;
                             let addedDays = 0;
                             while (addedDays < deliveryTime) {
                                 date.setDate(date.getDate() + 1);
@@ -908,7 +921,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 }
                             }
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Entrega R$ ${Number(pacOptionRaw.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
+                            
+                            setCardShippingInfo(`${shippingOption.name} R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
                         } else {
                             setCardShippingInfo('Entrega não disponível.');
                         }
@@ -927,14 +941,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
             } else {
                 setCardShippingInfo(null);
             }
-        }, 500); // Debounce de 500ms para evitar muitas chamadas à API
+        }, 500);
 
         return () => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
     }, [product, shippingLocation.cep, currentPrice]);
-
+    
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
