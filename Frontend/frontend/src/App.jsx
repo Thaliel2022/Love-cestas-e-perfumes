@@ -4182,7 +4182,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400" /></div>
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin" /></div>
             ) : orders.length > 0 ? (
                 <div className="space-y-4">
                     {orders.map(order => {
