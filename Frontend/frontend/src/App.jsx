@@ -1064,7 +1064,7 @@ useEffect(() => {
                     <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
                     <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
                     
-                    <div className="flex items-center mt-2 h-5">
+                    <div className="flex items-center mt-2 h-5 gap-1">
                         {[...Array(5)].map((_, i) => (
                             <StarIcon 
                                 key={i} 
@@ -1072,6 +1072,9 @@ useEffect(() => {
                                 isFilled={i < avgRating}
                             />
                         ))}
+                        {product.review_count > 0 && (
+                            <span className="text-xs text-gray-400">({product.review_count})</span>
+                        )}
                     </div>
                 </div>
                 
