@@ -2312,101 +2312,95 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    
-                    <div className="lg:col-span-3 lg:sticky lg:top-28 self-start">
-                        <div className="flex flex-col-reverse sm:flex-row gap-4">
-                            <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
-                                <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
-                                <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
-                                    <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-                                        {product.video_url && (
-                                            <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
-                                                <img src={mainImage || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
-                                            </div>
-                                        )}
-                                        {galleryImages.map((img, index) => ( <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}><img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" /></div> ))}
-                                    </motion.div>
-                                </div>
-                                <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
+                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
+                            <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
+                            <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                                <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+                                    {product.video_url && (
+                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
+                                            <img src={mainImage || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
+                                        </div>
+                                    )}
+                                    {galleryImages.map((img, index) => ( <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}><img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" /></div> ))}
+                                </motion.div>
                             </div>
-                            <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[540px] cursor-zoom-in relative">
-                                {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
-                                <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
-                            </div>
+                            <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
+                        </div>
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-full cursor-zoom-in relative">
+                            {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
                     </div>
-                    
-                    <div className="lg:col-span-2">
-                        <div className="space-y-6">
-                            <div>
-                                <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                                <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                                {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                                <div className="flex items-center mt-2 justify-between">
-                                    <div className="flex items-center">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}{reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}</div>
-                                    <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
-                                </div>
+                    <div className="lg:col-span-2 space-y-6">
+                        <div>
+                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}{reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}</div>
+                                <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
                             </div>
-                            {isOnSale ? ( <div className="flex items-baseline gap-4"><p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p><p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p></div> ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2)}</p> )}
-                            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                                <div className="flex items-start">
-                                    <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
-                                    <div><p className="text-gray-300">{getInstallmentSummary()}</p><button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed" disabled={isLoadingInstallments || !installments || installments.length === 0}>Ver parcelas disponíveis</button></div>
-                                </div>
+                        </div>
+                        {isOnSale ? ( <div className="flex items-baseline gap-4"><p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p><p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p></div> ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2)}</p> )}
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div><p className="text-gray-300">{getInstallmentSummary()}</p><button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed" disabled={isLoadingInstallments || !installments || installments.length === 0}>Ver parcelas disponíveis</button></div>
                             </div>
-                            {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
-                            {!isProductOutOfStock && (
-                                <div className="flex items-center space-x-4">
-                                    <p className="font-semibold">Quantidade:</p>
-                                    <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
-                                    {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
-                                </div>
+                        </div>
+                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+                        {!isProductOutOfStock && (
+                            <div className="flex items-center space-x-4">
+                                <p className="font-semibold">Quantidade:</p>
+                                <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
+                                {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
+                            </div>
+                        )}
+                        <div className="space-y-3">
+                            {isProductOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div> ) : isClothing && selectedVariation && stockLimit === 0 ? ( <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div> ) : (
+                                <>
+                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
+                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
+                                </>
                             )}
-                            <div className="space-y-3">
-                                {isProductOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div> ) : isClothing && selectedVariation && stockLimit === 0 ? ( <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div> ) : (
-                                    <>
-                                        <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
-                                        <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
-                                    </>
-                                )}
-                            </div>
-                            <ShippingCalculator items={itemsForShipping} />
                         </div>
-                        <div className="mt-16 pt-10 border-t border-gray-800">
-                            <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
-                                <TabButton label="Descrição" tabName="description" /><TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} /><TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} /><TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} /><TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} /><TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                        <ShippingCalculator items={itemsForShipping} />
+                    </div>
+                </div>
+                <div className="mt-16 pt-10 border-t border-gray-800">
+                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
+                        <TabButton label="Descrição" tabName="description" /><TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} /><TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} /><TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} /><TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} /><TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                    </div>
+                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
+                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
+                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
+                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
+                    </div>
+                </div>
+                {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
+                {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
+                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
+                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
+                    <div className="space-y-6 mb-8">
+                        {reviews.length > 0 ? reviews.map((review) => (
+                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
+                                {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
+                                <div className="flex items-center mb-2">
+                                    <p className="font-bold mr-4">{review.user_name}</p>
+                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                </div>
+                                <p className="text-gray-300 pr-6">{review.comment}</p>
                             </div>
-                            <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
-                                {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                                {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                                {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
-                                {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                                {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
-                                {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
-                            </div>
-                        </div>
-                        {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
-                        {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
-                        <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
-                            <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
-                            <div className="space-y-6 mb-8">
-                                {reviews.length > 0 ? reviews.map((review) => (
-                                    <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
-                                        {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
-                                        <div className="flex items-center mb-2">
-                                            <p className="font-bold mr-4">{review.user_name}</p>
-                                            <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                        </div>
-                                        <p className="text-gray-300 pr-6">{review.comment}</p>
-                                    </div>
-                                )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
-                            </div>
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
-                                <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
-                                <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
-                            </div>
-                        </div>
+                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
+                    </div>
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
+                        <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
+                        <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
                     </div>
                 </div>
             </div>
