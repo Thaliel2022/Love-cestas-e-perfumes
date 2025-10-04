@@ -3572,12 +3572,12 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                     title: "Processando seu Pedido!",
                     message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
                 };
-            case 'processing':
+     case 'processing':
             default:
                 return {
                     icon: (
                         <div className="relative mb-6">
-                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto" />
+                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto animate-spin" />
                             <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
                         </div>
                     ),
