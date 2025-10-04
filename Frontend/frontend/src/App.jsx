@@ -3931,7 +3931,10 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
     const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
+    
+    const [reviewingItem, setReviewingItem] = useState(null); // Estado para controlar o modal de avaliação
 
+    // Função para buscar os detalhes do pedido, agora reutilizável
     const fetchOrderDetails = useCallback(() => {
         return apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
@@ -3950,6 +3953,12 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
             setIsLoading(false);
         });
     }, [fetchOrderDetails]);
+
+    // Função chamada quando a avaliação é enviada com sucesso
+    const handleReviewSuccess = () => {
+        setReviewingItem(null); // Fecha o modal
+        fetchOrderDetails(); // Recarrega os dados do pedido para atualizar o status "Avaliado"
+    };
 
     const handleOpenStatusModal = (statusDetails) => {
         setSelectedStatusDetails(statusDetails);
@@ -3972,6 +3981,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
 
     const handleRepeatOrder = (orderItems) => {
         if (!orderItems) return;
+        
         const promises = (Array.isArray(orderItems) ? orderItems : []).map(item => {
             if (item.product_type === 'clothing') {
                 notification.show(`Para adicionar "${item.name}" novamente, por favor, visite a página do produto.`, 'error');
@@ -3979,10 +3989,10 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
             }
             const product = { id: item.product_id, name: item.name, price: item.price, images: item.images, stock: item.stock, variations: item.variations, is_on_sale: item.is_on_sale, sale_price: item.sale_price };
             return addToCart(product, item.quantity, item.variation)
-                .then(() => 1)
+                .then(() => 1) 
                 .catch(err => {
                     notification.show(`Não foi possível adicionar "${item.name}": ${err.message}`, 'error');
-                    return 0;
+                    return 0; 
                 });
         });
 
@@ -3995,7 +4005,7 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         });
     };
 
-    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400" /></div>;
+    if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
     if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
@@ -4006,6 +4016,18 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
             <StatusDescriptionModal isOpen={isStatusModalOpen} onClose={() => setIsStatusModalOpen(false)} details={selectedStatusDetails} />
+            
+            <AnimatePresence>
+                {reviewingItem && (
+                    <Modal isOpen={true} onClose={() => setReviewingItem(null)} title={`Avaliar: ${reviewingItem.name}`}>
+                        <ProductReviewForm 
+                            productId={reviewingItem.product_id}
+                            onReviewSubmitted={handleReviewSuccess}
+                        />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <div>
                 <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
@@ -4068,6 +4090,23 @@ const OrderDetailPage = ({ orderId, onNavigate }) => {
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
                                                 </div>
+                                                {order.status === 'Entregue' && (
+                                                    <div className="mt-3 pt-3 border-t border-gray-700 text-right">
+                                                        {item.is_reviewed ? (
+                                                            <div className="flex items-center justify-end gap-2 text-sm text-green-400">
+                                                                <CheckCircleIcon className="h-5 w-5" />
+                                                                <span>Você já avaliou este produto.</span>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => setReviewingItem(item)}
+                                                                className="bg-amber-500 text-black text-xs font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 transition"
+                                                            >
+                                                                Avaliar Produto
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -4187,7 +4226,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="space-y-4">
                     {orders.map(order => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
-const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
+                        const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
 
                         return (
                             <motion.div
