@@ -4077,9 +4077,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                         {(order.items || []).map(item => (
                                             <div key={`${item.product_id}-${item.variation?.id || 'base'}`} className="bg-gray-800 p-3 rounded-md">
                                                 <div className="flex items-center text-sm">
-                                                    <img src={getFirstImage(item.images)} alt={item.name} className="h-16 w-16 object-contain mr-4 bg-white rounded"/>
+                                                    <div onClick={() => onNavigate(`product/${item.product_id}`)} className="cursor-pointer flex-shrink-0">
+                                                        <img src={getFirstImage(item.images)} alt={item.name} className="h-16 w-16 object-contain mr-4 bg-white rounded"/>
+                                                    </div>
                                                     <div className="flex-grow">
-                                                        <p className="font-semibold text-white">{item.quantity}x {item.name}</p>
+                                                        <p className="font-semibold text-white cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${item.product_id}`)}>{item.quantity}x {item.name}</p>
                                                         {item.variation && <span className="text-xs block text-gray-400">{item.variation.color} / {item.variation.size}</span>}
                                                         <p className="text-gray-300 mt-1">R$ {Number(item.price).toFixed(2)}</p>
                                                     </div>
