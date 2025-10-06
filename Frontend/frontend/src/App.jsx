@@ -4146,20 +4146,18 @@ const MyOrdersListPage = ({ onNavigate }) => {
     }, [fetchOrders]);
 
     const handleReviewSuccess = async () => {
-        notification.show("Avaliação enviada com sucesso!");
+        // A notificação de sucesso agora é mostrada apenas pelo formulário,
+        // esta função apenas atualiza os dados e fecha as janelas.
         try {
-            // Busca a lista de pedidos atualizada diretamente aqui
             const newOrders = await apiService('/orders/my-orders');
             const sortedOrders = newOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
             
-            // Atualiza todos os estados de uma só vez para uma única renderização
             setOrders(sortedOrders);
             setItemToReview(null);
             setOrderToReview(null);
         } catch (err) {
             console.error("Falha ao recarregar pedidos após avaliação:", err);
             notification.show("Não foi possível atualizar a lista de pedidos.", 'error');
-            // Garante que os modais fechem mesmo se a busca falhar
             setItemToReview(null);
             setOrderToReview(null);
         }
