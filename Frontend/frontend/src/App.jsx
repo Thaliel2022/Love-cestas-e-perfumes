@@ -3996,6 +3996,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
+    
+    // Cálculo seguro para o subtotal para evitar que a página quebre
+    const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
 
     return (
         <>
@@ -4023,9 +4026,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <p className="text-2xl font-bold">Detalhes do Pedido <span className="text-amber-400">#{order.id}</span></p>
                             <p className="text-sm text-gray-400">{new Date(order.date).toLocaleString('pt-BR')}</p>
                         </div>
-                        <div className="text-left sm:text-right">
-                            <p><strong>Total:</strong> <span className="text-amber-400 font-bold text-lg">R$ {Number(order.total).toFixed(2)}</span></p>
-                        </div>
                     </div>
 
                     {order.status === 'Pendente' && (
@@ -4043,6 +4043,46 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             : 
                             <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
                         }
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                        <div className="bg-gray-800 p-4 rounded-lg">
+                            <h3 className="font-bold text-gray-200 mb-3">Resumo Financeiro</h3>
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between text-gray-300">
+                                    <span>Subtotal dos produtos</span>
+                                    <span>R$ {subtotal.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between text-gray-300">
+                                    <span>Frete</span>
+                                    <span>R$ {Number(order.shipping_cost).toFixed(2)}</span>
+                                </div>
+                                {Number(order.discount_amount) > 0 && (
+                                    <div className="flex justify-between text-green-400">
+                                        <span>Desconto ({order.coupon_code || 'Cupom'})</span>
+                                        <span>- R$ {Number(order.discount_amount).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between text-white font-bold text-base border-t border-gray-700 pt-2 mt-2">
+                                    <span>Total</span>
+                                    <span className="text-amber-400">R$ {Number(order.total).toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-gray-800 p-4 rounded-lg">
+                            <h3 className="font-bold text-gray-200 mb-2">Forma de Pagamento</h3>
+                            {order.payment_method === 'mercadopago' ? (
+                                <div className="flex items-center gap-3">
+                                    <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold text-white">Cartão, Pix ou Boleto</p>
+                                        <p className="text-sm text-gray-400">Pagamento processado via Mercado Pago.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-white capitalize">{order.payment_method || 'Não informado'}</p>
+                            )}
+                        </div>
                     </div>
 
                     {isPickupOrder ? (
