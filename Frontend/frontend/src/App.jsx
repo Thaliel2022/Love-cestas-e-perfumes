@@ -6392,7 +6392,7 @@ const AdminOrders = () => {
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="grid grid-cols-2 gap-4 text-sm items-start">
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
                                         <p>{editingOrder.user_name}</p>
