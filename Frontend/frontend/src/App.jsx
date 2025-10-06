@@ -4051,13 +4051,15 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         </div>
                     ) : (
                         <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
-                            <p><strong>Endereço de Entrega:</strong></p>
+                            <p className="font-bold text-base mb-2">Endereço de Entrega:</p>
                             {shippingAddress ? (
-                                <>
-                                    <p>{shippingAddress.logradouro}, {shippingAddress.numero} {shippingAddress.complemento && `- ${shippingAddress.complemento}`}</p>
-                                    <p>{shippingAddress.bairro}, {shippingAddress.localidade} - {shippingAddress.uf}</p>
-                                    <p>{shippingAddress.cep}</p>
-                                </>
+                                <div className="space-y-1">
+                                    <p><span className="font-semibold text-gray-400">Rua:</span> {shippingAddress.logradouro}</p>
+                                    <p><span className="font-semibold text-gray-400">Nº:</span> {shippingAddress.numero} {shippingAddress.complemento && `- ${shippingAddress.complemento}`}</p>
+                                    <p><span className="font-semibold text-gray-400">Bairro:</span> {shippingAddress.bairro}</p>
+                                    <p><span className="font-semibold text-gray-400">Cidade:</span> {shippingAddress.localidade} - {shippingAddress.uf}</p>
+                                    <p><span className="font-semibold text-gray-400">CEP:</span> {shippingAddress.cep}</p>
+                                </div>
                             ) : <p>Endereço não informado.</p>}
                             {order.tracking_code && <p className="mt-2 pt-2 border-t border-gray-700"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
                         </div>
