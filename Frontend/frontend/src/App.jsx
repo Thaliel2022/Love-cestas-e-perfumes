@@ -2147,7 +2147,6 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
     );
 };
 
-
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart } = useShop();
@@ -2406,8 +2405,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
                             {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
-                                {product.review_count > 0 && <span className="text-xs text-gray-400">({product.review_count})</span>}</div>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
+                                    {reviews.length > 0 && <span className="text-sm text-gray-400">({reviews.length} avaliações)</span>}
+                                </div>
                                 <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
                             </div>
                         </div>
@@ -2450,28 +2451,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
-                {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
-                {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
                 <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
                     <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-6 mb-8">
-                      {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
-                                {user && user.role === 'admin' && (
-                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
-                                )}
+                        {reviews.length > 0 ? reviews.map((review) => (
+                             <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
+                                {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
                                 <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
-                                        <UserIcon className="h-5 w-5" />
-                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400"><UserIcon className="h-5 w-5" /></div>
                                     <span className="font-bold text-white">{review.user_name}</span>
                                 </div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    <h4 className="font-bold text-white text-base">{product.name}</h4>
+                                    {/* O nome do produto aqui pode ser interessante, mas o usuário não pediu, então removeremos para seguir o exemplo da imagem. */}
                                 </div>
                                 <p className="text-sm text-gray-400 mb-2">Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>
+                                {review.order_id && <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>}
                                 <p className="text-gray-300 pr-6">{review.comment}</p>
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
