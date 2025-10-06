@@ -4115,7 +4115,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [itemToReview, setItemToReview] = useState(null);
 
     const fetchOrders = useCallback(() => {
-        // Retorna a promise para que possamos esperar por ela
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -4130,19 +4129,28 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     useEffect(() => {
         setIsLoading(true);
-        // Espera a busca de pedidos terminar para então definir isLoading como false
         fetchOrders().finally(() => {
             setIsLoading(false);
         });
     }, [fetchOrders]);
 
-    const handleReviewSuccess = () => {
-        // Busca os pedidos atualizados em segundo plano
-        fetchOrders().finally(() => {
-            // E somente após a atualização dos dados, fecha os modais
+    const handleReviewSuccess = async () => {
+        try {
+            // Busca a lista de pedidos atualizada diretamente aqui
+            const newOrders = await apiService('/orders/my-orders');
+            const sortedOrders = newOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Atualiza todos os estados de uma só vez para uma única renderização
+            setOrders(sortedOrders);
             setItemToReview(null);
             setOrderToReview(null);
-        });
+        } catch (err) {
+            console.error("Falha ao recarregar pedidos após avaliação:", err);
+            notification.show("Não foi possível atualizar a lista de pedidos.", 'error');
+            // Garante que os modais fechem mesmo se a busca falhar
+            setItemToReview(null);
+            setOrderToReview(null);
+        }
     };
 
     const getStatusChipClass = (status) => {
