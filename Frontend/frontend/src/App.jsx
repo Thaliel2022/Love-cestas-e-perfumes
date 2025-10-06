@@ -4145,13 +4145,24 @@ const MyOrdersListPage = ({ onNavigate }) => {
         });
     }, [fetchOrders]);
 
-    const handleReviewSuccess = () => {
-        // Atualiza a lista de pedidos em segundo plano
-        fetchOrders().then(() => {
-            // Fecha os modais SOMENTE APÓS a busca terminar, em uma única etapa
+    const handleReviewSuccess = async () => {
+        notification.show("Avaliação enviada com sucesso!");
+        try {
+            // Busca a lista de pedidos atualizada diretamente aqui
+            const newOrders = await apiService('/orders/my-orders');
+            const sortedOrders = newOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            // Atualiza todos os estados de uma só vez para uma única renderização
+            setOrders(sortedOrders);
             setItemToReview(null);
             setOrderToReview(null);
-        });
+        } catch (err) {
+            console.error("Falha ao recarregar pedidos após avaliação:", err);
+            notification.show("Não foi possível atualizar a lista de pedidos.", 'error');
+            // Garante que os modais fechem mesmo se a busca falhar
+            setItemToReview(null);
+            setOrderToReview(null);
+        }
     };
 
     const getStatusChipClass = (status) => {
@@ -4165,6 +4176,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
     return (
         <div>
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Pedidos</h2>
+
             <AnimatePresence>
                 {orderToReview && (
                     <Modal isOpen={true} onClose={() => setOrderToReview(null)} title={`Avaliar Itens do Pedido #${orderToReview.id}`}>
@@ -4188,18 +4200,63 @@ const MyOrdersListPage = ({ onNavigate }) => {
                     </Modal>
                 )}
             </AnimatePresence>
+            
             <AnimatePresence>
                 {itemToReview && (
                     <Modal isOpen={true} onClose={() => { setItemToReview(null); setOrderToReview(null); }} title={`Deixe sua opinião sobre: ${itemToReview.name}`}>
                         <ProductReviewForm 
                             productId={itemToReview.product_id}
-                            orderId={orderToReview.id} // Passa o ID do pedido
+                            orderId={orderToReview.id} // Passa o ID do pedido principal
                             onReviewSubmitted={handleReviewSuccess}
                         />
                     </Modal>
                 )}
             </AnimatePresence>
-            {/* O restante do JSX continua o mesmo */}
+
+            {isLoading ? (
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin" /></div>
+            ) : orders.length > 0 ? (
+                <div className="space-y-4">
+                    {orders.map(order => {
+                        const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
+                        const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
+
+                        return (
+                            <motion.div
+                                key={order.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 * orders.indexOf(order) }}
+                                className="bg-gray-800 p-4 rounded-lg border border-gray-700"
+                            >
+                                {firstItem && (
+                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                        <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-16 h-16 object-contain bg-white rounded-md flex-shrink-0"/>
+                                        <div className="flex-grow overflow-hidden">
+                                            <p className="font-semibold text-white truncate">{firstItem.name}</p>
+                                            {order.items.length > 1 && ( <p className="text-sm text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
+                                        </div>
+                                    </div>
+                                )}
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
+                                        <div><p className="text-xs text-gray-400">Pedido</p><p className="font-bold text-white">#{order.id}</p></div>
+                                        <div><p className="text-xs text-gray-400">Data</p><p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p></div>
+                                        <div><p className="text-xs text-gray-400">Status</p><span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span></div>
+                                        <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
+                                    </div>
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
+                                        <button onClick={() => onNavigate(`account/orders/${order.id}`)} className="w-full bg-gray-700 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-600 transition">Ver Detalhes</button>
+                                        {canReviewOrder && (
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
+                                        )}
+                                    </div>
+                                </div>
+                            </motion.div>
+                        );
+                    })}
+                </div>
+            ) : ( <EmptyState icon={<PackageIcon className="h-12 w-12" />} title="Nenhum pedido encontrado" message="Você ainda não fez nenhuma compra." buttonText="Ver Produtos" onButtonClick={() => onNavigate('products')}/> )}
         </div>
     );
 };
