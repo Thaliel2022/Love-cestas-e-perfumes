@@ -2485,6 +2485,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
+
 const LoginPage = ({ onNavigate }) => {
     const { login } = useAuth();
     const notification = useNotification();
