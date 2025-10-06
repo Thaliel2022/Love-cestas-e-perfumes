@@ -2200,12 +2200,48 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
+    const fetchProductData = useCallback(async (id) => {
+        const controller = new AbortController();
+        const signal = controller.signal;
+        setIsLoading(true);
+        try {
+            const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
+                apiService(`/products/${id}`, 'GET', null, { signal }),
+                apiService(`/products/${id}/reviews`, 'GET', null, { signal }),
+                apiService('/products', 'GET', null, { signal }),
+                apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
+            ]);
+            
+            if (signal.aborted) return;
+
+            const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            setGalleryImages(images);
+            setProduct(productData);
+            setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+            setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
+
+            if (productData && allProductsData) {
+                const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
+                setRelatedProducts(related);
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                 console.error("Falha ao buscar dados do produto:", err);
+                 setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
+            }
+        } finally {
+            if (!signal.aborted) { setIsLoading(false); }
+        }
+        return () => { controller.abort(); };
+    }, []);
+
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
                 await apiService(`/reviews/${reviewId}`, 'DELETE');
                 notification.show('Avaliação excluída com sucesso.');
-                apiService(`/products/${productId}/reviews`).then(data => setReviews(Array.isArray(data) ? data : []));
+                fetchProductData(productId);
             } catch (error) {
                 notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
             }
@@ -2213,46 +2249,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
     
     useEffect(() => {
-        const controller = new AbortController();
-        const signal = controller.signal;
-
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
-                    apiService(`/products/${productId}`, 'GET', null, { signal }),
-                    apiService(`/products/${productId}/reviews`, 'GET', null, { signal }),
-                    apiService('/products', 'GET', null, { signal }),
-                    apiService(`/products/${productId}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
-                ]);
-                
-                if (signal.aborted) return;
-
-                const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-                setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-                setGalleryImages(images);
-                setProduct(productData);
-                setReviews(Array.isArray(reviewsData) ? reviewsData : []);
-                setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
-
-                if (productData && allProductsData) {
-                    const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
-                    setRelatedProducts(related);
-                }
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                     console.error("Falha ao buscar dados do produto:", err);
-                     setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
-                }
-            } finally {
-                if (!signal.aborted) { setIsLoading(false); }
-            }
-        };
-
-        fetchData();
+        fetchProductData(productId);
         window.scrollTo(0, 0);
-        return () => { controller.abort(); };
-    }, [productId]);
+    }, [productId, fetchProductData]);
     
     useEffect(() => {
         const fetchInstallments = async (price) => {
@@ -2278,7 +2277,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
             const stockLimit = selectedVariation?.stock || product?.stock;
-            if (stockLimit && newQty > stockLimit) { return stockLimit; }
+            if (stockLimit !== undefined && newQty > stockLimit) { return stockLimit; }
             return newQty;
         });
     };
@@ -2294,6 +2293,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const handleVariationSelection = useCallback((variation, color) => {
+        setQuantity(1);
         setSelectedVariation(variation);
         if (color && productVariations.length > 0) {
             const allImagesForColor = productVariations.filter(v => v.color === color).flatMap(v => v.images || []).filter((value, index, self) => self.indexOf(value) === index);
@@ -2365,7 +2365,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         <div className="bg-black text-white min-h-screen">
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
-            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -2375,16 +2374,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </Modal>
                 )}
             </AnimatePresence>
-
             <div className="container mx-auto px-4 py-8">
-                 <div className="mb-4">
+                <div className="mb-4">
                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 lg:sticky lg:top-28">
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
                         <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
                             <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
-                            <div className="w-full sm:h-[500px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                            <div className="w-full sm:h-[640px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
                                 <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
                                     {product.video_url && (
                                         <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
@@ -2397,7 +2395,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                             <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:block absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
                         </div>
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[540px] cursor-zoom-in relative">
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[640px] cursor-zoom-in relative">
                             {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
@@ -2408,7 +2406,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
                             {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}{reviews.length > 0 && <span className="text-sm text-gray-400 ml-3">({reviews.length} avaliações)</span>}</div>
+                                <div className="flex items-center gap-1">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
+                                {product.review_count > 0 && <span className="text-xs text-gray-400">({product.review_count})</span>}</div>
                                 <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
                             </div>
                         </div>
@@ -2458,9 +2457,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="space-y-6 mb-8">
                         {reviews.length > 0 ? reviews.map((review) => (
                              <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
-                                {user && user.role === 'admin' && (
-                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
-                                )}
+                                {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
                                 <div className="flex items-center mb-2">
                                     <p className="font-bold mr-4">{review.user_name}</p>
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
