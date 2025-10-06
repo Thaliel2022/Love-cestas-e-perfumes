@@ -6399,7 +6399,33 @@ const AdminOrders = () => {
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
-                                        <p className="capitalize">{editingOrder.payment_method}</p>
+                                        {(() => {
+                                            if (!editingOrder.payment_details) {
+                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            }
+                                            try {
+                                                const details = JSON.parse(editingOrder.payment_details);
+                                                if (details.method === 'credit_card') {
+                                                    return (
+                                                        <div className="text-sm">
+                                                            <p className="font-semibold text-gray-800">Cartão de Crédito</p>
+                                                            <p className="text-gray-600">Bandeira: <span className="uppercase">{details.card_brand}</span></p>
+                                                            <p className="text-gray-600">Final: •••• {details.card_last_four}</p>
+                                                            <p className="text-gray-600">Parcelas: {details.installments}x</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (details.method === 'pix') {
+                                                    return <p className="font-semibold text-gray-800">Pix</p>;
+                                                }
+                                                if (details.method === 'boleto') {
+                                                    return <p className="font-semibold text-gray-800">Boleto</p>;
+                                                }
+                                            } catch (e) {
+                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            }
+                                            return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                        })()}
                                     </div>
                                 </div>
                                 {editingOrder.shipping_method === 'Retirar na loja' ? (
@@ -6588,9 +6614,9 @@ const AdminOrders = () => {
                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' || o.status === 'Pagamento Recusado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
-                                    <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
-                                    <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                    <div className="col-span-2">
+                                     <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
+                                     <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                     <div className="col-span-2">
                                         <strong className="text-gray-500 block">Entrega</strong>
                                         {o.shipping_method === 'Retirar na loja' ? (
                                             <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
@@ -6599,7 +6625,7 @@ const AdminOrders = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex justify-end mt-4 pt-2 border-t">
+                                 <div className="flex justify-end mt-4 pt-2 border-t">
                                     <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
                                 </div>
                             </div>
