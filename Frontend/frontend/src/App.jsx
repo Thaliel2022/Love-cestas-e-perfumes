@@ -3989,6 +3989,55 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         });
     };
 
+    const renderPaymentDetails = () => {
+        if (!order || !order.payment_method) {
+            return <p className="text-sm text-gray-400">Informação de pagamento não disponível.</p>;
+        }
+
+        const paymentDetails = order.payment_details ? JSON.parse(order.payment_details) : null;
+
+        if (paymentDetails) {
+            if (paymentDetails.method === 'pix') {
+                return (
+                    <div className="flex items-center gap-3">
+                        <svg className="h-8 w-8 text-green-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12.003 3.923c-4.386 0-7.945 3.559-7.945 7.944s3.559 7.944 7.945 7.944c4.385 0 7.944-3.559 7.944-7.944s-3.559-7.944-7.944-7.944zm-1.16 2.45h2.316v2.12h-2.316V6.373zm1.158 11.233c-2.21 0-2.88-1.055-2.88-2.182 0-1.127.67-2.182 2.88-2.182 2.212 0 2.88 1.055 2.88 2.182.001 1.127-.668 2.182-2.88 2.182zm-4.31-.247h2.234c.325-1.07.99-1.575 2.076-1.575s1.752.505 2.077 1.575h2.233c-.324-2.152-2.14-3.328-4.31-3.328-2.172 0-3.987 1.176-4.31 3.328z"/></svg>
+                        <div>
+                            <p className="font-semibold text-white">Pagamento via Pix</p>
+                            <p className="text-sm text-gray-400">Confirmado via Mercado Pago.</p>
+                        </div>
+                    </div>
+                );
+            }
+            if (paymentDetails.method === 'credit_card' && paymentDetails.card_last_four) {
+                return (
+                     <div className="flex items-center gap-3">
+                        <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-white capitalize">Cartão de Crédito final {paymentDetails.card_last_four}</p>
+                            <p className="text-sm text-gray-400">
+                                {paymentDetails.installments > 1 
+                                    ? `Pagamento em ${paymentDetails.installments}x de R$ ${(order.total / paymentDetails.installments).toFixed(2).replace('.', ',')}`
+                                    : 'Pagamento em 1x (à vista)'
+                                }
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        // Fallback para outros casos (boleto, ou pagamentos antigos sem detalhes)
+        return (
+            <div className="flex items-center gap-3">
+                <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
+                <div>
+                    <p className="font-semibold text-white">Pagamento via Mercado Pago</p>
+                    <p className="text-sm text-gray-400 capitalize">{paymentDetails?.method || 'Detalhes não disponíveis'}</p>
+                </div>
+            </div>
+        );
+    };
+
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
     if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
 
@@ -3996,8 +4045,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
-    
-    // Cálculo seguro para o subtotal para evitar que a página quebre
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
 
     return (
@@ -4051,37 +4098,27 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <div className="space-y-2 text-sm">
                                 <div className="flex justify-between text-gray-300">
                                     <span>Subtotal dos produtos</span>
-                                    <span>R$ {subtotal.toFixed(2)}</span>
+                                    <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
                                 </div>
                                 <div className="flex justify-between text-gray-300">
                                     <span>Frete</span>
-                                    <span>R$ {Number(order.shipping_cost).toFixed(2)}</span>
+                                    <span>R$ {Number(order.shipping_cost).toFixed(2).replace('.', ',')}</span>
                                 </div>
                                 {Number(order.discount_amount) > 0 && (
                                     <div className="flex justify-between text-green-400">
                                         <span>Desconto ({order.coupon_code || 'Cupom'})</span>
-                                        <span>- R$ {Number(order.discount_amount).toFixed(2)}</span>
+                                        <span>- R$ {Number(order.discount_amount).toFixed(2).replace('.', ',')}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between text-white font-bold text-base border-t border-gray-700 pt-2 mt-2">
                                     <span>Total</span>
-                                    <span className="text-amber-400">R$ {Number(order.total).toFixed(2)}</span>
+                                    <span className="text-amber-400">R$ {Number(order.total).toFixed(2).replace('.', ',')}</span>
                                 </div>
                             </div>
                         </div>
                         <div className="bg-gray-800 p-4 rounded-lg">
                             <h3 className="font-bold text-gray-200 mb-2">Forma de Pagamento</h3>
-                            {order.payment_method === 'mercadopago' ? (
-                                <div className="flex items-center gap-3">
-                                    <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
-                                    <div>
-                                        <p className="font-semibold text-white">Cartão, Pix ou Boleto</p>
-                                        <p className="text-sm text-gray-400">Pagamento processado via Mercado Pago.</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <p className="text-white capitalize">{order.payment_method || 'Não informado'}</p>
-                            )}
+                            {renderPaymentDetails()}
                         </div>
                     </div>
 
