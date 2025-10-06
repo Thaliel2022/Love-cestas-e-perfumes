@@ -662,29 +662,17 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
     const { search } = req.query;
     try {
         let sql = `
-            SELECT 
-                p.*,
-                r_agg.avg_rating,
-                COALESCE(r_agg.review_count, 0) as review_count
-            FROM 
-                products p
-            LEFT JOIN 
-                (SELECT 
-                    product_id, 
-                    AVG(rating) as avg_rating, 
-                    COUNT(id) as review_count 
-                FROM 
-                    reviews 
-                GROUP BY 
-                    product_id) AS r_agg ON p.id = r_agg.product_id
-        `;
+            SELECT p.*, AVG(r.rating) as avg_rating, COUNT(r.id) as review_count
+            FROM products p
+            LEFT JOIN reviews r ON p.id = r.product_id
+        `;
         const params = [];
         if (search) {
             sql += " WHERE p.name LIKE ? OR p.brand LIKE ? OR p.category LIKE ?";
             const searchTerm = `%${search}%`;
             params.push(searchTerm, searchTerm, searchTerm);
         }
-        sql += " ORDER BY p.id DESC";
+        sql += " GROUP BY p.id ORDER BY p.id DESC";
         const [products] = await db.query(sql, params);
         res.json(products);
     } catch (err) {
