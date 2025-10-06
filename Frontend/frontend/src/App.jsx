@@ -3400,11 +3400,15 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
                                     ) : selectedAddress ? (
                                         <div className="p-4 bg-gray-800 rounded-md">
-                                            <p className="font-bold text-lg">{selectedAddress.alias}</p>
-                                            <p className="text-gray-300">{selectedAddress.logradouro}, {selectedAddress.numero}</p>
-                                            <p className="text-gray-400">{selectedAddress.bairro}, {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                            <p className="text-gray-400">{selectedAddress.cep}</p>
-                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-3 font-semibold">
+                                            <p className="font-bold text-lg mb-2">{selectedAddress.alias}</p>
+                                            <div className="space-y-1 text-gray-300 text-sm">
+                                                <p><span className="font-semibold text-gray-400">Rua:</span> {selectedAddress.logradouro}</p>
+                                                <p><span className="font-semibold text-gray-400">Nº:</span> {selectedAddress.numero} {selectedAddress.complemento && `- ${selectedAddress.complemento}`}</p>
+                                                <p><span className="font-semibold text-gray-400">Bairro:</span> {selectedAddress.bairro}</p>
+                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {selectedAddress.localidade} - {selectedAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-400">CEP:</span> {selectedAddress.cep}</p>
+                                            </div>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
                                                 Alterar Endereço
                                             </button>
                                         </div>
