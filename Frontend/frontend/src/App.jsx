@@ -2471,7 +2471,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <p className="text-sm text-gray-400 mb-2">Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                                 <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>
-                                <p className="text-gray-300 pr-6">{review.comment}</p>
+                                <p className="text-gray-300 pr-6 break-words">{review.comment}</p>
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
                     </div>
