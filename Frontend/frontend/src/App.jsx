@@ -6346,11 +6346,13 @@ const AdminOrders = () => {
                                                 try {
                                                     const addr = JSON.parse(editingOrder.shipping_address);
                                                     return (
-                                                        <>
-                                                            <p>{addr.logradouro}, {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
-                                                            <p>{addr.bairro}, {addr.localidade} - {addr.uf}</p>
-                                                            <p>{addr.cep}</p>
-                                                        </>
+                                                        <div className="space-y-1">
+                                                            <p><span className="font-semibold text-gray-500">Rua:</span> {addr.logradouro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Nº:</span> {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                            <p><span className="font-semibold text-gray-500">Bairro:</span> {addr.bairro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Cidade:</span> {addr.localidade} - {addr.uf}</p>
+                                                            <p><span className="font-semibold text-gray-500">CEP:</span> {addr.cep}</p>
+                                                        </div>
                                                     )
                                                 } catch { return <p>Endereço mal formatado.</p> }
                                             })() : <p>Nenhum endereço de entrega.</p>}
@@ -6441,7 +6443,6 @@ const AdminOrders = () => {
                     <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
-                        {/* Popula dinamicamente com as duas listas para o filtro abranger tudo */}
                         {[...new Set([...shippingStatuses, ...pickupStatuses])].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
