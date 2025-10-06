@@ -759,14 +759,14 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
   const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    const values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
-    ];
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    const values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
+    ];
 
     if (product_type === 'perfume') {
         fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
@@ -792,15 +792,15 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
 
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    let values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
-    ];
+   let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    let values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
+    ];
 
     if (product_type === 'perfume') {
         fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
@@ -952,54 +952,46 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
 
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
-app.post('/api/reviews', verifyToken, async (req, res) => {
-    const { product_id, order_id, rating, comment } = req.body;
-    const userId = req.user.id;
 
-    if (!product_id || !order_id || !rating) {
-        return res.status(400).json({ message: "ID do produto, ID do pedido e avaliação são obrigatórios." });
-    }
+app.get('/api/reviews/can-review/:productId', verifyToken, async (req, res) => {
+    const { productId } = req.params;
+    const userId = req.user.id;
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    try {
+        // 1. Verifica se o usuário comprou o produto e se o pedido foi entregue ou está pronto para retirada
+        const [purchase] = await db.query(`
+            SELECT o.id
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+              AND oi.product_id = ? 
+              AND o.status = ?
+            LIMIT 1
+        `, [userId, productId, ORDER_STATUS.DELIVERED]);
 
-        // 1. Confirma se o usuário comprou este produto neste pedido específico e se foi entregue
-        const [purchase] = await connection.query(
-            `SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id 
-             WHERE o.user_id = ? AND oi.product_id = ? AND o.id = ? AND o.status = ? LIMIT 1`,
-            [userId, product_id, order_id, ORDER_STATUS.DELIVERED]
-        );
+        if (purchase.length === 0) {
+            return res.json({ canReview: false });
+        }
 
-        if (purchase.length === 0) {
-            throw new Error("Você só pode avaliar produtos de pedidos que já foram entregues.");
-        }
+        // 2. Verifica se o usuário já avaliou este produto
+        const [review] = await db.query(
+            "SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1",
+            [userId, productId]
+        );
 
-        // 2. Insere a avaliação com o order_id. O BD vai barrar se já existir uma avaliação para esta combinação.
-        await connection.query(
-            "INSERT INTO reviews (product_id, user_id, order_id, rating, comment) VALUES (?, ?, ?, ?, ?)",
-            [product_id, userId, order_id, rating, comment || '']
-        );
+        // Se já avaliou, não pode avaliar de novo
+        if (review.length > 0) {
+            return res.json({ canReview: false });
+        }
+        
+        // Se comprou e ainda não avaliou, pode avaliar
+        return res.json({ canReview: true });
 
-        await connection.commit();
-        res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
-
-    } catch (err) {
-        await connection.rollback();
-        // Se o erro for a nova regra de unicidade do banco de dados
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Você já avaliou este produto para esta compra." });
-        }
-        if (err.message.includes("Você só pode avaliar")) {
-             return res.status(403).json({ message: err.message });
-        }
-        console.error("Erro ao adicionar avaliação:", err);
-        res.status(500).json({ message: "Erro interno ao adicionar avaliação." });
-    } finally {
-        connection.release();
-    }
+    } catch (err) {
+        console.error("Erro ao verificar permissão de avaliação:", err);
+        res.status(500).json({ message: "Erro ao verificar permissão de avaliação." });
+    }
 });
-
 app.get('/api/products/:id/reviews', async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
@@ -1007,6 +999,58 @@ app.get('/api/products/:id/reviews', async (req, res) => {
     } catch (err) {
         console.error("Erro ao buscar avaliações:", err);
         res.status(500).json({ message: "Erro ao buscar avaliações." });
+    }
+});
+
+app.post('/api/reviews', verifyToken, async (req, res) => {
+    const { product_id, rating, comment } = req.body;
+    const userId = req.user.id;
+    if (!product_id || !rating) return res.status(400).json({ message: "ID do produto e avaliação são obrigatórios." });
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Verifica se o usuário comprou o produto e se o pedido foi concluído
+const [purchase] = await connection.query(`
+            SELECT o.id
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = ? 
+              AND oi.product_id = ? 
+              AND o.status = ?
+            LIMIT 1
+        `, [userId, product_id, ORDER_STATUS.DELIVERED]);
+
+        if (purchase.length === 0) {
+            throw new Error("Você só pode avaliar produtos que comprou e que já foram entregues/retirados.");
+        }
+
+        // 2. Verifica se o usuário já avaliou este produto
+        const [review] = await connection.query(
+            "SELECT id FROM reviews WHERE user_id = ? AND product_id = ? LIMIT 1",
+            [userId, product_id]
+        );
+
+        if (review.length > 0) {
+            throw new Error("Você já avaliou este produto.");
+        }
+
+        // 3. Insere a avaliação no banco de dados
+        await connection.query("INSERT INTO reviews (product_id, user_id, rating, comment) VALUES (?, ?, ?, ?)", [product_id, userId, rating, comment || '']);
+
+        await connection.commit();
+        res.status(201).json({ message: "Avaliação adicionada com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        if (err.message.includes("Você só pode avaliar") || err.message.includes("Você já avaliou")) {
+             return res.status(403).json({ message: err.message });
+        }
+        console.error("Erro ao adicionar avaliação:", err);
+        res.status(500).json({ message: "Erro interno ao adicionar avaliação." });
+    } finally {
+        connection.release();
     }
 });
 
@@ -1151,26 +1195,24 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
         
         const [orders] = await db.query(sql, params);
         
-        const detailedOrders = await Promise.all(orders.map(async (order) => {
-            const [items] = await db.query(`
-                SELECT 
+      const detailedOrders = await Promise.all(orders.map(async (order) => {
+         const [items] = await db.query(`SELECT 
                     oi.*, 
                     p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
-                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id AND r.order_id = oi.order_id) AS is_reviewed
+                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id) AS is_reviewed
                 FROM order_items oi 
                 JOIN products p ON oi.product_id = p.id 
-                WHERE oi.order_id = ?
-            `, [order.user_id, order.id]);
+                WHERE oi.order_id = ?`, [order.user_id, order.id]);
 
-            const parsedItems = items.map(item => ({
-                ...item,
-                is_reviewed: !!item.is_reviewed,
-                variation: item.variation_details ? JSON.parse(item.variation_details) : null
-            }));
-            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
-            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
-        }));
-        res.json(detailedOrders);
+            const parsedItems = items.map(item => ({
+                ...item,
+                is_reviewed: !!item.is_reviewed, // Converte 0/1 para false/true
+                variation: item.variation_details ? JSON.parse(item.variation_details) : null
+            }));
+            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
+            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
+        }));
+        res.json(detailedOrders);
     } catch (err) {
         console.error("Erro ao buscar histórico de pedidos:", err);
         res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
@@ -1282,7 +1324,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
              const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
              if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                  await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
              }
         }
         
