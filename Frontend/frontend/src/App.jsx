@@ -4115,7 +4115,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [itemToReview, setItemToReview] = useState(null);
 
     const fetchOrders = useCallback(() => {
-        // Retorna a promise para que o useEffect possa esperar por ela
+        // Retorna a promise para que possamos esperar por ela
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -4137,9 +4137,12 @@ const MyOrdersListPage = ({ onNavigate }) => {
     }, [fetchOrders]);
 
     const handleReviewSuccess = () => {
-        setItemToReview(null);
-        setOrderToReview(null);
-        fetchOrders();
+        // Busca os pedidos atualizados em segundo plano
+        fetchOrders().finally(() => {
+            // E somente após a atualização dos dados, fecha os modais
+            setItemToReview(null);
+            setOrderToReview(null);
+        });
     };
 
     const getStatusChipClass = (status) => {
