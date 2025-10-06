@@ -712,9 +712,39 @@ app.get('/api/products/search-suggestions', async (req, res) => {
 
 app.get('/api/products/:id', async (req, res) => {
     try {
-        const [products] = await db.query("SELECT * FROM products WHERE id = ?", [req.params.id]);
+        const sql = `
+            SELECT 
+                p.*,
+                r_agg.avg_rating,
+                COALESCE(r_agg.review_count, 0) as review_count
+            FROM 
+                products p
+            LEFT JOIN 
+                (SELECT 
+                    product_id, 
+                    AVG(rating) as avg_rating, 
+                    COUNT(id) as review_count 
+                FROM 
+                    reviews 
+                WHERE 
+                    product_id = ?
+                GROUP BY 
+                    product_id) AS r_agg ON p.id = r_agg.product_id
+            WHERE 
+                p.id = ?;
+        `;
+        const [products] = await db.query(sql, [req.params.id, req.params.id]);
         if (products.length === 0) return res.status(404).json({ message: "Produto não encontrado." });
-        res.json(products[0]);
+        
+        const product = products[0];
+        if (product.review_count === null) {
+            product.review_count = 0;
+        }
+        if (product.avg_rating === null) {
+            product.avg_rating = 0;
+        }
+
+        res.json(product);
     } catch (err) {
         console.error("Erro ao buscar produto por ID:", err);
         res.status(500).json({ message: "Erro ao buscar produto." });
@@ -1282,7 +1312,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
              const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
              if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                  await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+                   await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
              }
         }
         
@@ -1717,9 +1747,28 @@ const processPaymentWebhook = async (paymentId) => {
             const currentDBStatus = currentOrderResult[0].status;
             console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
+            let paymentDetailsPayload = null;
+            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
+                paymentDetailsPayload = {
+                    method: 'credit_card',
+                    card_brand: payment.payment_method_id,
+                    card_last_four: payment.card.last_four_digits,
+                    installments: payment.installments
+                };
+            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
+                paymentDetailsPayload = { method: 'pix' };
+            } else if (payment.payment_type_id === 'ticket') {
+                paymentDetailsPayload = { method: 'boleto' };
+            }
+            
             await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?",
-                [paymentStatus, payment.id, orderId]
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
+                [
+                    paymentStatus, 
+                    payment.id, 
+                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
+                    orderId
+                ]
             );
             
             if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
