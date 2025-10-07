@@ -1749,24 +1749,31 @@ const [products, setProducts] = useState({
 
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-const [allProducts, setAllProducts] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
+    const [uniqueCategories, setUniqueCategories] = useState([]);
     const productsPerPage = 12;
 
     useEffect(() => {
         const controller = new AbortController();
         setIsLoading(true);
-        apiService('/products', 'GET', null, { signal: controller.signal })
-            .then(data => {
-                setAllProducts(data);
-            })
-            .catch(err => {
-                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
-            })
-            .finally(() => setIsLoading(false));
+        
+        Promise.all([
+            apiService('/products', 'GET', null, { signal: controller.signal }),
+            apiService('/collections', 'GET', null, { signal: controller.signal })
+        ]).then(([productsData, collectionsData]) => {
+            setAllProducts(productsData);
+            // Cria uma lista única de categorias a partir das coleções ativas
+            const activeCategories = collectionsData.map(cat => cat.filter);
+            setUniqueCategories([...new Set(activeCategories)].sort());
+        }).catch(err => {
+            if (err.name !== 'AbortError') console.error("Falha ao buscar dados da página de produtos:", err);
+        }).finally(() => {
+            setIsLoading(false);
+        });
 
         return () => controller.abort();
     }, []);
@@ -1774,7 +1781,6 @@ const [allProducts, setAllProducts] = useState([]);
     useEffect(() => {
         setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
     }, [initialSearch, initialCategory, initialBrand]);
-
 
     useEffect(() => {
         let result = [...allProducts];
@@ -1800,7 +1806,6 @@ const [allProducts, setAllProducts] = useState([]);
     }, [filters, allProducts, initialIsPromo]);
     
     const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const uniqueCategories = useMemo(() => CATEGORIES_FOR_MENU.flatMap(cat => cat.sub), []);
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
