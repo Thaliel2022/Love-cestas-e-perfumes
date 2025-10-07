@@ -111,6 +111,48 @@ const sanitizeInput = (req, res, next) => {
 };
 app.use(sanitizeInput);
 
+// --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
+const initializeData = async () => {
+    const connection = await db.getConnection();
+    try {
+        console.log('Verificando dados iniciais...');
+
+        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
+        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
+        if (categories[0].count === 0) {
+            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
+            const initialCategories = [
+                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
+                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
+                { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
+                { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
+                { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
+                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
+                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
+                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
+                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
+                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
+                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
+                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
+                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
+                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
+                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
+            ];
+            const sql = "INSERT INTO collection_categories (name, image, filter) VALUES ?";
+            const values = initialCategories.map(c => [c.name, c.image, c.filter]);
+            await connection.query(sql, [values]);
+            console.log(`${initialCategories.length} categorias de coleção inseridas.`);
+        } else {
+            console.log('Tabela collection_categories já populada.');
+        }
+
+    } catch (err) {
+        console.error("Erro ao inicializar dados:", err);
+    } finally {
+        connection.release();
+    }
+};
+
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -127,6 +169,7 @@ db.getConnection()
     .then(connection => {
         console.log('Conectado ao banco de dados MySQL com sucesso!');
         connection.release();
+        initializeData(); // Chama a função de seed
     })
     .catch(err => {
         console.error('Falha ao conectar ao banco de dados:', err);
@@ -2230,6 +2273,50 @@ app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
     }
 });
 
+// --- ROTAS DE GERENCIAMENTO DE COLEÇÕES (Admin & Público) ---
+
+// (Admin) Pega todas as categorias da coleção para o painel
+app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY name ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
+
+// (Admin) Atualiza a imagem de uma categoria
+app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { image } = req.body;
+
+    if (!image) {
+        return res.status(400).json({ message: "A URL da imagem é obrigatória." });
+    }
+
+    try {
+        const [result] = await db.query("UPDATE collection_categories SET image = ? WHERE id = ?", [image, id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Imagem da categoria atualizada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao atualizar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao atualizar categoria." });
+    }
+});
+
+// (Público) Pega todas as categorias da coleção para a home page
+app.get('/api/collections', async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY id ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
