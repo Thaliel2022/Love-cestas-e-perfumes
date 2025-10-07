@@ -738,7 +738,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
- if (!q || q.length < 1) {
+	if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
@@ -831,7 +831,7 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-  const fields = [
+	const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
@@ -1355,7 +1355,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
              const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
              if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                   await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
              }
         }
         
@@ -2317,6 +2317,7 @@ app.get('/api/collections', async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar categorias." });
     }
 });
+
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
