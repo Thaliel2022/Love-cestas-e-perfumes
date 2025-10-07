@@ -1394,18 +1394,20 @@ const Header = memo(({ onNavigate }) => {
                             initial="closed" animate="open" exit="closed" variants={dropdownVariants}
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
                         >
-                            <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
+                           <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
                                 {dynamicMenuItems.map(cat => (
-                                    <div key={cat.name}>
-                                        <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
-                                        <ul className="space-y-2">
-                                            {cat.sub.map(subCat => (
-                                                <li key={subCat.name}>
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
+                                    cat && cat.sub && ( // <-- Verificação de segurança adicionada
+                                        <div key={cat.name}>
+                                            <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
+                                            <ul className="space-y-2">
+                                                {cat.sub.map(subCat => (
+                                                    <li key={subCat.name}>
+                                                        <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )
                                 ))}
                             </div>
                         </motion.div>
