@@ -6965,6 +6965,7 @@ const AdminCollections = () => {
         </div>
     );
 };
+
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
