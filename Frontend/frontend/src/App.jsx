@@ -52,15 +52,6 @@ const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 
-// --- CONSTANTE GLOBAL DO MENU ---
-const CATEGORIES_FOR_MENU = [
-    { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
-    { name: "Roupas", sub: ["Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos"] },
-    { name: "Conjuntos", sub: ["Conjunto de Calças", "Conjunto de Shorts"] },
-    { name: "Moda Íntima", sub: ["Lingerie", "Moda Praia"] },
-    { name: "Calçados", sub: ["Sandálias"] },
-    { name: "Acessórios", sub: ["Presente"] }
-];
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -1202,6 +1193,34 @@ const Header = memo(({ onNavigate }) => {
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
+    const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
+
+    useEffect(() => {
+        apiService('/collections')
+            .then(data => {
+                const groupedMenu = data.reduce((acc, category) => {
+                    const section = category.menu_section;
+                    if (!acc[section]) {
+                        acc[section] = [];
+                    }
+                    acc[section].push({ name: category.name, filter: category.filter });
+                    return acc;
+                }, {});
+
+                const menuOrder = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
+                const finalMenuStructure = menuOrder
+                    .filter(sectionName => groupedMenu[sectionName])
+                    .map(sectionName => ({
+                        name: sectionName,
+                        sub: groupedMenu[sectionName]
+                    }));
+                setDynamicMenuItems(finalMenuStructure);
+            })
+            .catch(err => {
+                console.error("Falha ao construir o menu dinâmico:", err);
+                setDynamicMenuItems([]); // Garante que o menu não quebre em caso de erro
+            });
+    }, []);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
@@ -1217,8 +1236,8 @@ const Header = memo(({ onNavigate }) => {
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
-useEffect(() => {
-        if (searchTerm.length < 1) { // Alterado de 2 para 1
+    useEffect(() => {
+        if (searchTerm.length < 1) {
             setSearchSuggestions([]);
             return;
         }
@@ -1240,15 +1259,13 @@ useEffect(() => {
         }
     };
     
-const handleSuggestionClick = (productId) => {
+    const handleSuggestionClick = (productId) => {
         onNavigate(`product/${productId}`);
         setSearchTerm('');
         setSearchSuggestions([]);
         setIsSearchFocused(false);
         setIsMobileMenuOpen(false);
     };
-
-    const categoriesForMenu = CATEGORIES_FOR_MENU;
 
     const dropdownVariants = {
         open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
@@ -1272,7 +1289,7 @@ const handleSuggestionClick = (productId) => {
                         <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                     </div>
                     
-<div className="hidden lg:block flex-1 max-w-xl mx-8">
+                    <div className="hidden lg:block flex-1 max-w-xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input 
                                 type="text" value={searchTerm} 
@@ -1366,11 +1383,9 @@ const handleSuggestionClick = (productId) => {
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
                 </div>
-                {/* ===== ATUALIZAÇÃO PROMOÇÕES ===== */}
                 <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
                     <SaleIcon className="h-4 w-4" /> Promoções
                 </a>
-                {/* =============================== */}
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 
                 <AnimatePresence>
@@ -1380,13 +1395,13 @@ const handleSuggestionClick = (productId) => {
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
                         >
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {categoriesForMenu.map(cat => (
+                                {dynamicMenuItems.map(cat => (
                                     <div key={cat.name}>
                                         <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
                                         <ul className="space-y-2">
                                             {cat.sub.map(subCat => (
-                                                <li key={subCat}>
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
+                                                <li key={subCat.name}>
+                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a>
                                                 </li>
                                             ))}
                                         </ul>
@@ -1426,9 +1441,8 @@ const handleSuggestionClick = (productId) => {
                                         placeholder="O que você procura?"
                                         className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                                     />
-                                    {/* A div a seguir é posicionada em relação ao form */}
                                     <div className="relative"> 
-                                 <AnimatePresence>
+                                        <AnimatePresence>
                                             {isSearchFocused && searchTerm.length > 0 && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -10 }}
@@ -1469,7 +1483,7 @@ const handleSuggestionClick = (productId) => {
                                     </div>
                                 </form>
 
-                                {categoriesForMenu.map((cat, index) => (
+                                {dynamicMenuItems.map((cat, index) => (
                                     <div key={cat.name} className="border-b border-gray-800">
                                         <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
                                             <span>{cat.name}</span>
@@ -1479,20 +1493,19 @@ const handleSuggestionClick = (productId) => {
                                         {mobileAccordion === index && (
                                             <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
                                                 {cat.sub.map(subCat => (
-                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
+                                                    <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li>
                                                 ))}
                                             </motion.ul>
                                         )}
                                         </AnimatePresence>
                                     </div>
                                 ))}
-                                {/* ===== ATUALIZAÇÃO PROMOÇÕES (MOBILE) ===== */}
+                                
                                 <div className="border-b border-gray-800">
                                     <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
                                         <SaleIcon className="h-5 w-5"/> Promoções
                                     </a>
                                 </div>
-                                {/* ======================================== */}
                                 <div className="border-b border-gray-800">
                                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
                                 </div>
@@ -5141,15 +5154,16 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [uploadingStatus, setUploadingStatus] = useState({});
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
+    const [allCollectionCategories, setAllCollectionCategories] = useState([]);
 
-    const clothingCategories = [
-        "Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos", 
-        "Conjunto de Calças", "Conjunto de Shorts", "Lingerie", "Moda Praia",
-        "Sandálias", "Presente"
-    ];
+    useEffect(() => {
+        // Busca todas as categorias de coleção para preencher o dropdown
+        apiService('/collections/admin')
+            .then(data => setAllCollectionCategories(data.filter(c => c.is_active)))
+            .catch(err => console.error("Falha ao buscar categorias de coleção", err));
+    }, []);
     
     const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
-    const perfumeCategories = ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"];
 
     const perfumeFields = [
         { name: 'stock', label: 'Estoque', type: 'number', required: true },
@@ -5215,14 +5229,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(initialData);
     }, [item, setProductType]);
 
-const handleChange = (e) => {
+    const availableProductCategories = useMemo(() => {
+        return allCollectionCategories.filter(c => c.product_type_association === productType);
+    }, [allCollectionCategories, productType]);
+
+    const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
     };
 
     const handleVolumeBlur = (e) => {
         let { value } = e.target;
-        // Verifica se o valor não está vazio, é um número e não contém 'ml'
         if (value && value.trim() !== '' && !isNaN(parseFloat(value)) && !/ml/i.test(value)) {
             const formattedValue = `${parseFloat(value)}ml`;
             setFormData(prev => ({ ...prev, volume: formattedValue }));
@@ -5365,7 +5382,6 @@ const handleChange = (e) => {
                     if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
 
                     if (field.name === 'category') {
-                         const options = productType === 'clothing' ? clothingCategories : perfumeCategories;
                          return (
                             <div key={field.name}>
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
@@ -5377,7 +5393,7 @@ const handleChange = (e) => {
                                     required={field.required}
                                 >
                                     <option value="">Selecione...</option>
-                                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
                                 </select>
                             </div>
                         );
@@ -6775,7 +6791,10 @@ const AdminCollections = () => {
     }, [fetchCategories]);
 
     const handleOpenModal = (category = null) => {
-        setEditingCategory(category);
+        const initialData = category ? 
+            {...category} : 
+            { name: '', filter: '', image: '', is_active: 1, product_type_association: 'none', menu_section: 'Roupas'};
+        setEditingCategory(initialData);
         setIsModalOpen(true);
     };
 
@@ -6808,6 +6827,7 @@ const AdminCollections = () => {
     };
     
     const handleTriggerUpload = (category) => {
+        if (uploadingImageFor) return;
         setUploadingImageFor(category);
         fileInputRef.current.click();
     };
@@ -6819,7 +6839,7 @@ const AdminCollections = () => {
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
             await apiService(`/collections/${uploadingImageFor.id}`, 'PUT', {
-                ...uploadingImageFor, // Envia os dados existentes para não apagar
+                ...uploadingImageFor,
                 image: uploadResult.imageUrl
             });
             notification.show('Imagem da categoria atualizada com sucesso!');
@@ -6834,15 +6854,29 @@ const AdminCollections = () => {
 
     const categoryFields = [
         { name: 'name', label: 'Nome da Categoria', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculinos' },
-        { name: 'filter', label: 'Valor do Filtro', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculino (deve ser exato)' },
+        { name: 'filter', label: 'Valor do Filtro', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculino (usado na busca)' },
         { name: 'image', label: 'URL da Imagem', type: 'text', required: true, placeholder: 'https://...' },
+        { name: 'menu_section', label: 'Seção Principal do Menu', type: 'select', options: [
+            {value: 'Perfumaria', label: 'Perfumaria'}, 
+            {value: 'Roupas', label: 'Roupas'},
+            {value: 'Conjuntos', label: 'Conjuntos'},
+            {value: 'Moda Íntima', label: 'Moda Íntima'},
+            {value: 'Calçados', label: 'Calçados'},
+            {value: 'Acessórios', label: 'Acessórios'}
+        ]},
+        { name: 'product_type_association', label: 'Associar à Categoria de Produto', type: 'select', options: [
+            {value: 'none', label: 'Nenhuma'},
+            {value: 'perfume', label: 'Perfume'},
+            {value: 'clothing', label: 'Roupa'}
+        ]},
+        { name: 'is_active', label: 'Ativa (visível na loja)', type: 'checkbox' },
     ];
 
     return (
         <div>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory && editingCategory.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
                         <AdminCrudForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={categoryFields} />
                     </Modal>
                 )}
@@ -6862,7 +6896,7 @@ const AdminCollections = () => {
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     {categories.map(cat => (
-                        <div key={cat.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden group flex flex-col">
+                        <div key={cat.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col ${!cat.is_active ? 'opacity-50' : ''}`}>
                             <div className="relative aspect-[4/5]">
                                 <img src={cat.image} alt={cat.name} className="w-full h-full object-cover"/>
                                 {uploadingImageFor?.id === cat.id && (
@@ -6870,12 +6904,15 @@ const AdminCollections = () => {
                                         <SpinnerIcon className="h-8 w-8 text-white"/>
                                     </div>
                                 )}
+                                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
+                                    {cat.is_active ? 'Ativa' : 'Inativa'}
+                                </div>
                             </div>
                             <div className="p-3 bg-gray-50 flex-grow flex flex-col">
                                 <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
                                 <div className="flex items-center justify-center space-x-2 mt-3 pt-3 border-t">
-                                    <button onClick={() => handleTriggerUpload(cat)} className="p-2 text-gray-500 hover:text-blue-600" title="Alterar Imagem"><UploadIcon className="h-5 w-5"/></button>
-                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar Nome e Filtro"><EditIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleTriggerUpload(cat)} className="p-2 text-gray-500 hover:text-blue-600" title="Alterar Imagem Rápida"><UploadIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar Tudo"><EditIcon className="h-5 w-5"/></button>
                                     <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir Categoria"><TrashIcon className="h-5 w-5"/></button>
                                 </div>
                             </div>
