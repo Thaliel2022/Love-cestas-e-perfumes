@@ -122,26 +122,33 @@ const initializeData = async () => {
         if (categories[0].count === 0) {
             console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
             const initialCategories = [
-                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
-                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
-                { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
-                { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
-                { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
-                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
-                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
-                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
-                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
-                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
-                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
-                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
-                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
-                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
-                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
+                // Perfumaria
+                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                // Roupas
+                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
+                // Conjuntos
+                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                // Moda Íntima
+                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                // Calçados
+                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
+                // Acessórios
+                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
             ];
-            const sql = "INSERT INTO collection_categories (name, image, filter) VALUES ?";
-            const values = initialCategories.map(c => [c.name, c.image, c.filter]);
+            
+            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES ?";
+            const values = initialCategories.map(c => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section]);
             await connection.query(sql, [values]);
-            console.log(`${initialCategories.length} categorias de coleção inseridas.`);
+            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
         } else {
             console.log('Tabela collection_categories já populada.');
         }
@@ -2288,12 +2295,14 @@ app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => 
 
 // (Admin) Cria uma nova categoria
 app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { name, image, filter } = req.body;
-    if (!name || !image || !filter) {
-        return res.status(400).json({ message: "Nome, imagem e filtro são obrigatórios." });
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
     }
     try {
-        const [result] = await db.query("INSERT INTO collection_categories (name, image, filter) VALUES (?, ?, ?)", [name, image, filter]);
+        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES (?, ?, ?, ?, ?, ?)";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
+        const [result] = await db.query(sql, params);
         res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -2307,14 +2316,16 @@ app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) =>
 // (Admin) Atualiza uma categoria
 app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { name, image, filter } = req.body;
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
 
-    if (!name || !image || !filter) {
-        return res.status(400).json({ message: "Nome, imagem e filtro são obrigatórios." });
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
     }
 
     try {
-        const [result] = await db.query("UPDATE collection_categories SET name = ?, image = ?, filter = ? WHERE id = ?", [name, image, filter, id]);
+        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
+        const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Categoria não encontrada." });
         }
@@ -2346,18 +2357,8 @@ app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) =>
 // (Público) Pega todas as categorias da coleção para a home page
 app.get('/api/collections', async (req, res) => {
     try {
-        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY id ASC");
-        res.json(categories);
-    } catch (err) {
-        console.error("Erro ao buscar categorias da coleção:", err);
-        res.status(500).json({ message: "Erro ao buscar categorias." });
-    }
-});
-
-// (Público) Pega todas as categorias da coleção para a home page
-app.get('/api/collections', async (req, res) => {
-    try {
-        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY id ASC");
+        // Agora, esta rota só retorna as categorias que estão ativas
+        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY id ASC");
         res.json(categories);
     } catch (err) {
         console.error("Erro ao buscar categorias da coleção:", err);
