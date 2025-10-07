@@ -1394,7 +1394,7 @@ const Header = memo(({ onNavigate }) => {
                             initial="closed" animate="open" exit="closed" variants={dropdownVariants}
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
                         >
-                           <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
+                            <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
                                 {dynamicMenuItems.map(cat => (
                                     cat && cat.sub && ( // <-- Verificação de segurança adicionada
                                         <div key={cat.name}>
@@ -1486,21 +1486,23 @@ const Header = memo(({ onNavigate }) => {
                                 </form>
 
                                 {dynamicMenuItems.map((cat, index) => (
-                                    <div key={cat.name} className="border-b border-gray-800">
-                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
-                                            <span>{cat.name}</span>
-                                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        <AnimatePresence>
-                                        {mobileAccordion === index && (
-                                            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
-                                                {cat.sub.map(subCat => (
-                                                    <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li>
-                                                ))}
-                                            </motion.ul>
-                                        )}
-                                        </AnimatePresence>
-                                    </div>
+                                    cat && cat.sub && ( // <-- Verificação de segurança adicionada
+                                        <div key={cat.name} className="border-b border-gray-800">
+                                            <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
+                                                <span>{cat.name}</span>
+                                                <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            <AnimatePresence>
+                                            {mobileAccordion === index && (
+                                                <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
+                                                    {cat.sub.map(subCat => (
+                                                        <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li>
+                                                    ))}
+                                                </motion.ul>
+                                            )}
+                                            </AnimatePresence>
+                                        </div>
+                                    )
                                 ))}
                                 
                                 <div className="border-b border-gray-800">
