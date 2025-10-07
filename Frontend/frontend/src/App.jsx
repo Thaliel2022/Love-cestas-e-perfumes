@@ -6768,6 +6768,92 @@ const AdminReports = () => {
     );
 };
 
+const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+    const notification = useNotification();
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value
+        }));
+    };
+
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            setFormData(prev => ({ ...prev, image: uploadResult.imageUrl }));
+            notification.show('Upload da imagem concluído!');
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsUploading(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    const menuSections = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
+    const productTypeAssociations = [{value: 'none', label: 'Nenhuma'}, {value: 'perfume', label: 'Perfume'}, {value: 'clothing', label: 'Roupa'}];
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Nome da Categoria</label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Valor do Filtro</label>
+                <input type="text" name="filter" value={formData.filter} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Imagem</label>
+                <div className="flex items-center gap-2 mt-1">
+                    <img src={formData.image || 'https://placehold.co/100x100/eee/ccc?text=?'} alt="Preview" className="w-20 h-20 object-cover rounded-md border bg-gray-100"/>
+                    <div className="flex-grow">
+                        <input type="text" name="image" value={formData.image} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="mt-2 w-full text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                            {isUploading ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Fazer Upload</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700">Seção Principal do Menu</label>
+                <select name="menu_section" value={formData.menu_section} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                    {menuSections.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Associar à Categoria de Produto (no form de produto)</label>
+                <select name="product_type_association" value={formData.product_type_association} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                     {productTypeAssociations.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+            </div>
+             <div className="flex items-center">
+                <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
+                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700">Ativa (visível na loja)</label>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            </div>
+        </form>
+    );
+};
+
 const AdminCollections = () => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -6775,14 +6861,24 @@ const AdminCollections = () => {
     const [editingCategory, setEditingCategory] = useState(null);
     const notification = useNotification();
     const confirmation = useConfirmation();
-    const fileInputRef = useRef(null);
-    const [uploadingImageFor, setUploadingImageFor] = useState(null);
 
     const fetchCategories = useCallback(() => {
         setIsLoading(true);
         apiService('/collections/admin')
-            .then(data => setCategories(data.sort((a,b) => a.id - b.id)))
-            .catch(err => notification.show(`Erro ao buscar categorias: ${err.message}`, 'error'))
+            .then(data => {
+                console.log("Dados recebidos da API /api/collections/admin:", data); // PONTO DE VERIFICAÇÃO
+                if (!Array.isArray(data)) {
+                    console.error("Erro: A API não retornou uma lista (array) de categorias.", data);
+                    notification.show("Erro: A resposta da API para buscar coleções é inválida.", 'error');
+                    setCategories([]); // Garante que o estado seja sempre um array para evitar quebras
+                } else {
+                    setCategories(data.sort((a, b) => a.id - b.id));
+                }
+            })
+            .catch(err => {
+                notification.show(`Erro ao buscar categorias: ${err.message}`, 'error');
+                setCategories([]); // Limpa as categorias em caso de erro na API
+            })
             .finally(() => setIsLoading(false));
     }, [notification]);
 
@@ -6825,64 +6921,16 @@ const AdminCollections = () => {
             }
         });
     };
-    
-    const handleTriggerUpload = (category) => {
-        if (uploadingImageFor) return;
-        setUploadingImageFor(category);
-        fileInputRef.current.click();
-    };
-
-    const handleFileChange = async (event) => {
-        const file = event.target.files[0];
-        if (!file || !uploadingImageFor) return;
-
-        try {
-            const uploadResult = await apiImageUploadService('/upload/image', file);
-            await apiService(`/collections/${uploadingImageFor.id}`, 'PUT', {
-                ...uploadingImageFor,
-                image: uploadResult.imageUrl
-            });
-            notification.show('Imagem da categoria atualizada com sucesso!');
-            fetchCategories();
-        } catch (error) {
-            notification.show(`Erro no upload: ${error.message}`, 'error');
-        } finally {
-            setUploadingImageFor(null);
-            event.target.value = '';
-        }
-    };
-
-    const categoryFields = [
-        { name: 'name', label: 'Nome da Categoria', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculinos' },
-        { name: 'filter', label: 'Valor do Filtro', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculino (usado na busca)' },
-        { name: 'image', label: 'URL da Imagem', type: 'text', required: true, placeholder: 'https://...' },
-        { name: 'menu_section', label: 'Seção Principal do Menu', type: 'select', options: [
-            {value: 'Perfumaria', label: 'Perfumaria'}, 
-            {value: 'Roupas', label: 'Roupas'},
-            {value: 'Conjuntos', label: 'Conjuntos'},
-            {value: 'Moda Íntima', label: 'Moda Íntima'},
-            {value: 'Calçados', label: 'Calçados'},
-            {value: 'Acessórios', label: 'Acessórios'}
-        ]},
-        { name: 'product_type_association', label: 'Associar à Categoria de Produto', type: 'select', options: [
-            {value: 'none', label: 'Nenhuma'},
-            {value: 'perfume', label: 'Perfume'},
-            {value: 'clothing', label: 'Roupa'}
-        ]},
-        { name: 'is_active', label: 'Ativa (visível na loja)', type: 'checkbox' },
-    ];
 
     return (
         <div>
             <AnimatePresence>
                 {isModalOpen && (
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory && editingCategory.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
-                        <AdminCrudForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={categoryFields} />
+                        <CollectionCategoryForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
                     </Modal>
                 )}
             </AnimatePresence>
-
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange}/>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold">Gerenciar Coleções</h1>
@@ -6898,22 +6946,16 @@ const AdminCollections = () => {
                     {categories.map(cat => (
                         <div key={cat.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col ${!cat.is_active ? 'opacity-50' : ''}`}>
                             <div className="relative aspect-[4/5]">
-                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover"/>
-                                {uploadingImageFor?.id === cat.id && (
-                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                        <SpinnerIcon className="h-8 w-8 text-white"/>
-                                    </div>
-                                )}
+                                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-cover"/>
                                 <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
                                     {cat.is_active ? 'Ativa' : 'Inativa'}
                                 </div>
                             </div>
                             <div className="p-3 bg-gray-50 flex-grow flex flex-col">
                                 <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
-                                <div className="flex items-center justify-center space-x-2 mt-3 pt-3 border-t">
-                                    <button onClick={() => handleTriggerUpload(cat)} className="p-2 text-gray-500 hover:text-blue-600" title="Alterar Imagem Rápida"><UploadIcon className="h-5 w-5"/></button>
-                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar Tudo"><EditIcon className="h-5 w-5"/></button>
-                                    <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir Categoria"><TrashIcon className="h-5 w-5"/></button>
+                                <div className="flex items-center justify-center space-x-4 mt-3 pt-3 border-t">
+                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar"><EditIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
                                 </div>
                             </div>
                         </div>
@@ -6923,7 +6965,6 @@ const AdminCollections = () => {
         </div>
     );
 };
-
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
