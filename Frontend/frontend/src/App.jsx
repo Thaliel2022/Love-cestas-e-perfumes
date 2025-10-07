@@ -1520,12 +1520,22 @@ const handleSuggestionClick = (productId) => {
     );
 });
 
-const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
+const CollectionsCarousel = memo(({ onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(6);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        setIsLoading(true);
+        apiService('/collections')
+            .then(data => setCategories(data.sort((a, b) => a.id - b.id))) // Ordena por ID para manter consistência
+            .catch(err => console.error("Falha ao buscar coleções:", err))
+            .finally(() => setIsLoading(false));
+    }, []);
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(2);
@@ -1548,6 +1558,19 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
     const goPrev = useCallback(() => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
     }, []);
+
+    if (isLoading) {
+        return (
+            <section className="bg-black text-white py-12 md:py-16">
+                <div className="container mx-auto px-4">
+                    {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+                    <div className="animate-pulse flex justify-center items-center h-48">
+                        <SpinnerIcon className="h-8 w-8 text-amber-500" />
+                    </div>
+                </div>
+            </section>
+        );
+    }
 
     if (!categories || categories.length === 0) return null;
 
@@ -1641,24 +1664,6 @@ const [products, setProducts] = useState({
             .catch(err => console.error("Falha ao buscar produtos:", err));
     }, []);
 
-    const categoryCards = [
-        { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
-        { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
-        { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
-        { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
-        { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
-        { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
-        { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
-        { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
-        { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
-        { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
-        { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
-        { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
-        { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
-        { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
-        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
-    ];
-
     const bannerVariants = {
         hidden: { opacity: 0 },
         visible: { 
@@ -1694,7 +1699,7 @@ const [products, setProducts] = useState({
           </motion.div>
         </section>
         
-        <CollectionsCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
+        <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
 
         <section className="bg-black text-white py-12 md:py-16">
           <div className="container mx-auto px-4">
