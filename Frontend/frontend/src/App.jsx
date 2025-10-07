@@ -4847,10 +4847,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         onNavigate('home');
     }
 
-    const menuItems = [
+   const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
+        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -6746,6 +6747,93 @@ const AdminReports = () => {
     );
 };
 
+const AdminCollections = () => {
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [uploadingId, setUploadingId] = useState(null);
+    const notification = useNotification();
+    const fileInputRef = useRef(null);
+    const [editingCategory, setEditingCategory] = useState(null);
+
+    const fetchCategories = useCallback(() => {
+        setIsLoading(true);
+        apiService('/collections/admin')
+            .then(setCategories)
+            .catch(err => notification.show(`Erro ao buscar categorias: ${err.message}`, 'error'))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => {
+        fetchCategories();
+    }, [fetchCategories]);
+
+    const handleImageClick = (category) => {
+        if (uploadingId) return; // Impede a troca enquanto um upload está em andamento
+        setEditingCategory(category);
+        fileInputRef.current.click();
+    };
+
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file || !editingCategory) {
+            return;
+        }
+
+        setUploadingId(editingCategory.id);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            await apiService(`/collections/${editingCategory.id}`, 'PUT', { image: uploadResult.imageUrl });
+            notification.show('Imagem da categoria atualizada com sucesso!');
+            fetchCategories(); // Atualiza os dados para mostrar a nova imagem
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setUploadingId(null);
+            setEditingCategory(null);
+            event.target.value = ''; // Reseta o input de arquivo para permitir o mesmo upload novamente
+        }
+    };
+
+    return (
+        <div>
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Imagens das Coleções</h1>
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+            />
+            {isLoading ? (
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
+            ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    {categories.map(cat => (
+                        <div key={cat.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden group">
+                            <div className="relative aspect-[4/5] cursor-pointer" onClick={() => handleImageClick(cat)}>
+                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    {uploadingId === cat.id ? (
+                                        <SpinnerIcon className="h-8 w-8 text-white" />
+                                    ) : (
+                                        <div className="text-center text-white p-2">
+                                            <UploadIcon className="h-8 w-8 mx-auto" />
+                                            <p className="text-xs font-bold mt-1">Alterar Imagem</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="p-3 bg-gray-50">
+                                <h3 className="font-semibold text-gray-800 text-sm text-center truncate" title={cat.name}>{cat.name}</h3>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
@@ -6822,10 +6910,11 @@ function AppContent({ deferredPrompt }) {
         }
         
         const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard />, 
+      const adminPages = {
+            'dashboard': <AdminDashboard />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
+            'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
