@@ -1396,7 +1396,7 @@ const Header = memo(({ onNavigate }) => {
                         >
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
                                 {dynamicMenuItems.map(cat => (
-                                    cat && cat.sub && ( // <-- Verificação de segurança adicionada
+                                    cat && cat.sub && ( // <-- Verificação de segurança
                                         <div key={cat.name}>
                                             <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
                                             <ul className="space-y-2">
@@ -1486,7 +1486,7 @@ const Header = memo(({ onNavigate }) => {
                                 </form>
 
                                 {dynamicMenuItems.map((cat, index) => (
-                                    cat && cat.sub && ( // <-- Verificação de segurança adicionada
+                                    cat && cat.sub && ( // <-- Verificação de segurança
                                         <div key={cat.name} className="border-b border-gray-800">
                                             <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
                                                 <span>{cat.name}</span>
