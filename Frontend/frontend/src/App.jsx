@@ -6755,15 +6755,17 @@ const AdminReports = () => {
 const AdminCollections = () => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [uploadingId, setUploadingId] = useState(null);
-    const notification = useNotification();
-    const fileInputRef = useRef(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+    const fileInputRef = useRef(null);
+    const [uploadingImageFor, setUploadingImageFor] = useState(null);
 
     const fetchCategories = useCallback(() => {
         setIsLoading(true);
         apiService('/collections/admin')
-            .then(setCategories)
+            .then(data => setCategories(data.sort((a,b) => a.id - b.id)))
             .catch(err => notification.show(`Erro ao buscar categorias: ${err.message}`, 'error'))
             .finally(() => setIsLoading(false));
     }, [notification]);
@@ -6772,64 +6774,110 @@ const AdminCollections = () => {
         fetchCategories();
     }, [fetchCategories]);
 
-    const handleImageClick = (category) => {
-        if (uploadingId) return; // Impede a troca enquanto um upload está em andamento
+    const handleOpenModal = (category = null) => {
         setEditingCategory(category);
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (formData) => {
+        try {
+            if (editingCategory && editingCategory.id) {
+                await apiService(`/collections/${editingCategory.id}`, 'PUT', formData);
+                notification.show('Categoria atualizada com sucesso!');
+            } else {
+                await apiService('/collections/admin', 'POST', formData);
+                notification.show('Categoria criada com sucesso!');
+            }
+            fetchCategories();
+            setIsModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro ao salvar: ${error.message}`, 'error');
+        }
+    };
+
+    const handleDelete = (id) => {
+        confirmation.show("Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita.", async () => {
+            try {
+                await apiService(`/collections/${id}`, 'DELETE');
+                notification.show('Categoria deletada com sucesso.');
+                fetchCategories();
+            } catch (error) {
+                notification.show(`Erro ao deletar: ${error.message}`, 'error');
+            }
+        });
+    };
+    
+    const handleTriggerUpload = (category) => {
+        setUploadingImageFor(category);
         fileInputRef.current.click();
     };
 
     const handleFileChange = async (event) => {
         const file = event.target.files[0];
-        if (!file || !editingCategory) {
-            return;
-        }
+        if (!file || !uploadingImageFor) return;
 
-        setUploadingId(editingCategory.id);
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
-            await apiService(`/collections/${editingCategory.id}`, 'PUT', { image: uploadResult.imageUrl });
+            await apiService(`/collections/${uploadingImageFor.id}`, 'PUT', {
+                ...uploadingImageFor, // Envia os dados existentes para não apagar
+                image: uploadResult.imageUrl
+            });
             notification.show('Imagem da categoria atualizada com sucesso!');
-            fetchCategories(); // Atualiza os dados para mostrar a nova imagem
+            fetchCategories();
         } catch (error) {
             notification.show(`Erro no upload: ${error.message}`, 'error');
         } finally {
-            setUploadingId(null);
-            setEditingCategory(null);
-            event.target.value = ''; // Reseta o input de arquivo para permitir o mesmo upload novamente
+            setUploadingImageFor(null);
+            event.target.value = '';
         }
     };
 
+    const categoryFields = [
+        { name: 'name', label: 'Nome da Categoria', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculinos' },
+        { name: 'filter', label: 'Valor do Filtro', type: 'text', required: true, placeholder: 'Ex: Perfumes Masculino (deve ser exato)' },
+        { name: 'image', label: 'URL da Imagem', type: 'text', required: true, placeholder: 'https://...' },
+    ];
+
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Gerenciar Imagens das Coleções</h1>
-            <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileChange}
-            />
+            <AnimatePresence>
+                {isModalOpen && (
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
+                        <AdminCrudForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={categoryFields} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange}/>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-3xl font-bold">Gerenciar Coleções</h1>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
+                    <PlusIcon className="h-5 w-5"/> <span>Nova Categoria</span>
+                </button>
+            </div>
+
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
                     {categories.map(cat => (
-                        <div key={cat.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden group">
-                            <div className="relative aspect-[4/5] cursor-pointer" onClick={() => handleImageClick(cat)}>
-                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    {uploadingId === cat.id ? (
-                                        <SpinnerIcon className="h-8 w-8 text-white" />
-                                    ) : (
-                                        <div className="text-center text-white p-2">
-                                            <UploadIcon className="h-8 w-8 mx-auto" />
-                                            <p className="text-xs font-bold mt-1">Alterar Imagem</p>
-                                        </div>
-                                    )}
-                                </div>
+                        <div key={cat.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden group flex flex-col">
+                            <div className="relative aspect-[4/5]">
+                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover"/>
+                                {uploadingImageFor?.id === cat.id && (
+                                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                        <SpinnerIcon className="h-8 w-8 text-white"/>
+                                    </div>
+                                )}
                             </div>
-                            <div className="p-3 bg-gray-50">
-                                <h3 className="font-semibold text-gray-800 text-sm text-center truncate" title={cat.name}>{cat.name}</h3>
+                            <div className="p-3 bg-gray-50 flex-grow flex flex-col">
+                                <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
+                                <div className="flex items-center justify-center space-x-2 mt-3 pt-3 border-t">
+                                    <button onClick={() => handleTriggerUpload(cat)} className="p-2 text-gray-500 hover:text-blue-600" title="Alterar Imagem"><UploadIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar Nome e Filtro"><EditIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir Categoria"><TrashIcon className="h-5 w-5"/></button>
+                                </div>
                             </div>
                         </div>
                     ))}
