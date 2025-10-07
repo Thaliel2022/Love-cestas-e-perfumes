@@ -2286,24 +2286,71 @@ app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => 
     }
 });
 
-// (Admin) Atualiza a imagem de uma categoria
+// (Admin) Cria uma nova categoria
+app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+    const { name, image, filter } = req.body;
+    if (!name || !image || !filter) {
+        return res.status(400).json({ message: "Nome, imagem e filtro são obrigatórios." });
+    }
+    try {
+        const [result] = await db.query("INSERT INTO collection_categories (name, image, filter) VALUES (?, ?, ?)", [name, image, filter]);
+        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao criar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao criar categoria." });
+    }
+});
+
+// (Admin) Atualiza uma categoria
 app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { image } = req.body;
+    const { name, image, filter } = req.body;
 
-    if (!image) {
-        return res.status(400).json({ message: "A URL da imagem é obrigatória." });
+    if (!name || !image || !filter) {
+        return res.status(400).json({ message: "Nome, imagem e filtro são obrigatórios." });
     }
 
     try {
-        const [result] = await db.query("UPDATE collection_categories SET image = ? WHERE id = ?", [image, id]);
+        const [result] = await db.query("UPDATE collection_categories SET name = ?, image = ?, filter = ? WHERE id = ?", [name, image, filter, id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Categoria não encontrada." });
         }
-        res.json({ message: "Imagem da categoria atualizada com sucesso." });
+        res.json({ message: "Categoria da coleção atualizada com sucesso." });
     } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
         console.error("Erro ao atualizar categoria da coleção:", err);
         res.status(500).json({ message: "Erro ao atualizar categoria." });
+    }
+});
+
+// (Admin) Deleta uma categoria
+app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Categoria deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao deletar categoria." });
+    }
+});
+
+// (Público) Pega todas as categorias da coleção para a home page
+app.get('/api/collections', async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY id ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
     }
 });
 
