@@ -2166,129 +2166,117 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE GERENCIAMENTO DE ENDEREÇOS ---
-app.get('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    try {
-        const [addresses] = await db.query("SELECT * FROM user_addresses WHERE user_id = ? ORDER BY is_default DESC, alias ASC", [userId]);
-        res.json(addresses);
-    } catch (err) {
-        console.error("Erro ao buscar endereços:", err);
-        res.status(500).json({ message: "Erro ao buscar endereços." });
-    }
-});
-
-app.post('/api/addresses', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
-        const sql = "INSERT INTO user_addresses (user_id, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [userId, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0];
-        const [result] = await connection.query(sql, params);
-        
-        const [newAddress] = await connection.query("SELECT * FROM user_addresses WHERE id = ?", [result.insertId]);
-
-        await connection.commit();
-        res.status(201).json(newAddress[0]);
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao adicionar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao adicionar endereço." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
-    
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        if (is_default) {
-            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        }
-
-        const sql = "UPDATE user_addresses SET alias = ?, cep = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?, localidade = ?, uf = ?, is_default = ? WHERE id = ? AND user_id = ?";
-        const params = [alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0, id, userId];
-        const [result] = await connection.query(sql, params);
-
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-
-        await connection.commit();
-        res.json({ message: "Endereço atualizado com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao atualizar endereço." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
-        const [result] = await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [id, userId]);
-        
-        if (result.affectedRows === 0) {
-            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
-        }
-        
-        await connection.commit();
-        res.json({ message: "Endereço padrão definido com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao definir endereço padrão:", err);
-        res.status(500).json({ message: err.message || "Erro ao definir endereço padrão." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id } = req.params;
-
-    try {
-        const [result] = await db.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [id, userId]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Endereço não encontrado ou não pertence a este usuário." });
-        }
-        res.json({ message: "Endereço deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar endereço:", err);
-        res.status(500).json({ message: "Erro ao deletar endereço." });
-    }
-});
-
 // --- ROTAS DE GERENCIAMENTO DE COLEÇÕES (Admin & Público) ---
 
 // (Admin) Pega todas as categorias da coleção para o painel
 app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY name ASC");
+        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY display_order ASC");
         res.json(categories);
     } catch (err) {
         console.error("Erro ao buscar categorias da coleção (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
+
+// (Admin) Cria uma nova categoria
+app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
+    try {
+        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
+        const [result] = await db.query(sql, params);
+        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao criar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao criar categoria." });
+    }
+});
+
+// (Admin) Atualiza uma categoria
+app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
+
+    try {
+        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
+        const [result] = await db.query(sql, params);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Categoria da coleção atualizada com sucesso." });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao atualizar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao atualizar categoria." });
+    }
+});
+
+// (Admin) Atualiza a ORDEM de múltiplas categorias
+app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => {
+    const { orderedIds } = req.body; 
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs ordenados." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const updatePromises = orderedIds.map((id, index) => {
+            return connection.query("UPDATE collection_categories SET display_order = ? WHERE id = ?", [index, id]);
+        });
+
+        await Promise.all(updatePromises);
+
+        await connection.commit();
+        res.json({ message: "Ordem das coleções atualizada com sucesso." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao reordenar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao reordenar categorias." });
+    } finally {
+        connection.release();
+    }
+});
+
+
+// (Admin) Deleta uma categoria
+app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Categoria deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao deletar categoria." });
+    }
+});
+
+// (Público) Pega todas as categorias da coleção para a home page
+app.get('/api/collections', async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção:", err);
         res.status(500).json({ message: "Erro ao buscar categorias." });
     }
 });
