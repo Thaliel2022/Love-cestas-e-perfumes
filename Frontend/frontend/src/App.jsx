@@ -527,7 +527,7 @@ useEffect(() => {
             updateDefaultShippingLocation, determineShippingLocation,
             setPreviewShippingItem, 
             setSelectedShippingName,
-            isGeolocating, // <-- NOVO VALOR EXPORTADO
+            isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
