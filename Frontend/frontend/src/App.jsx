@@ -106,10 +106,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
     }
     try {
         const finalUrl = `${API_URL}${endpoint}`;
-        
-        // --- NOSSO PONTO DE VERIFICAÇÃO ---
-        console.log(`%c[API Service] Tentando buscar: ${method} ${finalUrl}`, 'color: yellow; font-weight: bold;');
-
         const response = await fetch(finalUrl, config);
         const contentType = response.headers.get("content-type");
 
