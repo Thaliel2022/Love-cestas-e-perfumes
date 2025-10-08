@@ -1,6 +1,8 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -51,16 +53,7 @@ const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" clas
 const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002L15.316 6.342a3 3 0 110 2.684m-6.632-2.684a3 3 0 000 2.684" /></svg>;
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-
-// --- CONSTANTE GLOBAL DO MENU ---
-const CATEGORIES_FOR_MENU = [
-    { name: "Perfumaria", sub: ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"] },
-    { name: "Roupas", sub: ["Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos"] },
-    { name: "Conjuntos", sub: ["Conjunto de Calças", "Conjunto de Shorts"] },
-    { name: "Moda Íntima", sub: ["Lingerie", "Moda Praia"] },
-    { name: "Calçados", sub: ["Sandálias"] },
-    { name: "Acessórios", sub: ["Presente"] }
-];
+const BarsGripIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={className}><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z M2 8a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -306,7 +299,7 @@ const ShopProvider = ({ children }) => {
     const [shippingError, setShippingError] = useState('');
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
-    const [isGeolocating, setIsGeolocating] = useState(false); // <-- NOVO ESTADO
+    const [isGeolocating, setIsGeolocating] = useState(false);
 
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
@@ -323,6 +316,7 @@ const ShopProvider = ({ children }) => {
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
+            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
@@ -347,7 +341,7 @@ const ShopProvider = ({ children }) => {
             }
         }
         if (!locationDetermined && navigator.geolocation) {
-            setIsGeolocating(true); // <-- ATIVA O FEEDBACK
+            setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude, longitude } = position.coords;
@@ -359,13 +353,13 @@ const ShopProvider = ({ children }) => {
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
                     } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
-                    finally { setIsGeolocating(false); } // <-- DESATIVA O FEEDBACK
+                    finally { setIsGeolocating(false); }
                 }, 
                 (error) => { 
                     console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false); // <-- DESATIVA O FEEDBACK
+                    setIsGeolocating(false);
                 },
-                { timeout: 10000 } // <-- TEMPO LIMITE DE 10 SEGUNDOS
+                { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
@@ -383,7 +377,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-useEffect(() => {
+    useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
 
         const debounceTimer = setTimeout(() => {
@@ -406,10 +400,8 @@ useEffect(() => {
 
                         const shippingApiOptions = [];
                         if (pacOptionRaw) {
-                            // Adiciona o PAC e renomeia para uma exibição limpa
                             shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
                         } else if (sedexOption) {
-                            // Se não houver PAC, adiciona o SEDEX
                             shippingApiOptions.push(sedexOption);
                         }
 
@@ -419,7 +411,7 @@ useEffect(() => {
                         setShippingOptions(finalOptions);
                         
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        const primaryShippingOption = shippingApiOptions[0]; // Será PAC ou SEDEX, se um deles existir
+                        const primaryShippingOption = shippingApiOptions[0];
                         
                         setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
 
@@ -534,7 +526,7 @@ useEffect(() => {
             updateDefaultShippingLocation, determineShippingLocation,
             setPreviewShippingItem, 
             setSelectedShippingName,
-            isGeolocating, // <-- NOVO VALOR EXPORTADO
+            isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
@@ -1202,6 +1194,47 @@ const Header = memo(({ onNavigate }) => {
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
+    const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
+
+    const fetchAndBuildMenu = useCallback(() => {
+        apiService('/collections')
+            .then(data => {
+                const groupedMenu = data.reduce((acc, category) => {
+                    const section = category.menu_section;
+                    if (!acc[section]) {
+                        acc[section] = [];
+                    }
+                    acc[section].push({ name: category.name, filter: category.filter });
+                    return acc;
+                }, {});
+
+                const menuOrder = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
+                const finalMenuStructure = menuOrder
+                    .filter(sectionName => groupedMenu[sectionName])
+                    .map(sectionName => ({
+                        name: sectionName,
+                        sub: groupedMenu[sectionName]
+                    }));
+                setDynamicMenuItems(finalMenuStructure);
+            })
+            .catch(err => {
+                console.error("Falha ao construir o menu dinâmico:", err);
+                setDynamicMenuItems([]);
+            });
+    }, []);
+
+    // Busca o menu na primeira vez que o componente carrega
+    useEffect(() => {
+        fetchAndBuildMenu();
+    }, [fetchAndBuildMenu]);
+
+    // Lógica de Retentativa: Se o menu mobile for aberto e estiver vazio, busca de novo.
+    useEffect(() => {
+        if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
+            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
+            fetchAndBuildMenu();
+        }
+    }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
     const prevTotalCartItems = useRef(totalCartItems);
@@ -1217,8 +1250,8 @@ const Header = memo(({ onNavigate }) => {
         prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
-useEffect(() => {
-        if (searchTerm.length < 1) { // Alterado de 2 para 1
+    useEffect(() => {
+        if (searchTerm.length < 1) {
             setSearchSuggestions([]);
             return;
         }
@@ -1240,15 +1273,13 @@ useEffect(() => {
         }
     };
     
-const handleSuggestionClick = (productId) => {
+    const handleSuggestionClick = (productId) => {
         onNavigate(`product/${productId}`);
         setSearchTerm('');
         setSearchSuggestions([]);
         setIsSearchFocused(false);
         setIsMobileMenuOpen(false);
     };
-
-    const categoriesForMenu = CATEGORIES_FOR_MENU;
 
     const dropdownVariants = {
         open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
@@ -1262,6 +1293,7 @@ const handleSuggestionClick = (productId) => {
 
     return (
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+            {/* O restante do código JSX do Header permanece o mesmo daqui para baixo... */}
             {/* Top Bar */}
             <div className="container mx-auto px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
@@ -1272,7 +1304,7 @@ const handleSuggestionClick = (productId) => {
                         <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                     </div>
                     
-<div className="hidden lg:block flex-1 max-w-xl mx-8">
+                    <div className="hidden lg:block flex-1 max-w-xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input 
                                 type="text" value={searchTerm} 
@@ -1366,11 +1398,9 @@ const handleSuggestionClick = (productId) => {
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
                 </div>
-                {/* ===== ATUALIZAÇÃO PROMOÇÕES ===== */}
                 <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
                     <SaleIcon className="h-4 w-4" /> Promoções
                 </a>
-                {/* =============================== */}
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 
                 <AnimatePresence>
@@ -1380,17 +1410,19 @@ const handleSuggestionClick = (productId) => {
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
                         >
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {categoriesForMenu.map(cat => (
-                                    <div key={cat.name}>
-                                        <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
-                                        <ul className="space-y-2">
-                                            {cat.sub.map(subCat => (
-                                                <li key={subCat}>
-                                                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat}</a>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
+                                {dynamicMenuItems.map(cat => (
+                                    cat && cat.sub && (
+                                        <div key={cat.name}>
+                                            <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
+                                            <ul className="space-y-2">
+                                                {cat.sub.map(subCat => (
+                                                    <li key={subCat.name}>
+                                                        <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )
                                 ))}
                             </div>
                         </motion.div>
@@ -1426,9 +1458,8 @@ const handleSuggestionClick = (productId) => {
                                         placeholder="O que você procura?"
                                         className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                                     />
-                                    {/* A div a seguir é posicionada em relação ao form */}
                                     <div className="relative"> 
-                                 <AnimatePresence>
+                                        <AnimatePresence>
                                             {isSearchFocused && searchTerm.length > 0 && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: -10 }}
@@ -1469,30 +1500,31 @@ const handleSuggestionClick = (productId) => {
                                     </div>
                                 </form>
 
-                                {categoriesForMenu.map((cat, index) => (
-                                    <div key={cat.name} className="border-b border-gray-800">
-                                        <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
-                                            <span>{cat.name}</span>
-                                            <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
-                                        </button>
-                                        <AnimatePresence>
-                                        {mobileAccordion === index && (
-                                            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
-                                                {cat.sub.map(subCat => (
-                                                    <li key={subCat}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat}</a></li>
-                                                ))}
-                                            </motion.ul>
-                                        )}
-                                        </AnimatePresence>
-                                    </div>
+                                {dynamicMenuItems.map((cat, index) => (
+                                    cat && cat.sub && (
+                                        <div key={cat.name} className="border-b border-gray-800">
+                                            <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white">
+                                                <span>{cat.name}</span>
+                                                <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            <AnimatePresence>
+                                            {mobileAccordion === index && (
+                                                <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden">
+                                                    {cat.sub.map(subCat => (
+                                                        <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li>
+                                                    ))}
+                                                </motion.ul>
+                                            )}
+                                            </AnimatePresence>
+                                        </div>
+                                    )
                                 ))}
-                                {/* ===== ATUALIZAÇÃO PROMOÇÕES (MOBILE) ===== */}
+                                
                                 <div className="border-b border-gray-800">
                                     <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
                                         <SaleIcon className="h-5 w-5"/> Promoções
                                     </a>
                                 </div>
-                                {/* ======================================== */}
                                 <div className="border-b border-gray-800">
                                     <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a>
                                 </div>
@@ -1520,12 +1552,22 @@ const handleSuggestionClick = (productId) => {
     );
 });
 
-const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
+const CollectionsCarousel = memo(({ onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(6);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        setIsLoading(true);
+        apiService('/collections')
+            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
+            .catch(err => console.error("Falha ao buscar coleções:", err))
+            .finally(() => setIsLoading(false));
+    }, []);
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(2);
@@ -1548,6 +1590,19 @@ const CollectionsCarousel = memo(({ categories, onNavigate, title }) => {
     const goPrev = useCallback(() => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
     }, []);
+
+    if (isLoading) {
+        return (
+            <section className="bg-black text-white py-12 md:py-16">
+                <div className="container mx-auto px-4">
+                    {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+                    <div className="animate-pulse flex justify-center items-center h-48">
+                        <SpinnerIcon className="h-8 w-8 text-amber-500" />
+                    </div>
+                </div>
+            </section>
+        );
+    }
 
     if (!categories || categories.length === 0) return null;
 
@@ -1641,24 +1696,6 @@ const [products, setProducts] = useState({
             .catch(err => console.error("Falha ao buscar produtos:", err));
     }, []);
 
-    const categoryCards = [
-        { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino" },
-        { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino" },
-        { name: "Blazer", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazer" },
-        { name: "Calça", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calça" },
-        { name: "Blusa", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusa" },
-        { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts" },
-        { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias" },
-        { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos" },
-        { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças" },
-        { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts" },
-        { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia" },
-        { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie" },
-        { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias" },
-        { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente" },
-        { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes" }
-    ];
-
     const bannerVariants = {
         hidden: { opacity: 0 },
         visible: { 
@@ -1694,7 +1731,7 @@ const [products, setProducts] = useState({
           </motion.div>
         </section>
         
-        <CollectionsCarousel categories={categoryCards} onNavigate={onNavigate} title="Coleções" />
+        <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
 
         <section className="bg-black text-white py-12 md:py-16">
           <div className="container mx-auto px-4">
@@ -1727,24 +1764,31 @@ const [products, setProducts] = useState({
 
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
-const [allProducts, setAllProducts] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
     const [filteredProducts, setFilteredProducts] = useState([]);
     const [filters, setFilters] = useState({ search: initialSearch, brand: initialBrand, category: initialCategory });
     const [currentPage, setCurrentPage] = useState(1);
     const [isLoading, setIsLoading] = useState(true);
+    const [uniqueCategories, setUniqueCategories] = useState([]);
     const productsPerPage = 12;
 
     useEffect(() => {
         const controller = new AbortController();
         setIsLoading(true);
-        apiService('/products', 'GET', null, { signal: controller.signal })
-            .then(data => {
-                setAllProducts(data);
-            })
-            .catch(err => {
-                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
-            })
-            .finally(() => setIsLoading(false));
+        
+        Promise.all([
+            apiService('/products', 'GET', null, { signal: controller.signal }),
+            apiService('/collections', 'GET', null, { signal: controller.signal })
+        ]).then(([productsData, collectionsData]) => {
+            setAllProducts(productsData);
+            // Cria uma lista única de categorias a partir das coleções ativas
+            const activeCategories = collectionsData.map(cat => cat.filter);
+            setUniqueCategories([...new Set(activeCategories)].sort());
+        }).catch(err => {
+            if (err.name !== 'AbortError') console.error("Falha ao buscar dados da página de produtos:", err);
+        }).finally(() => {
+            setIsLoading(false);
+        });
 
         return () => controller.abort();
     }, []);
@@ -1752,7 +1796,6 @@ const [allProducts, setAllProducts] = useState([]);
     useEffect(() => {
         setFilters(prev => ({...prev, search: initialSearch, category: initialCategory, brand: initialBrand}));
     }, [initialSearch, initialCategory, initialBrand]);
-
 
     useEffect(() => {
         let result = [...allProducts];
@@ -1778,7 +1821,6 @@ const [allProducts, setAllProducts] = useState([]);
     }, [filters, allProducts, initialIsPromo]);
     
     const uniqueBrands = [...new Set(allProducts.map(p => p.brand))];
-    const uniqueCategories = useMemo(() => CATEGORIES_FOR_MENU.flatMap(cat => cat.sub), []);
     const indexOfLastProduct = currentPage * productsPerPage;
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
@@ -4847,10 +4889,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         onNavigate('home');
     }
 
-    const menuItems = [
+   const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
+        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
@@ -5135,15 +5178,16 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [uploadingStatus, setUploadingStatus] = useState({});
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
+    const [allCollectionCategories, setAllCollectionCategories] = useState([]);
 
-    const clothingCategories = [
-        "Blusas", "Blazers", "Calças", "Shorts", "Saias", "Vestidos", 
-        "Conjunto de Calças", "Conjunto de Shorts", "Lingerie", "Moda Praia",
-        "Sandálias", "Presente"
-    ];
+    useEffect(() => {
+        // Busca todas as categorias de coleção para preencher o dropdown
+        apiService('/collections/admin')
+            .then(data => setAllCollectionCategories(data.filter(c => c.is_active)))
+            .catch(err => console.error("Falha ao buscar categorias de coleção", err));
+    }, []);
     
     const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
-    const perfumeCategories = ["Perfumes Masculino", "Perfumes Feminino", "Cestas de Perfumes"];
 
     const perfumeFields = [
         { name: 'stock', label: 'Estoque', type: 'number', required: true },
@@ -5209,14 +5253,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(initialData);
     }, [item, setProductType]);
 
-const handleChange = (e) => {
+    const availableProductCategories = useMemo(() => {
+        return allCollectionCategories.filter(c => c.product_type_association === productType);
+    }, [allCollectionCategories, productType]);
+
+    const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
     };
 
     const handleVolumeBlur = (e) => {
         let { value } = e.target;
-        // Verifica se o valor não está vazio, é um número e não contém 'ml'
         if (value && value.trim() !== '' && !isNaN(parseFloat(value)) && !/ml/i.test(value)) {
             const formattedValue = `${parseFloat(value)}ml`;
             setFormData(prev => ({ ...prev, volume: formattedValue }));
@@ -5359,7 +5406,6 @@ const handleChange = (e) => {
                     if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
 
                     if (field.name === 'category') {
-                         const options = productType === 'clothing' ? clothingCategories : perfumeCategories;
                          return (
                             <div key={field.name}>
                                 <label className="block text-sm font-medium text-gray-700">{field.label}</label>
@@ -5371,7 +5417,7 @@ const handleChange = (e) => {
                                     required={field.required}
                                 >
                                     <option value="">Selecione...</option>
-                                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
                                 </select>
                             </div>
                         );
@@ -6746,6 +6792,263 @@ const AdminReports = () => {
     );
 };
 
+const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+    const notification = useNotification();
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value
+        }));
+    };
+
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            setFormData(prev => ({ ...prev, image: uploadResult.imageUrl }));
+            notification.show('Upload da imagem concluído!');
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsUploading(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    const menuSections = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
+    const productTypeAssociations = [{value: 'none', label: 'Nenhuma'}, {value: 'perfume', label: 'Perfume'}, {value: 'clothing', label: 'Roupa'}];
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Nome da Categoria</label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Valor do Filtro</label>
+                <input type="text" name="filter" value={formData.filter} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Imagem</label>
+                <div className="flex items-center gap-2 mt-1">
+                    <img src={formData.image || 'https://placehold.co/100x100/eee/ccc?text=?'} alt="Preview" className="w-20 h-20 object-cover rounded-md border bg-gray-100"/>
+                    <div className="flex-grow">
+                        <input type="text" name="image" value={formData.image} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="mt-2 w-full text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                            {isUploading ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Fazer Upload</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700">Seção Principal do Menu</label>
+                <select name="menu_section" value={formData.menu_section} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                    {menuSections.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Associar à Categoria de Produto (no form de produto)</label>
+                <select name="product_type_association" value={formData.product_type_association} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                     {productTypeAssociations.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+            </div>
+             <div className="flex items-center">
+                <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
+                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700">Ativa (visível na loja)</label>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            </div>
+        </form>
+    );
+};
+
+const SortableCategoryCard = ({ cat, onEdit, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: cat.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col relative ${!cat.is_active ? 'opacity-60' : ''}`}>
+            <div 
+                {...attributes} 
+                {...listeners} 
+                style={{ touchAction: 'none' }} // Aplica a regra de toque apenas no ícone
+                className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                title="Arraste para reordenar"
+            >
+                <BarsGripIcon className="h-5 w-5 text-white" />
+            </div>
+
+            <div className="relative aspect-[4/5]">
+                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-cover"/>
+                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
+                    {cat.is_active ? 'Ativa' : 'Inativa'}
+                </div>
+            </div>
+            <div className="p-3 bg-gray-50 flex-grow flex flex-col">
+                <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
+                <div className="flex items-center justify-center space-x-4 mt-3 pt-3 border-t">
+                    <button onClick={() => onEdit(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar"><EditIcon className="h-5 w-5"/></button>
+                    <button onClick={() => onDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminCollections = () => {
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+    const sensors = useSensors(useSensor(PointerSensor));
+
+    const fetchCategories = useCallback(() => {
+        setIsLoading(true);
+        apiService('/collections/admin')
+            .then(data => {
+                if (!Array.isArray(data)) {
+                    notification.show("Erro: A resposta da API é inválida.", 'error');
+                    setCategories([]);
+                } else {
+                    setCategories(data);
+                }
+            })
+            .catch(err => {
+                notification.show(`Erro ao buscar categorias: ${err.message}`, 'error');
+                setCategories([]);
+            })
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => {
+        fetchCategories();
+    }, [fetchCategories]);
+
+    const handleOpenModal = (category = null) => {
+        const initialData = category ? 
+            {...category} : 
+            { name: '', filter: '', image: '', is_active: 1, product_type_association: 'none', menu_section: 'Roupas'};
+        setEditingCategory(initialData);
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (formData) => {
+        try {
+            if (editingCategory && editingCategory.id) {
+                await apiService(`/collections/${editingCategory.id}`, 'PUT', formData);
+                notification.show('Categoria atualizada com sucesso!');
+            } else {
+                await apiService('/collections/admin', 'POST', formData);
+                notification.show('Categoria criada com sucesso!');
+            }
+            fetchCategories();
+            setIsModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro ao salvar: ${error.message}`, 'error');
+        }
+    };
+
+    const handleDelete = (id) => {
+        confirmation.show("Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita.", async () => {
+            try {
+                await apiService(`/collections/${id}`, 'DELETE');
+                notification.show('Categoria deletada com sucesso.');
+                fetchCategories();
+            } catch (error) {
+                notification.show(`Erro ao deletar: ${error.message}`, 'error');
+            }
+        });
+    };
+
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        if (active.id !== over.id) {
+            const oldIndex = categories.findIndex((c) => c.id === active.id);
+            const newIndex = categories.findIndex((c) => c.id === over.id);
+            const newOrder = arrayMove(categories, oldIndex, newIndex);
+            
+            setCategories(newOrder); // Atualização otimista da UI
+
+            setIsSavingOrder(true);
+            const orderedIds = newOrder.map(c => c.id);
+            try {
+                await apiService('/collections/order', 'PUT', { orderedIds });
+                notification.show('Ordem salva com sucesso!');
+            } catch (error) {
+                notification.show(`Erro ao salvar a ordem: ${error.message}`, 'error');
+                fetchCategories(); // Reverte para a ordem do servidor em caso de erro
+            } finally {
+                setIsSavingOrder(false);
+            }
+        }
+    };
+
+    return (
+        <div>
+            <AnimatePresence>
+                {isModalOpen && (
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCategory && editingCategory.id ? 'Editar Categoria' : 'Adicionar Nova Categoria'}>
+                        <CollectionCategoryForm item={editingCategory} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-3xl font-bold">Gerenciar Coleções</h1>
+                <div className="flex items-center gap-4">
+                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
+                    <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
+                        <PlusIcon className="h-5 w-5"/> <span>Nova Categoria</span>
+                    </button>
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
+            ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={categories} strategy={rectSortingStrategy}>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                            {categories.map(cat => (
+                                <SortableCategoryCard key={cat.id} cat={cat} onEdit={handleOpenModal} onDelete={handleDelete} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            )}
+        </div>
+    );
+};
+
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
@@ -6822,10 +7125,11 @@ function AppContent({ deferredPrompt }) {
         }
         
         const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard />, 
+      const adminPages = {
+            'dashboard': <AdminDashboard />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
+            'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
