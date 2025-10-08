@@ -1565,7 +1565,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data.sort((a, b) => a.id - b.id))) // Ordena por ID para manter consistência
+            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
