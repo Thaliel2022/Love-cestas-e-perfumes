@@ -111,6 +111,55 @@ const sanitizeInput = (req, res, next) => {
 };
 app.use(sanitizeInput);
 
+// --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
+const initializeData = async () => {
+    const connection = await db.getConnection();
+    try {
+        console.log('Verificando dados iniciais...');
+
+        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
+        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
+        if (categories[0].count === 0) {
+            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
+            const initialCategories = [
+                // Perfumaria
+                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                // Roupas
+                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
+                // Conjuntos
+                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                // Moda Íntima
+                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                // Calçados
+                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
+                // Acessórios
+                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
+            ];
+            
+            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES ?";
+            const values = initialCategories.map(c => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section]);
+            await connection.query(sql, [values]);
+            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
+        } else {
+            console.log('Tabela collection_categories já populada.');
+        }
+
+    } catch (err) {
+        console.error("Erro ao inicializar dados:", err);
+    } finally {
+        connection.release();
+    }
+};
+
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -127,6 +176,7 @@ db.getConnection()
     .then(connection => {
         console.log('Conectado ao banco de dados MySQL com sucesso!');
         connection.release();
+        initializeData(); // Chama a função de seed
     })
     .catch(err => {
         console.error('Falha ao conectar ao banco de dados:', err);
@@ -695,7 +745,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
- if (!q || q.length < 1) {
+	if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
@@ -788,7 +838,7 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-  const fields = [
+	const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
@@ -1312,7 +1362,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
              const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
              if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                   await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
              }
         }
         
@@ -2230,6 +2280,119 @@ app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
     }
 });
 
+// --- ROTAS DE GERENCIAMENTO DE COLEÇÕES (Admin & Público) ---
+
+// (Admin) Pega todas as categorias da coleção para o painel
+app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY display_order ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
+
+// (Admin) Cria uma nova categoria
+app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
+    try {
+        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
+        const [result] = await db.query(sql, params);
+        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao criar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao criar categoria." });
+    }
+});
+
+// (Admin) Atualiza a ORDEM de múltiplas categorias
+app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => {
+    const { orderedIds } = req.body; 
+
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs ordenados." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const updatePromises = orderedIds.map((id, index) => {
+            return connection.query("UPDATE collection_categories SET display_order = ? WHERE id = ?", [index, id]);
+        });
+
+        await Promise.all(updatePromises);
+
+        await connection.commit();
+        res.json({ message: "Ordem das coleções atualizada com sucesso." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao reordenar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao reordenar categorias." });
+    } finally {
+        connection.release();
+    }
+});
+
+// (Admin) Atualiza uma categoria
+app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
+
+    try {
+        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
+        const [result] = await db.query(sql, params);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Categoria da coleção atualizada com sucesso." });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao atualizar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao atualizar categoria." });
+    }
+});
+
+// (Admin) Deleta uma categoria
+app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        res.json({ message: "Categoria deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao deletar categoria." });
+    }
+});
+
+// (Público) Pega todas as categorias da coleção para a home page
+app.get('/api/collections', async (req, res) => {
+    try {
+        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
+        res.json(categories);
+    } catch (err) {
+        console.error("Erro ao buscar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
