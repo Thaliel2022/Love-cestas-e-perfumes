@@ -1,6 +1,8 @@
 import React, { useState, useEffect, createContext, useContext, useCallback, memo, useRef, useMemo } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -51,7 +53,7 @@ const SaleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" clas
 const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12s-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.002L15.316 6.342a3 3 0 110 2.684m-6.632-2.684a3 3 0 000 2.684" /></svg>;
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-
+const BarsGripIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={className}><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z M2 8a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -6877,30 +6879,73 @@ const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
     );
 };
 
+const SortableCategoryCard = ({ cat, onEdit, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id: cat.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        touchAction: 'none', // Otimização para dispositivos de toque
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col relative ${!cat.is_active ? 'opacity-60' : ''}`}>
+            <div 
+                {...attributes} 
+                {...listeners} 
+                className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                title="Arraste para reordenar"
+            >
+                <BarsGripIcon className="h-5 w-5 text-white" />
+            </div>
+
+            <div className="relative aspect-[4/5]">
+                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-cover"/>
+                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
+                    {cat.is_active ? 'Ativa' : 'Inativa'}
+                </div>
+            </div>
+            <div className="p-3 bg-gray-50 flex-grow flex flex-col">
+                <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
+                <div className="flex items-center justify-center space-x-4 mt-3 pt-3 border-t">
+                    <button onClick={() => onEdit(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar"><EditIcon className="h-5 w-5"/></button>
+                    <button onClick={() => onDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AdminCollections = () => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [editingCategory, setEditingCategory] = useState(null);
     const notification = useNotification();
     const confirmation = useConfirmation();
+    const sensors = useSensors(useSensor(PointerSensor));
 
     const fetchCategories = useCallback(() => {
         setIsLoading(true);
         apiService('/collections/admin')
             .then(data => {
-                console.log("Dados recebidos da API /api/collections/admin:", data); // PONTO DE VERIFICAÇÃO
                 if (!Array.isArray(data)) {
-                    console.error("Erro: A API não retornou uma lista (array) de categorias.", data);
-                    notification.show("Erro: A resposta da API para buscar coleções é inválida.", 'error');
-                    setCategories([]); // Garante que o estado seja sempre um array para evitar quebras
+                    notification.show("Erro: A resposta da API é inválida.", 'error');
+                    setCategories([]);
                 } else {
-                    setCategories(data.sort((a, b) => a.id - b.id));
+                    setCategories(data);
                 }
             })
             .catch(err => {
                 notification.show(`Erro ao buscar categorias: ${err.message}`, 'error');
-                setCategories([]); // Limpa as categorias em caso de erro na API
+                setCategories([]);
             })
             .finally(() => setIsLoading(false));
     }, [notification]);
@@ -6945,6 +6990,29 @@ const AdminCollections = () => {
         });
     };
 
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        if (active.id !== over.id) {
+            const oldIndex = categories.findIndex((c) => c.id === active.id);
+            const newIndex = categories.findIndex((c) => c.id === over.id);
+            const newOrder = arrayMove(categories, oldIndex, newIndex);
+            
+            setCategories(newOrder); // Atualização otimista da UI
+
+            setIsSavingOrder(true);
+            const orderedIds = newOrder.map(c => c.id);
+            try {
+                await apiService('/collections/order', 'PUT', { orderedIds });
+                notification.show('Ordem salva com sucesso!');
+            } catch (error) {
+                notification.show(`Erro ao salvar a ordem: ${error.message}`, 'error');
+                fetchCategories(); // Reverte para a ordem do servidor em caso de erro
+            } finally {
+                setIsSavingOrder(false);
+            }
+        }
+    };
+
     return (
         <div>
             <AnimatePresence>
@@ -6957,33 +7025,26 @@ const AdminCollections = () => {
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold">Gerenciar Coleções</h1>
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
-                    <PlusIcon className="h-5 w-5"/> <span>Nova Categoria</span>
-                </button>
+                <div className="flex items-center gap-4">
+                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
+                    <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
+                        <PlusIcon className="h-5 w-5"/> <span>Nova Categoria</span>
+                    </button>
+                </div>
             </div>
 
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {categories.map(cat => (
-                        <div key={cat.id} className={`bg-white border rounded-lg shadow-sm overflow-hidden group flex flex-col ${!cat.is_active ? 'opacity-50' : ''}`}>
-                            <div className="relative aspect-[4/5]">
-                                <img src={cat.image || 'https://placehold.co/400x500/eee/ccc?text=Sem+Imagem'} alt={cat.name} className="w-full h-full object-cover"/>
-                                <div className={`absolute top-2 left-2 px-2 py-0.5 text-xs font-bold text-white rounded-full ${cat.is_active ? 'bg-green-500' : 'bg-gray-500'}`}>
-                                    {cat.is_active ? 'Ativa' : 'Inativa'}
-                                </div>
-                            </div>
-                            <div className="p-3 bg-gray-50 flex-grow flex flex-col">
-                                <h3 className="font-semibold text-gray-800 text-sm text-center truncate flex-grow" title={cat.name}>{cat.name}</h3>
-                                <div className="flex items-center justify-center space-x-4 mt-3 pt-3 border-t">
-                                    <button onClick={() => handleOpenModal(cat)} className="p-2 text-gray-500 hover:text-amber-600" title="Editar"><EditIcon className="h-5 w-5"/></button>
-                                    <button onClick={() => handleDelete(cat.id)} className="p-2 text-gray-500 hover:text-red-600" title="Excluir"><TrashIcon className="h-5 w-5"/></button>
-                                </div>
-                            </div>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={categories} strategy={rectSortingStrategy}>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                            {categories.map(cat => (
+                                <SortableCategoryCard key={cat.id} cat={cat} onEdit={handleOpenModal} onDelete={handleDelete} />
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    </SortableContext>
+                </DndContext>
             )}
         </div>
     );
