@@ -2199,32 +2199,6 @@ app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) =>
     }
 });
 
-// (Admin) Atualiza uma categoria
-app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
-
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
-
-    try {
-        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
-        const [result] = await db.query(sql, params);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
-        }
-        res.json({ message: "Categoria da coleção atualizada com sucesso." });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao atualizar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao atualizar categoria." });
-    }
-});
-
 // (Admin) Atualiza a ORDEM de múltiplas categorias
 app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => {
     const { orderedIds } = req.body; 
@@ -2254,53 +2228,6 @@ app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => 
     }
 });
 
-
-// (Admin) Deleta uma categoria
-app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
-        }
-        res.json({ message: "Categoria deletada com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao deletar categoria." });
-    }
-});
-
-// (Público) Pega todas as categorias da coleção para a home page
-app.get('/api/collections', async (req, res) => {
-    try {
-        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
-        res.json(categories);
-    } catch (err) {
-        console.error("Erro ao buscar categorias da coleção:", err);
-        res.status(500).json({ message: "Erro ao buscar categorias." });
-    }
-});
-
-// (Admin) Cria uma nova categoria
-app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
-    try {
-        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES (?, ?, ?, ?, ?, ?)";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
-        const [result] = await db.query(sql, params);
-        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao criar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao criar categoria." });
-    }
-});
-
 // (Admin) Atualiza uma categoria
 app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
@@ -2345,15 +2272,13 @@ app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) =>
 // (Público) Pega todas as categorias da coleção para a home page
 app.get('/api/collections', async (req, res) => {
     try {
-        // Agora, esta rota só retorna as categorias que estão ativas
-        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY id ASC");
+        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
         res.json(categories);
     } catch (err) {
         console.error("Erro ao buscar categorias da coleção:", err);
         res.status(500).json({ message: "Erro ao buscar categorias." });
     }
 });
-
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
