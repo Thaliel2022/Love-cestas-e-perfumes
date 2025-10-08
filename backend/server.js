@@ -111,55 +111,6 @@ const sanitizeInput = (req, res, next) => {
 };
 app.use(sanitizeInput);
 
-// --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
-const initializeData = async () => {
-    const connection = await db.getConnection();
-    try {
-        console.log('Verificando dados iniciais...');
-
-        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
-        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
-        if (categories[0].count === 0) {
-            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
-            const initialCategories = [
-                // Perfumaria
-                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                // Roupas
-                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
-                // Conjuntos
-                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                // Moda Íntima
-                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                // Calçados
-                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
-                // Acessórios
-                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
-            ];
-            
-            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES ?";
-            const values = initialCategories.map(c => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section]);
-            await connection.query(sql, [values]);
-            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
-        } else {
-            console.log('Tabela collection_categories já populada.');
-        }
-
-    } catch (err) {
-        console.error("Erro ao inicializar dados:", err);
-    } finally {
-        connection.release();
-    }
-};
-
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
 const db = mysql.createPool({
     host: process.env.DB_HOST,
@@ -176,7 +127,6 @@ db.getConnection()
     .then(connection => {
         console.log('Conectado ao banco de dados MySQL com sucesso!');
         connection.release();
-        initializeData(); // Chama a função de seed
     })
     .catch(err => {
         console.error('Falha ao conectar ao banco de dados:', err);
@@ -745,7 +695,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', async (req, res) => {
     const { q } = req.query;
-	if (!q || q.length < 1) {
+ if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
@@ -838,7 +788,7 @@ app.get('/api/products/:id/related-by-purchase', async (req, res) => {
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-	const fields = [
+  const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
@@ -1362,7 +1312,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         if (coupon_code) {
              const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
              if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+                   await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
              }
         }
         
@@ -2166,119 +2116,120 @@ app.delete('/api/wishlist/:productId', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTAS DE GERENCIAMENTO DE COLEÇÕES (Admin & Público) ---
-
-// (Admin) Pega todas as categorias da coleção para o painel
-app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
+// --- ROTAS DE GERENCIAMENTO DE ENDEREÇOS ---
+app.get('/api/addresses', verifyToken, async (req, res) => {
+    const userId = req.user.id;
     try {
-        const [categories] = await db.query("SELECT * FROM collection_categories ORDER BY display_order ASC");
-        res.json(categories);
+        const [addresses] = await db.query("SELECT * FROM user_addresses WHERE user_id = ? ORDER BY is_default DESC, alias ASC", [userId]);
+        res.json(addresses);
     } catch (err) {
-        console.error("Erro ao buscar categorias da coleção (admin):", err);
-        res.status(500).json({ message: "Erro ao buscar categorias." });
+        console.error("Erro ao buscar endereços:", err);
+        res.status(500).json({ message: "Erro ao buscar endereços." });
     }
 });
 
-// (Admin) Cria uma nova categoria
-app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
-    try {
-        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
-        const [result] = await db.query(sql, params);
-        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao criar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao criar categoria." });
-    }
-});
-
-// (Admin) Atualiza a ORDEM de múltiplas categorias
-app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => {
-    const { orderedIds } = req.body; 
-
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        return res.status(400).json({ message: "É necessário fornecer um array de IDs ordenados." });
-    }
+app.post('/api/addresses', verifyToken, async (req, res) => {
+    const userId = req.user.id;
+    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
 
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
         
-        const updatePromises = orderedIds.map((id, index) => {
-            return connection.query("UPDATE collection_categories SET display_order = ? WHERE id = ?", [index, id]);
-        });
+        if (is_default) {
+            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+        }
 
-        await Promise.all(updatePromises);
+        const sql = "INSERT INTO user_addresses (user_id, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const params = [userId, alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0];
+        const [result] = await connection.query(sql, params);
+        
+        const [newAddress] = await connection.query("SELECT * FROM user_addresses WHERE id = ?", [result.insertId]);
 
         await connection.commit();
-        res.json({ message: "Ordem das coleções atualizada com sucesso." });
+        res.status(201).json(newAddress[0]);
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao reordenar categorias da coleção:", err);
-        res.status(500).json({ message: "Erro ao reordenar categorias." });
+        console.error("Erro ao adicionar endereço:", err);
+        res.status(500).json({ message: err.message || "Erro ao adicionar endereço." });
     } finally {
         connection.release();
     }
 });
 
-// (Admin) Atualiza uma categoria
-app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+app.put('/api/addresses/:id', verifyToken, async (req, res) => {
+    const userId = req.user.id;
     const { id } = req.params;
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
-
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
-
+    const { alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default } = req.body;
+    
+    const connection = await db.getConnection();
     try {
-        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
-        const [result] = await db.query(sql, params);
+        await connection.beginTransaction();
+
+        if (is_default) {
+            await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+        }
+
+        const sql = "UPDATE user_addresses SET alias = ?, cep = ?, logradouro = ?, numero = ?, complemento = ?, bairro = ?, localidade = ?, uf = ?, is_default = ? WHERE id = ? AND user_id = ?";
+        const params = [alias, cep, logradouro, numero, complemento, bairro, localidade, uf, is_default ? 1 : 0, id, userId];
+        const [result] = await connection.query(sql, params);
+
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
+            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
         }
-        res.json({ message: "Categoria da coleção atualizada com sucesso." });
+
+        await connection.commit();
+        res.json({ message: "Endereço atualizado com sucesso." });
     } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao atualizar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao atualizar categoria." });
+        await connection.rollback();
+        console.error("Erro ao atualizar endereço:", err);
+        res.status(500).json({ message: err.message || "Erro ao atualizar endereço." });
+    } finally {
+        connection.release();
     }
 });
 
-// (Admin) Deleta uma categoria
-app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
+app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
+    const userId = req.user.id;
     const { id } = req.params;
+
+    const connection = await db.getConnection();
     try {
-        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
+        await connection.beginTransaction();
+        await connection.query("UPDATE user_addresses SET is_default = 0 WHERE user_id = ?", [userId]);
+        const [result] = await connection.query("UPDATE user_addresses SET is_default = 1 WHERE id = ? AND user_id = ?", [id, userId]);
+        
         if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
+            throw new Error("Endereço não encontrado ou não pertence a este usuário.");
         }
-        res.json({ message: "Categoria deletada com sucesso." });
+        
+        await connection.commit();
+        res.json({ message: "Endereço padrão definido com sucesso." });
     } catch (err) {
-        console.error("Erro ao deletar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao deletar categoria." });
+        await connection.rollback();
+        console.error("Erro ao definir endereço padrão:", err);
+        res.status(500).json({ message: err.message || "Erro ao definir endereço padrão." });
+    } finally {
+        connection.release();
     }
 });
 
-// (Público) Pega todas as categorias da coleção para a home page
-app.get('/api/collections', async (req, res) => {
+app.delete('/api/addresses/:id', verifyToken, async (req, res) => {
+    const userId = req.user.id;
+    const { id } = req.params;
+
     try {
-        const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
-        res.json(categories);
+        const [result] = await db.query("DELETE FROM user_addresses WHERE id = ? AND user_id = ?", [id, userId]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Endereço não encontrado ou não pertence a este usuário." });
+        }
+        res.json({ message: "Endereço deletado com sucesso." });
     } catch (err) {
-        console.error("Erro ao buscar categorias da coleção:", err);
-        res.status(500).json({ message: "Erro ao buscar categorias." });
+        console.error("Erro ao deletar endereço:", err);
+        res.status(500).json({ message: "Erro ao deletar endereço." });
     }
 });
+
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
