@@ -299,7 +299,7 @@ const ShopProvider = ({ children }) => {
     const [shippingError, setShippingError] = useState('');
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
-    const [isGeolocating, setIsGeolocating] = useState(false); // <-- NOVO ESTADO
+    const [isGeolocating, setIsGeolocating] = useState(false);
 
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
@@ -316,6 +316,7 @@ const ShopProvider = ({ children }) => {
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
+            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
@@ -340,7 +341,7 @@ const ShopProvider = ({ children }) => {
             }
         }
         if (!locationDetermined && navigator.geolocation) {
-            setIsGeolocating(true); // <-- ATIVA O FEEDBACK
+            setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     const { latitude, longitude } = position.coords;
@@ -352,13 +353,13 @@ const ShopProvider = ({ children }) => {
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
                     } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
-                    finally { setIsGeolocating(false); } // <-- DESATIVA O FEEDBACK
+                    finally { setIsGeolocating(false); }
                 }, 
                 (error) => { 
                     console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false); // <-- DESATIVA O FEEDBACK
+                    setIsGeolocating(false);
                 },
-                { timeout: 10000 } // <-- TEMPO LIMITE DE 10 SEGUNDOS
+                { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
@@ -376,7 +377,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-useEffect(() => {
+    useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
 
         const debounceTimer = setTimeout(() => {
@@ -399,10 +400,8 @@ useEffect(() => {
 
                         const shippingApiOptions = [];
                         if (pacOptionRaw) {
-                            // Adiciona o PAC e renomeia para uma exibição limpa
                             shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
                         } else if (sedexOption) {
-                            // Se não houver PAC, adiciona o SEDEX
                             shippingApiOptions.push(sedexOption);
                         }
 
@@ -412,7 +411,7 @@ useEffect(() => {
                         setShippingOptions(finalOptions);
                         
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        const primaryShippingOption = shippingApiOptions[0]; // Será PAC ou SEDEX, se um deles existir
+                        const primaryShippingOption = shippingApiOptions[0];
                         
                         setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
 
