@@ -105,15 +105,18 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
         config.body = JSON.stringify(body);
     }
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const finalUrl = `${API_URL}${endpoint}`;
+        
+        // --- NOSSO PONTO DE VERIFICAÇÃO ---
+        console.log(`%c[API Service] Tentando buscar: ${method} ${finalUrl}`, 'color: yellow; font-weight: bold;');
+
+        const response = await fetch(finalUrl, config);
         const contentType = response.headers.get("content-type");
 
         if (!response.ok) {
-            // Se o erro for de autenticação, avisa o app para deslogar o usuário
             if (response.status === 401 || response.status === 403) {
                 window.dispatchEvent(new Event('auth-error'));
             }
-
             let errorData;
             if (contentType && contentType.indexOf("application/json") !== -1) {
                 errorData = await response.json();
