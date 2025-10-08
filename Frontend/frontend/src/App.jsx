@@ -6891,7 +6891,6 @@ const SortableCategoryCard = ({ cat, onEdit, onDelete }) => {
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        touchAction: 'none', // Otimização para dispositivos de toque
     };
 
     return (
@@ -6899,6 +6898,7 @@ const SortableCategoryCard = ({ cat, onEdit, onDelete }) => {
             <div 
                 {...attributes} 
                 {...listeners} 
+                style={{ touchAction: 'none' }} // Aplica a regra de toque apenas no ícone
                 className="absolute top-2 right-2 p-1.5 bg-black/30 rounded-full cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 title="Arraste para reordenar"
             >
