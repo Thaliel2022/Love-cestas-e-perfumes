@@ -4041,7 +4041,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             case 'visa': return VisaIcon;
             case 'master':
             case 'mastercard': return MastercardIcon;
-            // Adicione outras bandeiras aqui se necessário (elo, hipercard, etc.)
+            case 'elo': return EloIcon;
             default: return CreditCardIcon;
         }
     };
@@ -4057,7 +4057,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             if (paymentDetails.method === 'pix') {
                 return (
                     <div className="flex items-center gap-3">
-                        <PixIcon className="h-8 w-8 text-green-400 flex-shrink-0" />
+                        <PixIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
                         <div>
                             <p className="font-semibold text-white">Pagamento via Pix</p>
                             <p className="text-sm text-gray-400">Confirmado via Mercado Pago.</p>
@@ -4069,7 +4069,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 const CardIconComponent = getCardIcon(paymentDetails.card_brand);
                 return (
                      <div className="flex items-center gap-3">
-                        <CardIconComponent className="h-8 w-8 text-amber-400 flex-shrink-0" />
+                        <CardIconComponent className="h-7 w-7 text-gray-300 flex-shrink-0" />
                         <div>
                             <p className="font-semibold text-white capitalize">{paymentDetails.card_brand || 'Cartão de Crédito'} final {paymentDetails.card_last_four}</p>
                             <p className="text-sm text-gray-400">
@@ -4085,7 +4085,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             if (paymentDetails.method === 'boleto') {
                 return (
                     <div className="flex items-center gap-3">
-                        <BoletoIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
+                        <BoletoIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
                         <div>
                             <p className="font-semibold text-white">Boleto Bancário</p>
                             <p className="text-sm text-gray-400">Confirmado via Mercado Pago.</p>
@@ -4098,7 +4098,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         // Fallback
         return (
             <div className="flex items-center gap-3">
-                <CreditCardIcon className="h-8 w-8 text-amber-400 flex-shrink-0" />
+                <CreditCardIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
                 <div>
                     <p className="font-semibold text-white">Pagamento via Mercado Pago</p>
                     <p className="text-sm text-gray-400 capitalize">{paymentDetails?.method || 'Detalhes não disponíveis'}</p>
