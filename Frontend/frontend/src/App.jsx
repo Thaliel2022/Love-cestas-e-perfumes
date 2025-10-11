@@ -4000,6 +4000,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
+                // ***** LINHA ADICIONADA *****
+                sessionStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
         } catch (error) {
@@ -4046,7 +4048,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         }
     };
 
-  const renderPaymentDetails = () => {
+    const renderPaymentDetails = () => {
         if (!order || !order.payment_method) {
             return <p className="text-sm text-gray-400">Informação de pagamento não disponível.</p>;
         }
