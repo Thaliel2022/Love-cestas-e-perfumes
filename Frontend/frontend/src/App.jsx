@@ -54,6 +54,10 @@ const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const BarsGripIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={className}><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z M2 8a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z" /></svg>;
+const PixIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className}><rect width="256" height="256" fill="none"/><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm-8.8,112.8a32,32,0,0,1,0-17.6l44-25.4a4,4,0,0,1,5.6,3.2V156a4,4,0,0,1-5.6,3.2Zm51.2,29.6-44-25.4a32,32,0,0,1-16.8,0l-44,25.4A8,8,0,0,1,56,160V96a8,8,0,0,1,9.6-7.2l44,25.4a32,32,0,0,1,16.8,0l44-25.4A8,8,0,0,1,200,96v64a8,8,0,0,1-9.6,7.2Z"/></svg>;
+const VisaIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" className={className}><path fill="currentColor" d="M384 32H0V480H384V32zM48 192V128h48v64H48zm144 0V128h48c17.7 0 32 14.3 32 32s-14.3 32-32 32H192zm96 0V128h48v64H288zM48 384V256h48v128H48zm144 0V256h48c17.7 0 32 14.3 32 32v96H192zm96 0V256h48v128H288z"/></svg>;
+const MastercardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" className={className}><path fill="currentColor" d="M480 288c0 80-64 144-144 144s-144-64-144-144 64-144 144-144 144 64 144 144zm-144 80c-44.1 0-80-35.9-80-80s35.9-80 80-80 80 35.9 80 80-35.9 80-80 80zm139.7-147.2c-15.6-33.8-38.3-63.5-66.2-87.1l-11.9-9.9-17.5 13.1c-22.1 16.5-47.5 29.3-75.1 37.3L256 182.2V32c0-17.7-14.3-32-32-32s-32 14.3-32 32V182.2l-9.1-3.2c-27.6-8-53-20.8-75.1-37.3L94.7 128.6l-11.9 9.9C55 162.7 32.3 192.4 16.7 226.2L.2 258.8C-.6 260.6 0 262.7 1.4 263.9L16 275.5c1.4 1.2 3.5 1.7 5.2.9l16.5-8.2c28-13.9 58.9-20.9 90.3-20.9h1c16.5 0 32.8 2.1 48.7 6.1l9.3 2.3 7.8-6.1c11.9-9.3 25.2-17.2 39.5-23.4l15.9-7.1 13.9 11.6c17.5 14.6 37.3 26.8 58.7 36.3l17.5 7.8 8.6-6.4c11-8.3 22.9-15.9 35.4-22.5l15.2-8.1 17 12.8c20.3 15.2 39.1 32.8 55.7 52.2l12.7 14.8-13.9 11.6c-24.9 20.8-43 47.9-53.4 79l-4.4 13.1 18.2-1.3c27.5-2 54.3-9.1 79-20.9l16.5-8.2c1.7-.8 3.8-.4 5.2.9l14.6 11.6c1.4 1.2 2 3.3 1.4 5.2l-16.5 32.6z"/></svg>;
+const BoletoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" className={className}><path fill="currentColor" d="M0 128c0-35.3 28.7-64 64-64H512c35.3 0 64 28.7 64 64v256c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128zM128 160V352h32V160H128zm64 0V352h64V160H192zm96 0V352h32V160H288zm64 0V352h64V160H352zm96 0V352h32V160H448z"/></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -4030,6 +4034,17 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         });
     };
 
+    const getCardIcon = (brand) => {
+        const lowerBrand = brand ? brand.toLowerCase() : '';
+        switch (lowerBrand) {
+            case 'visa': return VisaIcon;
+            case 'master':
+            case 'mastercard': return MastercardIcon;
+            // Adicione outras bandeiras aqui se necessário (elo, hipercard, etc.)
+            default: return CreditCardIcon;
+        }
+    };
+
     const renderPaymentDetails = () => {
         if (!order || !order.payment_method) {
             return <p className="text-sm text-gray-400">Informação de pagamento não disponível.</p>;
@@ -4041,7 +4056,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             if (paymentDetails.method === 'pix') {
                 return (
                     <div className="flex items-center gap-3">
-                        <svg className="h-8 w-8 text-green-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M12.003 3.923c-4.386 0-7.945 3.559-7.945 7.944s3.559 7.944 7.945 7.944c4.385 0 7.944-3.559 7.944-7.944s-3.559-7.944-7.944-7.944zm-1.16 2.45h2.316v2.12h-2.316V6.373zm1.158 11.233c-2.21 0-2.88-1.055-2.88-2.182 0-1.127.67-2.182 2.88-2.182 2.212 0 2.88 1.055 2.88 2.182.001 1.127-.668 2.182-2.88 2.182zm-4.31-.247h2.234c.325-1.07.99-1.575 2.076-1.575s1.752.505 2.077 1.575h2.233c-.324-2.152-2.14-3.328-4.31-3.328-2.172 0-3.987 1.176-4.31 3.328z"/></svg>
+                        <PixIcon className="h-8 w-8 text-green-400 flex-shrink-0" />
                         <div>
                             <p className="font-semibold text-white">Pagamento via Pix</p>
                             <p className="text-sm text-gray-400">Confirmado via Mercado Pago.</p>
@@ -4050,11 +4065,12 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 );
             }
             if (paymentDetails.method === 'credit_card' && paymentDetails.card_last_four) {
+                const CardIconComponent = getCardIcon(paymentDetails.card_brand);
                 return (
                      <div className="flex items-center gap-3">
-                        <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
+                        <CardIconComponent className="h-8 w-8 text-amber-400 flex-shrink-0" />
                         <div>
-                            <p className="font-semibold text-white capitalize">Cartão de Crédito final {paymentDetails.card_last_four}</p>
+                            <p className="font-semibold text-white capitalize">{paymentDetails.card_brand || 'Cartão de Crédito'} final {paymentDetails.card_last_four}</p>
                             <p className="text-sm text-gray-400">
                                 {paymentDetails.installments > 1 
                                     ? `Pagamento em ${paymentDetails.installments}x de R$ ${(order.total / paymentDetails.installments).toFixed(2).replace('.', ',')}`
@@ -4065,12 +4081,23 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     </div>
                 );
             }
+            if (paymentDetails.method === 'boleto') {
+                return (
+                    <div className="flex items-center gap-3">
+                        <BoletoIcon className="h-8 w-8 text-gray-400 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-white">Boleto Bancário</p>
+                            <p className="text-sm text-gray-400">Confirmado via Mercado Pago.</p>
+                        </div>
+                    </div>
+                );
+            }
         }
 
-        // Fallback para outros casos (boleto, ou pagamentos antigos sem detalhes)
+        // Fallback
         return (
             <div className="flex items-center gap-3">
-                <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0" />
+                <CreditCardIcon className="h-8 w-8 text-amber-400 flex-shrink-0" />
                 <div>
                     <p className="font-semibold text-white">Pagamento via Mercado Pago</p>
                     <p className="text-sm text-gray-400 capitalize">{paymentDetails?.method || 'Detalhes não disponíveis'}</p>
