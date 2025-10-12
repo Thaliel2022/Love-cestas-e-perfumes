@@ -2440,6 +2440,107 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
     }
 });
 
+// --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
+
+// (Admin) Pega todos os banners para o painel de gerenciamento
+app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC");
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
+});
+
+// (Admin) Cria um novo banner
+app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
+    const { image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
+    if (!image_url || !link_url) {
+        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
+    }
+    try {
+        const sql = "INSERT INTO banners (image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) SELECT ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM banners";
+        const params = [image_url, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0];
+        const [result] = await db.query(sql, params);
+        res.status(201).json({ message: "Banner criado com sucesso!", id: result.insertId });
+    } catch (err) {
+        console.error("Erro ao criar banner:", err);
+        res.status(500).json({ message: "Erro interno ao criar banner." });
+    }
+});
+
+// (Admin) Atualiza a ORDEM de múltiplos banners
+app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
+    const { orderedIds } = req.body;
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs de banners ordenados." });
+    }
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const updatePromises = orderedIds.map((id, index) => {
+            return connection.query("UPDATE banners SET display_order = ? WHERE id = ?", [index, id]);
+        });
+        await Promise.all(updatePromises);
+        await connection.commit();
+        res.json({ message: "Ordem dos banners atualizada com sucesso." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao reordenar banners:", err);
+        res.status(500).json({ message: "Erro ao reordenar banners." });
+    } finally {
+        connection.release();
+    }
+});
+
+// (Admin) Atualiza os detalhes de um banner
+app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
+    if (!image_url || !link_url) {
+        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
+    }
+    try {
+        const sql = "UPDATE banners SET image_url = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ? WHERE id = ?";
+        const params = [image_url, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, id];
+        const [result] = await db.query(sql, params);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Banner não encontrado." });
+        }
+        res.json({ message: "Banner atualizado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao atualizar banner:", err);
+        res.status(500).json({ message: "Erro ao atualizar banner." });
+    }
+});
+
+// (Admin) Deleta um banner
+app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM banners WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Banner não encontrado." });
+        }
+        res.json({ message: "Banner deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar banner:", err);
+        res.status(500).json({ message: "Erro ao deletar banner." });
+    }
+});
+
+// (Público) Pega todos os banners ativos para a home page
+app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
+    try {
+        const [banners] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY display_order ASC");
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners:", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
+});
+
 // --- ROTAS DE GERENCIAMENTO DE CONFIGURAÇÕES DO SITE ---
 
 // (Público) Rota para o frontend verificar rapidamente se o modo manutenção está ativo
