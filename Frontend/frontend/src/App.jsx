@@ -7197,7 +7197,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Busca o status de manutenção assim que o app carrega
   useEffect(() => {
     apiService('/settings/maintenance-status')
         .then(data => {
@@ -7205,7 +7204,7 @@ function AppContent({ deferredPrompt }) {
         })
         .catch(err => {
             console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
-            setIsInMaintenance(false); // Padrão para 'off' se a API falhar
+            setIsInMaintenance(false);
         })
         .finally(() => {
             setIsStatusLoading(false);
@@ -7239,6 +7238,23 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
+  
+  // Tela de carregamento enquanto verifica o status de manutenção
+  if (isLoading || isStatusLoading) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        </div>
+      );
+  }
+
+  // Lógica principal do Modo de Manutenção
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminDomain = window.location.hostname.includes('vercel.app');
+
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
 
   const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
@@ -7253,7 +7269,6 @@ function AppContent({ deferredPrompt }) {
     const pageId = pathParts[1];
 
     if (mainPage === 'admin') {
-        if (isLoading) return null;
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
@@ -7277,7 +7292,6 @@ function AppContent({ deferredPrompt }) {
     }
 
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        if(isLoading) return null;
         return <LoginPage onNavigate={navigate} />;
     }
     
@@ -7306,16 +7320,6 @@ function AppContent({ deferredPrompt }) {
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
-  
-  if (isLoading || isStatusLoading) return <div className="h-screen flex items-center justify-center bg-black"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
-
-  // Lógica principal do Modo de Manutenção
-  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
-  const isAdminDomain = window.location.hostname.includes('vercel.app'); // Exceção para o domínio da Vercel
-
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
-      return <MaintenancePage />;
-  }
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
