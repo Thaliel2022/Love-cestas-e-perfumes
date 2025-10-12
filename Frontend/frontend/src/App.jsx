@@ -59,6 +59,7 @@ const VisaIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" view
 const MastercardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40" className={className}><circle cx="20" cy="20" r="20" fill="#EB001B"/><circle cx="40" cy="20" r="20" fill="#F79E1B"/><path d="M30 20a20 20 0 0 1-10 17.32a20 20 0 0 1 0-34.64A20 20 0 0 1 30 20z" fill="#FF5F00"/></svg>;
 const EloIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 81 48" className={className}><circle cx="67.5" cy="24" r="13.5" fill="#FAB51A"/><path d="M40.5 48a24 24 0 1 1 0-48a24 24 0 0 1 0 48z" fill="#000"/><path d="M22.5 24a13.5 13.5 0 1 1-27 0a13.5 13.5 0 0 1 27 0z" fill="#FAB51A"/></svg>;
 const BoletoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" className={className}><path fill="currentColor" d="M0 128c0-35.3 28.7-64 64-64H512c35.3 0 64 28.7 64 64v256c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128zM128 160V352h32V160H128zm64 0V352h64V160H192zm96 0V352h32V160H288zm64 0V352h64V160H352zm96 0V352h32V160H448z"/></svg>;
+const PhotoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-3.69l-2.78-2.78a.75.75 0 0 0-1.06 0L12 12.69l-2.22-2.22a.75.75 0 0 0-1.06 0L1.5 11.06ZM15 7a1 1 0 1 1-2 0a1 1 0 0 1 2 0Z" clipRule="evenodd" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -4933,6 +4934,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
    const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
         { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
@@ -6911,6 +6913,241 @@ const MaintenanceModeToggle = () => {
     );
 };
 
+const BannerForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
+    const notification = useNotification();
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value
+        }));
+    };
+
+    const handleFileChange = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            setFormData(prev => ({ ...prev, image_url: uploadResult.imageUrl }));
+            notification.show('Upload da imagem concluído!');
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsUploading(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Imagem do Banner</label>
+                <div className="flex items-center gap-2 mt-1">
+                    <img src={formData.image_url || 'https://placehold.co/200x100/eee/ccc?text=Imagem'} alt="Preview" className="w-48 h-24 object-cover rounded-md border bg-gray-100"/>
+                    <div className="flex-grow">
+                        <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="mt-2 w-full text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                            {isUploading ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Fazer Upload</>}
+                        </button>
+                    </div>
+                </div>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700">Link de Destino</label>
+                <input type="text" name="link_url" value={formData.link_url} onChange={handleChange} required placeholder="Ex: #products?category=Blusas" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-gray-700">Título (Opcional)</label>
+                <input type="text" name="title" value={formData.title} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Subtítulo (Opcional)</label>
+                <textarea name="subtitle" value={formData.subtitle} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md h-20"/>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                 <div className="flex items-center pt-2">
+                    <input type="checkbox" name="cta_enabled" id="cta_enabled_form" checked={!!formData.cta_enabled} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
+                    <label htmlFor="cta_enabled_form" className="ml-2 block text-sm font-medium text-gray-700">Ativar Botão de Ação?</label>
+                </div>
+                {!!formData.cta_enabled && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Texto do Botão</label>
+                        <input type="text" name="cta_text" value={formData.cta_text} onChange={handleChange} placeholder="Ex: Ver Oferta" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                    </div>
+                )}
+            </div>
+             <div className="flex items-center">
+                <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
+                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700">Ativo (visível no carrossel)</label>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            </div>
+        </form>
+    );
+};
+
+const SortableBannerCard = ({ banner, onEdit, onDelete }) => {
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: banner.id });
+    const style = { transform: CSS.Transform.toString(transform), transition, touchAction: 'none' };
+
+    return (
+        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group relative ${!banner.is_active ? 'opacity-50' : ''}`}>
+             <div {...attributes} {...listeners} className="absolute top-2 right-2 p-2 bg-black/40 rounded-full cursor-grab active:cursor-grabbing text-white opacity-0 group-hover:opacity-100 transition-opacity z-10" title="Arraste para reordenar">
+                <BarsGripIcon className="h-5 w-5" />
+            </div>
+            <img src={banner.image_url} alt={banner.title || 'Banner'} className="w-full h-32 object-cover"/>
+            <div className="p-3">
+                <p className="font-bold text-sm truncate">{banner.title || "Banner sem título"}</p>
+                <p className="text-xs text-gray-500 truncate">Link: {banner.link_url}</p>
+                <div className="flex justify-between items-center mt-3 pt-3 border-t">
+                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${banner.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
+                        {banner.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                        <button onClick={() => onEdit(banner)} className="p-1 text-gray-400 hover:text-amber-600"><EditIcon className="h-5 w-5"/></button>
+                        <button onClick={() => onDelete(banner.id)} className="p-1 text-gray-400 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminBanners = () => {
+    const [banners, setBanners] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const [editingBanner, setEditingBanner] = useState(null);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+    const sensors = useSensors(useSensor(PointerSensor));
+
+    const fetchBanners = useCallback(() => {
+        setIsLoading(true);
+        apiService('/banners/admin')
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setBanners(data);
+                } else {
+                    setBanners([]);
+                    notification.show("Erro: A resposta da API para buscar banners é inválida.", 'error');
+                }
+            })
+            .catch(err => notification.show(`Erro ao buscar banners: ${err.message}`, 'error'))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => { fetchBanners() }, [fetchBanners]);
+
+    const handleOpenModal = (banner = null) => {
+        const initialData = banner ? {...banner} : { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 0, cta_text: 'Explorar Coleção' };
+        setEditingBanner(initialData);
+        setIsModalOpen(true);
+    };
+
+    const handleSave = async (formData) => {
+        try {
+            if (editingBanner && editingBanner.id) {
+                await apiService(`/banners/${editingBanner.id}`, 'PUT', formData);
+                notification.show('Banner atualizado com sucesso!');
+            } else {
+                await apiService('/banners/admin', 'POST', formData);
+                notification.show('Banner criado com sucesso!');
+            }
+            fetchBanners();
+            setIsModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro ao salvar: ${error.message}`, 'error');
+        }
+    };
+
+    const handleDelete = (id) => {
+        confirmation.show("Tem certeza que deseja excluir este banner?", async () => {
+            try {
+                await apiService(`/banners/${id}`, 'DELETE');
+                notification.show('Banner deletado com sucesso.');
+                fetchBanners();
+            } catch (error) {
+                notification.show(`Erro ao deletar: ${error.message}`, 'error');
+            }
+        });
+    };
+    
+    const handleDragEnd = async (event) => {
+        const { active, over } = event;
+        if (active.id !== over.id) {
+            const oldIndex = banners.findIndex((b) => b.id === active.id);
+            const newIndex = banners.findIndex((b) => b.id === over.id);
+            const newOrder = arrayMove(banners, oldIndex, newIndex);
+            
+            setBanners(newOrder); // UI Otimista
+
+            setIsSavingOrder(true);
+            const orderedIds = newOrder.map(b => b.id);
+            try {
+                await apiService('/banners/order', 'PUT', { orderedIds });
+                notification.show('Ordem dos banners salva com sucesso!');
+            } catch (error) {
+                notification.show(`Erro ao salvar a ordem: ${error.message}`, 'error');
+                fetchBanners(); // Reverte em caso de erro
+            } finally {
+                setIsSavingOrder(false);
+            }
+        }
+    };
+
+    return (
+        <div>
+            <AnimatePresence>
+                {isModalOpen && (
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingBanner && editingBanner.id ? 'Editar Banner' : 'Adicionar Novo Banner'}>
+                        <BannerForm item={editingBanner} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-3xl font-bold">Gerenciar Banners</h1>
+                <div className="flex items-center gap-4">
+                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
+                    <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
+                        <PlusIcon className="h-5 w-5"/> <span>Novo Banner</span>
+                    </button>
+                </div>
+            </div>
+
+            {isLoading ? (
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
+            ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={banners} strategy={rectSortingStrategy}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {banners.map(banner => (
+                                <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </DndContext>
+            )}
+        </div>
+    );
+};
+
 const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
     const [formData, setFormData] = useState(item);
     const [isUploading, setIsUploading] = useState(false);
@@ -7276,6 +7513,7 @@ function AppContent({ deferredPrompt }) {
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
             'dashboard': <AdminDashboard />, 
+            'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
             'collections': <AdminCollections />,
