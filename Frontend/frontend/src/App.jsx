@@ -7403,23 +7403,15 @@ const BannerCarousel = memo(({ onNavigate }) => {
     useEffect(() => {
         apiService('/banners')
             .then(data => {
-                if (!Array.isArray(data) || data.length === 0) {
-                    const staticBanner = {
-                        id: 'static-0',
-                        image_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
-                        title: 'Elegância que Veste e Perfuma',
-                        subtitle: 'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
-                        link_url: '#products',
-                        cta_text: 'Explorar Coleção',
-                        cta_enabled: 1,
-                    };
-                    setBanners([staticBanner]);
-                } else {
+                if (Array.isArray(data)) {
                     setBanners(data);
+                } else {
+                    setBanners([]); // Garante que seja um array em caso de resposta inesperada
                 }
             })
             .catch(err => {
                 console.error("Falha ao buscar banners:", err);
+                setBanners([]); // Limpa os banners em caso de erro na API
             })
             .finally(() => setIsLoading(false));
     }, []);
@@ -7443,7 +7435,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
         hidden: { opacity: 0 },
         visible: { 
             opacity: 1,
-            transition: { staggerChildren: 0.2, delayChildren: 0.2 } // Ajuste no delay
+            transition: { staggerChildren: 0.2, delayChildren: 0.2 }
         }
     };
 
@@ -7483,8 +7475,8 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
-                            exit="hidden" // Garante que o texto saia ao trocar de slide
-                            key={`content-${currentIndex}`} // Força a re-animação do conteúdo
+                            exit="hidden"
+                            key={`content-${currentIndex}`}
                          >
                             {banners[currentIndex].title && (
                                 <motion.h1 
