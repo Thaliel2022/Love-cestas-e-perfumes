@@ -6023,109 +6023,81 @@ const AdminProducts = ({ onNavigate }) => {
 };
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
-    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-    const [editingUser, setEditingUser] = useState(null);
-    const confirmation = useConfirmation();
+    const [isLoading, setIsLoading] = useState(true);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [selectedUser, setSelectedUser] = useState(null);
     const notification = useNotification();
 
     const fetchUsers = useCallback(() => {
-        apiService('/users').then(setUsers).catch(err => console.error(err));
-    }, []);
+        setIsLoading(true);
+        apiService('/users')
+            .then(setUsers)
+            .catch(err => notification.show(`Erro ao buscar usuários: ${err.message}`, 'error'))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
 
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
     
-    const handleOpenUserModal = (user) => {
-        setEditingUser(user);
-        setIsUserModalOpen(true);
+    const handleOpenDetails = (user) => {
+        setSelectedUser(user);
+        setIsDetailModalOpen(true);
     };
-
-    const handleSaveUser = async (formData) => {
-        try {
-            await apiService(`/users/${editingUser.id}`, 'PUT', formData);
-            fetchUsers();
-            setIsUserModalOpen(false);
-            notification.show('Usuário atualizado com sucesso!');
-        } catch (error) {
-            notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
-        }
-    };
-
-    const handleDelete = (id) => {
-        confirmation.show("Tem certeza que deseja remover este usuário?", async () => {
-            try {
-                await apiService(`/users/${id}`, 'DELETE');
-                fetchUsers();
-                notification.show('Usuário deletado.');
-            } catch (err) {
-                notification.show(`Erro ao deletar: ${err.message}`, 'error');
-            }
-        });
-    };
-    
-    const userFields = [
-        { name: 'name', label: 'Nome', type: 'text', required: true },
-        { name: 'email', label: 'Email', type: 'email', required: true },
-        { name: 'cpf', label: 'CPF', type: 'text', required: false, editable: false },
-        { name: 'role', label: 'Função', type: 'select', options: [{value: 'user', label: 'Usuário'}, {value: 'admin', label: 'Administrador'}] },
-        { name: 'password', label: 'Nova Senha (deixe em branco para não alterar)', type: 'password', required: false },
-    ];
 
     return (
         <div>
              <AnimatePresence>
-                {isUserModalOpen && (
-                    <Modal isOpen={isUserModalOpen} onClose={() => setIsUserModalOpen(false)} title="Editar Usuário">
-                        <AdminCrudForm item={editingUser} onSave={handleSaveUser} onCancel={() => setIsUserModalOpen(false)} fieldsConfig={userFields} />
-                    </Modal>
+                {isDetailModalOpen && (
+                    <UserDetailsModal 
+                        user={selectedUser} 
+                        onClose={() => setIsDetailModalOpen(false)}
+                        onStatusChange={fetchUsers} // Passa a função para recarregar a lista
+                    />
                 )}
             </AnimatePresence>
             <h1 className="text-3xl font-bold mb-6">Gerenciar Usuários</h1>
             
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                <div className="hidden md:block">
-                    <table className="w-full text-left">
+            {isLoading ? (
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
+            ) : (
+                <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+                    <table className="w-full text-left text-sm">
                         <thead className="bg-gray-100">
                              <tr>
-                                <th className="p-4">ID</th>
-                                <th className="p-4">Nome</th>
-                                <th className="p-4">Email</th>
-                                <th className="p-4">Função</th>
-                                <th className="p-4">Ações</th>
+                                <th className="p-4 font-semibold">Nome</th>
+                                <th className="p-4 font-semibold">Email</th>
+                                <th className="p-4 font-semibold">Função</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Ações</th>
                              </tr>
                         </thead>
                          <tbody>
                             {users.map(u => (
-                                <tr key={u.id} className="border-b">
-                                    <td className="p-4">{u.id}</td>
-                                    <td className="p-4">{u.name}</td>
-                                    <td className="p-4">{u.email}</td>
-                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span></td>
-                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenUserModal(u)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(u.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                <tr key={u.id} className="border-b last:border-b-0 hover:bg-gray-50">
+                                    <td className="p-4 font-medium">{u.name}</td>
+                                    <td className="p-4 text-gray-600">{u.email}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${u.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>
+                                            {u.role}
+                                        </span>
+                                    </td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full capitalize ${u.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {u.status === 'active' ? 'Ativo' : 'Bloqueado'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4">
+                                        <button onClick={() => handleOpenDetails(u)} className="p-2 text-gray-500 hover:text-blue-600" title="Ver Detalhes">
+                                            <EyeIcon className="h-5 w-5"/>
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                          </tbody>
                     </table>
                 </div>
-                 <div className="md:hidden space-y-4 p-4">
-                    {users.map(u => (
-                        <div key={u.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                             <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-bold">{u.name}</p>
-                                    <p className="text-sm text-gray-500">{u.email}</p>
-                                </div>
-                                <span className={`px-2 py-1 text-xs rounded-full ${u.role === 'admin' ? 'bg-amber-200 text-amber-800' : 'bg-gray-200 text-gray-800'}`}>{u.role}</span>
-                            </div>
-                            <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
-                                <button onClick={() => handleOpenUserModal(u)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDelete(u.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            )}
         </div>
     );
 };
@@ -7187,6 +7159,132 @@ const AdminBanners = () => {
     );
 };
 
+const UserDetailsModal = ({ user, onClose, onStatusChange }) => {
+    const [details, setDetails] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    useEffect(() => {
+        if (user) {
+            apiService(`/users/${user.id}/details`)
+                .then(setDetails)
+                .catch(err => notification.show(`Erro ao buscar detalhes: ${err.message}`, 'error'))
+                .finally(() => setIsLoading(false));
+        }
+    }, [user, notification]);
+
+    const handleStatusChange = () => {
+        if (!details) return;
+        const newStatus = details.status === 'active' ? 'blocked' : 'active';
+        const actionText = newStatus === 'blocked' ? 'bloquear' : 'desbloquear';
+
+        confirmation.show(`Tem certeza que deseja ${actionText} este usuário?`, async () => {
+            try {
+                await apiService(`/users/${details.id}/status`, 'PUT', { status: newStatus });
+                notification.show(`Usuário ${actionText} com sucesso.`);
+                onStatusChange(); // Avisa o componente pai para recarregar a lista
+                onClose(); // Fecha o modal
+            } catch (error) {
+                notification.show(`Erro ao ${actionText} usuário: ${error.message}`, 'error');
+            }
+        });
+    };
+
+    return (
+        <Modal isOpen={true} onClose={onClose} title={`Detalhes de ${user.name}`} size="2xl">
+            {isLoading || !details ? (
+                <div className="flex justify-center items-center h-64"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
+            ) : (
+                <div className="space-y-6">
+                    {/* -- Seção de Informações Principais -- */}
+                    <div className="bg-gray-50 p-4 rounded-lg border grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <h4 className="text-sm font-bold text-gray-500">Nome</h4>
+                            <p className="truncate">{details.name}</p>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-gray-500">Email</h4>
+                            <p className="truncate">{details.email}</p>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-gray-500">CPF</h4>
+                            <p>{details.cpf}</p>
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-gray-500">Status</h4>
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${details.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {details.status === 'active' ? 'Ativo' : 'Bloqueado'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* -- Seção de Últimos Pedidos -- */}
+                    <div>
+                        <h3 className="text-lg font-semibold mb-2">Últimos Pedidos (5)</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                            <div className="max-h-48 overflow-y-auto">
+                                {details.orders.length > 0 ? (
+                                    <table className="w-full text-sm text-left">
+                                        <tbody>
+                                            {details.orders.map(order => (
+                                                <tr key={order.id} className="border-b last:border-b-0">
+                                                    <td className="p-2 font-mono">#{order.id}</td>
+                                                    <td className="p-2">{new Date(order.date).toLocaleDateString()}</td>
+                                                    <td className="p-2">R$ {Number(order.total).toFixed(2)}</td>
+                                                    <td className="p-2">{order.status}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p className="text-center text-gray-500 p-4">Nenhum pedido encontrado.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* -- Seção de Histórico de Login -- */}
+                    <div>
+                        <h3 className="text-lg font-semibold mb-2">Últimos Logins (10)</h3>
+                        <div className="border rounded-lg overflow-hidden">
+                             <div className="max-h-48 overflow-y-auto">
+                                {details.loginHistory.length > 0 ? (
+                                     <table className="w-full text-sm text-left">
+                                        <tbody>
+                                            {details.loginHistory.map((login, index) => (
+                                                <tr key={index} className="border-b last:border-b-0">
+                                                    <td className="p-2">{new Date(login.created_at).toLocaleString('pt-BR')}</td>
+                                                    <td className="p-2">{login.ip_address}</td>
+                                                    <td className={`p-2 font-semibold ${login.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                                                        {login.status === 'success' ? 'Sucesso' : 'Falha'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <p className="text-center text-gray-500 p-4">Nenhum histórico de login encontrado.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* -- Ações -- */}
+                    <div className="flex justify-end pt-4 border-t">
+                        <button 
+                            onClick={handleStatusChange}
+                            className={`px-6 py-2 rounded-md font-semibold text-white ${details.status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                        >
+                            {details.status === 'active' ? 'Bloquear Usuário' : 'Desbloquear Usuário'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </Modal>
+    );
+};
+
 const CollectionCategoryForm = ({ item, onSave, onCancel }) => {
     const [formData, setFormData] = useState(item);
     const [isUploading, setIsUploading] = useState(false);
@@ -7711,8 +7809,8 @@ function AppContent({ deferredPrompt }) {
         }
         
         const adminSubPage = pageId || 'dashboard';
-       const adminPages = {
-            'dashboard': <AdminDashboard />,
+        const adminPages = {
+            'dashboard': <AdminDashboard />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
