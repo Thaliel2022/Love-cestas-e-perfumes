@@ -81,6 +81,7 @@ checkRequiredEnvVars();
 
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
+app.set('trust proxy', true); // Necessário para obter o IP correto atrás de um proxy (como o Render)
 const saltRounds = 10;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
@@ -122,26 +123,20 @@ const initializeData = async () => {
         if (categories[0].count === 0) {
             console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
             const initialCategories = [
-                // Perfumaria
                 { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
                 { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
                 { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                // Roupas
                 { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
                 { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
                 { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
                 { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
                 { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
                 { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
-                // Conjuntos
                 { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
                 { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                // Moda Íntima
                 { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
                 { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                // Calçados
                 { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
-                // Acessórios
                 { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
             ];
             
@@ -198,7 +193,7 @@ db.getConnection()
     .then(connection => {
         console.log('Conectado ao banco de dados MySQL com sucesso!');
         connection.release();
-        initializeData(); // Chama a função de seed
+        initializeData();
     })
     .catch(err => {
         console.error('Falha ao conectar ao banco de dados:', err);
@@ -557,6 +552,9 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+
     if (!email || !password) return res.status(400).json({ message: "Email e senha são obrigatórios." });
 
     if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
@@ -567,18 +565,30 @@ app.post('/api/login', async (req, res) => {
         const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
         const user = users[0];
 
+        const logLoginAttempt = async (userId, status) => {
+            await db.query(
+                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
+                [userId, email, ipAddress, userAgent, status]
+            );
+        };
+
         if (!user || !(await bcrypt.compare(password, user.password))) {
             loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
             loginAttempts[email].count++;
             if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
                 loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
             }
+            if (user) await logLoginAttempt(user.id, 'failure');
             return res.status(401).json({ message: "Email ou senha inválidos." });
         }
 
+        if (user.status === 'blocked') {
+            await logLoginAttempt(user.id, 'failure');
+            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
+        }
+
         delete loginAttempts[email];
-        
-        logAdminAction({ id: user.id, name: user.name }, 'LOGIN_SUCESSO');
+        await logLoginAttempt(user.id, 'success');
 
         const token = jwt.sign({ id: user.id, name: user.name, role: user.role, cpf: user.cpf }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         const { password: _, ...userData } = user;
@@ -588,6 +598,7 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ message: "Erro interno ao fazer login." });
     }
 });
+
 
 app.post('/api/forgot-password', async (req, res) => {
     const { email, cpf } = req.body;
@@ -1985,13 +1996,54 @@ app.post('/api/mercadopago-webhook', (req, res) => {
 // --- ROTAS DE USUÁRIOS (para Admin e Perfil) ---
 app.get('/api/users', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        const [users] = await db.query("SELECT id, name, email, cpf, role, created_at FROM users");
+        const [users] = await db.query("SELECT id, name, email, cpf, role, status, created_at FROM users");
         res.json(users);
     } catch (err) {
         console.error("Erro ao buscar usuários:", err);
         res.status(500).json({ message: "Erro ao buscar usuários." });
     }
 });
+
+app.get('/api/users/:id/details', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [users] = await db.query("SELECT id, name, email, cpf, role, status FROM users WHERE id = ?", [id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        const user = users[0];
+
+        const [orders] = await db.query("SELECT id, date, total, status FROM orders WHERE user_id = ? ORDER BY date DESC LIMIT 5", [id]);
+        const [loginHistory] = await db.query("SELECT ip_address, user_agent, status, created_at FROM login_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 10", [id]);
+
+        res.json({ ...user, orders, loginHistory });
+    } catch (err) {
+        console.error(`Erro ao buscar detalhes do usuário ${id}:`, err);
+        res.status(500).json({ message: "Erro ao buscar detalhes do usuário." });
+    }
+});
+
+app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (status !== 'active' && status !== 'blocked') {
+        return res.status(400).json({ message: "Status inválido. Use 'active' ou 'blocked'." });
+    }
+
+    try {
+        const [result] = await db.query("UPDATE users SET status = ? WHERE id = ?", [status, id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        logAdminAction(req.user, 'ATUALIZOU STATUS DE USUÁRIO', `ID do usuário: ${id}, Novo Status: ${status}`);
+        res.json({ message: `Usuário ${status === 'active' ? 'desbloqueado' : 'bloqueado'} com sucesso.` });
+    } catch (err) {
+        console.error("Erro ao atualizar status do usuário:", err);
+        res.status(500).json({ message: "Erro ao atualizar status do usuário." });
+    }
+});
+
 
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
