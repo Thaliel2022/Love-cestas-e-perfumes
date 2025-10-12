@@ -6709,11 +6709,11 @@ const AdminOrders = () => {
     // Define os fluxos de status separados
     const shippingStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', 'Reembolsado'
+        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
     const pickupStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', 'Reembolsado'
+        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
     const fetchOrders = useCallback(() => {
@@ -6882,9 +6882,11 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    const availableStatuses = editingOrder.shipping_method === 'Retirar na loja' 
+                    const baseStatuses = editingOrder.shipping_method === 'Retirar na loja' 
                         ? pickupStatuses 
                         : shippingStatuses;
+                    
+                    const availableStatuses = baseStatuses.filter(s => s !== 'Reembolsado');
 
                     if (!availableStatuses.includes(editingOrder.status)) {
                         availableStatuses.push(editingOrder.status);
