@@ -6423,7 +6423,7 @@ const AdminRefunds = ({ onNavigate }) => {
 
     const fetchRefunds = useCallback(() => {
         setIsLoading(true);
-        apiService('/api/refunds')
+        apiService('/refunds')
             .then(data => {
                 setRefunds(data);
                 setFilteredRefunds(data);
@@ -6440,7 +6440,7 @@ const AdminRefunds = ({ onNavigate }) => {
         e.preventDefault();
         setIsProcessing(true);
         try {
-            const result = await apiService(`/api/refunds/${selectedRefund.id}/approve`, 'POST', { password: adminPassword });
+            const result = await apiService(`/refunds/${selectedRefund.id}/approve`, 'POST', { password: adminPassword });
             notification.show(result.message);
             setIsApproveModalOpen(false);
             setAdminPassword('');
@@ -6456,7 +6456,7 @@ const AdminRefunds = ({ onNavigate }) => {
         e.preventDefault();
         setIsProcessing(true);
         try {
-            const result = await apiService(`/api/refunds/${selectedRefund.id}/deny`, 'POST', { reason: denyReason });
+            const result = await apiService(`/refunds/${selectedRefund.id}/deny`, 'POST', { reason: denyReason });
             notification.show(result.message);
             setIsDenyModalOpen(false);
             setDenyReason('');
