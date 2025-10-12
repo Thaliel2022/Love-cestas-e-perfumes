@@ -6052,7 +6052,7 @@ const AdminUsers = () => {
                     <UserDetailsModal 
                         user={selectedUser} 
                         onClose={() => setIsDetailModalOpen(false)}
-                        onStatusChange={fetchUsers} // Passa a função para recarregar a lista
+                        onUserUpdate={fetchUsers} // Passa a função para recarregar a lista
                     />
                 )}
             </AnimatePresence>
@@ -7159,20 +7159,73 @@ const AdminBanners = () => {
     );
 };
 
-const UserDetailsModal = ({ user, onClose, onStatusChange }) => {
+const UserEditForm = ({ user, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.role || 'user',
+        password: ''
+    });
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Nome</label>
+                <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" name="email" value={formData.email} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Função</label>
+                <select name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md">
+                    <option value="user">Usuário</option>
+                    <option value="admin">Administrador</option>
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700">Nova Senha</label>
+                <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Deixe em branco para não alterar" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+            </div>
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar Alterações</button>
+            </div>
+        </form>
+    );
+};
+
+const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
     const [details, setDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    useEffect(() => {
+    const fetchDetails = useCallback(() => {
         if (user) {
+            setIsLoading(true);
             apiService(`/users/${user.id}/details`)
                 .then(setDetails)
                 .catch(err => notification.show(`Erro ao buscar detalhes: ${err.message}`, 'error'))
                 .finally(() => setIsLoading(false));
         }
     }, [user, notification]);
+
+    useEffect(() => {
+        fetchDetails();
+    }, [fetchDetails]);
 
     const handleStatusChange = () => {
         if (!details) return;
@@ -7183,21 +7236,52 @@ const UserDetailsModal = ({ user, onClose, onStatusChange }) => {
             try {
                 await apiService(`/users/${details.id}/status`, 'PUT', { status: newStatus });
                 notification.show(`Usuário ${actionText} com sucesso.`);
-                onStatusChange(); // Avisa o componente pai para recarregar a lista
-                onClose(); // Fecha o modal
+                onUserUpdate(); // Avisa o componente pai para recarregar a lista
             } catch (error) {
                 notification.show(`Erro ao ${actionText} usuário: ${error.message}`, 'error');
             }
         });
     };
 
+    const handleSaveUser = async (formData) => {
+        try {
+            await apiService(`/users/${details.id}`, 'PUT', formData);
+            notification.show('Usuário atualizado com sucesso!');
+            setIsEditModalOpen(false);
+            onUserUpdate(); // Recarrega a lista principal
+            fetchDetails(); // Recarrega os detalhes no modal
+        } catch (error) {
+            notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
+        }
+    };
+    
+    const handleDelete = () => {
+        confirmation.show("Tem certeza que deseja EXCLUIR este usuário? Esta ação não pode ser desfeita.", async () => {
+            try {
+                await apiService(`/users/${details.id}`, 'DELETE');
+                notification.show('Usuário excluído com sucesso.');
+                onUserUpdate();
+                onClose();
+            } catch (error) {
+                notification.show(`Erro ao excluir usuário: ${error.message}`, 'error');
+            }
+        });
+    };
+
     return (
-        <Modal isOpen={true} onClose={onClose} title={`Detalhes de ${user.name}`} size="2xl">
+        <Modal isOpen={true} onClose={onClose} title={`Detalhes de ${user.name}`} size="3xl">
+            <AnimatePresence>
+                {isEditModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsEditModalOpen(false)} title={`Editar Usuário: ${details.name}`}>
+                        <UserEditForm user={details} onSave={handleSaveUser} onCancel={() => setIsEditModalOpen(false)} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             {isLoading || !details ? (
                 <div className="flex justify-center items-center h-64"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
             ) : (
                 <div className="space-y-6">
-                    {/* -- Seção de Informações Principais -- */}
                     <div className="bg-gray-50 p-4 rounded-lg border grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                             <h4 className="text-sm font-bold text-gray-500">Nome</h4>
@@ -7219,64 +7303,38 @@ const UserDetailsModal = ({ user, onClose, onStatusChange }) => {
                         </div>
                     </div>
 
-                    {/* -- Seção de Últimos Pedidos -- */}
-                    <div>
-                        <h3 className="text-lg font-semibold mb-2">Últimos Pedidos (5)</h3>
-                        <div className="border rounded-lg overflow-hidden">
-                            <div className="max-h-48 overflow-y-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Últimos Pedidos (5)</h3>
+                            <div className="border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                                 {details.orders.length > 0 ? (
-                                    <table className="w-full text-sm text-left">
-                                        <tbody>
-                                            {details.orders.map(order => (
-                                                <tr key={order.id} className="border-b last:border-b-0">
-                                                    <td className="p-2 font-mono">#{order.id}</td>
-                                                    <td className="p-2">{new Date(order.date).toLocaleDateString()}</td>
-                                                    <td className="p-2">R$ {Number(order.total).toFixed(2)}</td>
-                                                    <td className="p-2">{order.status}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : (
-                                    <p className="text-center text-gray-500 p-4">Nenhum pedido encontrado.</p>
-                                )}
+                                    <table className="w-full text-sm text-left"><tbody>
+                                        {details.orders.map(order => (
+                                            <tr key={order.id} className="border-b last:border-b-0"><td className="p-2 font-mono">#{order.id}</td><td className="p-2">{new Date(order.date).toLocaleDateString()}</td><td className="p-2">R$ {Number(order.total).toFixed(2)}</td><td className="p-2">{order.status}</td></tr>
+                                        ))}
+                                    </tbody></table>
+                                ) : (<p className="text-center text-gray-500 p-4">Nenhum pedido encontrado.</p>)}
                             </div>
                         </div>
-                    </div>
-
-                    {/* -- Seção de Histórico de Login -- */}
-                    <div>
-                        <h3 className="text-lg font-semibold mb-2">Últimos Logins (10)</h3>
-                        <div className="border rounded-lg overflow-hidden">
-                             <div className="max-h-48 overflow-y-auto">
-                                {details.loginHistory.length > 0 ? (
-                                     <table className="w-full text-sm text-left">
-                                        <tbody>
-                                            {details.loginHistory.map((login, index) => (
-                                                <tr key={index} className="border-b last:border-b-0">
-                                                    <td className="p-2">{new Date(login.created_at).toLocaleString('pt-BR')}</td>
-                                                    <td className="p-2">{login.ip_address}</td>
-                                                    <td className={`p-2 font-semibold ${login.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-                                                        {login.status === 'success' ? 'Sucesso' : 'Falha'}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                ) : (
-                                    <p className="text-center text-gray-500 p-4">Nenhum histórico de login encontrado.</p>
-                                )}
-                            </div>
+                        <div>
+                            <h3 className="text-lg font-semibold mb-2">Últimos Logins (10)</h3>
+                            <div className="border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                               {details.loginHistory.length > 0 ? (
+                                    <table className="w-full text-sm text-left"><tbody>
+                                        {details.loginHistory.map((login, index) => (
+                                            <tr key={index} className="border-b last:border-b-0"><td className="p-2">{new Date(login.created_at).toLocaleString('pt-BR')}</td><td className="p-2">{login.ip_address}</td><td className={`p-2 font-semibold ${login.status === 'success' ? 'text-green-600' : 'text-red-600'}`}>{login.status === 'success' ? 'Sucesso' : 'Falha'}</td></tr>
+                                        ))}
+                                    </tbody></table>
+                               ) : (<p className="text-center text-gray-500 p-4">Nenhum histórico de login.</p>)}
+                           </div>
                         </div>
                     </div>
                     
-                    {/* -- Ações -- */}
-                    <div className="flex justify-end pt-4 border-t">
-                        <button 
-                            onClick={handleStatusChange}
-                            className={`px-6 py-2 rounded-md font-semibold text-white ${details.status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
-                        >
-                            {details.status === 'active' ? 'Bloquear Usuário' : 'Desbloquear Usuário'}
+                    <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
+                        <button onClick={handleDelete} className="px-4 py-2 rounded-md font-semibold text-red-600 bg-red-100 hover:bg-red-200">Excluir Usuário</button>
+                        <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200">Editar Dados</button>
+                        <button onClick={handleStatusChange} className={`px-6 py-2 rounded-md font-semibold text-white ${details.status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
+                            {details.status === 'active' ? 'Bloquear' : 'Desbloquear'}
                         </button>
                     </div>
                 </div>
