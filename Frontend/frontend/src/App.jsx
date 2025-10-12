@@ -61,6 +61,7 @@ const EloIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewB
 const BoletoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" className={className}><path fill="currentColor" d="M0 128c0-35.3 28.7-64 64-64H512c35.3 0 64 28.7 64 64v256c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128zM128 160V352h32V160H128zm64 0V352h64V160H192zm96 0V352h32V160H288zm64 0V352h64V160H352zm96 0V352h32V160H448z"/></svg>;
 const PhotoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-3.69l-2.78-2.78a.75.75 0 0 0-1.06 0L12 12.69l-2.22-2.22a.75.75 0 0 0-1.06 0L1.5 11.06ZM15 7a1 1 0 1 1-2 0a1 1 0 0 1 2 0Z" clipRule="evenodd" /></svg>;
 const ClipboardDocListIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5.5 16.5a1.5 1.5 0 0 1-1.5-1.5V5.75a.75.75 0 0 1 1.5 0v9.25a.25.25 0 0 0 .25.25h9.25a.75.75 0 0 1 0 1.5H5.5Z" /><path fillRule="evenodd" d="M8 3.5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 8 15.5h9a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17 3.5H8Zm3.75 4a.75.75 0 0 0-1.5 0v.5a.75.75 0 0 0 1.5 0v-.5ZM10.5 9.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm.03 2.5a.75.75 0 0 0-1.06 0l-.72.72a.75.75 0 0 0 1.06 1.06l.72-.72a.75.75 0 0 0 0-1.06Z" clipRule="evenodd" /></svg>;
+const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M3.105 2.289a.75.75 0 0 0-.826.95l1.414 4.949a.75.75 0 0 0 .135.252l.918.919a.75.75 0 0 1 0 1.06l-.918.92a.75.75 0 0 0-.135.252L2.28 16.76a.75.75 0 0 0 .95.826l14.666-4.954a.75.75 0 0 0 0-1.42L3.105 2.289Z" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -7363,6 +7364,10 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
     const [details, setDetails] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+    const [emailSubject, setEmailSubject] = useState('');
+    const [emailMessage, setEmailMessage] = useState('');
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
     const notification = useNotification();
     const confirmation = useConfirmation();
 
@@ -7390,6 +7395,7 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
                 await apiService(`/users/${details.id}/status`, 'PUT', { status: newStatus });
                 notification.show(`Usuário ${actionText} com sucesso.`);
                 onUserUpdate(); // Avisa o componente pai para recarregar a lista
+                fetchDetails(); // Recarrega os detalhes no modal
             } catch (error) {
                 notification.show(`Erro ao ${actionText} usuário: ${error.message}`, 'error');
             }
@@ -7405,6 +7411,25 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
             fetchDetails(); // Recarrega os detalhes no modal
         } catch (error) {
             notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
+        }
+    };
+    
+    const handleSendEmail = async (e) => {
+        e.preventDefault();
+        setIsSendingEmail(true);
+        try {
+            const result = await apiService(`/users/${details.id}/send-email`, 'POST', {
+                subject: emailSubject,
+                message: emailMessage
+            });
+            notification.show(result.message);
+            setIsEmailModalOpen(false);
+            setEmailSubject('');
+            setEmailMessage('');
+        } catch (error) {
+            notification.show(`Erro ao enviar e-mail: ${error.message}`, 'error');
+        } finally {
+            setIsSendingEmail(false);
         }
     };
     
@@ -7427,6 +7452,29 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
                 {isEditModalOpen && (
                     <Modal isOpen={true} onClose={() => setIsEditModalOpen(false)} title={`Editar Usuário: ${details.name}`}>
                         <UserEditForm user={details} onSave={handleSaveUser} onCancel={() => setIsEditModalOpen(false)} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+            
+            <AnimatePresence>
+                {isEmailModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsEmailModalOpen(false)} title={`Enviar E-mail para ${details.name}`}>
+                        <form onSubmit={handleSendEmail} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Assunto</label>
+                                <input type="text" value={emailSubject} onChange={e => setEmailSubject(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Mensagem</label>
+                                <textarea value={emailMessage} onChange={e => setEmailMessage(e.target.value)} required rows="6" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+                            </div>
+                            <div className="flex justify-end pt-2">
+                                <button type="submit" disabled={isSendingEmail} className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold flex items-center gap-2 disabled:bg-gray-400">
+                                    {isSendingEmail ? <SpinnerIcon className="h-5 w-5"/> : <PaperAirplaneIcon className="h-5 w-5"/>}
+                                    {isSendingEmail ? 'Enviando...' : 'Enviar E-mail'}
+                                </button>
+                            </div>
+                        </form>
                     </Modal>
                 )}
             </AnimatePresence>
@@ -7484,8 +7532,9 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
                     </div>
                     
                     <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
-                        <button onClick={handleDelete} className="px-4 py-2 rounded-md font-semibold text-red-600 bg-red-100 hover:bg-red-200">Excluir Usuário</button>
-                        <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200">Editar Dados</button>
+                        <button onClick={handleDelete} className="px-4 py-2 rounded-md font-semibold text-red-600 bg-red-100 hover:bg-red-200 flex items-center gap-2"><TrashIcon className="h-4 w-4"/> Excluir</button>
+                        <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200 flex items-center gap-2"><EditIcon className="h-4 w-4"/> Editar</button>
+                        <button onClick={() => setIsEmailModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-purple-600 bg-purple-100 hover:bg-purple-200 flex items-center gap-2"><PaperAirplaneIcon className="h-4 w-4"/> Enviar E-mail</button>
                         <button onClick={handleStatusChange} className={`px-6 py-2 rounded-md font-semibold text-white ${details.status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
                             {details.status === 'active' ? 'Bloquear' : 'Desbloquear'}
                         </button>
