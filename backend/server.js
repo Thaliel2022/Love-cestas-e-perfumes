@@ -1390,15 +1390,20 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const { id: orderId } = req.query; 
 
     try {
-        let sql = "SELECT * FROM orders WHERE user_id = ?";
+        let sql = `
+            SELECT o.*, r.status as refund_status, r.created_at as refund_created_at
+            FROM orders o
+            LEFT JOIN refunds r ON o.refund_id = r.id
+            WHERE o.user_id = ?
+        `;
         const params = [userId];
 
         if (orderId) {
-            sql += " AND id = ?";
+            sql += " AND o.id = ?";
             params.push(orderId);
         }
 
-        sql += " ORDER BY date DESC";
+        sql += " ORDER BY o.date DESC";
         
         const [orders] = await db.query(sql, params);
         
@@ -1576,6 +1581,11 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
 
+    // --- BLOQUEIO DE SEGURANÇA ---
+    if (status === ORDER_STATUS.REFUNDED) {
+        return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
+    }
+
     const STATUS_PROGRESSION = [
         ORDER_STATUS.PENDING,
         ORDER_STATUS.PAYMENT_APPROVED,
@@ -1593,7 +1603,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         ORDER_STATUS.OUT_FOR_DELIVERY,
         ORDER_STATUS.DELIVERED,
         ORDER_STATUS.CANCELLED,
-        ORDER_STATUS.REFUNDED
+        // ORDER_STATUS.REFUNDED foi removido daqui
     ];
 
     const connection = await db.getConnection();
@@ -1605,7 +1615,7 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
             throw new Error("Pedido não encontrado.");
         }
         const currentOrder = currentOrderResult[0];
-        const { status: currentStatus, payment_gateway_id, payment_status: currentPaymentStatus } = currentOrder;
+        const { status: currentStatus } = currentOrder;
 
         if (status && status !== currentStatus) {
             const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
@@ -1620,25 +1630,9 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
             }
             
-            if (status === ORDER_STATUS.REFUNDED) {
-                if (!payment_gateway_id) throw new Error("Reembolso falhou: ID de pagamento não encontrado.");
-                if (currentPaymentStatus !== 'approved') throw new Error(`Reembolso falhou: Status do pagamento é '${currentPaymentStatus}'.`);
-                
-                console.log(`[Reembolso] Iniciando reembolso para o pagamento do MP: ${payment_gateway_id}`);
-                const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${payment_gateway_id}/refunds`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${MP_ACCESS_TOKEN}`,
-                        'Content-Type': 'application/json',
-                        'X-Idempotency-Key': crypto.randomUUID()
-                    }
-                });
-                const refundData = await refundResponse.json();
-                if (!refundResponse.ok) throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
-                console.log(`[Reembolso] Sucesso para pagamento ${payment_gateway_id}.`);
-            }
+            // --- LÓGICA DE REEMBOLSO REMOVIDA DAQUI ---
             
-            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.REFUNDED || status === ORDER_STATUS.PAYMENT_REJECTED);
+            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
             const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
 
             if (isRevertingStock && !wasAlreadyReverted) {
@@ -3086,10 +3080,12 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         const refund = refundResult[0];
 
         if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
-        if (refund.requested_by_admin_id === approved_by_admin_id) throw new Error("Você não pode aprovar uma solicitação de reembolso criada por você mesmo.");
+        
+        // --- LÓGICA DE AUTOAPROVAÇÃO REMOVIDA ---
+        // if (refund.requested_by_admin_id === approved_by_admin_id) throw new Error("Você não pode aprovar uma solicitação de reembolso criada por você mesmo.");
 
-        const [approverResult] = await connection.query("SELECT password FROM users WHERE id = ?", [approved_by_admin_id]);
-        if (!approverResult.length || !(await bcrypt.compare(password, approverResult[0].password))) {
+        const [approverResult] = await connection.query("SELECT password, role FROM users WHERE id = ?", [approved_by_admin_id]);
+        if (!approverResult.length || !(await bcrypt.compare(password, approverResult[0].password)) || approverResult[0].role !== 'admin') {
             throw new Error("Senha de administrador inválida.");
         }
 
@@ -3126,10 +3122,9 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         // Reverter estoque
         const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [order.id]);
         for (const item of itemsToReturn) {
-            // (A lógica de reversão de estoque foi copiada da rota de atualização de pedido)
-             const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-             const product = productResult[0];
-             if (product.product_type === 'clothing' && item.variation_details) {
+            const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+            const product = productResult[0];
+            if (product.product_type === 'clothing' && item.variation_details) {
                  const variation = JSON.parse(item.variation_details);
                  let variations = JSON.parse(product.variations || '[]');
                  const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
@@ -3138,9 +3133,9 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
                      const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
                      await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
                  }
-             } else {
+            } else {
                  await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-             }
+            }
         }
         
         await connection.commit();
@@ -3199,6 +3194,65 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
         connection.release();
     }
 });
+
+// (Cliente) Rota para o cliente solicitar um reembolso
+app.post('/api/refunds/request', verifyToken, async (req, res) => {
+    const { order_id, reason } = req.body;
+    const user_id = req.user.id;
+
+    if (!order_id || !reason) {
+        return res.status(400).json({ message: "ID do pedido e motivo são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ? AND user_id = ?", [order_id, user_id]);
+        if (orderResult.length === 0) throw new Error("Pedido não encontrado ou não pertence a este usuário.");
+        
+        const order = orderResult[0];
+
+        if (order.status !== 'Entregue') throw new Error("Apenas pedidos com status 'Entregue' podem ser reembolsados.");
+        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso.");
+        
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (new Date(order.date) < thirtyDaysAgo) throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
+
+        // Para solicitações de clientes, o valor é sempre o total do pedido
+        const refundAmount = order.total;
+
+        const [refundInsertResult] = await connection.query(
+            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
+            [order_id, user_id, refundAmount, reason, 'pending_approval']
+        );
+        const refundId = refundInsertResult.insertId;
+
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, user_id, 'solicitado_pelo_cliente', `Motivo: ${reason}`]
+        );
+
+        await connection.commit();
+        
+        // Notificar admin sobre nova solicitação (opcional, mas recomendado)
+        // Você pode configurar um e-mail de admin nas suas variáveis de ambiente
+        // sendEmailAsync({ to: process.env.ADMIN_EMAIL, ... })
+
+        res.status(201).json({ message: "Sua solicitação de reembolso foi enviada e será analisada.", refundId });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro do cliente ao solicitar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao solicitar reembolso." });
+    } finally {
+        connection.release();
+    }
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {

@@ -3952,8 +3952,14 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
     
     const [reviewingItem, setReviewingItem] = useState(null);
+    
+    // --- Estados para o Modal de Reembolso do Cliente ---
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    const [refundReason, setRefundReason] = useState('');
+    const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
     const fetchOrderDetails = useCallback(() => {
+        setIsLoading(true); // Garante que o loading seja reativado a cada busca
         return apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
@@ -3962,14 +3968,12 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     throw new Error("Pedido não encontrado.");
                 }
             })
-            .catch(err => notification.show(err.message, 'error'));
+            .catch(err => notification.show(err.message, 'error'))
+            .finally(() => setIsLoading(false));
     }, [orderId, notification]);
 
     useEffect(() => {
-        setIsLoading(true);
-        fetchOrderDetails().finally(() => {
-            setIsLoading(false);
-        });
+        fetchOrderDetails();
     }, [fetchOrderDetails]);
 
     const handleReviewSuccess = () => {
@@ -4021,6 +4025,24 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 onNavigate('cart');
             }
         });
+    };
+    
+    const handleRequestRefund = async (e) => {
+        e.preventDefault();
+        setIsProcessingRefund(true);
+        try {
+            const result = await apiService('/refunds/request', 'POST', {
+                order_id: order.id,
+                reason: refundReason
+            });
+            notification.show(result.message);
+            setIsRefundModalOpen(false);
+            fetchOrderDetails(); // Recarrega os dados do pedido
+        } catch (error) {
+            notification.show(`Erro ao solicitar: ${error.message}`, 'error');
+        } finally {
+            setIsProcessingRefund(false);
+        }
     };
 
     const getCardIcon = (brand) => {
@@ -4103,7 +4125,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
-
+    
+    const isOrderDelivered = order.status === 'Entregue';
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
+    const canRequestRefund = isOrderDelivered && isWithinRefundPeriod && !order.refund_id;
+    
     return (
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
@@ -4116,6 +4144,29 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             orderId={order.id}
                             onReviewSubmitted={handleReviewSuccess}
                         />
+                    </Modal>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {isRefundModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso do Pedido #${order.id}`}>
+                        <form onSubmit={handleRequestRefund} className="space-y-4 text-gray-800">
+                             <div>
+                                <label className="block text-sm font-medium text-gray-700">Motivo da Solicitação</label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" placeholder="Ex: Produto veio com defeito, não serviu, etc." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white"></textarea>
+                            </div>
+                            <div className="bg-gray-100 p-3 rounded-md text-sm">
+                                <p><strong>Valor a ser reembolsado:</strong> R$ {Number(order.total).toFixed(2)}</p>
+                                <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após aprovação.</p>
+                            </div>
+                             <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessingRefund} className="px-4 py-2 bg-amber-600 text-white rounded-md flex items-center gap-2 disabled:bg-amber-300">
+                                    {isProcessingRefund && <SpinnerIcon className="h-5 w-5" />}
+                                    Enviar Solicitação
+                                </button>
+                            </div>
+                        </form>
                     </Modal>
                 )}
             </AnimatePresence>
@@ -4256,6 +4307,14 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
                                 order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                            )}
+                             {canRequestRefund && (
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar Reembolso</button>
+                            )}
+                            {order.refund_id && (
+                                <div className="text-sm text-yellow-400 bg-yellow-900/50 px-3 py-1.5 rounded-md">
+                                    Reembolso {order.refund_status === 'pending_approval' ? 'em análise' : order.refund_status}.
+                                </div>
                             )}
                         </div>
                         <div className="flex items-center justify-end gap-2 text-xs text-gray-400">
