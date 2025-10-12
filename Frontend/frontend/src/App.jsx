@@ -6491,7 +6491,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                 <ExclamationIcon className="h-6 w-6 text-red-500 mr-3" />
                                 <div>
                                     <h3 className="font-bold text-red-800">Ação Irreversível</h3>
-                                    <p className="text-sm text-red-700">Ao confirmar, o valor de <strong>R$ {selectedRefund.amount.toFixed(2)}</strong> será estornado para o cliente via Mercado Pago. O estoque será revertido e o pedido será marcado como reembolsado.</p>
+                                    <p className="text-sm text-red-700">Ao confirmar, o valor de <strong>R$ {Number(selectedRefund.amount).toFixed(2)}</strong> será estornado para o cliente via Mercado Pago. O estoque será revertido e o pedido será marcado como reembolsado.</p>
                                 </div>
                             </div>
                         </div>
@@ -6556,7 +6556,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                         <td className="p-4 font-mono">#{r.order_id}</td>
                                         <td className="p-4">{r.customer_name}</td>
                                         <td className="p-4">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
-                                        <td className="p-4 font-bold">R$ {r.amount.toFixed(2)}</td>
+                                        <td className="p-4 font-bold">R$ {Number(r.amount).toFixed(2)}</td>
                                         <td className="p-4">{r.requester_name}</td>
                                         <td className="p-4">{r.approver_name || '---'}</td>
                                         <td className="p-4">{getStatusChip(r.status)}</td>
@@ -6586,7 +6586,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                                     <div><strong className="text-gray-500 block">Cliente</strong> {r.customer_name}</div>
-                                    <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {r.amount.toFixed(2)}</span></div>
+                                    <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {Number(r.amount).toFixed(2)}</span></div>
                                     <div><strong className="text-gray-500 block">Solicitado por</strong> {r.requester_name}</div>
                                     <div><strong className="text-gray-500 block">Aprovado por</strong> {r.approver_name || '---'}</div>
                                 </div>
