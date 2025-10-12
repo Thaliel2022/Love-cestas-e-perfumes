@@ -6884,8 +6884,9 @@ const MaintenanceModeToggle = () => {
 
 const BannerForm = ({ item, onSave, onCancel }) => {
     const [formData, setFormData] = useState(item);
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState({ desktop: false, mobile: false });
+    const desktopInputRef = useRef(null);
+    const mobileInputRef = useRef(null);
     const notification = useNotification();
 
     const handleChange = (e) => {
@@ -6896,19 +6897,20 @@ const BannerForm = ({ item, onSave, onCancel }) => {
         }));
     };
 
-    const handleFileChange = async (event) => {
+    const handleFileChange = async (event, type) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        setIsUploading(true);
+        setUploading(prev => ({ ...prev, [type]: true }));
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
-            setFormData(prev => ({ ...prev, image_url: uploadResult.imageUrl }));
-            notification.show('Upload da imagem concluído!');
+            const fieldName = type === 'desktop' ? 'image_url' : 'image_url_mobile';
+            setFormData(prev => ({ ...prev, [fieldName]: uploadResult.imageUrl }));
+            notification.show(`Upload da imagem de ${type} concluído!`);
         } catch (error) {
             notification.show(`Erro no upload: ${error.message}`, 'error');
         } finally {
-            setIsUploading(false);
+            setUploading(prev => ({ ...prev, [type]: false }));
             event.target.value = '';
         }
     };
@@ -6919,16 +6921,27 @@ const BannerForm = ({ item, onSave, onCancel }) => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Imagem do Banner</label>
-                <div className="flex items-center gap-2 mt-1">
-                    <img src={formData.image_url || 'https://placehold.co/200x100/eee/ccc?text=Imagem'} alt="Preview" className="w-48 h-24 object-cover rounded-md border bg-gray-100"/>
-                    <div className="flex-grow">
-                        <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-                        <button type="button" onClick={() => fileInputRef.current.click()} disabled={isUploading} className="mt-2 w-full text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
-                            {isUploading ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Fazer Upload</>}
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Desktop)</label>
+                    <div className="flex flex-col gap-2 mt-1">
+                        <img src={formData.image_url || 'https://placehold.co/200x100/eee/ccc?text=Desktop'} alt="Preview Desktop" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
+                        <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                        <input type="file" ref={desktopInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'desktop')} />
+                        <button type="button" onClick={() => desktopInputRef.current.click()} disabled={uploading.desktop} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                            {uploading.desktop ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Desktop</>}
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Mobile)</label>
+                    <div className="flex flex-col gap-2 mt-1">
+                        <img src={formData.image_url_mobile || 'https://placehold.co/100x100/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
+                        <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="Opcional: https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                        <input type="file" ref={mobileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'mobile')} />
+                        <button type="button" onClick={() => mobileInputRef.current.click()} disabled={uploading.mobile} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                            {uploading.mobile ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Mobile</>}
                         </button>
                     </div>
                 </div>
@@ -6937,13 +6950,15 @@ const BannerForm = ({ item, onSave, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700">Link de Destino</label>
                 <input type="text" name="link_url" value={formData.link_url} onChange={handleChange} required placeholder="Ex: #products?category=Blusas" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
             </div>
-             <div>
-                <label className="block text-sm font-medium text-gray-700">Título (Opcional)</label>
-                <input type="text" name="title" value={formData.title} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700">Subtítulo (Opcional)</label>
-                <textarea name="subtitle" value={formData.subtitle} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md h-20"/>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Título (Opcional)</label>
+                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Subtítulo (Opcional)</label>
+                    <input type="text" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
                  <div className="flex items-center pt-2">
@@ -6953,7 +6968,7 @@ const BannerForm = ({ item, onSave, onCancel }) => {
                 {!!formData.cta_enabled && (
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Texto do Botão</label>
-                        <input type="text" name="cta_text" value={formData.cta_text} onChange={handleChange} placeholder="Ex: Ver Oferta" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="text" name="cta_text" value={formData.cta_text || ''} onChange={handleChange} placeholder="Ex: Ver Oferta" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                     </div>
                 )}
             </div>
@@ -7408,17 +7423,6 @@ const BannerCarousel = memo(({ onNavigate }) => {
             .then(data => {
                 if (Array.isArray(data) && data.length > 0) {
                     setBanners(data);
-                } else {
-                    const staticBanner = {
-                        id: 'static-0',
-                        image_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
-                        title: 'Elegância que Veste e Perfuma',
-                        subtitle: 'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
-                        link_url: '#products',
-                        cta_text: 'Explorar Coleção',
-                        cta_enabled: 1,
-                    };
-                    setBanners([staticBanner]);
                 }
             })
             .catch(err => {
@@ -7471,6 +7475,11 @@ const BannerCarousel = memo(({ onNavigate }) => {
     
     if (banners.length === 0) return null;
 
+    // Lógica para determinar qual imagem usar
+    const isMobile = window.innerWidth < 640;
+    const currentBanner = banners[currentIndex];
+    const imageUrl = isMobile && currentBanner.image_url_mobile ? currentBanner.image_url_mobile : currentBanner.image_url;
+
     return (
         <section 
             className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
@@ -7486,12 +7495,12 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 1, ease: "easeInOut" }}
-                    onClick={() => onNavigate(banners[currentIndex].link_url.replace(/^#/, ''))}
+                    onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
+                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
                     <div className="absolute inset-0 bg-black/40" />
                     
-                    {(banners[currentIndex].title || banners[currentIndex].subtitle || banners[currentIndex].cta_enabled) && (
+                    {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
                             className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
                             variants={bannerVariants}
@@ -7500,26 +7509,26 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             exit="hidden"
                             key={`content-${currentIndex}`}
                          >
-                            {banners[currentIndex].title && (
+                            {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
                                     className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
-                                    {banners[currentIndex].title}
+                                    {currentBanner.title}
                                 </motion.h1>
                             )}
-                            {banners[currentIndex].subtitle && (
+                            {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
                                     className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
                                 >
-                                    {banners[currentIndex].subtitle}
+                                    {currentBanner.subtitle}
                                 </motion.p>
                             )}
-                             {banners[currentIndex].cta_enabled === 1 && banners[currentIndex].cta_text && (
+                             {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
                                     <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
-                                        {banners[currentIndex].cta_text}
+                                        {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
                             )}
