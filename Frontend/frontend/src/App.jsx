@@ -6840,7 +6840,8 @@ const AdminLogsPage = () => {
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-gray-100">
                                 <tr>
@@ -6855,12 +6856,29 @@ const AdminLogsPage = () => {
                                     <tr key={log.id} className="border-b hover:bg-gray-50">
                                         <td className="p-4 whitespace-nowrap text-gray-600">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-medium">{log.user_name}</td>
-                                        <td className="p-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">{log.action.replace(/_/g, ' ')}</span></td>
-                                        <td className="p-4 text-gray-700">{log.details}</td>
+                                        <td className="p-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span></td>
+                                        <td className="p-4 text-gray-700 break-words">{log.details}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-4 p-4">
+                        {logs.map(log => (
+                            <div key={log.id} className="bg-white border rounded-lg p-4 shadow-sm text-sm">
+                                <div className="flex justify-between items-start mb-3 pb-3 border-b">
+                                    <div>
+                                        <p className="font-bold">{log.user_name}</p>
+                                        <p className="text-xs text-gray-500">{new Date(log.created_at).toLocaleString('pt-BR')}</p>
+                                    </div>
+                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span>
+                                </div>
+                                <div>
+                                    <p className="text-gray-700 break-words">{log.details}</p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}
