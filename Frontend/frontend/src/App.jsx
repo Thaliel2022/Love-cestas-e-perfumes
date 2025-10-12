@@ -7475,10 +7475,12 @@ const BannerCarousel = memo(({ onNavigate }) => {
     
     if (banners.length === 0) return null;
 
-    // Lógica para determinar qual imagem usar
+    // Lógica aprimorada para determinar a imagem e o estilo
     const isMobile = window.innerWidth < 640;
     const currentBanner = banners[currentIndex];
-    const imageUrl = isMobile && currentBanner.image_url_mobile ? currentBanner.image_url_mobile : currentBanner.image_url;
+    const useMobileImage = isMobile && currentBanner.image_url_mobile;
+    const imageUrl = useMobileImage ? currentBanner.image_url_mobile : currentBanner.image_url;
+    const imageStyleClass = useMobileImage ? 'bg-contain' : 'bg-cover';
 
     return (
         <section 
@@ -7497,7 +7499,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
+                    <div className={`absolute inset-0 bg-no-repeat bg-center ${imageStyleClass}`} style={{ backgroundImage: `url(${imageUrl})` }} />
                     <div className="absolute inset-0 bg-black/40" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
