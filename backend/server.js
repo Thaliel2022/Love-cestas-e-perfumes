@@ -2476,13 +2476,13 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Cria um novo banner
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
     if (!image_url || !link_url) {
         return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
     }
     try {
-        const sql = "INSERT INTO banners (image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) SELECT ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM banners";
-        const params = [image_url, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0];
+        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM banners";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0];
         const [result] = await db.query(sql, params);
         res.status(201).json({ message: "Banner criado com sucesso!", id: result.insertId });
     } catch (err) {
@@ -2493,17 +2493,20 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Atualiza a ORDEM de múltiplos banners
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
-    const { orderedIds } = req.body;
+    const { orderedIds } = req.body; 
     if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
         return res.status(400).json({ message: "É necessário fornecer um array de IDs de banners ordenados." });
     }
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
+        
         const updatePromises = orderedIds.map((id, index) => {
             return connection.query("UPDATE banners SET display_order = ? WHERE id = ?", [index, id]);
         });
+
         await Promise.all(updatePromises);
+
         await connection.commit();
         res.json({ message: "Ordem dos banners atualizada com sucesso." });
     } catch (err) {
@@ -2518,13 +2521,13 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
 // (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
     if (!image_url || !link_url) {
         return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
     }
     try {
-        const sql = "UPDATE banners SET image_url = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ? WHERE id = ?";
-        const params = [image_url, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, id];
+        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ? WHERE id = ?";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, id];
         const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Banner não encontrado." });
