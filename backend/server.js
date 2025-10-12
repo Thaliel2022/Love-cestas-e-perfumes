@@ -2064,6 +2064,11 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
     }
 
+    // Impede que um admin se auto-remova do status de admin
+    if (String(req.user.id) === String(id) && role !== 'admin') {
+        return res.status(403).json({ message: "Você não pode remover sua própria permissão de administrador." });
+    }
+
     try {
         let queryParams = [name, email, role];
         let sql = "UPDATE users SET name = ?, email = ?, role = ?";
@@ -2095,6 +2100,45 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         }
         console.error("Erro ao atualizar usuário:", err);
         res.status(500).json({ message: "Erro interno ao atualizar usuário." });
+    }
+});
+
+app.put('/api/users/me/password', verifyToken, async (req, res) => {
+    const userId = req.user.id;
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
+        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA');
+        res.json({ message: "Senha atualizada com sucesso." });
+    } catch(err) {
+        console.error("Erro ao atualizar senha do usuário:", err);
+        res.status(500).json({ message: "Erro ao atualizar a senha." });
+    }
+});
+
+app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+
+    // Impede que um admin se auto-delete
+    if (String(req.user.id) === String(id)) {
+        return res.status(403).json({ message: "Você não pode excluir sua própria conta." });
+    }
+
+    try {
+        const [result] = await db.query("DELETE FROM users WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        logAdminAction(req.user, 'DELETOU USUÁRIO', `ID do usuário: ${id}`);
+        res.json({ message: "Usuário deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar usuário:", err);
+        res.status(500).json({ message: "Erro interno ao deletar usuário." });
     }
 });
 
