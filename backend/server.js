@@ -3081,9 +3081,6 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
 
         if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
         
-        // --- LÓGICA DE AUTOAPROVAÇÃO REMOVIDA ---
-        // if (refund.requested_by_admin_id === approved_by_admin_id) throw new Error("Você não pode aprovar uma solicitação de reembolso criada por você mesmo.");
-
         const [approverResult] = await connection.query("SELECT password, role FROM users WHERE id = ?", [approved_by_admin_id]);
         if (!approverResult.length || !(await bcrypt.compare(password, approverResult[0].password)) || approverResult[0].role !== 'admin') {
             throw new Error("Senha de administrador inválida.");
@@ -3122,9 +3119,9 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         // Reverter estoque
         const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [order.id]);
         for (const item of itemsToReturn) {
-            const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-            const product = productResult[0];
-            if (product.product_type === 'clothing' && item.variation_details) {
+             const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+             const product = productResult[0];
+             if (product.product_type === 'clothing' && item.variation_details) {
                  const variation = JSON.parse(item.variation_details);
                  let variations = JSON.parse(product.variations || '[]');
                  const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
@@ -3133,9 +3130,9 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
                      const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
                      await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
                  }
-            } else {
+             } else {
                  await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-            }
+             }
         }
         
         await connection.commit();
@@ -3143,7 +3140,7 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         // --- NOTIFICAÇÃO POR E-MAIL ---
         const [customer] = await db.query("SELECT name, email FROM users WHERE id = ?", [order.user_id]);
         if (customer.length > 0) {
-            const emailHtml = createRefundProcessedEmail(customer[0].name, order.id, refund.amount, refund.reason);
+            const emailHtml = createRefundProcessedEmail(customer[0].name, order.id, Number(refund.amount), refund.reason);
             sendEmailAsync({ from: FROM_EMAIL, to: customer[0].email, subject: `Seu reembolso do pedido #${order.id} foi processado`, html: emailHtml });
         }
         

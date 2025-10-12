@@ -4055,6 +4055,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             default: return CreditCardIcon;
         }
     };
+    
+    const getRefundStatusInfo = (status) => {
+        const statuses = {
+            'pending_approval': { text: 'Reembolso em análise', class: 'text-yellow-400 bg-yellow-900/50', icon: <ClockIcon className="h-4 w-4"/> },
+            'processed': { text: 'Reembolso Concluído', class: 'text-green-400 bg-green-900/50', icon: <CheckCircleIcon className="h-4 w-4"/> },
+            'denied': { text: 'Reembolso Negado', class: 'text-red-400 bg-red-900/50', icon: <XCircleIcon className="h-4 w-4"/> },
+            'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
+        };
+        return statuses[status] || { text: `Reembolso ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
+    };
 
     const renderPaymentDetails = () => {
         if (!order || !order.payment_method) {
@@ -4132,6 +4142,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     const canRequestRefund = isOrderDelivered && isWithinRefundPeriod && !order.refund_id;
     
+    const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
+
     return (
         <>
             <TrackingModal isOpen={isTrackingModalOpen} onClose={() => setIsTrackingModalOpen(false)} order={order} />
@@ -4311,9 +4323,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                              {canRequestRefund && (
                                 <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar Reembolso</button>
                             )}
-                            {order.refund_id && (
-                                <div className="text-sm text-yellow-400 bg-yellow-900/50 px-3 py-1.5 rounded-md">
-                                    Reembolso {order.refund_status === 'pending_approval' ? 'em análise' : order.refund_status}.
+                            {refundInfo && (
+                                <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
+                                    {refundInfo.icon}
+                                    <span>{refundInfo.text}</span>
                                 </div>
                             )}
                         </div>
