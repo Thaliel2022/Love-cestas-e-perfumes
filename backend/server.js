@@ -223,6 +223,14 @@ const verifyAdmin = (req, res, next) => {
 
 const checkMaintenanceMode = async (req, res, next) => {
     try {
+        const vercelUrl = process.env.VERCEL_URL;
+        const origin = req.headers.origin;
+
+        // Exceção #1: Permite acesso total se a requisição vier do domínio da Vercel.
+        if (vercelUrl && origin && origin.includes(vercelUrl)) {
+            return next();
+        }
+
         const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
         const maintenanceMode = settings[0]?.setting_value || 'off';
 
@@ -233,14 +241,15 @@ const checkMaintenanceMode = async (req, res, next) => {
             if (token) {
                 try {
                     const user = jwt.verify(token, JWT_SECRET);
+                    // Exceção #2: Permite acesso total se o usuário for um admin logado.
                     if (user.role === 'admin') {
-                        return next(); // Se for admin, permite o acesso.
+                        return next();
                     }
                 } catch (err) {
                     // Token inválido, trata como visitante comum.
                 }
             }
-            // Se não for admin, bloqueia o acesso.
+            // Se nenhuma exceção for atendida, bloqueia o acesso.
             return res.status(503).json({ message: 'Site em manutenção. Por favor, tente novamente mais tarde.' });
         }
 
