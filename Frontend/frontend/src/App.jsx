@@ -7488,7 +7488,8 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(banners[currentIndex].link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
+                    {/* AQUI ESTÁ A MUDANÇA */}
+                    <div className="absolute inset-0 bg-contain bg-no-repeat sm:bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
                     <div className="absolute inset-0 bg-black/40" />
                     
                     {(banners[currentIndex].title || banners[currentIndex].subtitle || banners[currentIndex].cta_enabled) && (
