@@ -7194,6 +7194,23 @@ const InstallPWAButton = ({ deferredPrompt }) => {
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+  const [isInMaintenance, setIsInMaintenance] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
+
+  // Busca o status de manutenção assim que o app carrega
+  useEffect(() => {
+    apiService('/settings/maintenance-status')
+        .then(data => {
+            setIsInMaintenance(data.maintenanceMode === 'on');
+        })
+        .catch(err => {
+            console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+            setIsInMaintenance(false); // Padrão para 'off' se a API falhar
+        })
+        .finally(() => {
+            setIsStatusLoading(false);
+        });
+  }, []);
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -7231,11 +7248,9 @@ function AppContent({ deferredPrompt }) {
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
     
-    // Lógica de roteamento aprimorada
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
-    const detailId = pathParts[2];
 
     if (mainPage === 'admin') {
         if (isLoading) return null;
@@ -7244,8 +7259,8 @@ function AppContent({ deferredPrompt }) {
         }
         
         const adminSubPage = pageId || 'dashboard';
-      const adminPages = {
-            'dashboard': <AdminDashboard />,
+        const adminPages = {
+            'dashboard': <AdminDashboard />, 
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
             'collections': <AdminCollections />,
@@ -7274,7 +7289,6 @@ function AppContent({ deferredPrompt }) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
     
-    // Passa o caminho completo para MyAccountPage para sub-roteamento
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -7293,7 +7307,15 @@ function AppContent({ deferredPrompt }) {
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
   
-  if (isLoading) return <div className="h-screen flex items-center justify-center bg-black"><p className="text-xl text-white">Carregando...</p></div>;
+  if (isLoading || isStatusLoading) return <div className="h-screen flex items-center justify-center bg-black"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
+
+  // Lógica principal do Modo de Manutenção
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminDomain = window.location.hostname.includes('vercel.app'); // Exceção para o domínio da Vercel
+
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
