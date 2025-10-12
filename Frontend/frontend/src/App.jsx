@@ -6864,6 +6864,14 @@ const AdminOrders = () => {
         setOrderIdSearch('');
         setCurrentPage(1);
     }
+
+    const getStatusChipClass = (status) => {
+        const lowerStatus = status ? status.toLowerCase() : '';
+        if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
+        return 'bg-blue-100 text-blue-800';
+    };
     
     const indexOfLastOrder = currentPage * ordersPerPage;
     const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
@@ -7125,7 +7133,17 @@ const AdminOrders = () => {
                                                 <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
                                             )}
                                         </td>
-                                        <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${o.status === 'Entregue' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{o.status}</span></td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                                {o.refund_status === 'pending_approval' && (
+                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                        Reembolso Solicitado
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
                                     </tr>
                                 );
@@ -7145,7 +7163,15 @@ const AdminOrders = () => {
                                         <p className="font-bold">Pedido #{o.id}</p>
                                         <p className="text-sm text-gray-600">{o.user_name}</p>
                                     </div>
-                                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${o.status === 'Entregue' ? 'bg-green-100 text-green-800' : (o.status === 'Cancelado' || o.status === 'Pagamento Recusado' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{o.status}</span>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        {o.refund_status === 'pending_approval' && (
+                                            <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                Reembolso Solicitado
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
                                      <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
