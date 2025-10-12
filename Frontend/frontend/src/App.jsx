@@ -6628,6 +6628,12 @@ const AdminOrders = () => {
         maxPrice: '',
     });
 
+    // --- Estados para o Modal de Reembolso ---
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    const [refundAmount, setRefundAmount] = useState(0);
+    const [refundReason, setRefundReason] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
     // Define os fluxos de status separados
     const shippingStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
@@ -6672,6 +6678,36 @@ const AdminOrders = () => {
         } catch (error) {
             notification.show("Erro ao buscar detalhes do pedido.", 'error');
             console.error(error);
+        }
+    };
+
+    const handleOpenRefundModal = () => {
+        if (!editingOrder) return;
+        setRefundAmount(editingOrder.total);
+        setRefundReason('');
+        setIsEditModalOpen(false); // Fecha o modal de detalhes
+        setIsRefundModalOpen(true); // Abre o modal de reembolso
+    };
+
+    const handleRequestRefund = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) {
+                throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+            }
+            const result = await apiService('/api/refunds', 'POST', {
+                order_id: editingOrder.id,
+                amount: refundAmount,
+                reason: refundReason,
+            });
+            notification.show(result.message);
+            setIsRefundModalOpen(false);
+            fetchOrders();
+        } catch (error) {
+            notification.show(`Erro ao solicitar reembolso: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -6749,6 +6785,30 @@ const AdminOrders = () => {
     return (
         <div>
             <AnimatePresence>
+                {isRefundModalOpen && editingOrder && (
+                    <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
+                        <form onSubmit={handleRequestRefund} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Valor a Reembolsar</label>
+                                <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                                <p className="text-xs text-gray-500 mt-1">Valor total do pedido: R$ {editingOrder.total.toFixed(2)}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Motivo do Reembolso</label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-4">
+                                <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-amber-600 text-white rounded-md flex items-center gap-2 disabled:bg-amber-300">
+                                    {isProcessing && <SpinnerIcon className="h-5 w-5" />}
+                                    Enviar Solicitação
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
                 {editingOrder && (() => {
                     const availableStatuses = editingOrder.shipping_method === 'Retirar na loja' 
                         ? pickupStatuses 
@@ -6757,6 +6817,8 @@ const AdminOrders = () => {
                     if (!availableStatuses.includes(editingOrder.status)) {
                         availableStatuses.push(editingOrder.status);
                     }
+
+                    const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
 
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
@@ -6875,9 +6937,22 @@ const AdminOrders = () => {
                                             <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
                                         </div>
                                     )}
-                                    <div className="flex justify-end space-x-3 pt-4">
-                                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                                        <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+                                    <div className="flex justify-between items-center space-x-3 pt-4">
+                                        <div>
+                                            {canRequestRefund ? (
+                                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold">
+                                                    Solicitar Reembolso
+                                                </button>
+                                            ) : (
+                                                <p className="text-xs text-gray-500">
+                                                    {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
+                                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+                                        </div>
                                     </div>
                                 </form>
                             </div>
