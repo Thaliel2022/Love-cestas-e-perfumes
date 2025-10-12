@@ -478,6 +478,22 @@ const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     return createEmailBase(content);
 };
 
+const createRefundProcessedEmail = (customerName, orderId, refundAmount, reason) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Reembolso Processado</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">Confirmamos que o reembolso para o seu pedido <strong>#${orderId}</strong> foi processado com sucesso.</p>
+        <div style="border: 1px solid #4B5563; padding: 15px; text-align: left; margin: 20px 0; border-radius: 5px;">
+            <p style="margin: 0 0 10px 0; color: #E5E7EB; font-family: Arial, sans-serif;"><strong>Valor Reembolsado:</strong> <span style="font-weight: bold; color: #D4AF37;">R$ ${refundAmount.toFixed(2).replace('.', ',')}</span></p>
+            <p style="margin: 0; color: #E5E7EB; font-family: Arial, sans-serif;"><strong>Motivo:</strong> ${reason}</p>
+        </div>
+        <p style="color: #9CA3AF; font-size: 14px; line-height: 1.6; margin: 20px 0 15px;">O valor será estornado no mesmo método de pagamento utilizado na compra. O prazo para que o valor apareça em sua fatura ou conta depende da operadora do seu cartão ou banco.</p>
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 20px 0;"><a href="${appUrl}/#account/orders/${orderId}" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Detalhes do Pedido</a></td></tr></table>
+    `;
+    return createEmailBase(content);
+};
+
 const createAdminDirectEmail = (customerName, subject, message) => {
     const content = `
         <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">${subject}</h1>
@@ -2964,7 +2980,225 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
     }
 });
 
+// --- ROTAS DO SISTEMA DE REEMBOLSO (Admin) ---
 
+// (Admin) Listar todas as solicitações de reembolso
+app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                r.*, 
+                o.id as order_id, 
+                u_req.name as requester_name, 
+                u_app.name as approver_name,
+                c.name as customer_name
+            FROM refunds r
+            JOIN orders o ON r.order_id = o.id
+            JOIN users u_req ON r.requested_by_admin_id = u_req.id
+            JOIN users c ON o.user_id = c.id
+            LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
+            ORDER BY r.created_at DESC
+        `;
+        const [refunds] = await db.query(sql);
+        res.json(refunds);
+    } catch (err) {
+        console.error("Erro ao listar reembolsos:", err);
+        res.status(500).json({ message: "Erro interno ao listar reembolsos." });
+    }
+});
+
+// (Admin) Solicitar um novo reembolso para um pedido
+app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
+    const { order_id, amount, reason } = req.body;
+    const requested_by_admin_id = req.user.id;
+
+    if (!order_id || !amount || !reason) {
+        return res.status(400).json({ message: "ID do pedido, valor e motivo são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [order_id]);
+        if (orderResult.length === 0) {
+            throw new Error("Pedido não encontrado.");
+        }
+        const order = orderResult[0];
+
+        if (order.refund_id) {
+            throw new Error("Este pedido já possui uma solicitação de reembolso ativa ou concluída.");
+        }
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (new Date(order.date) < thirtyDaysAgo) {
+            throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
+        }
+
+        if (parseFloat(amount) > parseFloat(order.total)) {
+            throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+        }
+        
+        const [refundInsertResult] = await connection.query(
+            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
+            [order_id, requested_by_admin_id, amount, reason, 'pending_approval']
+        );
+        const refundId = refundInsertResult.insertId;
+
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, requested_by_admin_id, 'solicitado', `Motivo: ${reason}`]
+        );
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`);
+        res.status(201).json({ message: "Solicitação de reembolso criada com sucesso.", refundId });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao solicitar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao solicitar reembolso." });
+    } finally {
+        connection.release();
+    }
+});
+
+// (Admin) Aprovar e processar um reembolso
+app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) => {
+    const { id: refundId } = req.params;
+    const { password } = req.body;
+    const approved_by_admin_id = req.user.id;
+
+    if (!password) {
+        return res.status(400).json({ message: "Sua senha é necessária para confirmar esta ação." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
+        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
+        const refund = refundResult[0];
+
+        if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
+        if (refund.requested_by_admin_id === approved_by_admin_id) throw new Error("Você não pode aprovar uma solicitação de reembolso criada por você mesmo.");
+
+        const [approverResult] = await connection.query("SELECT password FROM users WHERE id = ?", [approved_by_admin_id]);
+        if (!approverResult.length || !(await bcrypt.compare(password, approverResult[0].password))) {
+            throw new Error("Senha de administrador inválida.");
+        }
+
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [refund.order_id]);
+        const order = orderResult[0];
+        if (!order.payment_gateway_id || order.payment_status !== 'approved') {
+            throw new Error(`O pagamento deste pedido não foi aprovado no gateway (Status: ${order.payment_status}). Reembolso bloqueado.`);
+        }
+
+        // --- INTERAÇÃO COM MERCADO PAGO ---
+        const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${order.payment_gateway_id}/refunds`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': crypto.randomUUID() },
+            body: JSON.stringify({ amount: parseFloat(refund.amount) })
+        });
+        const refundData = await refundResponse.json();
+        if (!refundResponse.ok) {
+            await connection.query("UPDATE refunds SET status = 'failed', notes = ? WHERE id = ?", [refundData.message || "Falha no gateway", refundId]);
+            await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, approved_by_admin_id, 'falhou', refundData.message || "Falha no gateway"]);
+            throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
+        }
+        
+        // --- ATUALIZAÇÕES NO BANCO DE DADOS ---
+        await connection.query(
+            "UPDATE refunds SET status = 'processed', approved_by_admin_id = ?, approved_at = NOW(), processed_at = NOW() WHERE id = ?",
+            [approved_by_admin_id, refundId]
+        );
+        await updateOrderStatus(order.id, ORDER_STATUS.REFUNDED, connection, `Reembolso processado via painel. ID da Solicitação: ${refundId}.`);
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, approved_by_admin_id, 'processado', `Reembolso de R$ ${refund.amount} confirmado no MP.`]
+        );
+        
+        // Reverter estoque
+        const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [order.id]);
+        for (const item of itemsToReturn) {
+            // (A lógica de reversão de estoque foi copiada da rota de atualização de pedido)
+             const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+             const product = productResult[0];
+             if (product.product_type === 'clothing' && item.variation_details) {
+                 const variation = JSON.parse(item.variation_details);
+                 let variations = JSON.parse(product.variations || '[]');
+                 const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                 if (variationIndex !== -1) {
+                     variations[variationIndex].stock += item.quantity;
+                     const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                     await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                 }
+             } else {
+                 await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+             }
+        }
+        
+        await connection.commit();
+
+        // --- NOTIFICAÇÃO POR E-MAIL ---
+        const [customer] = await db.query("SELECT name, email FROM users WHERE id = ?", [order.user_id]);
+        if (customer.length > 0) {
+            const emailHtml = createRefundProcessedEmail(customer[0].name, order.id, refund.amount, refund.reason);
+            sendEmailAsync({ from: FROM_EMAIL, to: customer[0].email, subject: `Seu reembolso do pedido #${order.id} foi processado`, html: emailHtml });
+        }
+        
+        logAdminAction(req.user, 'APROVOU_E_PROCESSOU_REEMBOLSO', `Pedido ID: ${order.id}, Reembolso ID: ${refundId}`);
+        res.json({ message: "Reembolso aprovado e processado com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao aprovar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao aprovar reembolso." });
+    } finally {
+        connection.release();
+    }
+});
+
+// (Admin) Negar uma solicitação de reembolso
+app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => {
+    const { id: refundId } = req.params;
+    const { reason } = req.body;
+    const admin_id = req.user.id;
+
+    if (!reason) {
+        return res.status(400).json({ message: "O motivo da negação é obrigatório." });
+    }
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
+        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
+        if (refundResult[0].status !== 'pending_approval') throw new Error("Esta solicitação não pode mais ser negada.");
+
+        await connection.query("UPDATE refunds SET status = 'denied', notes = ?, approved_by_admin_id = ?, approved_at = NOW() WHERE id = ?", [reason, admin_id, refundId]);
+        await connection.query("UPDATE orders SET refund_id = NULL WHERE id = ?", [refundResult[0].order_id]);
+        await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, admin_id, 'negado', `Motivo: ${reason}`]);
+        
+        await connection.commit();
+        
+        logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`);
+        res.json({ message: "Solicitação de reembolso negada com sucesso." });
+        
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao negar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao negar reembolso." });
+    } finally {
+        connection.release();
+    }
+});
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
