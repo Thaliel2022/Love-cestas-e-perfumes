@@ -7562,19 +7562,38 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
-    apiService('/settings/maintenance-status')
-        .then(data => {
-            setIsInMaintenance(data.maintenanceMode === 'on');
-        })
-        .catch(err => {
-            console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
-            setIsInMaintenance(false);
-        })
-        .finally(() => {
-            setIsStatusLoading(false);
-        });
-  }, []);
+    const checkStatus = () => {
+        apiService('/settings/maintenance-status')
+            .then(data => {
+                const isNowInMaintenance = data.maintenanceMode === 'on';
+                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
+                setIsInMaintenance(prevStatus => {
+                    if (prevStatus !== isNowInMaintenance) {
+                        return isNowInMaintenance;
+                    }
+                    return prevStatus;
+                });
+            })
+            .catch(err => {
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                setIsInMaintenance(false);
+            })
+            .finally(() => {
+                // Garante que a tela de carregamento só desapareça na primeira vez
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
+            });
+    };
+
+    checkStatus(); // Verifica imediatamente quando o componente monta
+
+    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+
+    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
+  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -7604,7 +7623,6 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // Tela de carregamento enquanto verifica o status de manutenção
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -7613,7 +7631,6 @@ function AppContent({ deferredPrompt }) {
       );
   }
 
-  // Lógica principal do Modo de Manutenção
   const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
   const isAdminDomain = window.location.hostname.includes('vercel.app');
 
