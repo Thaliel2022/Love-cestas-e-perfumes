@@ -145,8 +145,8 @@ const initializeData = async () => {
                 { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
             ];
             
-            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section) VALUES ?";
-            const values = initialCategories.map(c => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section]);
+            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) VALUES ?";
+            const values = initialCategories.map((c, index) => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section, index]);
             await connection.query(sql, [values]);
             console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
         } else {
@@ -219,6 +219,38 @@ const verifyAdmin = (req, res, next) => {
         return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
     }
     next();
+};
+
+const checkMaintenanceMode = async (req, res, next) => {
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
+        const maintenanceMode = settings[0]?.setting_value || 'off';
+
+        if (maintenanceMode === 'on') {
+            const authHeader = req.headers['authorization'];
+            const token = authHeader && authHeader.split(' ')[1];
+
+            if (token) {
+                try {
+                    const user = jwt.verify(token, JWT_SECRET);
+                    if (user.role === 'admin') {
+                        return next(); // Se for admin, permite o acesso.
+                    }
+                } catch (err) {
+                    // Token inválido, trata como visitante comum.
+                }
+            }
+            // Se não for admin, bloqueia o acesso.
+            return res.status(503).json({ message: 'Site em manutenção. Por favor, tente novamente mais tarde.' });
+        }
+
+        // Se o modo de manutenção estiver 'off', permite o acesso.
+        next();
+    } catch (error) {
+        console.error("Erro ao verificar modo de manutenção:", error);
+        // Em caso de erro no DB, permite o acesso para não travar o site.
+        next();
+    }
 };
 
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
@@ -590,7 +622,7 @@ app.get('/api/track/:code', async (req, res) => {
 
 
 // --- ROTA DE CÁLCULO DE FRETE ---
-app.post('/api/shipping/calculate', async (req, res) => {
+app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
     const { cep_destino, products } = req.body;
 
     console.log('[FRETE] Requisição recebida:', { cep_destino, products });
@@ -677,7 +709,7 @@ app.post('/api/shipping/calculate', async (req, res) => {
 });
 
 // --- ROTAS DE PRODUTOS ---
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', checkMaintenanceMode, async (req, res) => {
     try {
         const sql = `
             SELECT 
@@ -743,7 +775,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.get('/api/products/search-suggestions', async (req, res) => {
+app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, res) => {
     const { q } = req.query;
 	if (!q || q.length < 1) {
         return res.json([]);
@@ -760,7 +792,7 @@ app.get('/api/products/search-suggestions', async (req, res) => {
 });
 
 
-app.get('/api/products/:id', async (req, res) => {
+app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
     try {
         const sql = `
             SELECT 
@@ -801,7 +833,7 @@ app.get('/api/products/:id', async (req, res) => {
     }
 });
 
-app.get('/api/products/:id/related-by-purchase', async (req, res) => {
+app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
     const { id } = req.params;
     try {
         const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
@@ -1085,7 +1117,7 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
     }
 });
 
-app.get('/api/products/:id/reviews', async (req, res) => {
+app.get('/api/products/:id/reviews', checkMaintenanceMode, async (req, res) => {
     try {
         const [reviews] = await db.query("SELECT r.*, u.name as user_name FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.product_id = ? ORDER BY r.created_at DESC", [req.params.id]);
         res.json(reviews);
@@ -1683,7 +1715,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 });
 
 
-app.get('/api/mercadopago/installments', async (req, res) => {
+app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) => {
     const { amount } = req.query;
 
     if (!amount || isNaN(parseFloat(amount))) {
@@ -1994,7 +2026,7 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/coupons/validate', async (req, res) => {
+app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
     const { code } = req.body;
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -2389,13 +2421,54 @@ app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) =>
 });
 
 // (Público) Pega todas as categorias da coleção para a home page
-app.get('/api/collections', async (req, res) => {
+app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
     try {
         const [categories] = await db.query("SELECT * FROM collection_categories WHERE is_active = 1 ORDER BY display_order ASC");
         res.json(categories);
     } catch (err) {
         console.error("Erro ao buscar categorias da coleção:", err);
         res.status(500).json({ message: "Erro ao buscar categorias." });
+    }
+});
+
+// --- ROTAS DE GERENCIAMENTO DE CONFIGURAÇÕES DO SITE ---
+
+// (Público) Rota para o frontend verificar rapidamente se o modo manutenção está ativo
+app.get('/api/settings/maintenance-status', async (req, res) => {
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
+        const maintenanceMode = settings[0]?.setting_value || 'off';
+        res.json({ maintenanceMode });
+    } catch (err) {
+        console.error("Erro ao buscar status de manutenção:", err);
+        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
+    }
+});
+
+// (Admin) Pega o status do modo manutenção para o painel
+app.get('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
+        const maintenanceMode = settings[0]?.setting_value || 'off';
+        res.json({ status: maintenanceMode });
+    } catch (err) {
+        console.error("Erro ao buscar status de manutenção (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
+    }
+});
+
+// (Admin) Atualiza o status do modo manutenção
+app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) => {
+    const { status } = req.body;
+    if (status !== 'on' && status !== 'off') {
+        return res.status(400).json({ message: "Status inválido. Use 'on' ou 'off'." });
+    }
+    try {
+        await db.query("UPDATE site_settings SET setting_value = ? WHERE setting_key = 'maintenance_mode'", [status]);
+        res.json({ message: `Modo de manutenção foi ${status === 'on' ? 'ativado' : 'desativado'}.` });
+    } catch (err) {
+        console.error("Erro ao atualizar status de manutenção:", err);
+        res.status(500).json({ message: "Erro ao atualizar status de manutenção." });
     }
 });
 
