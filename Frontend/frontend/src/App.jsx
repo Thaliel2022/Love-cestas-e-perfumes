@@ -7439,12 +7439,11 @@ const BannerCarousel = memo(({ onNavigate }) => {
         }
     }, [currentIndex, banners.length, goNext]);
 
-    // Animações originais da HomePage
     const bannerVariants = {
         hidden: { opacity: 0 },
         visible: { 
             opacity: 1,
-            transition: { staggerChildren: 0.3, delayChildren: 0.2 }
+            transition: { staggerChildren: 0.2, delayChildren: 0.2 } // Ajuste no delay
         }
     };
 
@@ -7465,18 +7464,18 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
     return (
         <section className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black">
-            <AnimatePresence initial={false}>
+            <AnimatePresence>
                 <motion.div
                     key={currentIndex}
                     className="absolute inset-0 cursor-pointer"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    transition={{ duration: 0.8, ease: "easeInOut" }}
+                    transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(banners[currentIndex].link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                    <div className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 ease-in-out" style={{ backgroundImage: `url(${banners[currentIndex].image_url})`, transform: 'scale(1)' }} />
+                    <div className="absolute inset-0 bg-black/40" />
                     
                     {(banners[currentIndex].title || banners[currentIndex].subtitle || banners[currentIndex].cta_enabled) && (
                          <motion.div 
@@ -7484,7 +7483,8 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
-                            exit="hidden"
+                            exit="hidden" // Garante que o texto saia ao trocar de slide
+                            key={`content-${currentIndex}`} // Força a re-animação do conteúdo
                          >
                             {banners[currentIndex].title && (
                                 <motion.h1 
