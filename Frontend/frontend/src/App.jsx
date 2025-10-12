@@ -6696,7 +6696,7 @@ const AdminOrders = () => {
             if (parseFloat(refundAmount) > parseFloat(editingOrder.total)) {
                 throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
             }
-            const result = await apiService('/api/refunds', 'POST', {
+            const result = await apiService('/refunds', 'POST', {
                 order_id: editingOrder.id,
                 amount: refundAmount,
                 reason: refundReason,
@@ -6791,7 +6791,7 @@ const AdminOrders = () => {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Valor a Reembolsar</label>
                                 <input type="number" step="0.01" value={refundAmount} onChange={e => setRefundAmount(e.target.value)} max={editingOrder.total} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-                                <p className="text-xs text-gray-500 mt-1">Valor total do pedido: R$ {editingOrder.total.toFixed(2)}</p>
+                                <p className="text-xs text-gray-500 mt-1">Valor total do pedido: R$ {Number(editingOrder.total).toFixed(2)}</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700">Motivo do Reembolso</label>
