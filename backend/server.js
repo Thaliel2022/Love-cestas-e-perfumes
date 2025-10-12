@@ -478,6 +478,17 @@ const createShippedEmail = (customerName, orderId, trackingCode, items) => {
     return createEmailBase(content);
 };
 
+const createAdminDirectEmail = (customerName, subject, message) => {
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">${subject}</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <div style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">
+            ${message.replace(/\n/g, '<br>')}
+        </div>
+        <p style="color: #9CA3AF; font-size: 14px; margin-top: 25px;">Esta é uma mensagem enviada pela administração da Love Cestas e Perfumes.</p>
+    `;
+    return createEmailBase(content);
+};
 
 // --- ROTAS DA APLICAÇÃO ---
 
@@ -2210,6 +2221,41 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     } catch (err) {
         console.error("Erro ao deletar usuário:", err);
         res.status(500).json({ message: "Erro interno ao deletar usuário." });
+    }
+});
+
+// (Admin) Rota para enviar e-mail direto para um usuário
+app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { subject, message } = req.body;
+
+    if (!subject || !message) {
+        return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
+    }
+
+    try {
+        const [users] = await db.query("SELECT name, email FROM users WHERE id = ?", [id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        const user = users[0];
+
+        const emailHtml = createAdminDirectEmail(user.name, subject, message);
+
+        await sendEmailAsync({
+            from: FROM_EMAIL,
+            to: user.email,
+            subject: subject,
+            html: emailHtml,
+        });
+        
+        logAdminAction(req.user, 'ENVIOU_EMAIL_DIRETO', `Para: ${user.email}, Assunto: "${subject}"`);
+
+        res.json({ message: `E-mail enviado com sucesso para ${user.name}.` });
+
+    } catch (err) {
+        console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
+        res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
     }
 });
 
