@@ -7399,19 +7399,30 @@ const BannerCarousel = memo(({ onNavigate }) => {
     const [banners, setBanners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const minSwipeDistance = 50;
 
     useEffect(() => {
         apiService('/banners')
             .then(data => {
-                if (Array.isArray(data)) {
+                if (Array.isArray(data) && data.length > 0) {
                     setBanners(data);
                 } else {
-                    setBanners([]); // Garante que seja um array em caso de resposta inesperada
+                    const staticBanner = {
+                        id: 'static-0',
+                        image_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
+                        title: 'Elegância que Veste e Perfuma',
+                        subtitle: 'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
+                        link_url: '#products',
+                        cta_text: 'Explorar Coleção',
+                        cta_enabled: 1,
+                    };
+                    setBanners([staticBanner]);
                 }
             })
             .catch(err => {
                 console.error("Falha ao buscar banners:", err);
-                setBanners([]); // Limpa os banners em caso de erro na API
             })
             .finally(() => setIsLoading(false));
     }, []);
@@ -7420,9 +7431,9 @@ const BannerCarousel = memo(({ onNavigate }) => {
         setCurrentIndex(prev => (prev === banners.length - 1 ? 0 : prev + 1));
     }, [banners.length]);
 
-    const goPrev = () => {
+    const goPrev = useCallback(() => {
         setCurrentIndex(prev => (prev === 0 ? banners.length - 1 : prev - 1));
-    };
+    }, [banners.length]);
 
     useEffect(() => {
         if (banners.length > 1) {
@@ -7430,22 +7441,28 @@ const BannerCarousel = memo(({ onNavigate }) => {
             return () => clearTimeout(timer);
         }
     }, [currentIndex, banners.length, goNext]);
+    
+    const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
+    const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd || banners.length <= 1) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+        if (isLeftSwipe) goNext();
+        else if (isRightSwipe) goPrev();
+        setTouchStart(null);
+        setTouchEnd(null);
+    };
 
     const bannerVariants = {
         hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1,
-            transition: { staggerChildren: 0.2, delayChildren: 0.2 }
-        }
+        visible: { opacity: 1, transition: { staggerChildren: 0.2, delayChildren: 0.2 } }
     };
 
     const itemVariants = {
         hidden: { opacity: 0, y: 20 },
-        visible: { 
-            opacity: 1, 
-            y: 0,
-            transition: { type: 'spring', stiffness: 100 }
-        }
+        visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
     };
 
     if (isLoading) {
@@ -7455,7 +7472,12 @@ const BannerCarousel = memo(({ onNavigate }) => {
     if (banners.length === 0) return null;
 
     return (
-        <section className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black">
+        <section 
+            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+        >
             <AnimatePresence>
                 <motion.div
                     key={currentIndex}
@@ -7466,7 +7488,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(banners[currentIndex].link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 ease-in-out" style={{ backgroundImage: `url(${banners[currentIndex].image_url})`, transform: 'scale(1)' }} />
+                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
                     <div className="absolute inset-0 bg-black/40" />
                     
                     {(banners[currentIndex].title || banners[currentIndex].subtitle || banners[currentIndex].cta_enabled) && (
@@ -7508,10 +7530,10 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={goPrev} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={goPrev} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={goNext} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={goNext} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
