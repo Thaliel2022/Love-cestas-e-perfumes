@@ -4967,15 +4967,17 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     );
 });
 
-const AdminDashboard = () => {
+const AdminDashboard = ({ onNavigate }) => {
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0 });
+    const [lowStockProducts, setLowStockProducts] = useState([]);
     
     useEffect(() => {
         Promise.all([
             apiService('/orders').catch(() => []),
             apiService('/users').catch(() => []), 
-            apiService('/products/all').catch(() => [])
-        ]).then(([orders, users, products]) => {
+            apiService('/products/all').catch(() => []),
+            apiService('/products/low-stock').catch(() => []) // Nova chamada
+        ]).then(([orders, users, products, lowStockItems]) => {
             const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.total), 0);
             setStats({
                 totalRevenue,
@@ -4983,6 +4985,8 @@ const AdminDashboard = () => {
                 pendingOrders: orders.filter(o => o.status.toLowerCase() === 'pendente').length,
                 newCustomers: users.length, 
             });
+            
+            setLowStockProducts(lowStockItems);
 
             if (window.Chart) {
                 const salesCtx = document.getElementById('salesChart')?.getContext('2d');
@@ -5010,12 +5014,49 @@ const AdminDashboard = () => {
             }
         });
     }, []);
+    
+    const LowStockAlerts = () => {
+        if (lowStockProducts.length === 0) return null;
+        
+        return (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
+                <div className="flex items-center">
+                    <ExclamationIcon className="h-6 w-6 text-yellow-500 mr-3"/>
+                    <div>
+                        <h3 className="font-bold text-yellow-800">Alerta de Estoque Baixo</h3>
+                        <p className="text-sm text-yellow-700">
+                            {lowStockProducts.length} item(ns) precisam de atenção.
+                        </p>
+                    </div>
+                </div>
+                <div className="mt-4 max-h-48 overflow-y-auto space-y-2">
+                    {lowStockProducts.map(item => (
+                         <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
+                            <div className="flex items-center gap-2">
+                                <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100"/>
+                                <span className="text-gray-800 truncate">{item.name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
+                                    Restam: {item.stock}
+                                </span>
+                                <button onClick={() => onNavigate(`admin/products`)} className="text-blue-600 hover:underline text-xs font-semibold">
+                                    Ver
+                                </button>
+                            </div>
+                         </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div>
             <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <MaintenanceModeToggle />
+                <LowStockAlerts />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Faturamento Total</h4><p className="text-3xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</p></div>
@@ -5714,6 +5755,8 @@ const AdminProducts = ({ onNavigate }) => {
   const [uniqueCategories, setUniqueCategories] = useState([]);
 
   const [productType, setProductType] = useState('perfume');
+  
+  const LOW_STOCK_THRESHOLD = 5;
 
   const fetchProducts = useCallback((currentSearchTerm) => {
     const query = currentSearchTerm ? `?search=${encodeURIComponent(currentSearchTerm)}` : '';
@@ -5945,7 +5988,7 @@ const AdminProducts = ({ onNavigate }) => {
                     </thead>
                     <tbody>
                         {products.map(p => (
-                            <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''}`}>
+                            <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-yellow-50' : ''}`}>
                                 <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
                                 <td className="p-4 flex items-center">
                                     <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
@@ -5967,7 +6010,10 @@ const AdminProducts = ({ onNavigate }) => {
                                         <span>R$ {Number(p.price).toFixed(2)}</span>
                                     )}
                                 </td>
-                                <td className="p-4">{p.stock}</td>
+                                <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
+                                    {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
+                                    {p.stock}
+                                </td>
                                 <td className="p-4">{p.sales || 0}</td>
                                 <td className="p-4">
                                  <div className="flex flex-col items-center justify-center gap-1">
@@ -5983,7 +6029,7 @@ const AdminProducts = ({ onNavigate }) => {
             </div>
             <div className="md:hidden space-y-4 p-4">
                 {products.map(p => (
-                    <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                    <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${p.stock < LOW_STOCK_THRESHOLD ? 'border-yellow-400' : ''}`}>
                         <div className="flex justify-between items-start">
                              <div className="flex items-center">
                                 <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4"/>
@@ -6006,7 +6052,11 @@ const AdminProducts = ({ onNavigate }) => {
                                     <span>R$ {Number(p.price).toFixed(2)}</span>
                                 )}
                              </div>
-                             <div><strong className="text-gray-500 block">Estoque</strong> {p.stock}</div>
+                             <div className={`font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
+                                <strong className="text-gray-500 block font-normal">Estoque</strong> 
+                                {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
+                                {p.stock}
+                             </div>
                              <div><strong className="text-gray-500 block">Vendas</strong> {p.sales || 0}</div>
                              <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{p.product_type}</span></div>
                         </div>

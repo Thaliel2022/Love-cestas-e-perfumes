@@ -926,6 +926,48 @@ app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (re
     }
 });
 
+app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
+    const LOW_STOCK_THRESHOLD = 5;
+    try {
+        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
+
+        const lowStockItems = [];
+
+        for (const product of allProducts) {
+            if (product.product_type === 'clothing') {
+                try {
+                    const variations = JSON.parse(product.variations || '[]');
+                    for (const v of variations) {
+                        if (v.stock < LOW_STOCK_THRESHOLD) {
+                            lowStockItems.push({
+                                id: product.id,
+                                name: `${product.name} (${v.color} / ${v.size})`,
+                                stock: v.stock,
+                                images: product.images
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
+                }
+            } else { // perfume
+                if (product.stock < LOW_STOCK_THRESHOLD) {
+                    lowStockItems.push({
+                        id: product.id,
+                        name: product.name,
+                        stock: product.stock,
+                        images: product.images
+                    });
+                }
+            }
+        }
+        res.json(lowStockItems);
+    } catch (err) {
+        console.error("Erro ao buscar produtos com estoque baixo:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
+    }
+});
+
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
