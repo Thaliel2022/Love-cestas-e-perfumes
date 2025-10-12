@@ -62,6 +62,7 @@ const BoletoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" vi
 const PhotoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-3.69l-2.78-2.78a.75.75 0 0 0-1.06 0L12 12.69l-2.22-2.22a.75.75 0 0 0-1.06 0L1.5 11.06ZM15 7a1 1 0 1 1-2 0a1 1 0 0 1 2 0Z" clipRule="evenodd" /></svg>;
 const ClipboardDocListIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5.5 16.5a1.5 1.5 0 0 1-1.5-1.5V5.75a.75.75 0 0 1 1.5 0v9.25a.25.25 0 0 0 .25.25h9.25a.75.75 0 0 1 0 1.5H5.5Z" /><path fillRule="evenodd" d="M8 3.5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 8 15.5h9a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17 3.5H8Zm3.75 4a.75.75 0 0 0-1.5 0v.5a.75.75 0 0 0 1.5 0v-.5ZM10.5 9.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm.03 2.5a.75.75 0 0 0-1.06 0l-.72.72a.75.75 0 0 0 1.06 1.06l.72-.72a.75.75 0 0 0 0-1.06Z" clipRule="evenodd" /></svg>;
 const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M3.105 2.289a.75.75 0 0 0-.826.95l1.414 4.949a.75.75 0 0 0 .135.252l.918.919a.75.75 0 0 1 0 1.06l-.918.92a.75.75 0 0 0-.135.252L2.28 16.76a.75.75 0 0 0 .95.826l14.666-4.954a.75.75 0 0 0 0-1.42L3.105 2.289Z" /></svg>;
+const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -4907,6 +4908,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
+        { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
         { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
@@ -6403,6 +6405,202 @@ const AdminCoupons = () => {
                     ))}
                 </div>
             </div>
+        </div>
+    );
+};
+
+const AdminRefunds = ({ onNavigate }) => {
+    const [refunds, setRefunds] = useState([]);
+    const [filteredRefunds, setFilteredRefunds] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedRefund, setSelectedRefund] = useState(null);
+    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
+    const [isDenyModalOpen, setIsDenyModalOpen] = useState(false);
+    const [adminPassword, setAdminPassword] = useState('');
+    const [denyReason, setDenyReason] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const notification = useNotification();
+
+    const fetchRefunds = useCallback(() => {
+        setIsLoading(true);
+        apiService('/api/refunds')
+            .then(data => {
+                setRefunds(data);
+                setFilteredRefunds(data);
+            })
+            .catch(err => notification.show(`Erro ao buscar reembolsos: ${err.message}`, 'error'))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => {
+        fetchRefunds();
+    }, [fetchRefunds]);
+
+    const handleApprove = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            const result = await apiService(`/api/refunds/${selectedRefund.id}/approve`, 'POST', { password: adminPassword });
+            notification.show(result.message);
+            setIsApproveModalOpen(false);
+            setAdminPassword('');
+            fetchRefunds();
+        } catch (error) {
+            notification.show(`Erro ao aprovar: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleDeny = async (e) => {
+        e.preventDefault();
+        setIsProcessing(true);
+        try {
+            const result = await apiService(`/api/refunds/${selectedRefund.id}/deny`, 'POST', { reason: denyReason });
+            notification.show(result.message);
+            setIsDenyModalOpen(false);
+            setDenyReason('');
+            fetchRefunds();
+        } catch (error) {
+            notification.show(`Erro ao negar: ${error.message}`, 'error');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const getStatusChip = (status) => {
+        const statuses = {
+            'pending_approval': { text: 'Pendente', class: 'bg-yellow-100 text-yellow-800' },
+            'approved': { text: 'Aprovado', class: 'bg-blue-100 text-blue-800' },
+            'denied': { text: 'Negado', class: 'bg-red-100 text-red-800' },
+            'processed': { text: 'Processado', class: 'bg-green-100 text-green-800' },
+            'failed': { text: 'Falhou', class: 'bg-gray-200 text-gray-800' }
+        };
+        const s = statuses[status] || { text: 'Desconhecido', class: 'bg-gray-200 text-gray-800' };
+        return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${s.class}`}>{s.text}</span>;
+    };
+
+    return (
+        <div>
+            {/* --- MODAIS DE AÇÃO --- */}
+            <AnimatePresence>
+                {isApproveModalOpen && selectedRefund && (
+                    <Modal isOpen={true} onClose={() => setIsApproveModalOpen(false)} title={`Aprovar Reembolso #${selectedRefund.id}`}>
+                        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                            <div className="flex items-center">
+                                <ExclamationIcon className="h-6 w-6 text-red-500 mr-3" />
+                                <div>
+                                    <h3 className="font-bold text-red-800">Ação Irreversível</h3>
+                                    <p className="text-sm text-red-700">Ao confirmar, o valor de <strong>R$ {selectedRefund.amount.toFixed(2)}</strong> será estornado para o cliente via Mercado Pago. O estoque será revertido e o pedido será marcado como reembolsado.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <form onSubmit={handleApprove}>
+                            <label className="block text-sm font-medium text-gray-700">Confirme sua senha de administrador para prosseguir:</label>
+                            <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setIsApproveModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 disabled:bg-red-300">
+                                    {isProcessing && <SpinnerIcon className="h-5 w-5" />}
+                                    Confirmar e Processar
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {isDenyModalOpen && selectedRefund && (
+                     <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`}>
+                        <form onSubmit={handleDeny}>
+                            <label className="block text-sm font-medium text-gray-700">Por favor, informe o motivo da negação (será registrado internamente):</label>
+                            <textarea value={denyReason} onChange={e => setDenyReason(e.target.value)} required rows="4" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setIsDenyModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
+                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-gray-800 text-white rounded-md flex items-center gap-2 disabled:bg-gray-400">
+                                    {isProcessing && <SpinnerIcon className="h-5 w-5" />}
+                                    Confirmar Negação
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <h1 className="text-3xl font-bold mb-6">Gerenciar Reembolsos</h1>
+            
+            {/* Futuros gráficos e filtros podem ser adicionados aqui */}
+
+            {isLoading ? (
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
+            ) : (
+                <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="p-4">Pedido</th>
+                                    <th className="p-4">Cliente</th>
+                                    <th className="p-4">Data Solicitação</th>
+                                    <th className="p-4">Valor</th>
+                                    <th className="p-4">Solicitante</th>
+                                    <th className="p-4">Aprovador</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredRefunds.map(r => (
+                                    <tr key={r.id} className="border-b">
+                                        <td className="p-4 font-mono">#{r.order_id}</td>
+                                        <td className="p-4">{r.customer_name}</td>
+                                        <td className="p-4">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
+                                        <td className="p-4 font-bold">R$ {r.amount.toFixed(2)}</td>
+                                        <td className="p-4">{r.requester_name}</td>
+                                        <td className="p-4">{r.approver_name || '---'}</td>
+                                        <td className="p-4">{getStatusChip(r.status)}</td>
+                                        <td className="p-4">
+                                            {r.status === 'pending_approval' && (
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
+                                                    <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                     {/* Mobile Card View */}
+                     <div className="md:hidden space-y-4 p-4">
+                        {filteredRefunds.map(r => (
+                            <div key={r.id} className="bg-white border rounded-lg p-4 shadow-sm text-sm">
+                                <div className="flex justify-between items-start mb-3 pb-3 border-b">
+                                    <div>
+                                        <p className="font-bold">Pedido #{r.order_id}</p>
+                                        <p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleString('pt-BR')}</p>
+                                    </div>
+                                    {getStatusChip(r.status)}
+                                </div>
+                                <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                                    <div><strong className="text-gray-500 block">Cliente</strong> {r.customer_name}</div>
+                                    <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {r.amount.toFixed(2)}</span></div>
+                                    <div><strong className="text-gray-500 block">Solicitado por</strong> {r.requester_name}</div>
+                                    <div><strong className="text-gray-500 block">Aprovado por</strong> {r.approver_name || '---'}</div>
+                                </div>
+                                {r.status === 'pending_approval' && (
+                                    <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
+                                        <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-3 py-1.5 bg-red-100 text-red-700 font-semibold rounded-md">Negar</button>
+                                        <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -8070,10 +8268,11 @@ function AppContent({ deferredPrompt }) {
         
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard />, 
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
+            'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
@@ -8083,7 +8282,7 @@ function AppContent({ deferredPrompt }) {
 
         return (
             <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard />}
+                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
             </AdminLayout>
         );
     }
