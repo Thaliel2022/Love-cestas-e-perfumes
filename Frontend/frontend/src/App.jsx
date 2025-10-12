@@ -60,6 +60,7 @@ const MastercardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg
 const EloIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 81 48" className={className}><circle cx="67.5" cy="24" r="13.5" fill="#FAB51A"/><path d="M40.5 48a24 24 0 1 1 0-48a24 24 0 0 1 0 48z" fill="#000"/><path d="M22.5 24a13.5 13.5 0 1 1-27 0a13.5 13.5 0 0 1 27 0z" fill="#FAB51A"/></svg>;
 const BoletoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512" className={className}><path fill="currentColor" d="M0 128c0-35.3 28.7-64 64-64H512c35.3 0 64 28.7 64 64v256c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V128zM128 160V352h32V160H128zm64 0V352h64V160H192zm96 0V352h32V160H288zm64 0V352h64V160H352zm96 0V352h32V160H448z"/></svg>;
 const PhotoIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-3.69l-2.78-2.78a.75.75 0 0 0-1.06 0L12 12.69l-2.22-2.22a.75.75 0 0 0-1.06 0L1.5 11.06ZM15 7a1 1 0 1 1-2 0a1 1 0 0 1 2 0Z" clipRule="evenodd" /></svg>;
+const ClipboardDocListIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M5.5 16.5a1.5 1.5 0 0 1-1.5-1.5V5.75a.75.75 0 0 1 1.5 0v9.25a.25.25 0 0 0 .25.25h9.25a.75.75 0 0 1 0 1.5H5.5Z" /><path fillRule="evenodd" d="M8 3.5a1.5 1.5 0 0 0-1.5 1.5v9A1.5 1.5 0 0 0 8 15.5h9a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 17 3.5H8Zm3.75 4a.75.75 0 0 0-1.5 0v.5a.75.75 0 0 0 1.5 0v-.5ZM10.5 9.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm.03 2.5a.75.75 0 0 0-1.06 0l-.72.72a.75.75 0 0 0 1.06 1.06l.72-.72a.75.75 0 0 0 0-1.06Z" clipRule="evenodd" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -4875,10 +4876,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     useEffect(() => {
         apiService('/orders')
             .then(data => {
-                // VERIFICAÇÃO DE SEGURANÇA FINAL E DEFINITIVA
                 if (!Array.isArray(data)) {
-                    console.error("Os dados recebidos da API de pedidos não são uma lista (array). Isso causou o erro da página branca. Dados recebidos:", data);
-                    setNewOrdersCount(0); // Define um valor padrão e impede a quebra
+                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
+                    setNewOrdersCount(0);
                     return;
                 }
 
@@ -4892,7 +4892,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             })
             .catch(err => {
                 console.error("Falha crítica ao buscar contagem de novos pedidos:", err);
-                setNewOrdersCount(0); // Garante que não quebre em caso de erro de rede
+                setNewOrdersCount(0);
             });
     }, [activePage]);
 
@@ -4910,6 +4910,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
         { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+        { key: 'logs', label: 'Histórico de Ações', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
     ];
 
     return (
