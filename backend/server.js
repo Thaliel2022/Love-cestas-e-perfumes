@@ -3192,7 +3192,7 @@ app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => 
     }
 });
 
-// (Cliente) Rota para o cliente solicitar um reembolso
+// (Cliente) Rota para o cliente solicitar um reembolso/cancelamento
 app.post('/api/refunds/request', verifyToken, async (req, res) => {
     const { order_id, reason } = req.body;
     const user_id = req.user.id;
@@ -3210,12 +3210,19 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         
         const order = orderResult[0];
 
-        if (order.status !== 'Entregue') throw new Error("Apenas pedidos com status 'Entregue' podem ser reembolsados.");
-        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso.");
+        // Define os status em que o cliente pode solicitar cancelamento/reembolso
+        const cancellableStatuses = [ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING, ORDER_STATUS.DELIVERED];
+        if (!cancellableStatuses.includes(order.status)) {
+            throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/reembolso solicitado.`);
+        }
+
+        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
         
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (new Date(order.date) < thirtyDaysAgo) throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
+        if (new Date(order.date) < thirtyDaysAgo && order.status === ORDER_STATUS.DELIVERED) {
+            throw new Error("Não é possível solicitar reembolso para pedidos entregues há mais de 30 dias.");
+        }
 
         // Para solicitações de clientes, o valor é sempre o total do pedido
         const refundAmount = order.total;
@@ -3239,12 +3246,12 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         // Você pode configurar um e-mail de admin nas suas variáveis de ambiente
         // sendEmailAsync({ to: process.env.ADMIN_EMAIL, ... })
 
-        res.status(201).json({ message: "Sua solicitação de reembolso foi enviada e será analisada.", refundId });
+        res.status(201).json({ message: "Sua solicitação foi enviada e será analisada em breve.", refundId });
 
     } catch (err) {
         await connection.rollback();
         console.error("Erro do cliente ao solicitar reembolso:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao solicitar reembolso." });
+        res.status(500).json({ message: err.message || "Erro interno ao processar a solicitação." });
     } finally {
         connection.release();
     }
