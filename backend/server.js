@@ -1436,7 +1436,17 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
 
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        const [orders] = await db.query("SELECT o.*, u.name as user_name FROM orders o JOIN users u ON o.user_id = u.id ORDER BY o.date DESC");
+        const sql = `
+            SELECT 
+                o.*, 
+                u.name as user_name,
+                r.status as refund_status
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id
+            LEFT JOIN refunds r ON o.refund_id = r.id
+            ORDER BY o.date DESC
+        `;
+        const [orders] = await db.query(sql);
         res.json(orders);
     } catch (err) {
         console.error("Erro ao buscar pedidos (admin):", err);
