@@ -4972,44 +4972,95 @@ const AdminDashboard = ({ onNavigate }) => {
     const [lowStockProducts, setLowStockProducts] = useState([]);
     
     useEffect(() => {
+        // Consolida chamadas de dados para o dashboard
         Promise.all([
             apiService('/orders').catch(() => []),
-            apiService('/users').catch(() => []), 
-            apiService('/products/all').catch(() => []),
-            apiService('/products/low-stock').catch(() => []) // Nova chamada
-        ]).then(([orders, users, products, lowStockItems]) => {
+            apiService('/users').catch(() => []),
+            apiService('/products/low-stock').catch(() => []),
+            apiService('/reports/dashboard').catch(() => ({ dailySales: [], shippingMethods: [], bestSellers: [] })) // Nova chamada consolidada
+        ]).then(([orders, users, lowStockItems, reportData]) => {
+            
+            // Stats principais (ainda podem vir da chamada geral de 'orders' e 'users')
             const totalRevenue = orders.reduce((sum, order) => sum + parseFloat(order.total), 0);
             setStats({
                 totalRevenue,
                 totalSales: orders.length,
                 pendingOrders: orders.filter(o => o.status.toLowerCase() === 'pendente').length,
-                newCustomers: users.length, 
+                newCustomers: users.length,
             });
             
             setLowStockProducts(lowStockItems);
 
-            if (window.Chart) {
-                const salesCtx = document.getElementById('salesChart')?.getContext('2d');
-                if(salesCtx) {
-                    if (window.mySalesChart) window.mySalesChart.destroy();
-                    const monthlyRevenue = orders.reduce((acc, order) => {
-                        const month = new Date(order.date).toLocaleString('default', { month: 'short', year: '2-digit' });
-                        acc[month] = (acc[month] || 0) + parseFloat(order.total);
-                        return acc;
-                    }, {});
-                    const sortedMonths = Object.keys(monthlyRevenue).sort((a, b) => {
-                        const [m1, y1] = a.split(' ');
-                        const [m2, y2] = b.split(' ');
-                        return new Date(`01 ${m1} 20${y1}`) - new Date(`01 ${m2} 20${y2}`);
+            // Geração de Gráficos com Chart.js
+            if (window.Chart && reportData) {
+                // Gráfico 1: Vendas Diárias (Últimos 30 dias)
+                const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
+                if (dailySalesCtx) {
+                    if (window.myDailySalesChart) window.myDailySalesChart.destroy();
+                    window.myDailySalesChart = new window.Chart(dailySalesCtx, {
+                        type: 'line',
+                        data: {
+                            labels: reportData.dailySales.map(d => new Date(d.sale_date).toLocaleDateString('pt-BR')),
+                            datasets: [{
+                                label: 'Faturamento Diário (R$)',
+                                data: reportData.dailySales.map(d => d.daily_total),
+                                borderColor: 'rgba(212, 175, 55, 1)',
+                                backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                                fill: true,
+                                tension: 0.3
+                            }]
+                        }
                     });
-                    window.mySalesChart = new window.Chart(salesCtx, { type: 'line', data: {labels: sortedMonths, datasets: [{ label: 'Faturamento Mensal', data: sortedMonths.map(m => monthlyRevenue[m]), borderColor: '#D4AF37', tension: 0.1 }]}});
                 }
 
+                // Gráfico 2: Produtos Mais Vendidos
                 const bestSellersCtx = document.getElementById('bestSellersChart')?.getContext('2d');
-                if(bestSellersCtx) {
+                if (bestSellersCtx) {
                     if (window.myBestSellersChart) window.myBestSellersChart.destroy();
-                    const sortedProducts = [...products].sort((a, b) => (b.sales || 0) - (a.sales || 0)).slice(0, 5);
-                    window.myBestSellersChart = new window.Chart(bestSellersCtx, { type: 'bar', data: {labels: sortedProducts.map(p=>p.name), datasets: [{ label: 'Unidades Vendidas', data: sortedProducts.map(p=>p.sales || 0), backgroundColor: '#D4AF37' }]}});
+                    window.myBestSellersChart = new window.Chart(bestSellersCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: reportData.bestSellers.map(p => p.name),
+                            datasets: [{
+                                label: 'Unidades Vendidas',
+                                data: reportData.bestSellers.map(p => p.sales || 0),
+                                backgroundColor: [
+                                    'rgba(212, 175, 55, 0.8)',
+                                    'rgba(192, 192, 192, 0.8)',
+                                    'rgba(205, 127, 50, 0.8)',
+                                    'rgba(169, 169, 169, 0.8)',
+                                    'rgba(245, 222, 179, 0.8)'
+                                ],
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: { indexAxis: 'y' } // Barras horizontais para melhor leitura
+                    });
+                }
+
+                // Gráfico 3: Métodos de Frete Mais Usados
+                const shippingCtx = document.getElementById('shippingChart')?.getContext('2d');
+                if (shippingCtx) {
+                    if (window.myShippingChart) window.myShippingChart.destroy();
+                    window.myShippingChart = new window.Chart(shippingCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: reportData.shippingMethods.map(s => s.shipping_method),
+                            datasets: [{
+                                label: 'Pedidos por Método de Envio',
+                                data: reportData.shippingMethods.map(s => s.count),
+                                backgroundColor: [
+                                    'rgba(54, 162, 235, 0.7)',
+                                    'rgba(255, 206, 86, 0.7)',
+                                    'rgba(75, 192, 192, 0.7)',
+                                    'rgba(153, 102, 255, 0.7)',
+                                    'rgba(255, 159, 64, 0.7)'
+                                ],
+                                hoverOffset: 4
+                            }]
+                        }
+                    });
                 }
             }
         });
@@ -5032,11 +5083,11 @@ const AdminDashboard = ({ onNavigate }) => {
                 <div className="mt-4 max-h-48 overflow-y-auto space-y-2">
                     {lowStockProducts.map(item => (
                          <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
-                            <div className="flex items-center gap-2">
-                                <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100"/>
+                            <div className="flex items-center gap-2 overflow-hidden">
+                                <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
                                 <span className="text-gray-800 truncate">{item.name}</span>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-shrink-0">
                                 <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
                                     Restam: {item.stock}
                                 </span>
@@ -5061,12 +5112,13 @@ const AdminDashboard = ({ onNavigate }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Faturamento Total</h4><p className="text-3xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</p></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Vendas Totais</h4><p className="text-3xl font-bold">{stats.totalSales}</p></div>
-                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Total de Clientes</h4><p className="text-3xl font-bold">{stats.newCustomers}</p></div>
+                <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Total de Clientes</h4><p className="text-3xl font-bold">{stats.newCustomers}</p></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h4 className="text-gray-500">Pedidos Pendentes</h4><p className="text-3xl font-bold">{stats.pendingOrders}</p></div>
             </div>
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow"><h3 className="font-bold mb-4">Vendas Mensais</h3><canvas id="salesChart"></canvas></div>
+                <div className="bg-white p-6 rounded-lg shadow"><h3 className="font-bold mb-4">Vendas Diárias (Últimos 30 dias)</h3><canvas id="dailySalesChart"></canvas></div>
                 <div className="bg-white p-6 rounded-lg shadow"><h3 className="font-bold mb-4">Produtos Mais Vendidos</h3><canvas id="bestSellersChart"></canvas></div>
+                <div className="bg-white p-6 rounded-lg shadow lg:col-span-2"><h3 className="font-bold mb-4 text-center">Distribuição de Fretes</h3><div className="max-w-xs mx-auto"><canvas id="shippingChart"></canvas></div></div>
              </div>
         </div>
     );

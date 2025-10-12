@@ -2797,6 +2797,55 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Admin) Rota consolidada para dados do Dashboard
+app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const dailySalesQuery = `
+            SELECT 
+                DATE(date) as sale_date, 
+                SUM(total) as daily_total
+            FROM orders 
+            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente') AND date >= ?
+            GROUP BY DATE(date) 
+            ORDER BY sale_date ASC;
+        `;
+
+        const shippingMethodQuery = `
+            SELECT 
+                shipping_method, 
+                COUNT(id) as count 
+            FROM orders 
+            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente')
+            GROUP BY shipping_method 
+            ORDER BY count DESC;
+        `;
+
+        const bestSellersQuery = `
+            SELECT id, name, sales 
+            FROM products 
+            WHERE sales > 0 
+            ORDER BY sales DESC 
+            LIMIT 5;
+        `;
+
+        const [dailySales] = await db.query(dailySalesQuery, [thirtyDaysAgo]);
+        const [shippingMethods] = await db.query(shippingMethodQuery);
+        const [bestSellers] = await db.query(bestSellersQuery);
+
+        res.json({
+            dailySales,
+            shippingMethods,
+            bestSellers
+        });
+
+    } catch (err) {
+        console.error("Erro ao gerar dados do dashboard:", err);
+        res.status(500).json({ message: "Erro ao gerar dados do dashboard." });
+    }
+});
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
