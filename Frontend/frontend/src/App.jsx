@@ -7403,7 +7403,6 @@ const BannerCarousel = memo(({ onNavigate }) => {
     useEffect(() => {
         apiService('/banners')
             .then(data => {
-                // Adiciona o banner estático como o primeiro item, se nenhum outro banner estiver cadastrado
                 if (!Array.isArray(data) || data.length === 0) {
                     const staticBanner = {
                         id: 'static-0',
@@ -7435,10 +7434,28 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
     useEffect(() => {
         if (banners.length > 1) {
-            const timer = setTimeout(goNext, 5000); // Muda de slide a cada 5 segundos
+            const timer = setTimeout(goNext, 5000);
             return () => clearTimeout(timer);
         }
     }, [currentIndex, banners.length, goNext]);
+
+    // Animações originais da HomePage
+    const bannerVariants = {
+        hidden: { opacity: 0 },
+        visible: { 
+            opacity: 1,
+            transition: { staggerChildren: 0.3, delayChildren: 0.2 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { 
+            opacity: 1, 
+            y: 0,
+            transition: { type: 'spring', stiffness: 100 }
+        }
+    };
 
     if (isLoading) {
         return <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center"><SpinnerIcon className="h-10 w-10 text-amber-400" /></div>;
@@ -7452,22 +7469,26 @@ const BannerCarousel = memo(({ onNavigate }) => {
                 <motion.div
                     key={currentIndex}
                     className="absolute inset-0 cursor-pointer"
-                    initial={{ opacity: 0, x: 100 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -100 }}
-                    transition={{ duration: 0.5, ease: "easeInOut" }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.8, ease: "easeInOut" }}
                     onClick={() => onNavigate(banners[currentIndex].link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${banners[currentIndex].image_url})` }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                     
                     {(banners[currentIndex].title || banners[currentIndex].subtitle || banners[currentIndex].cta_enabled) && (
-                         <div className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4">
+                         <motion.div 
+                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
+                            variants={bannerVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                         >
                             {banners[currentIndex].title && (
                                 <motion.h1 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.2, duration: 0.5 }}
+                                    variants={itemVariants}
                                     className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {banners[currentIndex].title}
@@ -7475,26 +7496,20 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             )}
                             {banners[currentIndex].subtitle && (
                                 <motion.p 
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.4, duration: 0.5 }}
+                                    variants={itemVariants}
                                     className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
                                 >
                                     {banners[currentIndex].subtitle}
                                 </motion.p>
                             )}
                              {banners[currentIndex].cta_enabled === 1 && banners[currentIndex].cta_text && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.6, duration: 0.5 }}
-                                >
+                                <motion.div variants={itemVariants}>
                                     <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
                                         {banners[currentIndex].cta_text}
                                     </button>
                                 </motion.div>
                             )}
-                        </div>
+                        </motion.div>
                     )}
                 </motion.div>
             </AnimatePresence>
