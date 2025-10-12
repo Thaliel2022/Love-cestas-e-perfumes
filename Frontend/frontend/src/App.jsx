@@ -6577,7 +6577,7 @@ const AdminRefunds = ({ onNavigate }) => {
                             </div>
                         </div>
                         <form onSubmit={handleApprove}>
-                            <label className="block text-sm font-medium text-gray-700">Confirme sua senha de administrador para prosseguir:</label>
+                            <label className="block text-sm font-medium text-gray-700">Confirme sua senha de segurança para prosseguir:</label>
                             <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button type="button" onClick={() => setIsApproveModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
@@ -6625,6 +6625,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                     <th className="p-4">Cliente</th>
                                     <th className="p-4">Data Solicitação</th>
                                     <th className="p-4">Valor</th>
+                                    <th className="p-4 w-1/4">Motivo</th>
                                     <th className="p-4">Solicitante</th>
                                     <th className="p-4">Aprovador</th>
                                     <th className="p-4">Status</th>
@@ -6638,6 +6639,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                         <td className="p-4">{r.customer_name}</td>
                                         <td className="p-4">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-bold">R$ {Number(r.amount).toFixed(2)}</td>
+                                        <td className="p-4 text-gray-600 break-words">{r.reason}</td>
                                         <td className="p-4">{r.requester_name}</td>
                                         <td className="p-4">{r.approver_name || '---'}</td>
                                         <td className="p-4">{getStatusChip(r.status)}</td>
@@ -6665,11 +6667,15 @@ const AdminRefunds = ({ onNavigate }) => {
                                     </div>
                                     {getStatusChip(r.status)}
                                 </div>
-                                <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 mb-3">
                                     <div><strong className="text-gray-500 block">Cliente</strong> {r.customer_name}</div>
                                     <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {Number(r.amount).toFixed(2)}</span></div>
                                     <div><strong className="text-gray-500 block">Solicitado por</strong> {r.requester_name}</div>
                                     <div><strong className="text-gray-500 block">Aprovado por</strong> {r.approver_name || '---'}</div>
+                                </div>
+                                <div className="border-t pt-3">
+                                    <strong className="text-gray-500 block mb-1">Motivo da Solicitação</strong>
+                                    <p className="text-gray-700 break-words">{r.reason}</p>
                                 </div>
                                 {r.status === 'pending_approval' && (
                                     <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
