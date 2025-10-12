@@ -153,6 +153,27 @@ const initializeData = async () => {
             console.log('Tabela collection_categories já populada.');
         }
 
+        // --- SEED DE BANNERS ---
+        const [banners] = await connection.query("SELECT COUNT(*) as count FROM banners");
+        if (banners[0].count === 0) {
+            console.log('Tabela banners está vazia. Populando com banner principal...');
+            const mainBanner = [
+                'Elegância que Veste e Perfuma',
+                'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
+                'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
+                '#products',
+                'Explorar Coleção',
+                1, // cta_enabled
+                1, // is_active
+                0  // display_order
+            ];
+            const sql = "INSERT INTO banners (title, subtitle, image_url, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            await connection.query(sql, mainBanner);
+            console.log('Banner principal inserido com sucesso.');
+        } else {
+            console.log('Tabela banners já populada.');
+        }
+
     } catch (err) {
         console.error("Erro ao inicializar dados:", err);
     } finally {
