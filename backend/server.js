@@ -1035,9 +1035,14 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
 app.post('/api/reviews', verifyToken, async (req, res) => {
     const { product_id, order_id, rating, comment } = req.body;
     const userId = req.user.id;
+    const MAX_COMMENT_LENGTH = 500;
 
     if (!product_id || !order_id || !rating) {
         return res.status(400).json({ message: "ID do produto, ID do pedido e avaliação são obrigatórios." });
+    }
+
+    if (comment && comment.length > MAX_COMMENT_LENGTH) {
+        return res.status(400).json({ message: `O comentário não pode exceder ${MAX_COMMENT_LENGTH} caracteres.` });
     }
 
     const connection = await db.getConnection();
