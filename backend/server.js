@@ -161,13 +161,14 @@ const initializeData = async () => {
                 'Elegância que Veste e Perfuma',
                 'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
                 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
+                null, // image_url_mobile
                 '#products',
                 'Explorar Coleção',
                 1, // cta_enabled
                 1, // is_active
                 0  // display_order
             ];
-            const sql = "INSERT INTO banners (title, subtitle, image_url, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            const sql = "INSERT INTO banners (title, subtitle, image_url, image_url_mobile, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             await connection.query(sql, mainBanner);
             console.log('Banner principal inserido com sucesso.');
         } else {
@@ -240,6 +241,19 @@ const verifyAdmin = (req, res, next) => {
         return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
     }
     next();
+};
+
+const logAdminAction = async (user, action, details = null) => {
+    if (!user || !user.id || !user.name) {
+        console.error("Tentativa de log de ação sem informações do usuário.");
+        return;
+    }
+    try {
+        const sql = "INSERT INTO admin_logs (user_id, user_name, action, details) VALUES (?, ?, ?, ?)";
+        await db.query(sql, [user.id, user.name, action, details]);
+    } catch (err) {
+        console.error("Falha ao registrar log de admin:", err);
+    }
 };
 
 const checkMaintenanceMode = async (req, res, next) => {
@@ -563,6 +577,8 @@ app.post('/api/login', async (req, res) => {
         }
 
         delete loginAttempts[email];
+        
+        logAdminAction({ id: user.id, name: user.name }, 'LOGIN_SUCESSO');
 
         const token = jwt.sign({ id: user.id, name: user.name, role: user.role, cpf: user.cpf }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
         const { password: _, ...userData } = user;
@@ -600,13 +616,15 @@ app.post('/api/reset-password', async (req, res) => {
     }
 
     try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
+        const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
         if (users.length === 0) {
             return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
         }
         
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
         await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
+        
+        logAdminAction({id: users[0].id, name: users[0].name}, 'REDEFINIU_SENHA');
         
         res.status(200).json({ message: "Senha redefinida com sucesso." });
 
@@ -923,6 +941,7 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
         const [result] = await db.query(sql, values);
+        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
         res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
     } catch (err) {
         console.error("Erro ao criar produto:", err);
@@ -960,6 +979,7 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
         const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
         const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
         await db.query(sql, values);
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
         res.json({ message: "Produto atualizado com sucesso!" });
     } catch (err) {
         console.error("Erro ao atualizar produto:", err);
@@ -971,6 +991,7 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`);
         res.json({ message: "Produto deletado com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar produto:", err);
@@ -999,6 +1020,7 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         }
         
         await connection.commit();
+        logAdminAction(req.user, 'DELETOU PRODUTOS EM MASSA', `Total: ${totalAffectedRows}, IDs: ${ids.join(', ')}`);
         res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
     } catch (err) {
         await connection.rollback();
@@ -1079,6 +1101,7 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
                 await connection.query(sql, values);
             }
             await connection.commit();
+            logAdminAction(req.user, 'IMPORTOU PRODUTOS', `Total: ${products.length} via CSV.`);
             res.status(201).json({ message: `${products.length} produtos importados com sucesso!` });
         } else {
             res.status(400).json({ message: 'Nenhum produto válido foi encontrado no arquivo CSV.' });
@@ -1164,6 +1187,7 @@ app.delete('/api/reviews/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Avaliação não encontrada." });
         }
+        logAdminAction(req.user, 'DELETOU AVALIAÇÃO', `ID da avaliação: ${id}`);
         res.status(200).json({ message: "Avaliação deletada com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar avaliação:", err);
@@ -1594,6 +1618,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 }
             }
         }
+        
+        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
 
         res.json({ message: "Pedido atualizado com sucesso." });
 
@@ -2007,6 +2033,8 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Usuário não encontrado." });
         }
+        
+        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`);
 
         res.json({ message: "Usuário atualizado com sucesso!" });
     } catch (err) {
@@ -2028,6 +2056,7 @@ app.put('/api/users/me/password', verifyToken, async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
+        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA');
         res.json({ message: "Senha atualizada com sucesso." });
     } catch(err) {
         console.error("Erro ao atualizar senha do usuário:", err);
@@ -2038,6 +2067,7 @@ app.put('/api/users/me/password', verifyToken, async (req, res) => {
 app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU USUÁRIO', `ID do usuário: ${req.params.id}`);
         res.json({ message: "Usuário deletado com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar usuário:", err);
@@ -2131,6 +2161,7 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
             is_single_use_per_user ? 1 : 0
         ];
         const [result] = await db.query(sql, params);
+        logAdminAction(req.user, 'CRIOU CUPOM', `Código: ${code.toUpperCase()}`);
         res.status(201).json({ message: "Cupom criado com sucesso!", couponId: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -2162,6 +2193,7 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
             numericValidityDays, numericValidityDays, id
         ];
         await db.query(sql, params);
+        logAdminAction(req.user, 'EDITOU CUPOM', `ID: ${id}, Código: ${code.toUpperCase()}`);
         res.json({ message: "Cupom atualizado com sucesso." });
     } catch (err) {
          if (err.code === 'ER_DUP_ENTRY') {
@@ -2175,6 +2207,7 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM coupons WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU CUPOM', `ID: ${req.params.id}`);
         res.json({ message: "Cupom deletado com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar cupom:", err);
@@ -2370,6 +2403,7 @@ app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) =>
         const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
         const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
         const [result] = await db.query(sql, params);
+        logAdminAction(req.user, 'CRIOU CATEGORIA DE COLEÇÃO', `ID: ${result.insertId}, Nome: "${name}"`);
         res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -2399,6 +2433,7 @@ app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => 
         await Promise.all(updatePromises);
 
         await connection.commit();
+        logAdminAction(req.user, 'REORDENOU CATEGORIAS DE COLEÇÃO');
         res.json({ message: "Ordem das coleções atualizada com sucesso." });
     } catch (err) {
         await connection.rollback();
@@ -2425,6 +2460,7 @@ app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Categoria não encontrada." });
         }
+        logAdminAction(req.user, 'EDITOU CATEGORIA DE COLEÇÃO', `ID: ${id}, Nome: "${name}"`);
         res.json({ message: "Categoria da coleção atualizada com sucesso." });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -2443,6 +2479,7 @@ app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) =>
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Categoria não encontrada." });
         }
+        logAdminAction(req.user, 'DELETOU CATEGORIA DE COLEÇÃO', `ID: ${id}`);
         res.json({ message: "Categoria deletada com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar categoria da coleção:", err);
@@ -2484,6 +2521,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
         const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM banners";
         const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0];
         const [result] = await db.query(sql, params);
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Título: "${title}"`);
         res.status(201).json({ message: "Banner criado com sucesso!", id: result.insertId });
     } catch (err) {
         console.error("Erro ao criar banner:", err);
@@ -2508,6 +2546,7 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
         await Promise.all(updatePromises);
 
         await connection.commit();
+        logAdminAction(req.user, 'REORDENOU BANNERS');
         res.json({ message: "Ordem dos banners atualizada com sucesso." });
     } catch (err) {
         await connection.rollback();
@@ -2532,6 +2571,7 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Banner não encontrado." });
         }
+        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}, Título: "${title}"`);
         res.json({ message: "Banner atualizado com sucesso." });
     } catch (err) {
         console.error("Erro ao atualizar banner:", err);
@@ -2547,6 +2587,7 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Banner não encontrado." });
         }
+        logAdminAction(req.user, 'DELETOU BANNER', `ID: ${id}`);
         res.json({ message: "Banner deletado com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar banner:", err);
@@ -2599,12 +2640,25 @@ app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) 
     }
     try {
         await db.query("UPDATE site_settings SET setting_value = ? WHERE setting_key = 'maintenance_mode'", [status]);
+        logAdminAction(req.user, 'ATUALIZOU MODO MANUTENÇÃO', `Status: ${status.toUpperCase()}`);
         res.json({ message: `Modo de manutenção foi ${status === 'on' ? 'ativado' : 'desativado'}.` });
     } catch (err) {
         console.error("Erro ao atualizar status de manutenção:", err);
         res.status(500).json({ message: "Erro ao atualizar status de manutenção." });
     }
 });
+
+// (Admin) Rota para buscar os logs de ações
+app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [logs] = await db.query("SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT 200");
+        res.json(logs);
+    } catch (err) {
+        console.error("Erro ao buscar logs de admin:", err);
+        res.status(500).json({ message: "Erro ao buscar logs." });
+    }
+});
+
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
