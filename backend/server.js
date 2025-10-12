@@ -3068,7 +3068,7 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
     const approved_by_admin_id = req.user.id;
 
     if (!password) {
-        return res.status(400).json({ message: "Sua senha é necessária para confirmar esta ação." });
+        return res.status(400).json({ message: "A senha de confirmação é necessária para esta ação." });
     }
 
     const connection = await db.getConnection();
@@ -3080,10 +3080,10 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         const refund = refundResult[0];
 
         if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
-        
-        const [approverResult] = await connection.query("SELECT password, role FROM users WHERE id = ?", [approved_by_admin_id]);
-        if (!approverResult.length || !(await bcrypt.compare(password, approverResult[0].password)) || approverResult[0].role !== 'admin') {
-            throw new Error("Senha de administrador inválida.");
+
+        // Validação da senha de segurança a partir do .env
+        if (password !== process.env.REFUND_APPROVAL_PASSWORD) {
+            throw new Error("A senha de confirmação para o reembolso está incorreta.");
         }
 
         const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [refund.order_id]);
