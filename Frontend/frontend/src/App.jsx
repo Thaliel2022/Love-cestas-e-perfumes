@@ -4094,7 +4094,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <p className="font-semibold text-white capitalize">{paymentDetails.card_brand || 'Cartão de Crédito'} final {paymentDetails.card_last_four}</p>
                             <p className="text-sm text-gray-400">
                                 {paymentDetails.installments > 1 
-                                    ? `Pagamento em ${paymentDetails.installments}x de R$ ${(order.total / paymentDetails.installments).toFixed(2).replace('.', ',')}`
+                                    ? `Pagamento em ${paymentDetails.installments}x de R$ ${(Number(order.total) / paymentDetails.installments).toFixed(2).replace('.', ',')}`
                                     : 'Pagamento em 1x (à vista)'
                                 }
                             </p>
