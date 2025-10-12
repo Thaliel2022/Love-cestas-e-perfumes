@@ -1165,7 +1165,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
                     {products.map(product => (
                         <div 
                             key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4"
+                            className="flex-shrink-0 px-2 md:px-4 self-start" // Adicionado self-start
                             style={{ width: `${100 / itemsPerPage}%` }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
@@ -2517,7 +2517,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <p className="text-sm text-gray-400 mb-2">Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                                 <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>
-                                <p className="text-gray-300 pr-6">{review.comment}</p>
+                                <p className="text-gray-300 pr-6 break-words">{review.comment}</p>
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
                     </div>
@@ -3903,6 +3903,11 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
     const [comment, setComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const notification = useNotification();
+    const MAX_COMMENT_LENGTH = 500;
+
+    const handleCommentChange = (e) => {
+        setComment(e.target.value.slice(0, MAX_COMMENT_LENGTH));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -3914,7 +3919,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
         try {
             await apiService(`/reviews`, 'POST', {
                 product_id: productId,
-                order_id: orderId, // Envia o ID do pedido
+                order_id: orderId,
                 rating: rating,
                 comment: comment,
             });
@@ -3941,7 +3946,16 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
             </div>
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Seu Comentário (opcional)</label>
-                <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Conte o que você achou do produto..." className="w-full p-2 border border-gray-300 rounded-md h-24 bg-white" />
+                <textarea 
+                    value={comment} 
+                    onChange={handleCommentChange} 
+                    placeholder="Conte o que você achou do produto..." 
+                    className="w-full p-2 border border-gray-300 rounded-md h-24 bg-white"
+                    maxLength={MAX_COMMENT_LENGTH}
+                />
+                <div className="text-right text-xs text-gray-500 mt-1">
+                    {comment.length} / {MAX_COMMENT_LENGTH}
+                </div>
             </div>
             <div className="flex justify-end pt-4">
                 <button type="submit" disabled={isSubmitting} className="bg-gray-800 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-900 disabled:bg-gray-400 flex items-center justify-center">
