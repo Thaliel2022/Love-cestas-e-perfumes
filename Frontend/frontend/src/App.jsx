@@ -3953,13 +3953,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const [reviewingItem, setReviewingItem] = useState(null);
     
-    // --- Estados para o Modal de Reembolso do Cliente ---
+    // --- Estados para o Modal de Reembolso/Cancelamento do Cliente ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
     const fetchOrderDetails = useCallback(() => {
-        setIsLoading(true); // Garante que o loading seja reativado a cada busca
+        setIsLoading(true);
         return apiService(`/orders/my-orders?id=${orderId}`)
             .then(data => {
                 if (data && data.length > 0) {
@@ -4037,6 +4037,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             });
             notification.show(result.message);
             setIsRefundModalOpen(false);
+            setRefundReason('');
             fetchOrderDetails(); // Recarrega os dados do pedido
         } catch (error) {
             notification.show(`Erro ao solicitar: ${error.message}`, 'error');
@@ -4058,12 +4059,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const getRefundStatusInfo = (status) => {
         const statuses = {
-            'pending_approval': { text: 'Reembolso em análise', class: 'text-yellow-400 bg-yellow-900/50', icon: <ClockIcon className="h-4 w-4"/> },
+            'pending_approval': { text: 'Cancelamento em análise', class: 'text-yellow-400 bg-yellow-900/50', icon: <ClockIcon className="h-4 w-4"/> },
             'processed': { text: 'Reembolso Concluído', class: 'text-green-400 bg-green-900/50', icon: <CheckCircleIcon className="h-4 w-4"/> },
-            'denied': { text: 'Reembolso Negado', class: 'text-red-400 bg-red-900/50', icon: <XCircleIcon className="h-4 w-4"/> },
+            'denied': { text: 'Solicitação Negada', class: 'text-red-400 bg-red-900/50', icon: <XCircleIcon className="h-4 w-4"/> },
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
-        return statuses[status] || { text: `Reembolso ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
+        // Ajuste para pedidos entregues
+        if (order.status === 'Entregue' && status === 'pending_approval') {
+            statuses['pending_approval'].text = 'Reembolso em análise';
+        }
+        return statuses[status] || { text: `Status: ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
     };
 
     const renderPaymentDetails = () => {
@@ -4136,11 +4141,15 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
+    const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
     const isOrderDelivered = order.status === 'Entregue';
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
-    const canRequestRefund = isOrderDelivered && isWithinRefundPeriod && !order.refund_id;
+    
+    // A condição agora é mais abrangente
+    const canRequest = cancellableStatuses.includes(order.status) && !order.refund_id && (order.status !== 'Entregue' || isWithinRefundPeriod);
+    const actionText = isOrderDelivered ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
 
@@ -4161,15 +4170,15 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             </AnimatePresence>
             <AnimatePresence>
                 {isRefundModalOpen && (
-                    <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso do Pedido #${order.id}`}>
+                    <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar ${actionText} do Pedido #${order.id}`}>
                         <form onSubmit={handleRequestRefund} className="space-y-4 text-gray-800">
                              <div>
-                                <label className="block text-sm font-medium text-gray-700">Motivo da Solicitação</label>
-                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" placeholder="Ex: Produto veio com defeito, não serviu, etc." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white"></textarea>
+                                <label className="block text-sm font-medium text-gray-700">Motivo da Solicitação de {actionText}</label>
+                                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} required rows="4" placeholder="Ex: Produto veio com defeito, desisti da compra, etc." className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white"></textarea>
                             </div>
                             <div className="bg-gray-100 p-3 rounded-md text-sm">
                                 <p><strong>Valor a ser reembolsado:</strong> R$ {Number(order.total).toFixed(2)}</p>
-                                <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após aprovação.</p>
+                                <p className="text-xs text-gray-500 mt-1">O valor será estornado no mesmo método de pagamento da compra após a aprovação da solicitação.</p>
                             </div>
                              <div className="flex justify-end gap-3 pt-4">
                                 <button type="button" onClick={() => setIsRefundModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
@@ -4320,8 +4329,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             ) : (
                                 order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
-                             {canRequestRefund && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar Reembolso</button>
+                             {canRequest && (
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
                             )}
                             {refundInfo && (
                                 <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
