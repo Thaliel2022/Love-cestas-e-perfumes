@@ -137,7 +137,7 @@ app.use(helmet({
 
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutos
-	max: 300, // Aumentado para 300 requisições por janela de 15 min
+	max: 1000, // Aumentado para 1000 requisições para evitar bloqueios em desenvolvimento
 	standardHeaders: true,
 	legacyHeaders: false,
     message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos'
