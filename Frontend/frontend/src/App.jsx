@@ -5718,20 +5718,21 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
- const handleVariationImageUpload = async (index, files) => {
-        // CORREÇÃO DEFINITIVA: A função agora recebe 'files' diretamente, que é um objeto FileList.
-        // A verificação é feita diretamente neste objeto.
-        if (!files || files.length === 0) {
-            console.error("handleVariationImageUpload foi chamada sem arquivos válidos.");
-            // Exibe o erro detalhado no render, como solicitado.
-            setUploadingStatus(prev => ({ ...prev, [index]: "Erro: Nenhum arquivo foi selecionado." }));
-            return;
-        }
-
-        const fileArray = Array.from(files);
-
-        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+ const handleVariationImageUpload = async (index, e) => {
         try {
+            // CORREÇÃO DEFINITIVA: O erro ocorre aqui quando 'e' não é um evento de arquivo.
+            // O try...catch vai capturar o erro e exibi-lo na tela.
+            const files = e.target.files;
+            if (!files || files.length === 0) {
+                console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
+                return;
+            }
+
+            const fileArray = Array.from(files);
+            if (fileArray.length === 0) return;
+
+            setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+            
             const uploadPromises = fileArray.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
             const newImageUrls = responses.map(res => res.imageUrl);
@@ -5742,14 +5743,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
             setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
+            
+            if (e.target) {
+                e.target.value = null;
+            }
         } catch (error) {
-            console.error("Erro detalhado no upload da variação:", error);
-            // Captura qualquer erro da API e exibe no render.
-            const errorMessage = `Erro: ${error.message || "Falha no upload."}`;
-            setUploadingStatus(prev => ({ ...prev, [index]: errorMessage }));
+            // ATUALIZAÇÃO: Exibe o erro DETALHADO capturado diretamente no render.
+            console.error("ERRO CAPTURADO no handleVariationImageUpload:", error);
+            const detailedErrorMessage = `ERRO NO RENDER: ${error.toString()}`;
+            setUploadingStatus(prev => ({ ...prev, [index]: detailedErrorMessage }));
         }
     };
-
     const addVariation = () => {
         setFormData(prev => ({
             ...prev,
