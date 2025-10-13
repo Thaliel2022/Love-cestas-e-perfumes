@@ -5718,16 +5718,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-   const handleVariationImageUpload = async (index, e) => {
-        // CORREÇÃO APLICADA: Adicionada a verificação segura para 'e.target.files'
-        const files = e?.target?.files;
+ const handleVariationImageUpload = async (index, files) => {
+        // CORREÇÃO DEFINITIVA: A função agora recebe 'files' diretamente, que é um objeto FileList.
+        // A verificação é feita diretamente neste objeto.
         if (!files || files.length === 0) {
-            console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
-            return; // Impede a execução e o erro.
+            console.error("handleVariationImageUpload foi chamada sem arquivos válidos.");
+            // Exibe o erro detalhado no render, como solicitado.
+            setUploadingStatus(prev => ({ ...prev, [index]: "Erro: Nenhum arquivo foi selecionado." }));
+            return;
         }
 
         const fileArray = Array.from(files);
-        if (fileArray.length === 0) return;
 
         setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
         try {
@@ -5741,14 +5742,10 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
             setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
-            // Limpa o valor do input para permitir o upload do mesmo arquivo novamente
-            if (e.target) {
-                e.target.value = null;
-            }
         } catch (error) {
-            // ATUALIZAÇÃO: Captura o erro e o exibe detalhadamente no render.
             console.error("Erro detalhado no upload da variação:", error);
-            const errorMessage = `Erro: ${error.message || "Falha no upload. Verifique o console."}`;
+            // Captura qualquer erro da API e exibe no render.
+            const errorMessage = `Erro: ${error.message || "Falha no upload."}`;
             setUploadingStatus(prev => ({ ...prev, [index]: errorMessage }));
         }
     };
