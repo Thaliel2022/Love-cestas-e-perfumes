@@ -64,6 +64,7 @@ const ClipboardDocListIcon = ({ className }) => <svg xmlns="http://www.w3.org/20
 const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M3.105 2.289a.75.75 0 0 0-.826.95l1.414 4.949a.75.75 0 0 0 .135.252l.918.919a.75.75 0 0 1 0 1.06l-.918.92a.75.75 0 0 0-.135.252L2.28 16.76a.75.75 0 0 0 .95.826l14.666-4.954a.75.75 0 0 0 0-1.42L3.105 2.289Z" /></svg>;
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
+const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -2543,38 +2544,67 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 };
 
 const LoginPage = ({ onNavigate }) => {
-    const { login } = useAuth();
+    const { login, setUser } = useAuth(); // Adicionado setUser do contexto
     const notification = useNotification();
+    
+    // Estados do formulário
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
+    // Estados para o fluxo 2FA
+    const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
+    const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [tempAuthToken, setTempAuthToken] = useState('');
 
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
-    };
+    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
     
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            await login(email, password);
-            notification.show('Login bem-sucedido!');
-            window.location.hash = '#home';
+            // A função login agora pode retornar uma resposta especial para 2FA
+            const response = await apiService('/login', 'POST', { email, password });
+            
+            if (response.twoFactorEnabled) {
+                // Se 2FA for necessário, muda para a próxima etapa
+                setTempAuthToken(response.token);
+                setIsTwoFactorStep(true);
+            } else {
+                // Login normal bem-sucedido
+                notification.show('Login bem-sucedido!');
+                window.location.hash = '#home';
+            }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
             notification.show(err.message || "Ocorreu um erro desconhecido.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleTwoFactorSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+        try {
+            const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
+            const { user } = response;
+            
+            // Define manualmente o usuário no contexto e no localStorage
+            setUser(user);
+            localStorage.setItem('user', JSON.stringify(user));
+
+            notification.show('Login bem-sucedido!');
+            window.location.hash = '#home'; // Ou '#admin/dashboard' se preferir
+
+        } catch (err) {
+            setError(err.message || "Código 2FA inválido ou expirado.");
+            notification.show(err.message || "Código 2FA inválido.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -2588,52 +2618,69 @@ const LoginPage = ({ onNavigate }) => {
                 animate="visible"
                 className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
-                <motion.div variants={itemVariants} className="text-center mb-6">
-                    <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700">
-                        <UserIcon className="h-8 w-8 text-amber-400" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
-                </motion.div>
-
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
                 
-                <motion.form variants={itemVariants} onSubmit={handleLogin} className="space-y-6">
-                    <div>
-                        <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
-                        <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
-                        <div className="relative">
-                            <input 
-                                type={isPasswordVisible ? 'text' : 'password'} 
-                                placeholder="••••••••" 
-                                value={password} 
-                                onChange={e => setPassword(e.target.value)} 
-                                required 
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pr-10" 
-                            />
-                            <button 
-                                type="button" 
-                                onClick={() => setIsPasswordVisible(!isPasswordVisible)} 
-                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
-                            >
-                                {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
-                    </div>
-                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
-                         {isLoading ? <SpinnerIcon /> : 'Entrar'}
-                    </button>
-                </motion.form>
-
-                <motion.div variants={itemVariants} className="text-center mt-6 text-sm">
-                    <p className="text-gray-400">
-                        Não tem uma conta?{' '}
-                        <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a>
-                    </p>
-                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
-                </motion.div>
+                <AnimatePresence mode="wait">
+                    {!isTwoFactorStep ? (
+                        <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
+                            <div className="text-center mb-6">
+                                <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><UserIcon className="h-8 w-8 text-amber-400" /></div>
+                                <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
+                            </div>
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
+                                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
+                                    <div className="relative">
+                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" />
+                                       <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
+                                            {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                     {isLoading ? <SpinnerIcon /> : 'Entrar'}
+                                </button>
+                            </form>
+                             <div className="text-center mt-6 text-sm">
+                                <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
+                                <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+                            <div className="text-center mb-6">
+                                <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
+                                <h2 className="text-3xl font-bold text-amber-400">Verificação de Dois Fatores</h2>
+                                <p className="text-gray-400 mt-2">Insira o código do seu aplicativo autenticador.</p>
+                            </div>
+                            <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
+                                    <input 
+                                        type="text" 
+                                        inputMode="numeric" 
+                                        pattern="\d{6}" 
+                                        maxLength="6"
+                                        placeholder="123456" 
+                                        value={twoFactorCode} 
+                                        onChange={e => setTwoFactorCode(e.target.value)} 
+                                        required 
+                                        className="w-full text-center tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-2xl font-mono" />
+                                </div>
+                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                     {isLoading ? <SpinnerIcon /> : 'Verificar'}
+                                </button>
+                            </form>
+                             <div className="text-center mt-6 text-sm">
+                                <button onClick={() => { setIsTwoFactorStep(false); setError(''); }} className="text-gray-500 hover:underline">Voltar</button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </motion.div>
         </div>
     );
@@ -4913,24 +4960,89 @@ const MyAddressesSection = () => {
     );
 };
 
-const MyProfileSection = ({ user }) => {
+const MyProfileSection = () => {
+    const { user, setUser } = useAuth();
+    const notification = useNotification();
+
+    // Estados para o Modal de Senha
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
-    const notification = useNotification();
+    const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+
+    // Estados para o Modal de 2FA
+    const [is2faModalOpen, setIs2faModalOpen] = useState(false);
+    const [is2faDisableModalOpen, setIs2faDisableModalOpen] = useState(false);
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [twoFactorSecret, setTwoFactorSecret] = useState('');
+    const [verificationCode, setVerificationCode] = useState('');
+    const [disablePassword, setDisablePassword] = useState('');
+    const [is2faLoading, setIs2faLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if(newPassword.length < 6) {
+        if (newPassword.length < 6) {
             notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
             return;
         }
+        setIsPasswordLoading(true);
         try {
             await apiService('/users/me/password', 'PUT', { password: newPassword });
             notification.show('Senha alterada com sucesso!');
             setNewPassword('');
             setIsPasswordModalOpen(false);
         } catch (error) {
-             notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro: ${error.message}`, 'error');
+        } finally {
+            setIsPasswordLoading(false);
+        }
+    };
+
+    const handleGenerate2FA = async () => {
+        setIs2faLoading(true);
+        try {
+            const data = await apiService('/2fa/generate', 'POST');
+            setQrCodeUrl(data.qrCodeUrl);
+            setTwoFactorSecret(data.secret);
+            setIs2faModalOpen(true);
+        } catch (error) {
+            notification.show(`Erro ao gerar código 2FA: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleVerifyAndEnable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/verify-enable', 'POST', { token: verificationCode });
+            notification.show('Autenticação de Dois Fatores ativada com sucesso!');
+            const updatedUser = { ...user, is_two_factor_enabled: 1 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro na verificação: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleDisable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/disable', 'POST', { password: disablePassword });
+            notification.show('Autenticação de Dois Fatores desativada.');
+            const updatedUser = { ...user, is_two_factor_enabled: 0 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faDisableModalOpen(false);
+            setDisablePassword('');
+        } catch (error) {
+            notification.show(`Erro ao desativar: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
         }
     };
 
@@ -4942,9 +5054,55 @@ const MyProfileSection = ({ user }) => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500" />
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                             </div>
-                            <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
+                            <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
+                                {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
+                            </button>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {is2faModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
+                        <div className="text-center space-y-4">
+                            <p className="text-gray-600">1. Escaneie este QR Code com seu aplicativo autenticador (Google Authenticator, Authy, etc).</p>
+                            <img src={qrCodeUrl} alt="QR Code para 2FA" className="mx-auto border-4 border-white shadow-lg"/>
+                            <p className="text-gray-600 text-sm">Se não puder escanear, insira esta chave manualmente:</p>
+                            <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
+                            <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
+                                <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
+                                <input 
+                                    type="text" 
+                                    value={verificationCode}
+                                    onChange={e => setVerificationCode(e.target.value)}
+                                    maxLength="6"
+                                    placeholder="123456"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
+                                />
+                                <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
+                                    {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
+                                </button>
+                            </form>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {is2faDisableModalOpen && (
+                     <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
+                        <form onSubmit={handleDisable2FA} className="space-y-4">
+                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Desativar o 2FA reduzirá a segurança da sua conta. Para continuar, por favor, confirme sua senha.</p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                            </div>
+                            <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
+                                {is2faLoading ? <SpinnerIcon/> : "Confirmar e Desativar"}
+                            </button>
                         </form>
                     </Modal>
                 )}
@@ -4952,16 +5110,32 @@ const MyProfileSection = ({ user }) => {
 
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
             <div className="bg-gray-800 p-6 rounded-lg space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong>
-                    <span className="text-white">{user?.name}</span>
-                </div>
-                 <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong>
-                    <span className="text-white">{user?.email}</span>
-                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
+                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
+
+            {user?.role === 'admin' && (
+                <div className="mt-8 pt-6 border-t border-gray-800">
+                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
+                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
+                        </div>
+                        {user.is_two_factor_enabled ? (
+                            <div className="text-center flex-shrink-0">
+                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                            </div>
+                        ) : (
+                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </>
     );
 };
