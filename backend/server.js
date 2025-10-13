@@ -658,64 +658,126 @@ app.post('/api/login', [
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password } = req.body;
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
+    const { email, password } = req.body;
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
 
-    if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
-        return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
-    }
+    if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
+        return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
+    }
 
-    try {
-        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-        const user = users[0];
+    try {
+        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+        const user = users[0];
 
-        const logLoginAttempt = async (userId, status) => {
-            await db.query(
-                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
-                [userId, email, ipAddress, userAgent, status]
-            );
-        };
+        const logLoginAttempt = async (userId, status) => {
+            await db.query(
+                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
+                [userId, email, ipAddress, userAgent, status]
+            );
+        };
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
-            loginAttempts[email].count++;
-            if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
-                loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
-            }
-            if (user) await logLoginAttempt(user.id, 'failure');
-            return res.status(401).json({ message: "Email ou senha inválidos." });
-        }
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
+            loginAttempts[email].count++;
+            if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
+                loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
+            }
+            if (user) await logLoginAttempt(user.id, 'failure');
+            return res.status(401).json({ message: "Email ou senha inválidos." });
+        }
 
-        if (user.status === 'blocked') {
-            await logLoginAttempt(user.id, 'failure');
-            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
-        }
+        if (user.status === 'blocked') {
+            await logLoginAttempt(user.id, 'failure');
+            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
+        }
 
-        delete loginAttempts[email];
-        await logLoginAttempt(user.id, 'success');
+        delete loginAttempts[email];
+        await logLoginAttempt(user.id, 'success');
 
-        // Geração de Tokens
+        // Lógica de 2FA para Admins
+        if (user.role === 'admin' && user.is_two_factor_enabled) {
+            const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, JWT_SECRET, { expiresIn: '5m' }); // Token temporário para a verificação 2FA
+            return res.json({ twoFactorEnabled: true, token: tempToken });
+        }
+
+        // Geração de Tokens para usuários normais ou admins sem 2FA
         const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
         const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
         const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-        // Configuração dos Cookies
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'strict',
         };
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 }); // 4 horas
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 dias
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-        const { password: _, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData });
-    } catch (err) {
-        console.error("Erro ao fazer login:", err);
-        res.status(500).json({ message: "Erro interno ao fazer login." });
-    }
+        const { password: _, two_factor_secret, ...userData } = user;
+        res.json({ message: "Login bem-sucedido", user: userData });
+
+    } catch (err) {
+        console.error("Erro ao fazer login:", err);
+        res.status(500).json({ message: "Erro interno ao fazer login." });
+    }
+});
+
+app.post('/api/login/2fa/verify', [
+    body('token', 'Token 2FA é obrigatório').notEmpty(),
+    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token, tempAuthToken } = req.body;
+    
+    try {
+        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
+        if (!decodedTemp.twoFactorAuth) {
+            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
+        }
+        
+        const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        const user = users[0];
+
+        const isVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: token
+        });
+
+        if (!isVerified) {
+            return res.status(401).json({ message: 'Código 2FA inválido.' });
+        }
+
+        // Se verificado, gera os tokens de acesso e refresh
+        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
+        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
+        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+        };
+
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        
+        const { password: _, two_factor_secret, ...userData } = user;
+        res.json({ message: "Login bem-sucedido", user: userData });
+
+    } catch (err) {
+        console.error("Erro na verificação 2FA:", err);
+        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
+    }
 });
 
 app.post('/api/refresh-token', (req, res) => {
@@ -751,32 +813,40 @@ app.post('/api/logout', (req, res) => {
     res.status(200).json({ message: 'Logout realizado com sucesso.' });
 });
 
+app.post('/api/forgot-password', [
+    body('email', 'Email inválido').isEmail().normalizeEmail(),
+    body('cpf', 'CPF é obrigatório').notEmpty()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-app.post('/api/forgot-password', async (req, res) => {
-    const { email, cpf } = req.body;
-    if (!email || !cpf) {
-        return res.status(400).json({ message: "Email e CPF são obrigatórios." });
-    }
-    try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
-        }
-        res.status(200).json({ message: "Usuário validado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao validar usuário para recuperação de senha:", err);
-        res.status(500).json({ message: "Erro interno do servidor." });
-    }
+    const { email, cpf } = req.body;
+
+    try {
+        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
+        }
+        res.status(200).json({ message: "Usuário validado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao validar usuário para recuperação de senha:", err);
+        res.status(500).json({ message: "Erro interno do servidor." });
+    }
 });
 
-app.post('/api/reset-password', async (req, res) => {
-    const { email, cpf, newPassword } = req.body;
-    if (!email || !cpf || !newPassword) {
-        return res.status(400).json({ message: "Email, CPF e nova senha são obrigatórios." });
+app.post('/api/reset-password', [
+    body('email', 'Email inválido').isEmail().normalizeEmail(),
+    body('cpf', 'CPF é obrigatório').notEmpty(),
+    body('newPassword', 'A nova senha deve ter no mínimo 6 caracteres').isLength({ min: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
     }
-    if (newPassword.length < 6) {
-        return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
-    }
+
+    const { email, cpf, newPassword } = req.body;
 
     try {
         const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
