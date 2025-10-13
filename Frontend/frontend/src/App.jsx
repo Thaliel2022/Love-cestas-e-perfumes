@@ -5511,7 +5511,9 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     const cameraInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        onImageUpload(index, e);
+        // CORREÇÃO: A prop 'onImageUpload' já tem o 'index' embutido pela função anônima
+        // no componente pai. Precisamos apenas passar o evento 'e'.
+        onImageUpload(e);
     };
 
     const handleRemoveImage = (imgIndex) => {
