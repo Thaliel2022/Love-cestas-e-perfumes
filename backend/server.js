@@ -100,18 +100,22 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 
 const allowedOrigins = [
-    process.env.APP_URL, // Domínio de produção
-    'http://localhost:3000', // Desenvolvimento local
+    process.env.APP_URL, // Ex: https://lovecestaseperfumes.com.br
+    `https://www.${process.env.APP_URL?.split('//')[1]}`, // Adiciona a versão com www.
+    'http://localhost:3000',
 ];
+
 app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Acesso de origem não permitido por CORS'));
-        }
-    },
-    credentials: true // Permite o envio de cookies
+    origin: function (origin, callback) {
+        // Permite requisições sem 'origin' (ex: Postman, apps mobile) ou se a origem estiver na lista.
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            console.error(`CORS Bloqueado para a origem: ${origin}`); // Adiciona log para depuração
+            callback(new Error('Acesso de origem não permitido por CORS'));
+        }
+    },
+    credentials: true // Permite o envio de cookies
 }));
 
 app.use(express.json());
