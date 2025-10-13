@@ -803,7 +803,7 @@ app.post('/api/refresh-token', (req, res) => {
         res.cookie('accessToken', newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            sameSite: 'strict',
             maxAge: 4 * 60 * 60 * 1000 // 4 horas
         });
 
@@ -3601,8 +3601,6 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         connection.release();
     }
 });
-
-
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
