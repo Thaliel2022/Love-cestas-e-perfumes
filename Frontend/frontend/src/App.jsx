@@ -5511,7 +5511,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     const cameraInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        // CORREÇÃO DEFINITIVA: Passa a lista de arquivos (e.target.files) diretamente para a função pai.
+        // CORREÇÃO DEFINITIVA (1/3): Passa a lista de arquivos (e.target.files) diretamente para a função pai.
         // Isso evita problemas com o objeto de evento sintético do React.
         if (e.target.files) {
             onImageUpload(e.target.files);
@@ -5718,16 +5718,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-   const handleVariationImageUpload = async (index, e) => {
-        // CORREÇÃO DEFINITIVA: Adiciona a verificação segura para e.target.files,
-        // exatamente como você sugeriu. Isso previne o erro quando a função é
-        // chamada por um evento que não contém os arquivos.
-        const files = e?.target?.files;
-        if (!files || files.length === 0) {
-            console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
-            return; // Impede a execução e o erro.
-        }
-
+    const handleVariationImageUpload = async (index, files) => {
+        // CORREÇÃO DEFINITIVA (2/3): A função agora recebe a lista de 'files' diretamente.
         const fileArray = Array.from(files);
         if (fileArray.length === 0) return;
 
@@ -5743,10 +5735,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
             setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
-            // Limpa o valor do input para permitir o upload do mesmo arquivo novamente
-            if (e.target) {
-                e.target.value = null;
-            }
         } catch (error) {
             setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
         }
