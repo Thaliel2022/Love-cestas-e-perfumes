@@ -189,24 +189,22 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
 
 async function apiUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
 
     const config = {
         method: 'POST',
-        headers: {},
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
         body: formData,
     };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
 
     try {
         const response = await fetch(`${API_URL}${endpoint}`, config);
         const responseData = await response.json();
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
             throw new Error(responseData.message || `Erro ${response.status}`);
         }
         return responseData;
@@ -217,24 +215,22 @@ async function apiUploadService(endpoint, file) {
 }
 
 async function apiImageUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('image', file);
 
     const config = {
         method: 'POST',
-        headers: {},
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
         body: formData,
     };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
 
     try {
         const response = await fetch(`${API_URL}${endpoint}`, config);
         const responseData = await response.json();
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
             throw new Error(responseData.message || `Erro ${response.status}`);
         }
         return responseData;
