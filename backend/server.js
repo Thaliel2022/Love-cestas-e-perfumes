@@ -92,8 +92,51 @@ const LOCK_TIME_IN_MINUTES = 15;
 const loginAttempts = {};
 
 // --- MIDDLEWARES ---
-app.use(cors());
+const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
+
+const allowedOrigins = [
+    process.env.APP_URL, // Domínio de produção
+    'http://localhost:3000', // Desenvolvimento local
+];
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Acesso de origem não permitido por CORS'));
+        }
+    },
+    credentials: true // Permite o envio de cookies
+}));
+
 app.use(express.json());
+app.use(cookieParser());
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://sdk.mercadopago.com"],
+            styleSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline pode ser necessário para bibliotecas de UI
+            imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://placehold.co"],
+            connectSrc: ["'self'", process.env.BACKEND_URL, "https://api.mercadopago.com", "https://viacep.com.br", "https://api.linketrack.com", "https://www.melhorenvio.com.br"],
+            frameSrc: ["'self'"],
+            objectSrc: ["'none'"],
+            upgradeInsecureRequests: [],
+        },
+    },
+}));
+
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutos
+	max: 100, // Limita cada IP a 100 requisições por janela
+	standardHeaders: true,
+	legacyHeaders: false,
+    message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos'
+});
+app.use('/api/', limiter); // Aplica o rate limiting a todas as rotas da API
 
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
@@ -220,19 +263,26 @@ const memoryUpload = multer({ storage: memoryStorage });
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
 
 const verifyToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
-    try {
-        req.user = jwt.verify(token, JWT_SECRET);
-        next();
-    } catch (err) {
-        return res.status(403).json({ message: 'Token inválido.' });
-    }
+    const token = req.cookies.accessToken;
+
+    if (!token) {
+        return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Token expirado. Por favor, atualize sua sessão.' });
+        }
+        return res.status(403).json({ message: 'Token inválido.' });
+    }
 };
 
 const verifyAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
     }
     next();
@@ -540,12 +590,34 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
 
 
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
-app.post('/api/register', async (req, res) => {
-    const { name, email, password, cpf } = req.body;
-    if (!name || !email || !password || !cpf) {
-        return res.status(400).json({ message: "Nome, email, senha e CPF são obrigatórios." });
-    }
-    if (!isValidEmail(email)) {
+app.post('/api/register', [
+    body('name', 'O nome é obrigatório').notEmpty().trim().escape(),
+    body('email', 'Por favor, inclua um e-mail válido').isEmail().normalizeEmail(),
+    body('password', 'A senha deve ter no mínimo 6 caracteres').isLength({ min: 6 }),
+    body('cpf').custom(value => {
+        const cpf = String(value).replace(/[^\d]/g, '');
+        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) throw new Error('CPF inválido');
+        let sum = 0, remainder;
+        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(cpf.substring(9, 10))) throw new Error('CPF inválido');
+        sum = 0;
+        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
+        return true;
+    })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { name, email, password, cpf } = req.body;
+
+    if (!isValidEmail(email)) {
         return res.status(400).json({ message: "Formato de e-mail inválido." });
     }
     if (password.length < 6) {
@@ -577,53 +649,106 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
+app.post('/api/login', [
+    body('email', 'Email inválido').isEmail().normalizeEmail(),
+    body('password', 'Senha não pode estar vazia').notEmpty()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    if (!email || !password) return res.status(400).json({ message: "Email e senha são obrigatórios." });
+    const { email, password } = req.body;
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
 
-    if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
-        return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
+    if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
+        return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
+    }
+
+    try {
+        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+        const user = users[0];
+
+        const logLoginAttempt = async (userId, status) => {
+            await db.query(
+                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
+                [userId, email, ipAddress, userAgent, status]
+            );
+        };
+
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
+            loginAttempts[email].count++;
+            if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
+                loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
+            }
+            if (user) await logLoginAttempt(user.id, 'failure');
+            return res.status(401).json({ message: "Email ou senha inválidos." });
+        }
+
+        if (user.status === 'blocked') {
+            await logLoginAttempt(user.id, 'failure');
+            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
+        }
+
+        delete loginAttempts[email];
+        await logLoginAttempt(user.id, 'success');
+
+        // Geração de Tokens
+        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
+        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
+        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+        // Configuração dos Cookies
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+        };
+
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 }); // 4 horas
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 }); // 7 dias
+
+        const { password: _, ...userData } = user;
+        res.json({ message: "Login bem-sucedido", user: userData });
+    } catch (err) {
+        console.error("Erro ao fazer login:", err);
+        res.status(500).json({ message: "Erro interno ao fazer login." });
+    }
+});
+
+app.post('/api/refresh-token', (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token não encontrado.' });
     }
 
     try {
-        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-        const user = users[0];
+        const decoded = jwt.verify(refreshToken, JWT_SECRET);
+        
+        // Opcional: Verificar se o token de refresh ainda é válido no banco (se você implementar uma blacklist)
+        
+        const userPayload = { id: decoded.id, name: decoded.name, role: decoded.role, cpf: decoded.cpf };
+        const newAccessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
 
-        const logLoginAttempt = async (userId, status) => {
-            await db.query(
-                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
-                [userId, email, ipAddress, userAgent, status]
-            );
-        };
+        res.cookie('accessToken', newAccessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 4 * 60 * 60 * 1000 // 4 horas
+        });
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
-            loginAttempts[email].count++;
-            if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
-                loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
-            }
-            if (user) await logLoginAttempt(user.id, 'failure');
-            return res.status(401).json({ message: "Email ou senha inválidos." });
-        }
-
-        if (user.status === 'blocked') {
-            await logLoginAttempt(user.id, 'failure');
-            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
-        }
-
-        delete loginAttempts[email];
-        await logLoginAttempt(user.id, 'success');
-
-        const token = jwt.sign({ id: user.id, name: user.name, role: user.role, cpf: user.cpf }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-        const { password: _, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData, token: token });
+        res.json({ message: 'Token atualizado com sucesso.' });
     } catch (err) {
-        console.error("Erro ao fazer login:", err);
-        res.status(500).json({ message: "Erro interno ao fazer login." });
+        return res.status(403).json({ message: 'Refresh token inválido ou expirado.' });
     }
+});
+
+app.post('/api/logout', (req, res) => {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.status(200).json({ message: 'Logout realizado com sucesso.' });
 });
 
 
