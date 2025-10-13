@@ -5511,11 +5511,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     const cameraInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        // CORREÇÃO DEFINITIVA (1/3): Passa a lista de arquivos (e.target.files) diretamente para a função pai.
-        // Isso evita problemas com o objeto de evento sintético do React.
-        if (e.target.files) {
-            onImageUpload(e.target.files);
-        }
+        onImageUpload(index, e);
     };
 
     const handleRemoveImage = (imgIndex) => {
@@ -5578,6 +5574,93 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
                 <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
             </div>
         </div>
+    );
+};
+
+const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
+    const [formData, setFormData] = useState({});
+
+    useEffect(() => {
+        const initialData = {};
+        fieldsConfig.forEach(field => {
+            let defaultValue = ''; // Valor padrão para campos de texto
+            if (field.type === 'checkbox') {
+                defaultValue = 0;
+            } else if (field.type === 'select' && field.options && field.options.length > 0) {
+                defaultValue = field.options[0].value; // Define o padrão como o valor da primeira opção
+            }
+            initialData[field.name] = item?.[field.name] ?? defaultValue;
+        });
+        setFormData(initialData);
+    }, [item, fieldsConfig]);
+
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value
+        }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(formData);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-4">
+            {fieldsConfig.map(field => (
+                <div key={field.name}>
+                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
+                    {field.type === 'select' ? (
+                        <select
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                        >
+                            {field.options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                        </select>
+                    ) : field.type === 'textarea' ? (
+                        <textarea
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                            placeholder={field.placeholder || ''}
+                        />
+                    ) : field.type === 'checkbox' ? (
+                        <div className="flex items-center pt-2">
+                             <input
+                                type="checkbox"
+                                name={field.name}
+                                checked={!!formData[field.name]}
+                                onChange={handleChange}
+                                className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                            />
+                        </div>
+                    ) : (
+                        <input
+                            type={field.type}
+                            name={field.name}
+                            value={formData[field.name] || ''}
+                            onChange={handleChange}
+                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                            required={field.required}
+                            placeholder={field.placeholder || ''}
+                            readOnly={field.editable === false}
+                            step={field.step}
+                        />
+                    )}
+                </div>
+            ))}
+            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
+                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
+                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            </div>
+        </form>
     );
 };
 
@@ -5718,22 +5801,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
- const handleVariationImageUpload = async (index, e) => {
+    const handleVariationImageUpload = async (index, e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
         try {
-            // CORREÇÃO DEFINITIVA: O erro ocorre aqui quando 'e' não é um evento de arquivo.
-            // O try...catch vai capturar o erro e exibi-lo na tela.
-            const files = e.target.files;
-            if (!files || files.length === 0) {
-                console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
-                return;
-            }
-
-            const fileArray = Array.from(files);
-            if (fileArray.length === 0) return;
-
-            setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
-            
-            const uploadPromises = fileArray.map(file => apiImageUploadService('/upload/image', file));
+            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
             const newImageUrls = responses.map(res => res.imageUrl);
             
@@ -5742,18 +5816,14 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             newVariations[index].images = [...currentImages, ...newImageUrls];
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
-            setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
-            
-            if (e.target) {
-                e.target.value = null;
-            }
+            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
+            e.target.value = '';
+            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
         } catch (error) {
-            // ATUALIZAÇÃO: Exibe o erro DETALHADO capturado diretamente no render.
-            console.error("ERRO CAPTURADO no handleVariationImageUpload:", error);
-            const detailedErrorMessage = `ERRO NO RENDER: ${error.toString()}`;
-            setUploadingStatus(prev => ({ ...prev, [index]: detailedErrorMessage }));
+            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
         }
     };
+
     const addVariation = () => {
         setFormData(prev => ({
             ...prev,
@@ -5981,7 +6051,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                                 onRemoveVariation={removeVariation}
                                                 availableColors={availableColors}
                                                 availableSizes={availableSizes}
-                                                onImageUpload={(files) => handleVariationImageUpload(i, files)}
+                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
                                                 uploadStatus={uploadingStatus[i]}
                                                 isFirstOfColor={isFirst}
                                             />
