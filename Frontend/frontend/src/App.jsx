@@ -6051,7 +6051,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                                 onRemoveVariation={removeVariation}
                                                 availableColors={availableColors}
                                                 availableSizes={availableSizes}
-                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
+                                                onImageUpload={handleVariationImageUpload}
                                                 uploadStatus={uploadingStatus[i]}
                                                 isFirstOfColor={isFirst}
                                             />
