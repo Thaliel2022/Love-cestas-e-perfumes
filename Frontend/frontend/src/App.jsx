@@ -240,6 +240,32 @@ async function apiImageUploadService(endpoint, file) {
     }
 }
 
+async function apiImageUploadService(endpoint, file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const config = {
+        method: 'POST',
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        body: formData,
+    };
+
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const responseData = await response.json();
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
+            throw new Error(responseData.message || `Erro ${response.status}`);
+        }
+        return responseData;
+    } catch (error) {
+        console.error(`Erro no upload da imagem (${endpoint}):`, error);
+        throw error;
+    }
+}
+
 
 // --- FUNÇÕES AUXILIARES PARA IMAGENS ---
 const parseJsonString = (jsonString, fallbackValue) => {
