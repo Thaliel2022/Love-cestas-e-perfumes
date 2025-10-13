@@ -14,8 +14,6 @@ const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
 const { Resend } = require('resend');
-const speakeasy = require('speakeasy');
-const qrcode = require('qrcode');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -94,55 +92,8 @@ const LOCK_TIME_IN_MINUTES = 15;
 const loginAttempts = {};
 
 // --- MIDDLEWARES ---
-const cookieParser = require('cookie-parser');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { body, validationResult } = require('express-validator');
-
-const allowedOrigins = [
-    process.env.APP_URL, // Ex: https://lovecestaseperfumes.com.br
-    `https://www.${process.env.APP_URL?.split('//')[1]}`, // Adiciona a versão com www.
-    'http://localhost:3000',
-];
-
-app.use(cors({
-    origin: function (origin, callback) {
-        // Permite requisições sem 'origin' (ex: Postman, apps mobile) ou se a origem estiver na lista.
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.error(`CORS Bloqueado para a origem: ${origin}`); // Adiciona log para depuração
-            callback(new Error('Acesso de origem não permitido por CORS'));
-        }
-    },
-    credentials: true // Permite o envio de cookies
-}));
-
+app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
-app.use(helmet({
-    contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com", "https://sdk.mercadopago.com"],
-            styleSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline pode ser necessário para bibliotecas de UI
-            imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://placehold.co"],
-            connectSrc: ["'self'", process.env.BACKEND_URL, "https://api.mercadopago.com", "https://viacep.com.br", "https://api.linketrack.com", "https://www.melhorenvio.com.br"],
-            frameSrc: ["'self'"],
-            objectSrc: ["'none'"],
-            upgradeInsecureRequests: [],
-        },
-    },
-}));
-
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutos
-	max: 1000, // Aumentado para 1000 requisições para evitar bloqueios em desenvolvimento
-	standardHeaders: true,
-	legacyHeaders: false,
-    message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos'
-});
-app.use('/api/', limiter); // Aplica o rate limiting a todas as rotas da API
 
 const sanitizeInput = (req, res, next) => {
     const sanitize = (obj) => {
@@ -269,26 +220,19 @@ const memoryUpload = multer({ storage: memoryStorage });
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
 
 const verifyToken = (req, res, next) => {
-    const token = req.cookies.accessToken;
-
-    if (!token) {
-        return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
-    }
-
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        if (err.name === 'TokenExpiredError') {
-            return res.status(401).json({ message: 'Token expirado. Por favor, atualize sua sessão.' });
-        }
-        return res.status(403).json({ message: 'Token inválido.' });
-    }
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
+    try {
+        req.user = jwt.verify(token, JWT_SECRET);
+        next();
+    } catch (err) {
+        return res.status(403).json({ message: 'Token inválido.' });
+    }
 };
 
 const verifyAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'admin') {
         return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
     }
     next();
@@ -596,34 +540,12 @@ app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (
 
 
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
-app.post('/api/register', [
-    body('name', 'O nome é obrigatório').notEmpty().trim().escape(),
-    body('email', 'Por favor, inclua um e-mail válido').isEmail().normalizeEmail(),
-    body('password', 'A senha deve ter no mínimo 6 caracteres').isLength({ min: 6 }),
-    body('cpf').custom(value => {
-        const cpf = String(value).replace(/[^\d]/g, '');
-        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) throw new Error('CPF inválido');
-        let sum = 0, remainder;
-        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(9, 10))) throw new Error('CPF inválido');
-        sum = 0;
-        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
-        return true;
-    })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { name, email, password, cpf } = req.body;
-
-    if (!isValidEmail(email)) {
+app.post('/api/register', async (req, res) => {
+    const { name, email, password, cpf } = req.body;
+    if (!name || !email || !password || !cpf) {
+        return res.status(400).json({ message: "Nome, email, senha e CPF são obrigatórios." });
+    }
+    if (!isValidEmail(email)) {
         return res.status(400).json({ message: "Formato de e-mail inválido." });
     }
     if (password.length < 6) {
@@ -655,18 +577,12 @@ app.post('/api/register', [
     }
 });
 
-app.post('/api/login', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('password', 'Senha não pode estar vazia').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
+app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     const ipAddress = req.ip;
     const userAgent = req.headers['user-agent'];
+
+    if (!email || !password) return res.status(400).json({ message: "Email e senha são obrigatórios." });
 
     if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
         return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
@@ -701,250 +617,41 @@ app.post('/api/login', [
         delete loginAttempts[email];
         await logLoginAttempt(user.id, 'success');
 
-        // Lógica de 2FA para Admins
-        if (user.role === 'admin' && user.is_two_factor_enabled) {
-            const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, JWT_SECRET, { expiresIn: '5m' }); // Token temporário para a verificação 2FA
-            return res.json({ twoFactorEnabled: true, token: tempToken });
-        }
-
-        // Geração de Tokens para usuários normais ou admins sem 2FA
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-
-       const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
-
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-
-        const { password: _, two_factor_secret, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData });
-
+        const token = jwt.sign({ id: user.id, name: user.name, role: user.role, cpf: user.cpf }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        const { password: _, ...userData } = user;
+        res.json({ message: "Login bem-sucedido", user: userData, token: token });
     } catch (err) {
         console.error("Erro ao fazer login:", err);
         res.status(500).json({ message: "Erro interno ao fazer login." });
     }
 });
 
-app.post('/api/login/2fa/verify', [
-    body('token', 'Token 2FA é obrigatório').notEmpty(),
-    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
 
-    const { token, tempAuthToken } = req.body;
-    
+app.post('/api/forgot-password', async (req, res) => {
+    const { email, cpf } = req.body;
+    if (!email || !cpf) {
+        return res.status(400).json({ message: "Email e CPF são obrigatórios." });
+    }
     try {
-        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
-        if (!decodedTemp.twoFactorAuth) {
-            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
-        }
-        
-        const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
+        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
         if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
+            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
         }
-        const user = users[0];
-
-        const isVerified = speakeasy.totp.verify({
-            secret: user.two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (!isVerified) {
-            return res.status(401).json({ message: 'Código 2FA inválido.' });
-        }
-
-        // Se verificado, gera os tokens de acesso e refresh
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
-
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-        
-        const { password: _, two_factor_secret, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData });
-
+        res.status(200).json({ message: "Usuário validado com sucesso." });
     } catch (err) {
-        console.error("Erro na verificação 2FA:", err);
-        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
+        console.error("Erro ao validar usuário para recuperação de senha:", err);
+        res.status(500).json({ message: "Erro interno do servidor." });
     }
 });
 
-app.post('/api/refresh-token', (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) {
-        return res.status(401).json({ message: 'Refresh token não encontrado.' });
+app.post('/api/reset-password', async (req, res) => {
+    const { email, cpf, newPassword } = req.body;
+    if (!email || !cpf || !newPassword) {
+        return res.status(400).json({ message: "Email, CPF e nova senha são obrigatórios." });
     }
-
-    try {
-        const decoded = jwt.verify(refreshToken, JWT_SECRET);
-        
-        // Opcional: Verificar se o token de refresh ainda é válido no banco (se você implementar uma blacklist)
-        
-        const userPayload = { id: decoded.id, name: decoded.name, role: decoded.role, cpf: decoded.cpf };
-        const newAccessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-
-        res.cookie('accessToken', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 4 * 60 * 60 * 1000 // 4 horas
-        });
-
-        res.json({ message: 'Token atualizado com sucesso.' });
-    } catch (err) {
-        return res.status(403).json({ message: 'Refresh token inválido ou expirado.' });
+    if (newPassword.length < 6) {
+        return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
     }
-});
-
-app.post('/api/logout', (req, res) => {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.status(200).json({ message: 'Logout realizado com sucesso.' });
-});
-
-// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
-
-// Gera um segredo e QR Code para o admin logado
-app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const secret = speakeasy.generateSecret({
-            name: `LoveCestas (${req.user.name})`
-        });
-
-        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
-
-        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
-            if (err) {
-                throw new Error('Não foi possível gerar o QR Code.');
-            }
-            res.json({
-                secret: secret.base32,
-                qrCodeUrl: data_url
-            });
-        });
-    } catch (err) {
-        console.error("Erro ao gerar segredo 2FA:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao gerar o segredo 2FA." });
-    }
-});
-
-// Verifica o token e ativa o 2FA para o admin logado
-app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
-    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { token } = req.body;
-    try {
-        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0 || !users[0].two_factor_secret) {
-            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
-        }
-
-        const isVerified = speakeasy.totp.verify({
-            secret: users[0].two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (isVerified) {
-            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
-            logAdminAction(req.user, 'ATIVOU_2FA');
-            res.json({ message: '2FA ativado com sucesso!' });
-        } else {
-            res.status(400).json({ message: 'Código de verificação inválido.' });
-        }
-    } catch (err) {
-        console.error("Erro ao verificar e ativar o 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
-    }
-});
-
-// Desativa o 2FA para o admin logado
-app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
-    body('password', 'A senha é obrigatória para desativar o 2FA').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { password } = req.body;
-    try {
-        const [users] = await db.query("SELECT password FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-
-        const isPasswordCorrect = await bcrypt.compare(password, users[0].password);
-        if (!isPasswordCorrect) {
-            return res.status(401).json({ message: 'Senha incorreta.' });
-        }
-
-        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
-        logAdminAction(req.user, 'DESATIVOU_2FA');
-        res.json({ message: '2FA desativado com sucesso.' });
-
-    } catch (err) {
-        console.error("Erro ao desativar 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
-    }
-});
-
-app.post('/api/forgot-password', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('cpf', 'CPF é obrigatório').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, cpf } = req.body;
-
-    try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
-        }
-        res.status(200).json({ message: "Usuário validado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao validar usuário para recuperação de senha:", err);
-        res.status(500).json({ message: "Erro interno do servidor." });
-    }
-});
-
-app.post('/api/reset-password', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('cpf', 'CPF é obrigatório').notEmpty(),
-    body('newPassword', 'A nova senha deve ter no mínimo 6 caracteres').isLength({ min: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, cpf, newPassword } = req.body;
 
     try {
         const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
@@ -999,58 +706,6 @@ app.get('/api/track/:code', async (req, res) => {
     }
 });
 
-// Verifica a identidade do admin antes de uma ação crítica
-app.post('/api/auth/verify-action', verifyToken, verifyAdmin, [
-    body('password').optional().isString(),
-    body('token').optional().isString().isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { password, token } = req.body;
-    const adminId = req.user.id;
-
-    if (!password && !token) {
-        return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
-    }
-
-    try {
-        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Administrador não encontrado.' });
-        }
-        const admin = users[0];
-
-        // Prioriza a verificação 2FA se estiver habilitada
-        if (admin.is_two_factor_enabled && token) {
-            const isVerified = speakeasy.totp.verify({
-                secret: admin.two_factor_secret,
-                encoding: 'base32',
-                token: token
-            });
-            if (isVerified) {
-                return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
-            }
-        }
-
-        // Se 2FA falhar ou não for usado, verifica a senha
-        if (password) {
-            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
-            if (isPasswordCorrect) {
-                return res.json({ success: true, message: 'Identidade verificada com senha.' });
-            }
-        }
-        
-        // Se nenhuma verificação passar
-        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
-
-    } catch (err) {
-        console.error("Erro na verificação de ação crítica:", err);
-        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
-    }
-});
 
 // --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
@@ -1208,7 +863,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, res) => {
     const { q } = req.query;
-	if (!q || q.length < 1) {
+    if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
@@ -1343,7 +998,7 @@ app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) =>
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-	const fields = [
+    const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
@@ -3419,7 +3074,12 @@ app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
 // (Admin) Aprovar e processar um reembolso
 app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) => {
     const { id: refundId } = req.params;
+    const { password } = req.body;
     const approved_by_admin_id = req.user.id;
+
+    if (!password) {
+        return res.status(400).json({ message: "A senha de confirmação é necessária para esta ação." });
+    }
 
     const connection = await db.getConnection();
     try {
@@ -3430,6 +3090,11 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
         const refund = refundResult[0];
 
         if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
+
+        // Validação da senha de segurança a partir do .env
+        if (password !== process.env.REFUND_APPROVAL_PASSWORD) {
+            throw new Error("A senha de confirmação para o reembolso está incorreta.");
+        }
 
         const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [refund.order_id]);
         const order = orderResult[0];
