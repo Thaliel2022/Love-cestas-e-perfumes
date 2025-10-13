@@ -712,10 +712,10 @@ app.post('/api/login', [
         const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
         const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-        const cookieOptions = {
+       const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         };
 
         res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
@@ -771,7 +771,7 @@ app.post('/api/login/2fa/verify', [
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         };
 
         res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
@@ -803,7 +803,7 @@ app.post('/api/refresh-token', (req, res) => {
         res.cookie('accessToken', newAccessToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 4 * 60 * 60 * 1000 // 4 horas
         });
 
