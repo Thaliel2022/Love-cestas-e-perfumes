@@ -64,6 +64,7 @@ const ClipboardDocListIcon = ({ className }) => <svg xmlns="http://www.w3.org/20
 const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path d="M3.105 2.289a.75.75 0 0 0-.826.95l1.414 4.949a.75.75 0 0 0 .135.252l.918.919a.75.75 0 0 1 0 1.06l-.918.92a.75.75 0 0 0-.135.252L2.28 16.76a.75.75 0 0 0 .95.826l14.666-4.954a.75.75 0 0 0 0-1.42L3.105 2.289Z" /></svg>;
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
+const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -99,48 +100,85 @@ const maskCEP = (value) => {
 };
 
 // --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    const token = localStorage.getItem('token');
     const config = {
         method,
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Essencial para enviar cookies httpOnly
         signal: options.signal,
     };
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
+
     if (body) {
         config.body = JSON.stringify(body);
     }
+
     try {
         const finalUrl = `${API_URL}${endpoint}`;
         const response = await fetch(finalUrl, config);
         const contentType = response.headers.get("content-type");
+        
+        let data;
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
 
         if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
+            // Se o token expirou, tenta renová-lo
+            if (response.status === 401 && data.message && data.message.includes('Token expirado')) {
+                if (isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    }).then(() => apiService(endpoint, method, body, options));
+                }
+
+                isRefreshing = true;
+                return new Promise((resolve, reject) => {
+                    apiService('/refresh-token', 'POST')
+                        .then(() => {
+                            processQueue(null);
+                            resolve(apiService(endpoint, method, body, options));
+                        })
+                        .catch(err => {
+                            processQueue(err);
+                            window.dispatchEvent(new Event('auth-error')); // Falha na renovação, desloga o usuário
+                            reject(err);
+                        })
+                        .finally(() => {
+                            isRefreshing = false;
+                        });
+                });
             }
-            let errorData;
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                errorData = await response.json();
-            } else {
-                errorData = { message: await response.text() };
-            }
-            throw new Error(errorData.message || `Erro ${response.status}`);
+             if (response.status === 401 || response.status === 403) {
+                 window.dispatchEvent(new Event('auth-error'));
+             }
+
+            const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
+            throw new Error(errorMessage);
         }
 
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-        }
-        return response.text();
+        return data;
+
     } catch (error) {
         if (error.name === 'AbortError') {
-             console.log(`API fetch aborted: ${endpoint}`);
+            console.log(`API fetch aborted: ${endpoint}`);
         } else {
-             console.error(`Erro na API (${endpoint}):`, error);
+            console.error(`Erro na API (${endpoint}):`, error);
         }
         if (error instanceof TypeError) {
             throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
@@ -151,24 +189,22 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
 
 async function apiUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
 
     const config = {
         method: 'POST',
-        headers: {},
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
         body: formData,
     };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
 
     try {
         const response = await fetch(`${API_URL}${endpoint}`, config);
         const responseData = await response.json();
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
             throw new Error(responseData.message || `Erro ${response.status}`);
         }
         return responseData;
@@ -179,24 +215,48 @@ async function apiUploadService(endpoint, file) {
 }
 
 async function apiImageUploadService(endpoint, file) {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('image', file);
 
     const config = {
         method: 'POST',
-        headers: {},
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
         body: formData,
     };
-
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
 
     try {
         const response = await fetch(`${API_URL}${endpoint}`, config);
         const responseData = await response.json();
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
+            throw new Error(responseData.message || `Erro ${response.status}`);
+        }
+        return responseData;
+    } catch (error) {
+        console.error(`Erro no upload da imagem (${endpoint}):`, error);
+        throw error;
+    }
+}
+
+async function apiImageUploadService(endpoint, file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const config = {
+        method: 'POST',
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        body: formData,
+    };
+
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const responseData = await response.json();
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
             throw new Error(responseData.message || `Erro ${response.status}`);
         }
         return responseData;
@@ -239,27 +299,28 @@ const useConfirmation = () => useContext(ConfirmationContext);
 
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const logout = useCallback(() => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setToken(null);
-        window.location.hash = '#login';
+    const logout = useCallback(async () => {
+        try {
+            await apiService('/logout', 'POST');
+        } catch (error) {
+            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
+        } finally {
+            localStorage.removeItem('user');
+            setUser(null);
+            // Redireciona para o login após garantir que tudo foi limpo
+            window.location.hash = '#login';
+        }
     }, []);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('token');
-        if (storedUser && storedToken) {
+        if (storedUser) {
             try {
                 setUser(JSON.parse(storedUser));
-                setToken(storedToken);
             } catch (e) {
                 localStorage.removeItem('user');
-                localStorage.removeItem('token');
             }
         }
         setIsLoading(false);
@@ -279,11 +340,10 @@ const AuthProvider = ({ children }) => {
     }, [logout]);
 
     const login = async (email, password) => {
-        const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
+        // A resposta agora não contém mais o token diretamente
+        const { user: loggedUser } = await apiService('/login', 'POST', { email, password });
         localStorage.setItem('user', JSON.stringify(loggedUser));
-        localStorage.setItem('token', authToken);
         setUser(loggedUser);
-        setToken(authToken);
         return loggedUser;
     };
     
@@ -291,7 +351,7 @@ const AuthProvider = ({ children }) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
 
-    return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
 };
 
 const ShopProvider = ({ children }) => {
@@ -608,21 +668,58 @@ const ToastMessage = ({ message, type, onClose }) => {
 };
 
 const ConfirmationProvider = ({ children }) => {
+    const { user } = useAuth();
     const [confirmationState, setConfirmationState] = useState({ isOpen: false });
+    const [verificationInput, setVerificationInput] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [verificationError, setVerificationError] = useState('');
 
-    const show = useCallback((message, onConfirm) => {
+    const close = () => {
+        setConfirmationState({ isOpen: false });
+        setVerificationInput('');
+        setVerificationError('');
+        setIsVerifying(false);
+    };
+
+    const handleConfirm = async () => {
+        const { onConfirm, requiresAuth } = confirmationState;
+
+        if (requiresAuth) {
+            setIsVerifying(true);
+            setVerificationError('');
+            try {
+                const payload = user.is_two_factor_enabled 
+                    ? { token: verificationInput } 
+                    : { password: verificationInput };
+                
+                await apiService('/auth/verify-action', 'POST', payload);
+                
+                onConfirm();
+                close();
+            } catch (error) {
+                setVerificationError(error.message || "Falha na verificação.");
+            } finally {
+                setIsVerifying(false);
+            }
+        } else {
+            onConfirm();
+            close();
+        }
+    };
+    
+    const show = useCallback((message, onConfirm, options = {}) => {
         setConfirmationState({
             isOpen: true,
             message,
-            onConfirm: () => {
-                onConfirm();
-                setConfirmationState({ isOpen: false });
-            },
-            onCancel: () => {
-                setConfirmationState({ isOpen: false });
-            }
+            onConfirm,
+            onCancel: close,
+            requiresAuth: options.requiresAuth || false,
+            confirmText: options.confirmText || 'Confirmar',
+            confirmColor: options.confirmColor || 'bg-red-600 hover:bg-red-700',
         });
     }, []);
+
+    const is2fa = user?.role === 'admin' && user?.is_two_factor_enabled;
 
     return (
         <ConfirmationContext.Provider value={{ show }}>
@@ -631,9 +728,33 @@ const ConfirmationProvider = ({ children }) => {
                 {confirmationState.isOpen && (
                     <Modal isOpen={true} onClose={confirmationState.onCancel} title="Confirmação">
                         <p className="text-gray-700 mb-6">{confirmationState.message}</p>
+                        
+                        {confirmationState.requiresAuth && (
+                            <div className="space-y-3 my-4 p-4 bg-gray-100 rounded-md border">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    {is2fa ? "Código de Autenticação (2FA)" : "Confirme sua Senha"}
+                                </label>
+                                <input 
+                                    type={is2fa ? "text" : "password"}
+                                    value={verificationInput}
+                                    onChange={(e) => setVerificationInput(e.target.value)}
+                                    maxLength={is2fa ? 6 : undefined}
+                                    placeholder={is2fa ? "123456" : "••••••••"}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                />
+                                {verificationError && <p className="text-red-500 text-sm mt-1">{verificationError}</p>}
+                            </div>
+                        )}
+
                         <div className="flex justify-end space-x-4">
                             <button onClick={confirmationState.onCancel} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                            <button onClick={confirmationState.onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar</button>
+                            <button 
+                                onClick={handleConfirm} 
+                                disabled={isVerifying}
+                                className={`px-4 py-2 text-white rounded-md flex items-center justify-center disabled:opacity-50 ${confirmationState.confirmColor}`}
+                            >
+                                {isVerifying ? <SpinnerIcon /> : confirmationState.confirmText}
+                            </button>
                         </div>
                     </Modal>
                 )}
@@ -2506,38 +2627,70 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 };
 
 const LoginPage = ({ onNavigate }) => {
-    const { login } = useAuth();
+    const { login, setUser } = useAuth(); // Adicionado setUser do contexto
     const notification = useNotification();
+    
+    // Estados do formulário
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: { 
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
-        }
-    };
+    // Estados para o fluxo 2FA
+    const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
+    const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [tempAuthToken, setTempAuthToken] = useState('');
 
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 }
-    };
+    const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
     
-    const handleLogin = async (e) => {
+   const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            await login(email, password);
-            notification.show('Login bem-sucedido!');
-            window.location.hash = '#home';
+            // A apiService retorna a resposta completa do backend
+            const response = await apiService('/login', 'POST', { email, password });
+            
+            if (response.twoFactorEnabled) {
+                // Se 2FA for necessário, muda para a próxima etapa
+                setTempAuthToken(response.token);
+                setIsTwoFactorStep(true);
+            } else {
+                // Login normal bem-sucedido
+                const loggedUser = response.user;
+                localStorage.setItem('user', JSON.stringify(loggedUser));
+                setUser(loggedUser); // ATUALIZA O ESTADO GLOBAL AQUI
+                notification.show('Login bem-sucedido!');
+                window.location.hash = '#home';
+            }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
             notification.show(err.message || "Ocorreu um erro desconhecido.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleTwoFactorSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+        try {
+            const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
+            const { user } = response;
+            
+            // Define manualmente o usuário no contexto e no localStorage
+            setUser(user);
+            localStorage.setItem('user', JSON.stringify(user));
+
+            notification.show('Login bem-sucedido!');
+            window.location.hash = '#home'; // Ou '#admin/dashboard' se preferir
+
+        } catch (err) {
+            setError(err.message || "Código 2FA inválido ou expirado.");
+            notification.show(err.message || "Código 2FA inválido.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -2551,52 +2704,69 @@ const LoginPage = ({ onNavigate }) => {
                 animate="visible"
                 className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
-                <motion.div variants={itemVariants} className="text-center mb-6">
-                    <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700">
-                        <UserIcon className="h-8 w-8 text-amber-400" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
-                </motion.div>
-
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
                 
-                <motion.form variants={itemVariants} onSubmit={handleLogin} className="space-y-6">
-                    <div>
-                        <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
-                        <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
-                        <div className="relative">
-                            <input 
-                                type={isPasswordVisible ? 'text' : 'password'} 
-                                placeholder="••••••••" 
-                                value={password} 
-                                onChange={e => setPassword(e.target.value)} 
-                                required 
-                                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pr-10" 
-                            />
-                            <button 
-                                type="button" 
-                                onClick={() => setIsPasswordVisible(!isPasswordVisible)} 
-                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
-                            >
-                                {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
-                    </div>
-                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
-                         {isLoading ? <SpinnerIcon /> : 'Entrar'}
-                    </button>
-                </motion.form>
-
-                <motion.div variants={itemVariants} className="text-center mt-6 text-sm">
-                    <p className="text-gray-400">
-                        Não tem uma conta?{' '}
-                        <a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a>
-                    </p>
-                    <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
-                </motion.div>
+                <AnimatePresence mode="wait">
+                    {!isTwoFactorStep ? (
+                        <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
+                            <div className="text-center mb-6">
+                                <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><UserIcon className="h-8 w-8 text-amber-400" /></div>
+                                <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
+                            </div>
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
+                                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
+                                    <div className="relative">
+                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" />
+                                       <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
+                                            {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                                        </button>
+                                    </div>
+                                </div>
+                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                     {isLoading ? <SpinnerIcon /> : 'Entrar'}
+                                </button>
+                            </form>
+                             <div className="text-center mt-6 text-sm">
+                                <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
+                                <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
+                            </div>
+                        </motion.div>
+                    ) : (
+                        <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
+                            <div className="text-center mb-6">
+                                <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
+                                <h2 className="text-3xl font-bold text-amber-400">Verificação de Dois Fatores</h2>
+                                <p className="text-gray-400 mt-2">Insira o código do seu aplicativo autenticador.</p>
+                            </div>
+                            <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
+                                <div>
+                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
+                                    <input 
+                                        type="text" 
+                                        inputMode="numeric" 
+                                        pattern="\d{6}" 
+                                        maxLength="6"
+                                        placeholder="123456" 
+                                        value={twoFactorCode} 
+                                        onChange={e => setTwoFactorCode(e.target.value)} 
+                                        required 
+                                        className="w-full text-center tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-2xl font-mono" />
+                                </div>
+                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                     {isLoading ? <SpinnerIcon /> : 'Verificar'}
+                                </button>
+                            </form>
+                             <div className="text-center mt-6 text-sm">
+                                <button onClick={() => { setIsTwoFactorStep(false); setError(''); }} className="text-gray-500 hover:underline">Voltar</button>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </motion.div>
         </div>
     );
@@ -4876,24 +5046,89 @@ const MyAddressesSection = () => {
     );
 };
 
-const MyProfileSection = ({ user }) => {
+const MyProfileSection = () => {
+    const { user, setUser } = useAuth();
+    const notification = useNotification();
+
+    // Estados para o Modal de Senha
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
-    const notification = useNotification();
+    const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+
+    // Estados para o Modal de 2FA
+    const [is2faModalOpen, setIs2faModalOpen] = useState(false);
+    const [is2faDisableModalOpen, setIs2faDisableModalOpen] = useState(false);
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [twoFactorSecret, setTwoFactorSecret] = useState('');
+    const [verificationCode, setVerificationCode] = useState('');
+    const [disablePassword, setDisablePassword] = useState('');
+    const [is2faLoading, setIs2faLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
-        if(newPassword.length < 6) {
+        if (newPassword.length < 6) {
             notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
             return;
         }
+        setIsPasswordLoading(true);
         try {
             await apiService('/users/me/password', 'PUT', { password: newPassword });
             notification.show('Senha alterada com sucesso!');
             setNewPassword('');
             setIsPasswordModalOpen(false);
         } catch (error) {
-             notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro: ${error.message}`, 'error');
+        } finally {
+            setIsPasswordLoading(false);
+        }
+    };
+
+    const handleGenerate2FA = async () => {
+        setIs2faLoading(true);
+        try {
+            const data = await apiService('/2fa/generate', 'POST');
+            setQrCodeUrl(data.qrCodeUrl);
+            setTwoFactorSecret(data.secret);
+            setIs2faModalOpen(true);
+        } catch (error) {
+            notification.show(`Erro ao gerar código 2FA: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleVerifyAndEnable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/verify-enable', 'POST', { token: verificationCode });
+            notification.show('Autenticação de Dois Fatores ativada com sucesso!');
+            const updatedUser = { ...user, is_two_factor_enabled: 1 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro na verificação: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleDisable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/disable', 'POST', { password: disablePassword });
+            notification.show('Autenticação de Dois Fatores desativada.');
+            const updatedUser = { ...user, is_two_factor_enabled: 0 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faDisableModalOpen(false);
+            setDisablePassword('');
+        } catch (error) {
+            notification.show(`Erro ao desativar: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
         }
     };
 
@@ -4905,9 +5140,55 @@ const MyProfileSection = ({ user }) => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md focus:ring-amber-500 focus:border-amber-500" />
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
                             </div>
-                            <button type="submit" className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400">Confirmar Alteração</button>
+                            <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
+                                {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
+                            </button>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {is2faModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
+                        <div className="text-center space-y-4">
+                            <p className="text-gray-600">1. Escaneie este QR Code com seu aplicativo autenticador (Google Authenticator, Authy, etc).</p>
+                            <img src={qrCodeUrl} alt="QR Code para 2FA" className="mx-auto border-4 border-white shadow-lg"/>
+                            <p className="text-gray-600 text-sm">Se não puder escanear, insira esta chave manualmente:</p>
+                            <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
+                            <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
+                                <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
+                                <input 
+                                    type="text" 
+                                    value={verificationCode}
+                                    onChange={e => setVerificationCode(e.target.value)}
+                                    maxLength="6"
+                                    placeholder="123456"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
+                                />
+                                <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
+                                    {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
+                                </button>
+                            </form>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {is2faDisableModalOpen && (
+                     <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
+                        <form onSubmit={handleDisable2FA} className="space-y-4">
+                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Desativar o 2FA reduzirá a segurança da sua conta. Para continuar, por favor, confirme sua senha.</p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                            </div>
+                            <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
+                                {is2faLoading ? <SpinnerIcon/> : "Confirmar e Desativar"}
+                            </button>
                         </form>
                     </Modal>
                 )}
@@ -4915,16 +5196,32 @@ const MyProfileSection = ({ user }) => {
 
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
             <div className="bg-gray-800 p-6 rounded-lg space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong>
-                    <span className="text-white">{user?.name}</span>
-                </div>
-                 <div className="flex flex-col sm:flex-row sm:items-center">
-                    <strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong>
-                    <span className="text-white">{user?.email}</span>
-                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
+                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
+
+            {user?.role === 'admin' && (
+                <div className="mt-8 pt-6 border-t border-gray-800">
+                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
+                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
+                        </div>
+                        {user.is_two_factor_enabled ? (
+                            <div className="text-center flex-shrink-0">
+                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                            </div>
+                        ) : (
+                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </>
     );
 };
@@ -5504,13 +5801,18 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-    const handleVariationImageUpload = async (index, e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+   const handleVariationImageUpload = async (index, e) => {
         try {
-            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
+            const files = e.target.files;
+            if (!files || files.length === 0) {
+                console.warn("handleVariationImageUpload chamada sem arquivos.");
+                return;
+            }
+
+            const fileArray = Array.from(files);
+            setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+            
+            const uploadPromises = fileArray.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
             const newImageUrls = responses.map(res => res.imageUrl);
             
@@ -5519,11 +5821,34 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             newVariations[index].images = [...currentImages, ...newImageUrls];
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
-            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
-            e.target.value = '';
-            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
+            setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
+            
+            if (e.target) {
+                e.target.value = null;
+            }
         } catch (error) {
-            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
+            // ATUALIZAÇÃO: Exibe o erro no render E envia para o backend.
+            console.error("ERRO CAPTURADO no handleVariationImageUpload:", error);
+            const detailedErrorMessage = `ERRO: ${error.toString()}`;
+            setUploadingStatus(prev => ({ ...prev, [index]: detailedErrorMessage }));
+
+            // Envia o erro para o backend para ser logado na Render
+            try {
+                fetch(`${API_URL}/log-error`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        error: {
+                            message: error.message,
+                            stack: error.stack
+                        },
+                        path: window.location.hash,
+                        component: 'ProductForm.handleVariationImageUpload'
+                    })
+                });
+            } catch (loggingError) {
+                console.error("Falha ao tentar logar o erro no backend:", loggingError);
+            }
         }
     };
 
@@ -5955,15 +6280,19 @@ const AdminProducts = ({ onNavigate }) => {
   };
 
   const handleDelete = (id) => {
-      confirmation.show("Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.", async () => {
-          try {
-            await apiService(`/products/${id}`, 'DELETE');
-            fetchProducts(searchTerm);
-            notification.show('Produto deletado com sucesso.');
-          } catch(error) {
-            notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
-          }
-      });
+      confirmation.show(
+          "Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.", 
+          async () => {
+              try {
+                await apiService(`/products/${id}`, 'DELETE');
+                fetchProducts(searchTerm);
+                notification.show('Produto deletado com sucesso.');
+              } catch(error) {
+                notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
+              }
+          },
+          { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
   };
 
   const handleFileSelect = (file) => {
@@ -6015,19 +6344,23 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
       if (selectedProducts.length === 0) return;
       
-      confirmation.show(`Tem certeza que deseja deletar ${selectedProducts.length} produtos?`, async () => {
-          try {
-              const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
-              fetchProducts(searchTerm); 
-              setSelectedProducts([]); 
-              notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
-          } catch (error) {
-              notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
-          }
-      });
+      confirmation.show(
+          `Tem certeza que deseja deletar ${selectedProducts.length} produtos? Esta ação não pode ser desfeita.`, 
+          async () => {
+              try {
+                  const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
+                  fetchProducts(searchTerm); 
+                  setSelectedProducts([]); 
+                  notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
+              } catch (error) {
+                  notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
+              }
+          },
+          { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
   };
 
   return (
@@ -6496,12 +6829,11 @@ const AdminRefunds = ({ onNavigate }) => {
     const [filteredRefunds, setFilteredRefunds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedRefund, setSelectedRefund] = useState(null);
-    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [isDenyModalOpen, setIsDenyModalOpen] = useState(false);
-    const [adminPassword, setAdminPassword] = useState('');
     const [denyReason, setDenyReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const notification = useNotification();
+    const confirmation = useConfirmation();
 
     const fetchRefunds = useCallback(() => {
         setIsLoading(true);
@@ -6518,20 +6850,20 @@ const AdminRefunds = ({ onNavigate }) => {
         fetchRefunds();
     }, [fetchRefunds]);
 
-    const handleApprove = async (e) => {
-        e.preventDefault();
-        setIsProcessing(true);
-        try {
-            const result = await apiService(`/refunds/${selectedRefund.id}/approve`, 'POST', { password: adminPassword });
-            notification.show(result.message);
-            setIsApproveModalOpen(false);
-            setAdminPassword('');
-            fetchRefunds();
-        } catch (error) {
-            notification.show(`Erro ao aprovar: ${error.message}`, 'error');
-        } finally {
-            setIsProcessing(false);
-        }
+    const handleApprove = (refund) => {
+        confirmation.show(
+            `Tem certeza que deseja aprovar e processar o reembolso de R$ ${Number(refund.amount).toFixed(2)} para o pedido #${refund.order_id}? Esta ação é irreversível.`,
+            async () => {
+                try {
+                    const result = await apiService(`/refunds/${refund.id}/approve`, 'POST');
+                    notification.show(result.message);
+                    fetchRefunds();
+                } catch (error) {
+                    notification.show(`Erro ao aprovar: ${error.message}`, 'error');
+                }
+            },
+            { requiresAuth: true, confirmText: 'Aprovar e Processar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+        );
     };
 
     const handleDeny = async (e) => {
@@ -6564,33 +6896,6 @@ const AdminRefunds = ({ onNavigate }) => {
 
     return (
         <div>
-            {/* --- MODAIS DE AÇÃO --- */}
-            <AnimatePresence>
-                {isApproveModalOpen && selectedRefund && (
-                    <Modal isOpen={true} onClose={() => setIsApproveModalOpen(false)} title={`Aprovar Reembolso #${selectedRefund.id}`}>
-                        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                            <div className="flex items-center">
-                                <ExclamationIcon className="h-6 w-6 text-red-500 mr-3" />
-                                <div>
-                                    <h3 className="font-bold text-red-800">Ação Irreversível</h3>
-                                    <p className="text-sm text-red-700">Ao confirmar, o valor de <strong>R$ {Number(selectedRefund.amount).toFixed(2)}</strong> será estornado para o cliente via Mercado Pago. O estoque será revertido e o pedido será marcado como reembolsado.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <form onSubmit={handleApprove}>
-                            <label className="block text-sm font-medium text-gray-700">Confirme sua senha de segurança para prosseguir:</label>
-                            <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={() => setIsApproveModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 disabled:bg-red-300">
-                                    {isProcessing && <SpinnerIcon className="h-5 w-5" />}
-                                    Confirmar e Processar
-                                </button>
-                            </div>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
             <AnimatePresence>
                 {isDenyModalOpen && selectedRefund && (
                      <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`}>
@@ -6611,8 +6916,6 @@ const AdminRefunds = ({ onNavigate }) => {
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Reembolsos</h1>
             
-            {/* Futuros gráficos e filtros podem ser adicionados aqui */}
-
             {isLoading ? (
                 <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
             ) : (
@@ -6647,7 +6950,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                         <td className="p-4">
                                             {r.status === 'pending_approval' && (
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
+                                                    <button onClick={() => handleApprove(r)} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
                                                     <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
                                                 </div>
                                             )}
@@ -6681,7 +6984,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                 {r.status === 'pending_approval' && (
                                     <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
                                         <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-3 py-1.5 bg-red-100 text-red-700 font-semibold rounded-md">Negar</button>
-                                        <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
+                                        <button onClick={() => handleApprove(r)} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
                                     </div>
                                 )}
                             </div>
@@ -7823,16 +8126,20 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
     };
     
     const handleDelete = () => {
-        confirmation.show("Tem certeza que deseja EXCLUIR este usuário? Esta ação não pode ser desfeita.", async () => {
-            try {
-                await apiService(`/users/${details.id}`, 'DELETE');
-                notification.show('Usuário excluído com sucesso.');
-                onUserUpdate();
-                onClose();
-            } catch (error) {
-                notification.show(`Erro ao excluir usuário: ${error.message}`, 'error');
-            }
-        });
+        confirmation.show(
+            "Tem certeza que deseja EXCLUIR este usuário? Esta ação não pode ser desfeita.", 
+            async () => {
+                try {
+                    await apiService(`/users/${details.id}`, 'DELETE');
+                    notification.show('Usuário excluído com sucesso.');
+                    onUserUpdate();
+                    onClose();
+                } catch (error) {
+                    notification.show(`Erro ao excluir usuário: ${error.message}`, 'error');
+                }
+            },
+            { requiresAuth: true, confirmText: 'Excluir Usuário', confirmColor: 'bg-red-600 hover:bg-red-700' }
+        );
     };
 
     return (
