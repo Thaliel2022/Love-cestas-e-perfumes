@@ -14,6 +14,8 @@ const cloudinary = require('cloudinary').v2;
 const stream = require('stream');
 const crypto = require('crypto');
 const { Resend } = require('resend');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -811,6 +813,98 @@ app.post('/api/logout', (req, res) => {
     res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
     res.status(200).json({ message: 'Logout realizado com sucesso.' });
+});
+
+// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
+
+// Gera um segredo e QR Code para o admin logado
+app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const secret = speakeasy.generateSecret({
+            name: `LoveCestas (${req.user.name})`
+        });
+
+        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
+
+        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+            if (err) {
+                throw new Error('Não foi possível gerar o QR Code.');
+            }
+            res.json({
+                secret: secret.base32,
+                qrCodeUrl: data_url
+            });
+        });
+    } catch (err) {
+        console.error("Erro ao gerar segredo 2FA:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao gerar o segredo 2FA." });
+    }
+});
+
+// Verifica o token e ativa o 2FA para o admin logado
+app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
+    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token } = req.body;
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
+        }
+
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: token
+        });
+
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA');
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            res.status(400).json({ message: 'Código de verificação inválido.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
+});
+
+// Desativa o 2FA para o admin logado
+app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
+    body('password', 'A senha é obrigatória para desativar o 2FA').notEmpty()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { password } = req.body;
+    try {
+        const [users] = await db.query("SELECT password FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+
+        const isPasswordCorrect = await bcrypt.compare(password, users[0].password);
+        if (!isPasswordCorrect) {
+            return res.status(401).json({ message: 'Senha incorreta.' });
+        }
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA');
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
 });
 
 app.post('/api/forgot-password', [
