@@ -6768,12 +6768,11 @@ const AdminRefunds = ({ onNavigate }) => {
     const [filteredRefunds, setFilteredRefunds] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedRefund, setSelectedRefund] = useState(null);
-    const [isApproveModalOpen, setIsApproveModalOpen] = useState(false);
     const [isDenyModalOpen, setIsDenyModalOpen] = useState(false);
-    const [adminPassword, setAdminPassword] = useState('');
     const [denyReason, setDenyReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const notification = useNotification();
+    const confirmation = useConfirmation();
 
     const fetchRefunds = useCallback(() => {
         setIsLoading(true);
@@ -6790,20 +6789,20 @@ const AdminRefunds = ({ onNavigate }) => {
         fetchRefunds();
     }, [fetchRefunds]);
 
-    const handleApprove = async (e) => {
-        e.preventDefault();
-        setIsProcessing(true);
-        try {
-            const result = await apiService(`/refunds/${selectedRefund.id}/approve`, 'POST', { password: adminPassword });
-            notification.show(result.message);
-            setIsApproveModalOpen(false);
-            setAdminPassword('');
-            fetchRefunds();
-        } catch (error) {
-            notification.show(`Erro ao aprovar: ${error.message}`, 'error');
-        } finally {
-            setIsProcessing(false);
-        }
+    const handleApprove = (refund) => {
+        confirmation.show(
+            `Tem certeza que deseja aprovar e processar o reembolso de R$ ${Number(refund.amount).toFixed(2)} para o pedido #${refund.order_id}? Esta ação é irreversível.`,
+            async () => {
+                try {
+                    const result = await apiService(`/refunds/${refund.id}/approve`, 'POST');
+                    notification.show(result.message);
+                    fetchRefunds();
+                } catch (error) {
+                    notification.show(`Erro ao aprovar: ${error.message}`, 'error');
+                }
+            },
+            { requiresAuth: true, confirmText: 'Aprovar e Processar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+        );
     };
 
     const handleDeny = async (e) => {
@@ -6836,33 +6835,6 @@ const AdminRefunds = ({ onNavigate }) => {
 
     return (
         <div>
-            {/* --- MODAIS DE AÇÃO --- */}
-            <AnimatePresence>
-                {isApproveModalOpen && selectedRefund && (
-                    <Modal isOpen={true} onClose={() => setIsApproveModalOpen(false)} title={`Aprovar Reembolso #${selectedRefund.id}`}>
-                        <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                            <div className="flex items-center">
-                                <ExclamationIcon className="h-6 w-6 text-red-500 mr-3" />
-                                <div>
-                                    <h3 className="font-bold text-red-800">Ação Irreversível</h3>
-                                    <p className="text-sm text-red-700">Ao confirmar, o valor de <strong>R$ {Number(selectedRefund.amount).toFixed(2)}</strong> será estornado para o cliente via Mercado Pago. O estoque será revertido e o pedido será marcado como reembolsado.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <form onSubmit={handleApprove}>
-                            <label className="block text-sm font-medium text-gray-700">Confirme sua senha de segurança para prosseguir:</label>
-                            <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button type="button" onClick={() => setIsApproveModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md">Cancelar</button>
-                                <button type="submit" disabled={isProcessing} className="px-4 py-2 bg-red-600 text-white rounded-md flex items-center gap-2 disabled:bg-red-300">
-                                    {isProcessing && <SpinnerIcon className="h-5 w-5" />}
-                                    Confirmar e Processar
-                                </button>
-                            </div>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
             <AnimatePresence>
                 {isDenyModalOpen && selectedRefund && (
                      <Modal isOpen={true} onClose={() => setIsDenyModalOpen(false)} title={`Negar Reembolso #${selectedRefund.id}`}>
@@ -6883,8 +6855,6 @@ const AdminRefunds = ({ onNavigate }) => {
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Reembolsos</h1>
             
-            {/* Futuros gráficos e filtros podem ser adicionados aqui */}
-
             {isLoading ? (
                 <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500" /></div>
             ) : (
@@ -6919,7 +6889,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                         <td className="p-4">
                                             {r.status === 'pending_approval' && (
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
+                                                    <button onClick={() => handleApprove(r)} className="p-2 text-green-600 hover:bg-green-100 rounded-full" title="Aprovar"><CheckIcon className="h-5 w-5"/></button>
                                                     <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="p-2 text-red-600 hover:bg-red-100 rounded-full" title="Negar"><XMarkIcon className="h-5 w-5"/></button>
                                                 </div>
                                             )}
@@ -6953,7 +6923,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                 {r.status === 'pending_approval' && (
                                     <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
                                         <button onClick={() => { setSelectedRefund(r); setIsDenyModalOpen(true); }} className="px-3 py-1.5 bg-red-100 text-red-700 font-semibold rounded-md">Negar</button>
-                                        <button onClick={() => { setSelectedRefund(r); setIsApproveModalOpen(true); }} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
+                                        <button onClick={() => handleApprove(r)} className="px-3 py-1.5 bg-green-100 text-green-700 font-semibold rounded-md">Aprovar</button>
                                     </div>
                                 )}
                             </div>
