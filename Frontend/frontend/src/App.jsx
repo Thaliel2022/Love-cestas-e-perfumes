@@ -99,48 +99,85 @@ const maskCEP = (value) => {
 };
 
 // --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    const token = localStorage.getItem('token');
     const config = {
         method,
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Essencial para enviar cookies httpOnly
         signal: options.signal,
     };
-    if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
+
     if (body) {
         config.body = JSON.stringify(body);
     }
+
     try {
         const finalUrl = `${API_URL}${endpoint}`;
         const response = await fetch(finalUrl, config);
         const contentType = response.headers.get("content-type");
+        
+        let data;
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            data = await response.json();
+        } else {
+            data = await response.text();
+        }
 
         if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.dispatchEvent(new Event('auth-error'));
+            // Se o token expirou, tenta renová-lo
+            if (response.status === 401 && data.message && data.message.includes('Token expirado')) {
+                if (isRefreshing) {
+                    return new Promise((resolve, reject) => {
+                        failedQueue.push({ resolve, reject });
+                    }).then(() => apiService(endpoint, method, body, options));
+                }
+
+                isRefreshing = true;
+                return new Promise((resolve, reject) => {
+                    apiService('/refresh-token', 'POST')
+                        .then(() => {
+                            processQueue(null);
+                            resolve(apiService(endpoint, method, body, options));
+                        })
+                        .catch(err => {
+                            processQueue(err);
+                            window.dispatchEvent(new Event('auth-error')); // Falha na renovação, desloga o usuário
+                            reject(err);
+                        })
+                        .finally(() => {
+                            isRefreshing = false;
+                        });
+                });
             }
-            let errorData;
-            if (contentType && contentType.indexOf("application/json") !== -1) {
-                errorData = await response.json();
-            } else {
-                errorData = { message: await response.text() };
-            }
-            throw new Error(errorData.message || `Erro ${response.status}`);
+             if (response.status === 401 || response.status === 403) {
+                 window.dispatchEvent(new Event('auth-error'));
+             }
+
+            const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
+            throw new Error(errorMessage);
         }
 
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return response.json();
-        }
-        return response.text();
+        return data;
+
     } catch (error) {
         if (error.name === 'AbortError') {
-             console.log(`API fetch aborted: ${endpoint}`);
+            console.log(`API fetch aborted: ${endpoint}`);
         } else {
-             console.error(`Erro na API (${endpoint}):`, error);
+            console.error(`Erro na API (${endpoint}):`, error);
         }
         if (error instanceof TypeError) {
             throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
@@ -239,27 +276,28 @@ const useConfirmation = () => useContext(ConfirmationContext);
 
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const logout = useCallback(() => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        setUser(null);
-        setToken(null);
-        window.location.hash = '#login';
+    const logout = useCallback(async () => {
+        try {
+            await apiService('/logout', 'POST');
+        } catch (error) {
+            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
+        } finally {
+            localStorage.removeItem('user');
+            setUser(null);
+            // Redireciona para o login após garantir que tudo foi limpo
+            window.location.hash = '#login';
+        }
     }, []);
 
     useEffect(() => {
         const storedUser = localStorage.getItem('user');
-        const storedToken = localStorage.getItem('token');
-        if (storedUser && storedToken) {
+        if (storedUser) {
             try {
                 setUser(JSON.parse(storedUser));
-                setToken(storedToken);
             } catch (e) {
                 localStorage.removeItem('user');
-                localStorage.removeItem('token');
             }
         }
         setIsLoading(false);
@@ -279,11 +317,10 @@ const AuthProvider = ({ children }) => {
     }, [logout]);
 
     const login = async (email, password) => {
-        const { user: loggedUser, token: authToken } = await apiService('/login', 'POST', { email, password });
+        // A resposta agora não contém mais o token diretamente
+        const { user: loggedUser } = await apiService('/login', 'POST', { email, password });
         localStorage.setItem('user', JSON.stringify(loggedUser));
-        localStorage.setItem('token', authToken);
         setUser(loggedUser);
-        setToken(authToken);
         return loggedUser;
     };
     
@@ -291,7 +328,7 @@ const AuthProvider = ({ children }) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
 
-    return <AuthContext.Provider value={{ user, token, login, register, logout, isAuthenticated: !!user, isLoading }}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
 };
 
 const ShopProvider = ({ children }) => {
