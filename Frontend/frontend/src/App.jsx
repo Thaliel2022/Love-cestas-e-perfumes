@@ -6230,15 +6230,19 @@ const AdminProducts = ({ onNavigate }) => {
   };
 
   const handleDelete = (id) => {
-      confirmation.show("Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.", async () => {
-          try {
-            await apiService(`/products/${id}`, 'DELETE');
-            fetchProducts(searchTerm);
-            notification.show('Produto deletado com sucesso.');
-          } catch(error) {
-            notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
-          }
-      });
+      confirmation.show(
+          "Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita.", 
+          async () => {
+              try {
+                await apiService(`/products/${id}`, 'DELETE');
+                fetchProducts(searchTerm);
+                notification.show('Produto deletado com sucesso.');
+              } catch(error) {
+                notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
+              }
+          },
+          { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
   };
 
   const handleFileSelect = (file) => {
@@ -6293,16 +6297,20 @@ const AdminProducts = ({ onNavigate }) => {
   const handleDeleteSelected = async () => {
       if (selectedProducts.length === 0) return;
       
-      confirmation.show(`Tem certeza que deseja deletar ${selectedProducts.length} produtos?`, async () => {
-          try {
-              const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
-              fetchProducts(searchTerm); 
-              setSelectedProducts([]); 
-              notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
-          } catch (error) {
-              notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
-          }
-      });
+      confirmation.show(
+          `Tem certeza que deseja deletar ${selectedProducts.length} produtos? Esta ação não pode ser desfeita.`, 
+          async () => {
+              try {
+                  const result = await apiService('/products', 'DELETE', { ids: selectedProducts });
+                  fetchProducts(searchTerm); 
+                  setSelectedProducts([]); 
+                  notification.show(result.message || `${selectedProducts.length} produtos deletados.`);
+              } catch (error) {
+                  notification.show(`Erro ao deletar produtos: ${error.message}`, 'error');
+              }
+          },
+          { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
   };
 
   return (
@@ -8068,16 +8076,20 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
     };
     
     const handleDelete = () => {
-        confirmation.show("Tem certeza que deseja EXCLUIR este usuário? Esta ação não pode ser desfeita.", async () => {
-            try {
-                await apiService(`/users/${details.id}`, 'DELETE');
-                notification.show('Usuário excluído com sucesso.');
-                onUserUpdate();
-                onClose();
-            } catch (error) {
-                notification.show(`Erro ao excluir usuário: ${error.message}`, 'error');
-            }
-        });
+        confirmation.show(
+            "Tem certeza que deseja EXCLUIR este usuário? Esta ação não pode ser desfeita.", 
+            async () => {
+                try {
+                    await apiService(`/users/${details.id}`, 'DELETE');
+                    notification.show('Usuário excluído com sucesso.');
+                    onUserUpdate();
+                    onClose();
+                } catch (error) {
+                    notification.show(`Erro ao excluir usuário: ${error.message}`, 'error');
+                }
+            },
+            { requiresAuth: true, confirmText: 'Excluir Usuário', confirmColor: 'bg-red-600 hover:bg-red-700' }
+        );
     };
 
     return (
