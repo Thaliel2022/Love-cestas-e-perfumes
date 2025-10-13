@@ -6290,7 +6290,7 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = () => {
       if (selectedProducts.length === 0) return;
       
       confirmation.show(
