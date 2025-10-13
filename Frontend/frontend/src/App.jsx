@@ -5718,9 +5718,15 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-    const handleVariationImageUpload = async (index, files) => {
-        // CORREÇÃO DEFINITIVA: A função agora recebe 'files' diretamente.
-        const fileArray = Array.from(files);
+   const handleVariationImageUpload = async (index, e) => {
+        // CORREÇÃO APLICADA: Adicionada a verificação segura para 'e.target.files' conforme sua sugestão.
+        const files = e?.target?.files;
+        if (!files || files.length === 0) {
+            console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
+            return; // Impede a execução e o erro.
+        }
+
+        const fileArray = Array.from(files); // Agora esta linha é segura.
         if (fileArray.length === 0) return;
 
         setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
