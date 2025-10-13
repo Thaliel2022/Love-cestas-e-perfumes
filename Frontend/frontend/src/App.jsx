@@ -5718,8 +5718,14 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-    const handleVariationImageUpload = async (index, files) => {
-        // CORREÇÃO DEFINITIVA (2/3): A função agora recebe a lista de 'files' diretamente.
+   const handleVariationImageUpload = async (index, e) => {
+        // CORREÇÃO APLICADA: Adicionada a verificação segura para 'e.target.files'
+        const files = e?.target?.files;
+        if (!files || files.length === 0) {
+            console.warn("handleVariationImageUpload foi chamada, mas nenhum arquivo foi encontrado no evento.");
+            return; // Impede a execução e o erro.
+        }
+
         const fileArray = Array.from(files);
         if (fileArray.length === 0) return;
 
@@ -5735,8 +5741,15 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
             setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
+            // Limpa o valor do input para permitir o upload do mesmo arquivo novamente
+            if (e.target) {
+                e.target.value = null;
+            }
         } catch (error) {
-            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
+            // ATUALIZAÇÃO: Captura o erro e o exibe detalhadamente no render.
+            console.error("Erro detalhado no upload da variação:", error);
+            const errorMessage = `Erro: ${error.message || "Falha no upload. Verifique o console."}`;
+            setUploadingStatus(prev => ({ ...prev, [index]: errorMessage }));
         }
     };
 
