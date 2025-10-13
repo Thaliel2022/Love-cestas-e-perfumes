@@ -2623,12 +2623,12 @@ const LoginPage = ({ onNavigate }) => {
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
     
-    const handleLogin = async (e) => {
+   const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            // A função login agora pode retornar uma resposta especial para 2FA
+            // A apiService retorna a resposta completa do backend
             const response = await apiService('/login', 'POST', { email, password });
             
             if (response.twoFactorEnabled) {
@@ -2637,6 +2637,9 @@ const LoginPage = ({ onNavigate }) => {
                 setIsTwoFactorStep(true);
             } else {
                 // Login normal bem-sucedido
+                const loggedUser = response.user;
+                localStorage.setItem('user', JSON.stringify(loggedUser));
+                setUser(loggedUser); // ATUALIZA O ESTADO GLOBAL AQUI
                 notification.show('Login bem-sucedido!');
                 window.location.hash = '#home';
             }
