@@ -6053,7 +6053,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                                 onRemoveVariation={removeVariation}
                                                 availableColors={availableColors}
                                                 availableSizes={availableSizes}
-                                                onImageUpload={handleVariationImageUpload}
+                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
                                                 uploadStatus={uploadingStatus[i]}
                                                 isFirstOfColor={isFirst}
                                             />
