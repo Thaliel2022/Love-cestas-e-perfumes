@@ -3602,27 +3602,7 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
     }
 });
 
-// --- ROTA PARA LOG DE ERROS DO FRONTEND ---
-app.post('/api/log-error', (req, res) => {
-    const { error, path, component } = req.body;
 
-    console.error('--- [LOG DE ERRO DO FRONTEND RECEBIDO] ---');
-    console.error(`Timestamp: ${new Date().toISOString()}`);
-    console.error(`Caminho no App: ${path || 'Não informado'}`);
-    console.error(`Componente/Função: ${component || 'Não informado'}`);
-    
-    if (error && error.message) {
-        console.error(`Mensagem: ${error.message}`);
-    }
-    if (error && error.stack) {
-        console.error(`Stack Trace: ${error.stack}`);
-    }
-    
-    console.error('--- [FIM DO LOG DE ERRO DO FRONTEND] ---');
-
-    // Responde ao frontend que o log foi recebido
-    res.status(200).json({ message: 'Erro registrado no backend.' });
-});
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
