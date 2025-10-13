@@ -5801,18 +5801,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         setFormData(prev => ({ ...prev, variations: newVariations }));
     };
     
-   const handleVariationImageUpload = async (index, e) => {
-        try {
-            const files = e.target.files;
-            if (!files || files.length === 0) {
-                console.warn("handleVariationImageUpload chamada sem arquivos.");
-                return;
-            }
+    const handleVariationImageUpload = async (index, e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
 
-            const fileArray = Array.from(files);
-            setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
-            
-            const uploadPromises = fileArray.map(file => apiImageUploadService('/upload/image', file));
+        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
+        try {
+            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
             const responses = await Promise.all(uploadPromises);
             const newImageUrls = responses.map(res => res.imageUrl);
             
@@ -5821,34 +5816,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             newVariations[index].images = [...currentImages, ...newImageUrls];
             setFormData(prev => ({ ...prev, variations: newVariations }));
             
-            setUploadingStatus(prev => ({ ...prev, [index]: `${fileArray.length} imagem(ns) enviada(s)!` }));
-            
-            if (e.target) {
-                e.target.value = null;
-            }
+            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
+            e.target.value = '';
+            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
         } catch (error) {
-            // ATUALIZAÇÃO: Exibe o erro no render E envia para o backend.
-            console.error("ERRO CAPTURADO no handleVariationImageUpload:", error);
-            const detailedErrorMessage = `ERRO: ${error.toString()}`;
-            setUploadingStatus(prev => ({ ...prev, [index]: detailedErrorMessage }));
-
-            // Envia o erro para o backend para ser logado na Render
-            try {
-                fetch(`${API_URL}/log-error`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        error: {
-                            message: error.message,
-                            stack: error.stack
-                        },
-                        path: window.location.hash,
-                        component: 'ProductForm.handleVariationImageUpload'
-                    })
-                });
-            } catch (loggingError) {
-                console.error("Falha ao tentar logar o erro no backend:", loggingError);
-            }
+            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
         }
     };
 
