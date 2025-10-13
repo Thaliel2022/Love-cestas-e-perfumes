@@ -995,6 +995,58 @@ app.get('/api/track/:code', async (req, res) => {
     }
 });
 
+// Verifica a identidade do admin antes de uma ação crítica
+app.post('/api/auth/verify-action', verifyToken, verifyAdmin, [
+    body('password').optional().isString(),
+    body('token').optional().isString().isLength({ min: 6, max: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { password, token } = req.body;
+    const adminId = req.user.id;
+
+    if (!password && !token) {
+        return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
+    }
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Administrador não encontrado.' });
+        }
+        const admin = users[0];
+
+        // Prioriza a verificação 2FA se estiver habilitada
+        if (admin.is_two_factor_enabled && token) {
+            const isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: token
+            });
+            if (isVerified) {
+                return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
+            }
+        }
+
+        // Se 2FA falhar ou não for usado, verifica a senha
+        if (password) {
+            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
+            if (isPasswordCorrect) {
+                return res.json({ success: true, message: 'Identidade verificada com senha.' });
+            }
+        }
+        
+        // Se nenhuma verificação passar
+        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
+
+    } catch (err) {
+        console.error("Erro na verificação de ação crítica:", err);
+        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
+    }
+});
 
 // --- ROTA DE CÁLCULO DE FRETE ---
 app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
