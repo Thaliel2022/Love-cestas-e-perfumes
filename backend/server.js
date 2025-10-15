@@ -2027,12 +2027,12 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
 
-    // --- BLOQUEIO DE SEGURANÇA ---
-    if (status === ORDER_STATUS.REFUNDED) {
-        return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
-    }
+  // --- BLOQUEIO DE SEGURANÇA ---
+    if (status === ORDER_STATUS.REFUNDED) {
+        return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
+    }
 
-    const STATUS_PROGRESSION = [
+    const STATUS_PROGRESSION = [
         ORDER_STATUS.PENDING,
         ORDER_STATUS.PAYMENT_APPROVED,
         ORDER_STATUS.PROCESSING,
