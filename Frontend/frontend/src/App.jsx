@@ -214,6 +214,32 @@ async function apiUploadService(endpoint, file) {
     }
 }
 
+async function apiImageUploadService(endpoint, file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const config = {
+        method: 'POST',
+        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        body: formData,
+    };
+
+    try {
+        const response = await fetch(`${API_URL}${endpoint}`, config);
+        const responseData = await response.json();
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                window.dispatchEvent(new Event('auth-error'));
+            }
+            throw new Error(responseData.message || `Erro ${response.status}`);
+        }
+        return responseData;
+    } catch (error) {
+        console.error(`Erro no upload da imagem (${endpoint}):`, error);
+        throw error;
+    }
+}
+
 // --- FUNÇÕES AUXILIARES PARA IMAGENS ---
 const parseJsonString = (jsonString, fallbackValue) => {
     if (!jsonString || typeof jsonString !== 'string') {
@@ -288,10 +314,12 @@ const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         // A resposta agora não contém mais o token diretamente
-        const { user: loggedUser } = await apiService('/login', 'POST', { email, password });
-        localStorage.setItem('user', JSON.stringify(loggedUser));
-        setUser(loggedUser);
-        return loggedUser;
+        const response = await apiService('/login', 'POST', { email, password });
+        if (response && response.user) {
+            localStorage.setItem('user', JSON.stringify(response.user));
+            setUser(response.user);
+        }
+        return response; // Retorna a resposta completa para a página de login
     };
     
     const register = async (name, email, password, cpf) => {
@@ -2574,7 +2602,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 };
 
 const LoginPage = ({ onNavigate }) => {
-    const { login, setUser } = useAuth(); // Adicionado setUser do contexto
+    const { login, setUser } = useAuth();
     const notification = useNotification();
     
     // Estados do formulário
@@ -2597,8 +2625,8 @@ const LoginPage = ({ onNavigate }) => {
         setError('');
         setIsLoading(true);
         try {
-            // A apiService retorna a resposta completa do backend
-            const response = await apiService('/login', 'POST', { email, password });
+            // Usa a função centralizada do AuthContext
+            const response = await login(email, password);
             
             if (response.twoFactorEnabled) {
                 // Se 2FA for necessário, muda para a próxima etapa
@@ -2606,11 +2634,8 @@ const LoginPage = ({ onNavigate }) => {
                 setIsTwoFactorStep(true);
             } else {
                 // Login normal bem-sucedido
-                const loggedUser = response.user;
-                localStorage.setItem('user', JSON.stringify(loggedUser));
-                setUser(loggedUser); // ATUALIZA O ESTADO GLOBAL AQUI
                 notification.show('Login bem-sucedido!');
-                window.location.hash = '#home';
+                onNavigate('home'); // Usa a navegação controlada pelo App
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -2633,7 +2658,7 @@ const LoginPage = ({ onNavigate }) => {
             localStorage.setItem('user', JSON.stringify(user));
 
             notification.show('Login bem-sucedido!');
-            window.location.hash = '#home'; // Ou '#admin/dashboard' se preferir
+            onNavigate('home'); // Usa a navegação controlada pelo App
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
