@@ -100,9 +100,10 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 
 const allowedOrigins = [
-    process.env.APP_URL, // Ex: https://lovecestaseperfumes.com.br
-    `https://www.${process.env.APP_URL?.split('//')[1]}`, // Adiciona a versão com www.
-    'http://localhost:3000',
+    process.env.APP_URL, // Ex: https://lovecestaseperfumes.com.br
+    `https://www.${process.env.APP_URL?.split('//')[1]}`, // Adiciona a versão com www.
+    'http://localhost:3000',
+    'https://love-cestas-e-perfumes.vercel.app' // <-- ADICIONADO
 ];
 
 app.use(cors({
