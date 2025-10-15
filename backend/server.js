@@ -1621,77 +1621,90 @@ app.delete('/api/reviews/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 // --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    try {
-        const sql = `
-            SELECT p.*, uc.quantity as qty, uc.variation_details
-            FROM user_carts uc
-            JOIN products p ON uc.product_id = p.id
-            WHERE uc.user_id = ?
-        `;
-        const [cartItems] = await db.query(sql, [userId]);
-        const parsedItems = cartItems.map(item => {
-            let variation = null;
-            if (item.variation_details) {
-                try {
-                    variation = JSON.parse(item.variation_details);
-                } catch(e) { console.error('Erro ao parsear variation_details do carrinho:', item.variation_details); }
-            }
-            const cartItemId = variation
-                ? `${item.id}-${variation.color}-${variation.size}`
-                : String(item.id);
-            return {
-                ...item,
-                variation,
-                cartItemId
-            };
-        });
-        res.json(parsedItems);
-    } catch (error) {
-        console.error("Erro ao buscar carrinho do usuário:", error);
-        res.status(500).json({ message: "Erro ao buscar carrinho." });
-    }
+    const userId = req.user.id;
+    try {
+        const sql = `
+            SELECT p.*, uc.quantity as qty, uc.variation_details
+            FROM user_carts uc
+            JOIN products p ON uc.product_id = p.id
+            WHERE uc.user_id = ?
+        `;
+        const [cartItems] = await db.query(sql, [userId]);
+        const parsedItems = cartItems.map(item => {
+            let variation = null;
+            if (item.variation_details) {
+                try {
+                    // O valor já vem como objeto/null do DB, não precisa de parse.
+                    variation = typeof item.variation_details === 'string' ? JSON.parse(item.variation_details) : item.variation_details;
+                } catch(e) { console.error('Erro ao parsear variation_details do carrinho:', item.variation_details); }
+            }
+            const cartItemId = variation
+                ? `${item.id}-${variation.color}-${variation.size}`
+                : String(item.id);
+            return {
+                ...item,
+                variation,
+                cartItemId
+            };
+        });
+        res.json(parsedItems);
+    } catch (error) {
+        console.error("Erro ao buscar carrinho do usuário:", error);
+        res.status(500).json({ message: "Erro ao buscar carrinho." });
+    }
 });
 
 app.post('/api/cart', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { productId, quantity, variation } = req.body;
+    const userId = req.user.id;
+    const { productId, quantity, variationId } = req.body;
 
-    if (!productId || !quantity || quantity < 1) {
-        return res.status(400).json({ message: "ID do produto e quantidade são obrigatórios." });
-    }
-    
-    const variationDetailsString = variation ? JSON.stringify(variation) : null;
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    if (!productId || !quantity || quantity < 1) {
+        return res.status(400).json({ message: "ID do produto e quantidade são obrigatórios." });
+    }
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [existingItem] = await connection.query(
-            "SELECT id FROM user_carts WHERE user_id = ? AND product_id = ? AND (variation_details <=> ?)",
-            [userId, productId, variationDetailsString]
-        );
+        let variationDetailsString = null;
+        if (variationId) {
+            const [productResult] = await connection.query("SELECT variations FROM products WHERE id = ?", [productId]);
+            if (productResult.length > 0) {
+                const variations = JSON.parse(productResult[0].variations || '[]');
+                const foundVariation = variations.find(v => v.id === variationId);
+                if (foundVariation) {
+                    variationDetailsString = JSON.stringify(foundVariation);
+                }
+            }
+        }
 
-        if (existingItem.length > 0) {
-            await connection.query(
-                "UPDATE user_carts SET quantity = ? WHERE id = ?",
-                [quantity, existingItem[0].id]
-            );
-        } else {
-            await connection.query(
-                "INSERT INTO user_carts (user_id, product_id, quantity, variation_details) VALUES (?, ?, ?, ?)",
-                [userId, productId, quantity, variationDetailsString]
-            );
-        }
-        await connection.commit();
-        res.status(200).json({ message: "Carrinho atualizado com sucesso." });
-    } catch (error) {
-        await connection.rollback();
-        console.error("Erro ao atualizar o carrinho:", error);
-        res.status(500).json({ message: "Erro ao atualizar carrinho." });
-    } finally {
-        connection.release();
-    }
-});
+        const [existingItem] = await connection.query(
+            "SELECT id FROM user_carts WHERE user_id = ? AND product_id = ? AND (variation_details <=> ?)",
+            [userId, productId, variationDetailsString]
+        );
+
+        if (existingItem.length > 0) {
+            await connection.query(
+                "UPDATE user_carts SET quantity = ? WHERE id = ?",
+                [quantity, existingItem[0].id]
+            );
+        } else {
+            await connection.query(
+                "INSERT INTO user_carts (user_id, product_id, quantity, variation_details) VALUES (?, ?, ?, ?)",
+                [userId, productId, quantity, variationDetailsString]
+            );
+        }
+        await connection.commit();
+        res.status(200).json({ message: "Carrinho atualizado com sucesso." });
+    } catch (error) {
+        await connection.rollback();
+        console.error("Erro ao atualizar o carrinho:", error);
+        res.status(500).json({ message: "Erro ao atualizar carrinho." });
+    } finally {
+        connection.release();
+    }
+});     connection.release();
+
 
 app.delete('/api/cart/:productId', verifyToken, async (req, res) => {
     const userId = req.user.id;
