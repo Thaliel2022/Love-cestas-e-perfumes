@@ -6147,7 +6147,8 @@ const DownloadTemplateButton = ({ productType }) => {
     );
 };
 const AdminProducts = ({ onNavigate }) => {
-  const [products, setProducts] = useState([]);
+const [products, setProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]); // <- NOVO ESTADO
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const confirmation = useConfirmation();
@@ -6168,8 +6169,7 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
-const fetchProducts = useCallback(() => {
-    // A busca agora é feita pelo filtro do frontend, então a API sempre busca todos os produtos
+  const fetchProducts = useCallback(() => {
     apiService(`/products/all`)
         .then(data => {
             setProducts(data);
@@ -6177,9 +6177,7 @@ const fetchProducts = useCallback(() => {
             
             const categorySet = new Set();
             data.forEach(p => {
-                if (p.category) {
-                    categorySet.add(JSON.stringify({ name: p.category, type: 'product' }));
-                }
+                if (p.category) categorySet.add(JSON.stringify({ name: p.category, type: 'product' }));
                 if (p.variations) {
                     try {
                         const variations = JSON.parse(p.variations);
@@ -6199,8 +6197,6 @@ const fetchProducts = useCallback(() => {
 
   useEffect(() => {
     fetchProducts();
-    
-    // Verifica a URL por um parâmetro de busca ao carregar a página
     const hash = window.location.hash.slice(1);
     const queryString = hash.split('?')[1];
     if (queryString) {
@@ -6211,6 +6207,17 @@ const fetchProducts = useCallback(() => {
         }
     }
   }, [fetchProducts]);
+
+  useEffect(() => {
+    const lowercasedSearch = searchTerm.toLowerCase();
+    const filtered = products.filter(p =>
+        !lowercasedSearch ||
+        p.name.toLowerCase().includes(lowercasedSearch) ||
+        p.brand.toLowerCase().includes(lowercasedSearch) ||
+        p.category.toLowerCase().includes(lowercasedSearch)
+    );
+    setFilteredProducts(filtered);
+  }, [searchTerm, products]);
 
   const handleOpenModal = (product = null) => {
     setEditingProduct(product);
@@ -6400,7 +6407,7 @@ const fetchProducts = useCallback(() => {
                     <thead className="bg-gray-100">
                         <tr>
                             <th className="p-4 w-4">
-                                <input type="checkbox" onChange={handleSelectAll} checked={products.length > 0 && selectedProducts.length === products.length} />
+                                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} />
                             </th>
                             <th className="p-4">Produto</th>
                             <th className="p-4">Tipo</th>
@@ -6412,7 +6419,7 @@ const fetchProducts = useCallback(() => {
                         </tr>
                     </thead>
                     <tbody>
-                        {products.map(p => (
+                        {filteredProducts.map(p => (
                             <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-100' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-yellow-50' : ''}`}>
                                 <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
                                 <td className="p-4 flex items-center">
@@ -6453,7 +6460,7 @@ const fetchProducts = useCallback(() => {
                 </table>
             </div>
             <div className="md:hidden space-y-4 p-4">
-                {products.map(p => (
+                {filteredProducts.map(p => (
                     <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${p.stock < LOW_STOCK_THRESHOLD ? 'border-yellow-400' : ''}`}>
                         <div className="flex justify-between items-start">
                              <div className="flex items-center">
