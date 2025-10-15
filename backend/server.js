@@ -1639,11 +1639,11 @@ app.post('/api/reviews', verifyToken, async (req, res) => {
         await connection.beginTransaction();
 
         // 1. Confirma se o usuário comprou este produto neste pedido específico e se foi entregue
-        const [purchase] = await connection.query(
-            `SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id 
-             WHERE o.user_id = ? AND oi.product_id = ? AND o.id = ? AND o.status = ? LIMIT 1`,
-            [userId, product_id, order_id, ORDER_STATUS.DELIVERED]
-        );
+        const [purchase] = await connection.query(
+            `SELECT o.id FROM orders o JOIN order_items oi ON o.id = oi.order_id 
+             WHERE o.user_id = ? AND oi.product_id = ? AND o.id = ? AND o.status = ? LIMIT 1`,
+            [userId, product_id, order_id, ORDER_STATUS.DELIVERED]
+        );
 
         if (purchase.length === 0) {
             throw new Error("Você só pode avaliar produtos de pedidos que já foram entregues.");
