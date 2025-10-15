@@ -5445,7 +5445,11 @@ const AdminDashboard = ({ onNavigate }) => {
                                 <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
                                     Restam: {item.stock}
                                 </span>
-                                <button onClick={() => onNavigate(`admin/products`)} className="text-blue-600 hover:underline text-xs font-semibold">
+                                <button onClick={() => {
+                                    // Extrai o nome base do produto, removendo detalhes de variação como "(Azul / P)"
+                                    const baseName = item.name.split(' (')[0];
+                                    onNavigate(`admin/products?search=${encodeURIComponent(baseName)}`);
+                                }} className="text-blue-600 hover:underline text-xs font-semibold">
                                     Ver
                                 </button>
                             </div>
@@ -6164,9 +6168,9 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
-  const fetchProducts = useCallback((currentSearchTerm) => {
-    const query = currentSearchTerm ? `?search=${encodeURIComponent(currentSearchTerm)}` : '';
-    apiService(`/products/all${query}`)
+const fetchProducts = useCallback(() => {
+    // A busca agora é feita pelo filtro do frontend, então a API sempre busca todos os produtos
+    apiService(`/products/all`)
         .then(data => {
             setProducts(data);
             const brands = [...new Set(data.map(p => p.brand).filter(b => b))];
@@ -6194,12 +6198,19 @@ const AdminProducts = ({ onNavigate }) => {
   }, []);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-        fetchProducts(searchTerm);
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [searchTerm, fetchProducts]);
+    fetchProducts();
+    
+    // Verifica a URL por um parâmetro de busca ao carregar a página
+    const hash = window.location.hash.slice(1);
+    const queryString = hash.split('?')[1];
+    if (queryString) {
+        const searchParams = new URLSearchParams(queryString);
+        const initialSearch = searchParams.get('search');
+        if (initialSearch) {
+            setSearchTerm(decodeURIComponent(initialSearch));
+        }
+    }
+  }, [fetchProducts]);
 
   const handleOpenModal = (product = null) => {
     setEditingProduct(product);
