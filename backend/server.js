@@ -3423,19 +3423,19 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
 app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const sql = `
-            SELECT 
-                r.*, 
-                o.id as order_id, 
-                u_req.name as requester_name, 
-                u_app.name as approver_name,
-                c.name as customer_name
-            FROM refunds r
-            JOIN orders o ON r.order_id = o.id
-            JOIN users u_req ON r.requested_by_admin_id = u_req.id
-            JOIN users c ON o.user_id = c.id
-            LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
-            ORDER BY r.created_at DESC
-        `;
+            SELECT 
+                r.*, 
+                o.id as order_id, 
+                u_req.name as requester_name, 
+                u_app.name as approver_name,
+                c.name as customer_name
+            FROM refunds r
+            JOIN orders o ON r.order_id = o.id
+            JOIN users u_req ON r.requested_by_admin_id = u_req.id
+            JOIN users c ON o.user_id = c.id
+            LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
+            ORDER BY r.created_at DESC
+        `;
         const [refunds] = await db.query(sql);
         res.json(refunds);
     } catch (err) {
