@@ -996,35 +996,43 @@ app.post('/api/reset-password', [
 
 // --- ROTA DE RASTREIO ---
 app.get('/api/track/:code', async (req, res) => {
-    const { code } = req.params;
-    
-    const LT_USER = process.env.LT_USER || 'teste';
-    const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
-    const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
+    const { code } = req.params;
+    
+    const LT_USER = process.env.LT_USER || 'teste';
+    const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
+    const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
 
-    console.log(`Iniciando rastreio para o código: ${code}`);
-    try {
-        const apiResponse = await fetch(LT_API_URL);
-        const responseText = await apiResponse.text();
-        
-        const data = JSON.parse(responseText);
+    console.log(`Iniciando rastreio para o código: ${code}`);
+    try {
+        const apiResponse = await fetch(LT_API_URL);
 
-        if (!apiResponse.ok || data.erro) {
-            const errorMessage = data.erro || 'Não foi possível rastrear o objeto. Verifique o código.';
-            return res.status(404).json({ message: errorMessage });
-        }
-        
-        const formattedHistory = data.eventos.map(event => ({
-            status: event.status,
-            location: event.local,
-            date: new Date(`${event.data.split('/').reverse().join('-')}T${event.hora}`).toISOString()
-        }));
+        // Primeiro, verificamos se a requisição à API externa foi bem-sucedida (status 2xx)
+        if (!apiResponse.ok) {
+            const errorText = await apiResponse.text();
+            console.error(`[RASTREIO] Erro da API Link&Track (Status: ${apiResponse.status}):`, errorText);
+            throw new Error('O serviço de rastreio retornou um erro. Verifique o código e tente novamente.');
+        }
 
-        res.json(formattedHistory);
-    } catch (error) {
-        console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
-        res.status(500).json({ message: "Erro interno no servidor ao tentar buscar o rastreio." });
-    }
+        const data = await apiResponse.json(); // Se a resposta for OK, tentamos parsear como JSON
+
+        // A API Link&Track pode retornar um JSON com um campo de erro mesmo com status 200 OK
+        if (data.erro) {
+            console.warn(`[RASTREIO] A API Link&Track retornou um erro lógico: ${data.erro}`);
+            throw new Error(data.erro);
+        }
+        
+        const formattedHistory = data.eventos.map(event => ({
+            status: event.status,
+            location: event.local,
+            date: new Date(`${event.data.split('/').reverse().join('-')}T${event.hora}`).toISOString()
+        }));
+
+        res.json(formattedHistory);
+    } catch (error) {
+        console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
+        // Envia a mensagem de erro específica para o frontend, em vez da mensagem genérica
+        res.status(500).json({ message: error.message || "Erro interno no servidor ao tentar buscar o rastreio." });
+    }
 });
 
 // Verifica a identidade do admin antes de uma ação crítica
