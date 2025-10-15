@@ -1703,8 +1703,7 @@ app.post('/api/cart', verifyToken, async (req, res) => {
     } finally {
         connection.release();
     }
-});     connection.release();
-
+});
 
 app.delete('/api/cart/:productId', verifyToken, async (req, res) => {
     const userId = req.user.id;
