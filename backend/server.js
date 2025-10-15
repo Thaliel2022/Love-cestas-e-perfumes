@@ -263,7 +263,31 @@ cloudinary.config({
 
 // --- CONFIGURAÇÃO DO MULTER PARA UPLOAD ---
 const memoryStorage = multer.memoryStorage();
-const memoryUpload = multer({ storage: memoryStorage });
+
+const imageUpload = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
+    fileFilter: (req, file, cb) => {
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (allowedMimes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Tipo de arquivo de imagem inválido. Apenas JPG, PNG, GIF e WebP são permitidos.'), false);
+        }
+    }
+}).single('image');
+
+const csvUpload = multer({
+    storage: memoryStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10MB para CSVs
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'text/csv') {
+            cb(null, true);
+        } else {
+            cb(new Error('Tipo de arquivo inválido. Apenas arquivos .csv são permitidos.'), false);
+        }
+    }
+}).single('file');
 
 
 // --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
@@ -572,7 +596,7 @@ app.get('/api/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor está no ar!', timestamp: new Date().toISOString() });
 });
 
-app.post('/api/upload/image', verifyToken, memoryUpload.single('image'), async (req, res) => {
+app.post('/api/upload/image', verifyToken, imageUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
     }
@@ -843,9 +867,9 @@ app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
                 qrCodeUrl: data_url
             });
         });
-    } catch (err) {
+   } catch (err) {
         console.error("Erro ao gerar segredo 2FA:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao gerar o segredo 2FA." });
+        res.status(500).json({ message: "Erro interno ao gerar o segredo 2FA." });
     }
 });
 
@@ -1139,7 +1163,7 @@ app.post('/api/shipping/calculate', checkMaintenanceMode, async (req, res) => {
 
     } catch (error) {
         console.error("[FRETE] Erro interno no servidor ao calcular frete:", error);
-        res.status(500).json({ message: error.message || "Erro interno no servidor ao tentar calcular o frete." });
+        res.status(500).json({ message: "Erro interno no servidor ao tentar calcular o frete." });
     }
 });
 
@@ -1540,7 +1564,7 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('file'), async (req, res) => {
+app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
     }
@@ -1614,7 +1638,7 @@ app.post('/api/products/import', verifyToken, verifyAdmin, memoryUpload.single('
     } catch (err) {
         await connection.rollback();
         console.error("Erro durante a importação de CSV:", err);
-        res.status(500).json({ message: `Erro ao processar o arquivo: ${err.message}` });
+        res.status(500).json({ message: "Erro ao processar o arquivo. Verifique o formato e os dados." });
     } finally {
         connection.release();
     }
@@ -1996,7 +2020,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     } catch (err) {
         await connection.rollback();
         console.error("Erro ao criar pedido:", err);
-        res.status(500).json({ message: err.message || "Falha ao criar o pedido." });
+        res.status(500).json({ message: "Falha ao criar o pedido. Verifique o estoque e os dados enviados." });
     } finally {
         connection.release();
     }
@@ -2144,10 +2168,10 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
         res.json({ message: "Pedido atualizado com sucesso." });
 
-    } catch (err) {
+   } catch (err) {
         await connection.rollback();
         console.error("Erro ao atualizar pedido:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao atualizar o pedido." });
+        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
     } finally {
         connection.release();
     }
@@ -2286,8 +2310,7 @@ app.post('/api/create-mercadopago-payment', verifyToken, async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao criar preferência do Mercado Pago:', error?.cause || error);
-        const errorMessage = error?.cause?.error || error.message || 'Falha ao gerar link de pagamento.';
-        res.status(500).json({ message: errorMessage });
+        res.status(500).json({ message: 'Falha ao gerar o link de pagamento. Tente novamente mais tarde.' });
     }
 });
 
@@ -2363,7 +2386,7 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
 
     } catch (error) {
         console.error("Erro ao buscar parcelas do Mercado Pago:", error);
-        res.status(500).json({ message: error.message || "Erro interno do servidor ao buscar parcelas." });
+        res.status(500).json({ message: "Erro interno do servidor ao buscar parcelas." });
     }
 });
 
@@ -2652,70 +2675,6 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.put('/api/users/me/password', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { password } = req.body;
-    if (!password || password.length < 6) {
-        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
-    }
-
-    try {
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
-        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA');
-        res.json({ message: "Senha atualizada com sucesso." });
-    } catch(err) {
-        console.error("Erro ao atualizar senha do usuário:", err);
-        res.status(500).json({ message: "Erro ao atualizar a senha." });
-    }
-});
-
-app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        await db.query("DELETE FROM users WHERE id = ?", [req.params.id]);
-        logAdminAction(req.user, 'DELETOU USUÁRIO', `ID do usuário: ${req.params.id}`);
-        res.json({ message: "Usuário deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar usuário:", err);
-        res.status(500).json({ message: "Erro interno ao deletar usuário." });
-    }
-});
-
-// (Admin) Rota para enviar e-mail direto para um usuário
-app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { subject, message } = req.body;
-
-    if (!subject || !message) {
-        return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
-    }
-
-    try {
-        const [users] = await db.query("SELECT name, email FROM users WHERE id = ?", [id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        const user = users[0];
-
-        const emailHtml = createAdminDirectEmail(user.name, subject, message);
-
-        await sendEmailAsync({
-            from: FROM_EMAIL,
-            to: user.email,
-            subject: subject,
-            html: emailHtml,
-        });
-        
-        logAdminAction(req.user, 'ENVIOU_EMAIL_DIRETO', `Para: ${user.email}, Assunto: "${subject}"`);
-
-        res.json({ message: `E-mail enviado com sucesso para ${user.name}.` });
-
-    } catch (err) {
-        console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
-        res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
-    }
-});
-
 // --- ROTAS DE CUPONS ---
 app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -2942,7 +2901,7 @@ app.post('/api/addresses', verifyToken, async (req, res) => {
     } catch (err) {
         await connection.rollback();
         console.error("Erro ao adicionar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao adicionar endereço." });
+        res.status(500).json({ message: "Erro interno ao adicionar endereço." });
     } finally {
         connection.release();
     }
@@ -2971,10 +2930,10 @@ app.put('/api/addresses/:id', verifyToken, async (req, res) => {
 
         await connection.commit();
         res.json({ message: "Endereço atualizado com sucesso." });
-    } catch (err) {
+   } catch (err) {
         await connection.rollback();
         console.error("Erro ao atualizar endereço:", err);
-        res.status(500).json({ message: err.message || "Erro ao atualizar endereço." });
+        res.status(500).json({ message: "Erro interno ao atualizar endereço." });
     } finally {
         connection.release();
     }
@@ -2996,10 +2955,10 @@ app.put('/api/addresses/:id/default', verifyToken, async (req, res) => {
         
         await connection.commit();
         res.json({ message: "Endereço padrão definido com sucesso." });
-    } catch (err) {
+   } catch (err) {
         await connection.rollback();
         console.error("Erro ao definir endereço padrão:", err);
-        res.status(500).json({ message: err.message || "Erro ao definir endereço padrão." });
+        res.status(500).json({ message: "Erro interno ao definir endereço padrão." });
     } finally {
         connection.release();
     }
