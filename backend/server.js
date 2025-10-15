@@ -1223,9 +1223,51 @@ app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, re
 });
 
 
+app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
+    const LOW_STOCK_THRESHOLD = 5;
+    try {
+        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
+
+        const lowStockItems = [];
+
+        for (const product of allProducts) {
+            if (product.product_type === 'clothing') {
+                try {
+                    const variations = JSON.parse(product.variations || '[]');
+                    for (const v of variations) {
+                        if (v.stock < LOW_STOCK_THRESHOLD) {
+                            lowStockItems.push({
+                                id: product.id,
+                                name: `${product.name} (${v.color} / ${v.size})`,
+                                stock: v.stock,
+                                images: product.images
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
+                }
+            } else { // perfume
+                if (product.stock < LOW_STOCK_THRESHOLD) {
+                    lowStockItems.push({
+                        id: product.id,
+                        name: product.name,
+                        stock: product.stock,
+                        images: product.images
+                    });
+                }
+            }
+        }
+        res.json(lowStockItems);
+    } catch (err) {
+        console.error("Erro ao buscar produtos com estoque baixo:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
+    }
+});
+
 app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
-    try {
-       const sql = `
+    try {
+        const sql = `
             SELECT 
                 p.*,
                 r_agg.avg_rating,
@@ -1246,22 +1288,56 @@ app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
             WHERE 
                 p.id = ?;
         `;
-        const [products] = await db.query(sql, [req.params.id, req.params.id]);
-        if (products.length === 0) return res.status(404).json({ message: "Produto não encontrado." });
-        
-        const product = products[0];
-        if (product.review_count === null) {
-            product.review_count = 0;
-        }
-        if (product.avg_rating === null) {
-            product.avg_rating = 0;
-        }
+        const [products] = await db.query(sql, [req.params.id, req.params.id]);
+        if (products.length === 0) return res.status(404).json({ message: "Produto não encontrado." });
+        
+        const product = products[0];
+        if (product.review_count === null) {
+            product.review_count = 0;
+        }
+        if (product.avg_rating === null) {
+            product.avg_rating = 0;
+        }
 
-        res.json(product);
-    } catch (err) {
-        console.error("Erro ao buscar produto por ID:", err);
-        res.status(500).json({ message: "Erro ao buscar produto." });
-    }
+        res.json(product);
+    } catch (err) {
+        console.error("Erro ao buscar produto por ID:", err);
+        res.status(500).json({ message: "Erro ao buscar produto." });
+    }
+});
+
+app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
+        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
+        
+        if (ordersWithProduct.length === 0) {
+            return res.json([]);
+        }
+
+        const orderIds = ordersWithProduct.map(o => o.order_id);
+
+        const sqlFindRelated = `
+            SELECT 
+                p.*,
+                COUNT(oi.product_id) AS purchase_frequency
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id IN (?)
+            AND oi.product_id != ?
+            AND p.is_active = 1
+            GROUP BY oi.product_id
+            ORDER BY purchase_frequency DESC
+            LIMIT 8;
+        `;
+        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
+        res.json(relatedProducts);
+
+    } catch (err) {
+        console.error("Erro ao buscar produtos relacionados por compra:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
+    }
 });
 
 app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
@@ -1794,15 +1870,15 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const sql = `
-            SELECT 
-                o.*, 
-                u.name as user_name,
-                r.status as refund_status
-            FROM orders o 
-            JOIN users u ON o.user_id = u.id
-            LEFT JOIN refunds r ON o.refund_id = r.id
-            ORDER BY o.date DESC
-        `;
+            SELECT 
+                o.*, 
+                u.name as user_name,
+                r.status as refund_status
+            FROM orders o 
+            JOIN users u ON o.user_id = u.id
+            LEFT JOIN refunds r ON o.refund_id = r.id
+            ORDER BY o.date DESC
+        `;
         const [orders] = await db.query(sql);
         res.json(orders);
     } catch (err) {
@@ -3226,33 +3302,33 @@ app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => 
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const dailySalesQuery = `
-            SELECT 
-                DATE(date) as sale_date, 
-                SUM(total) as daily_total
-            FROM orders 
-            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente') AND date >= ?
-            GROUP BY DATE(date) 
-            ORDER BY sale_date ASC;
-        `;
+       const dailySalesQuery = `
+            SELECT 
+                DATE(date) as sale_date, 
+                SUM(total) as daily_total
+            FROM orders 
+            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente') AND date >= ?
+            GROUP BY DATE(date) 
+            ORDER BY sale_date ASC;
+        `;
 
-        const shippingMethodQuery = `
-            SELECT 
-                shipping_method, 
-                COUNT(id) as count 
-            FROM orders 
-            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente')
-            GROUP BY shipping_method 
-            ORDER BY count DESC;
-        `;
+        const shippingMethodQuery = `
+            SELECT 
+                shipping_method, 
+                COUNT(id) as count 
+            FROM orders 
+            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente')
+            GROUP BY shipping_method 
+            ORDER BY count DESC;
+        `;
 
-        const bestSellersQuery = `
-            SELECT id, name, sales 
-            FROM products 
-            WHERE sales > 0 
-            ORDER BY sales DESC 
-            LIMIT 5;
-        `;
+        const bestSellersQuery = `
+            SELECT id, name, sales 
+            FROM products 
+            WHERE sales > 0 
+            ORDER BY sales DESC 
+            LIMIT 5;
+        `;
 
         const [dailySales] = await db.query(dailySalesQuery, [thirtyDaysAgo]);
         const [shippingMethods] = await db.query(shippingMethodQuery);
