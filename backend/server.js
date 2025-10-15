@@ -1822,34 +1822,34 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { id: orderId } = req.query; 
 
-    try {
-        let sql = `
-            SELECT o.*, r.status as refund_status, r.created_at as refund_created_at
-            FROM orders o
-            LEFT JOIN refunds r ON o.refund_id = r.id
-            WHERE o.user_id = ?
-        `;
-        const params = [userId];
+   try {
+        let sql = `
+            SELECT o.*, r.status as refund_status, r.created_at as refund_created_at
+            FROM orders o
+            LEFT JOIN refunds r ON o.refund_id = r.id
+            WHERE o.user_id = ?
+        `;
+        const params = [userId];
 
-        if (orderId) {
-            sql += " AND o.id = ?";
-            params.push(orderId);
-        }
+        if (orderId) {
+            sql += " AND o.id = ?";
+            params.push(orderId);
+        }
 
-        sql += " ORDER BY o.date DESC";
-        
-        const [orders] = await db.query(sql, params);
-        
-        const detailedOrders = await Promise.all(orders.map(async (order) => {
-            const [items] = await db.query(`
-                SELECT 
-                    oi.*, 
-                    p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
-                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id AND r.order_id = oi.order_id) AS is_reviewed
-                FROM order_items oi 
-                JOIN products p ON oi.product_id = p.id 
-                WHERE oi.order_id = ?
-            `, [order.user_id, order.id]);
+        sql += " ORDER BY o.date DESC";
+        
+        const [orders] = await db.query(sql, params);
+        
+        const detailedOrders = await Promise.all(orders.map(async (order) => {
+            const [items] = await db.query(`
+                SELECT 
+                    oi.*, 
+                    p.name, p.images, p.product_type, p.stock, p.variations, p.is_on_sale, p.sale_price,
+                    (SELECT COUNT(*) > 0 FROM reviews r WHERE r.user_id = ? AND r.product_id = oi.product_id AND r.order_id = oi.order_id) AS is_reviewed
+                FROM order_items oi 
+                JOIN products p ON oi.product_id = p.id 
+                WHERE oi.order_id = ?
+            `, [order.user_id, order.id]);
 
             const parsedItems = items.map(item => ({
                 ...item,
