@@ -5483,7 +5483,7 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     const cameraInputRef = useRef(null);
 
     const handleFileChange = (e) => {
-        onImageUpload(index, e);
+        onImageUpload(e);
     };
 
     const handleRemoveImage = (imgIndex) => {
