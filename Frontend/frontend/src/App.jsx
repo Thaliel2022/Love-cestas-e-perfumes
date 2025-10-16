@@ -5034,6 +5034,7 @@ const MyProfileSection = () => {
     const [twoFactorSecret, setTwoFactorSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
+    const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
     const [is2faLoading, setIs2faLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
@@ -5090,13 +5091,17 @@ const MyProfileSection = () => {
         e.preventDefault();
         setIs2faLoading(true);
         try {
-            await apiService('/2fa/disable', 'POST', { password: disablePassword });
+            await apiService('/2fa/disable', 'POST', { 
+                password: disablePassword,
+                token: disableVerificationCode // ENVIA O TOKEN
+            });
             notification.show('Autenticação de Dois Fatores desativada.');
             const updatedUser = { ...user, is_two_factor_enabled: 0 };
             setUser(updatedUser);
             localStorage.setItem('user', JSON.stringify(updatedUser));
             setIs2faDisableModalOpen(false);
             setDisablePassword('');
+            setDisableVerificationCode(''); // LIMPA O ESTADO
         } catch (error) {
             notification.show(`Erro ao desativar: ${error.message}`, 'error');
         } finally {
@@ -5153,10 +5158,22 @@ const MyProfileSection = () => {
                 {is2faDisableModalOpen && (
                      <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
                         <form onSubmit={handleDisable2FA} className="space-y-4">
-                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Desativar o 2FA reduzirá a segurança da sua conta. Para continuar, por favor, confirme sua senha.</p>
+                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
                                 <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
+                                <input 
+                                    type="text" 
+                                    value={disableVerificationCode} 
+                                    onChange={e => setDisableVerificationCode(e.target.value)}
+                                    maxLength="6"
+                                    placeholder="123456"
+                                    required 
+                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
+                                />
                             </div>
                             <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
                                 {is2faLoading ? <SpinnerIcon/> : "Confirmar e Desativar"}

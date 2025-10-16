@@ -916,33 +916,45 @@ app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
 
 // Desativa o 2FA para o admin logado
 app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
-    body('password', 'A senha é obrigatória para desativar o 2FA').notEmpty()
+    body('password', 'A senha é obrigatória').notEmpty(),
+    body('token', 'O código 2FA de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    const { password } = req.body;
-    try {
-        const [users] = await db.query("SELECT password FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
+    const { password, token } = req.body;
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        const user = users[0];
 
-        const isPasswordCorrect = await bcrypt.compare(password, users[0].password);
-        if (!isPasswordCorrect) {
-            return res.status(401).json({ message: 'Senha incorreta.' });
-        }
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) {
+            return res.status(401).json({ message: 'Senha incorreta.' });
+        }
 
-        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
-        logAdminAction(req.user, 'DESATIVOU_2FA');
-        res.json({ message: '2FA desativado com sucesso.' });
+        const isTokenVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: token
+        });
 
-    } catch (err) {
-        console.error("Erro ao desativar 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
-    }
+        if (!isTokenVerified) {
+            return res.status(401).json({ message: 'Código de autenticação inválido.' });
+        }
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA');
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
 });
 
 app.post('/api/forgot-password', [
