@@ -3648,13 +3648,18 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
         
         const order = orderResult[0];
 
-        // Define os status em que o cliente pode solicitar cancelamento/reembolso
-        const cancellableStatuses = [ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING, ORDER_STATUS.DELIVERED];
-        if (!cancellableStatuses.includes(order.status)) {
-            throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/reembolso solicitado.`);
-        }
+        // VERIFICAÇÃO DE SEGURANÇA: Garante que o pedido foi efetivamente pago no gateway.
+        if (order.payment_status !== 'approved') {
+            throw new Error("Não é possível solicitar reembolso para um pedido cujo pagamento não foi aprovado.");
+        }
 
-        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
+        // Define os status em que o cliente pode solicitar cancelamento/reembolso
+        const cancellableStatuses = [ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING, ORDER_STATUS.DELIVERED];
+        if (!cancellableStatuses.includes(order.status)) {
+            throw new Error(`Apenas pedidos com status 'Pagamento Aprovado', 'Separando Pedido' ou 'Entregue' podem ter o cancelamento/reembolso solicitado.`);
+        }
+
+        if (order.refund_id) throw new Error("Este pedido já possui uma solicitação de reembolso ou cancelamento.");
         
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
