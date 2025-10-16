@@ -9050,22 +9050,23 @@ function AppContent({ deferredPrompt }) {
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
-                                <PixIcon className="h-6 w-auto"/>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
-                                <VisaIcon className="h-6 w-auto"/>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
-                                <MastercardIcon className="h-6 w-auto"/>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
-                                <EloIcon className="h-6 w-auto"/>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
-                                <BoletoIcon className="h-5 w-auto text-black"/>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
                             </div>
                         </div>
+                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
