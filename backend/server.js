@@ -141,10 +141,13 @@ app.use(helmet({
 
 const limiter = rateLimit({
 	windowMs: 15 * 60 * 1000, // 15 minutos
-	max: 1000, // Aumentado para 1000 requisições para evitar bloqueios em desenvolvimento
-	standardHeaders: true,
+	max: 1000, // Limite mais alto para ambiente de desenvolvimento
+	standardHeaders: 'draft-7', // Usa o padrão mais recente
 	legacyHeaders: false,
-    message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos'
+    message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos',
+    // Configuração de segurança específica para a Render.com
+    // Confia no primeiro proxy na cadeia (que é o proxy da Render)
+    trustProxy: 1
 });
 app.use('/api/', limiter); // Aplica o rate limiting a todas as rotas da API
 
