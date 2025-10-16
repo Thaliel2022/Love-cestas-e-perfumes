@@ -5216,27 +5216,110 @@ const MyProfileSection = () => {
 };
 
 
-const AjudaPage = ({ onNavigate }) => (
-    <div className="bg-black text-white min-h-screen py-12">
-        <div className="container mx-auto px-4 text-center">
-            <h1 className="text-4xl font-bold mb-8 text-amber-400">Central de Ajuda</h1>
-            <div className="max-w-md mx-auto bg-gray-900 p-8 rounded-lg border border-gray-800 space-y-6">
-                <div>
-                    <h2 className="text-2xl font-bold mb-2">Fale Conosco</h2>
-                    <p className="text-gray-400">Tem alguma dúvida ou precisa de ajuda com seu pedido? Entre em contato pelos nossos canais oficiais.</p>
+const AjudaPage = ({ onNavigate }) => {
+    const faqData = [
+        {
+            q: "Como posso rastrear meu pedido?",
+            a: <>Para rastrear seu pedido, acesse a seção <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); }} className="text-amber-400 underline hover:text-amber-300">"Meus Pedidos"</a> em sua conta, localize o pedido desejado e clique em "Ver Detalhes". Se houver um código de rastreio, ele estará disponível lá, junto com um botão para rastreá-lo.</>
+        },
+        {
+            q: "Quais são as formas de pagamento aceitas?",
+            a: "Aceitamos pagamentos via Pix, Boleto Bancário e Cartão de Crédito. Todos os pagamentos são processados de forma segura através do Mercado Pago. Você pode parcelar suas compras no cartão de crédito, e as opções de parcelamento serão exibidas na página de finalização da compra."
+        },
+        {
+            q: "Qual é o prazo de entrega?",
+            a: "O prazo de entrega varia de acordo com o seu CEP e a modalidade de envio escolhida (PAC ou Sedex). Você pode calcular o prazo estimado na página do produto ou no carrinho de compras antes de finalizar o pedido. Para João Pessoa, PB, também oferecemos a opção de retirada na loja."
+        },
+        {
+            q: "Como funciona a política de troca e devolução?",
+            a: "Você pode solicitar a troca ou devolução de um produto em até 7 dias corridos após o recebimento. O produto não deve apresentar sinais de uso e deve estar em sua embalagem original. Para iniciar o processo, acesse a página de detalhes do seu pedido em <a href=\"#account/orders\" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); }} className=\"text-amber-400 underline hover:text-amber-300\">\"Meus Pedidos\"</a> e utilize a opção de solicitar cancelamento/reembolso, informando o motivo."
+        },
+    ];
+
+    const AccordionItem = ({ question, answer }) => {
+        const [isOpen, setIsOpen] = useState(false);
+        return (
+            <div className="border-b border-gray-800">
+                <button
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="w-full flex justify-between items-center text-left py-4 px-2"
+                >
+                    <span className="font-semibold text-lg text-white">{question}</span>
+                    <ChevronDownIcon className={`h-6 w-6 text-amber-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                    {isOpen && (
+                        <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
+                        >
+                            <div className="pb-4 px-2 text-gray-400">{answer}</div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        );
+    };
+
+    return (
+        <div className="bg-black text-white min-h-screen py-12">
+            <div className="container mx-auto px-4 max-w-4xl">
+                <div className="text-center mb-16">
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4 text-amber-400">Central de Ajuda</h1>
+                    <p className="text-lg text-gray-400">Como podemos ajudar você hoje?</p>
                 </div>
-                <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
-                    <InstagramIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">@lovecestaseperfumesjp</span>
-                </a>
-                <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center space-x-3 bg-gray-800 p-4 rounded-lg hover:bg-gray-700 transition">
-                    <WhatsappIcon className="h-8 w-8 text-amber-400" />
-                    <span className="text-lg">83 98737-9573</span>
-                </a>
+
+                <div className="mb-16">
+                    <h2 className="text-2xl font-bold text-center mb-8">Ações Rápidas</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div onClick={() => onNavigate('account/orders')} className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center cursor-pointer hover:border-amber-400 hover:bg-gray-800 transition-all">
+                            <TruckIcon className="h-10 w-10 mx-auto text-amber-400 mb-3" />
+                            <h3 className="font-semibold text-xl">Rastrear Pedido</h3>
+                            <p className="text-sm text-gray-500 mt-1">Acompanhe o status da sua entrega.</p>
+                        </div>
+                        <div onClick={() => onNavigate('account')} className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center cursor-pointer hover:border-amber-400 hover:bg-gray-800 transition-all">
+                            <UserIcon className="h-10 w-10 mx-auto text-amber-400 mb-3" />
+                            <h3 className="font-semibold text-xl">Minha Conta</h3>
+                            <p className="text-sm text-gray-500 mt-1">Veja seus pedidos e dados cadastrais.</p>
+                        </div>
+                        <div onClick={() => onNavigate('checkout')} className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center cursor-pointer hover:border-amber-400 hover:bg-gray-800 transition-all">
+                            <CurrencyDollarIcon className="h-10 w-10 mx-auto text-amber-400 mb-3" />
+                            <h3 className="font-semibold text-xl">Pagamentos</h3>
+                            <p className="text-sm text-gray-500 mt-1">Conheça nossas formas de pagamento.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mb-16">
+                    <h2 className="text-2xl font-bold text-center mb-8">Perguntas Frequentes</h2>
+                    <div className="bg-gray-900 p-4 rounded-lg border border-gray-800">
+                        {faqData.map((faq, index) => (
+                            <AccordionItem key={index} question={faq.q} answer={faq.a} />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="text-center bg-gray-900 p-8 rounded-lg border border-gray-800">
+                    <h2 className="text-2xl font-bold mb-2">Ainda precisa de ajuda?</h2>
+                    <p className="text-gray-400 mb-6">Nossa equipe está pronta para te atender em nossos canais oficiais.</p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                         <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 bg-green-500 text-white font-bold p-4 rounded-lg hover:bg-green-600 transition-colors w-full sm:w-auto">
+                            <WhatsappIcon className="h-6 w-6" />
+                            <span>Contatar via WhatsApp</span>
+                        </a>
+                        <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-3 bg-pink-500 text-white font-bold p-4 rounded-lg hover:bg-pink-600 transition-colors w-full sm:w-auto">
+                            <InstagramIcon className="h-6 w-6" />
+                            <span>Mensagem no Instagram</span>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { logout } = useAuth();
