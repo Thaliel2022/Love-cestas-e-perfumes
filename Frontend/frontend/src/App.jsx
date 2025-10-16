@@ -8044,16 +8044,20 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
         const newStatus = details.status === 'active' ? 'blocked' : 'active';
         const actionText = newStatus === 'blocked' ? 'bloquear' : 'desbloquear';
 
-        confirmation.show(`Tem certeza que deseja ${actionText} este usuário?`, async () => {
-            try {
-                await apiService(`/users/${details.id}/status`, 'PUT', { status: newStatus });
-                notification.show(`Usuário ${actionText} com sucesso.`);
-                onUserUpdate(); // Avisa o componente pai para recarregar a lista
-                fetchDetails(); // Recarrega os detalhes no modal
-            } catch (error) {
-                notification.show(`Erro ao ${actionText} usuário: ${error.message}`, 'error');
-            }
-        });
+        confirmation.show(
+            `Tem certeza que deseja ${actionText} este usuário? Esta ação requer confirmação.`, 
+            async () => {
+                try {
+                    await apiService(`/users/${details.id}/status`, 'PUT', { status: newStatus });
+                    notification.show(`Usuário ${actionText} com sucesso.`);
+                    onUserUpdate();
+                    fetchDetails();
+                } catch (error) {
+                    notification.show(`Erro ao ${actionText} usuário: ${error.message}`, 'error');
+                }
+            },
+            { requiresAuth: true }
+        );
     };
 
     const handleSaveUser = async (formData) => {
@@ -8061,8 +8065,8 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
             await apiService(`/users/${details.id}`, 'PUT', formData);
             notification.show('Usuário atualizado com sucesso!');
             setIsEditModalOpen(false);
-            onUserUpdate(); // Recarrega a lista principal
-            fetchDetails(); // Recarrega os detalhes no modal
+            onUserUpdate();
+            fetchDetails();
         } catch (error) {
             notification.show(`Erro ao atualizar usuário: ${error.message}`, 'error');
         }
@@ -8101,6 +8105,16 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
                 }
             },
             { requiresAuth: true, confirmText: 'Excluir Usuário', confirmColor: 'bg-red-600 hover:bg-red-700' }
+        );
+    };
+
+    const openEditModalWithConfirmation = () => {
+        confirmation.show(
+            "Você está prestes a editar os dados de um usuário, incluindo permissões de acesso. Por favor, confirme sua identidade para continuar.",
+            () => {
+                setIsEditModalOpen(true);
+            },
+            { requiresAuth: true, confirmText: 'Continuar para Edição' }
         );
     };
 
@@ -8191,7 +8205,7 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
                     
                     <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
                         <button onClick={handleDelete} className="px-4 py-2 rounded-md font-semibold text-red-600 bg-red-100 hover:bg-red-200 flex items-center gap-2"><TrashIcon className="h-4 w-4"/> Excluir</button>
-                        <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200 flex items-center gap-2"><EditIcon className="h-4 w-4"/> Editar</button>
+                        <button onClick={openEditModalWithConfirmation} className="px-4 py-2 rounded-md font-semibold text-blue-600 bg-blue-100 hover:bg-blue-200 flex items-center gap-2"><EditIcon className="h-4 w-4"/> Editar</button>
                         <button onClick={() => setIsEmailModalOpen(true)} className="px-4 py-2 rounded-md font-semibold text-purple-600 bg-purple-100 hover:bg-purple-200 flex items-center gap-2"><PaperAirplaneIcon className="h-4 w-4"/> Enviar E-mail</button>
                         <button onClick={handleStatusChange} className={`px-6 py-2 rounded-md font-semibold text-white ${details.status === 'active' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}>
                             {details.status === 'active' ? 'Bloquear' : 'Desbloquear'}
