@@ -995,42 +995,58 @@ app.post('/api/reset-password', [
 
 
 // --- ROTA DE RASTREIO ---
+const cheerio = require('cheerio');
+
 app.get('/api/track/:code', async (req, res) => {
     const { code } = req.params;
-    
-    const LT_USER = process.env.LT_USER || 'teste';
-    const LT_TOKEN = process.env.LT_TOKEN || '1abcd00b2731640e886fb41a8a9671ad1434c599dbaa0a0de9a5aa619f29a83f';
-    const LT_API_URL = `https://api.linketrack.com/track/json?user=${LT_USER}&token=${LT_TOKEN}&codigo=${code}`;
+    const trackUrl = `https://linketrack.com/track?codigo=${code}&utm_source=track`;
 
-    console.log(`Iniciando rastreio para o código: ${code}`);
+    console.log(`Iniciando rastreio via scraping para o código: ${code}`);
     try {
-        const apiResponse = await fetch(LT_API_URL);
+        const response = await fetch(trackUrl);
+        if (!response.ok) {
+            throw new Error(`O site de rastreio retornou um erro: ${response.statusText}`);
+        }
+        const html = await response.text();
+        const $ = cheerio.load(html);
 
-        // Primeiro, verificamos se a requisição à API externa foi bem-sucedida (status 2xx)
-        if (!apiResponse.ok) {
-            const errorText = await apiResponse.text();
-            console.error(`[RASTREIO] Erro da API Link&Track (Status: ${apiResponse.status}):`, errorText);
-            throw new Error('O serviço de rastreio retornou um erro. Verifique o código e tente novamente.');
+        const events = [];
+        $('.row.card-event').each((i, elem) => {
+            const lines = $(elem).text().trim().split('\n').map(line => line.trim()).filter(line => line);
+            
+            const eventData = {};
+            eventData.status = $(elem).find('h5').text().trim();
+            
+            lines.forEach(line => {
+                if (line.startsWith('Local:')) {
+                    eventData.location = line.replace('Local:', '').trim();
+                } else if (line.startsWith('Data:')) {
+                    const dateTimeString = line.replace('Data:', '').trim();
+                    const [datePart, timePart] = dateTimeString.split(' às ');
+                    if (datePart && timePart) {
+                         const [day, month, year] = datePart.split('/');
+                         eventData.date = new Date(`${year}-${month}-${day}T${timePart}`).toISOString();
+                    }
+                }
+            });
+            // Adiciona apenas se o evento foi parseado corretamente
+            if (eventData.status && eventData.date) {
+                events.push(eventData);
+            }
+        });
+
+        if (events.length === 0) {
+             const errorMsg = $('.alert-danger').text().trim();
+             if (errorMsg) {
+                 throw new Error(errorMsg);
+             }
+            throw new Error('Nenhum evento de rastreio encontrado. O código pode ser inválido ou o objeto ainda não foi postado.');
         }
 
-        const data = await apiResponse.json(); // Se a resposta for OK, tentamos parsear como JSON
+        res.json(events);
 
-        // A API Link&Track pode retornar um JSON com um campo de erro mesmo com status 200 OK
-        if (data.erro) {
-            console.warn(`[RASTREIO] A API Link&Track retornou um erro lógico: ${data.erro}`);
-            throw new Error(data.erro);
-        }
-        
-        const formattedHistory = data.eventos.map(event => ({
-            status: event.status,
-            location: event.local,
-            date: new Date(`${event.data.split('/').reverse().join('-')}T${event.hora}`).toISOString()
-        }));
-
-        res.json(formattedHistory);
     } catch (error) {
-        console.error("ERRO DETALHADO ao buscar rastreio com Link&Track:", error);
-        // Envia a mensagem de erro específica para o frontend, em vez da mensagem genérica
+        console.error("ERRO DETALHADO ao fazer scraping do rastreio:", error);
         res.status(500).json({ message: error.message || "Erro interno no servidor ao tentar buscar o rastreio." });
     }
 });
