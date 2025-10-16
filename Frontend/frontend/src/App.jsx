@@ -8947,12 +8947,12 @@ function AppContent({ deferredPrompt }) {
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-3">
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-4">
                             <PixIcon className="h-7 w-auto"/>
-                            <VisaIcon className="h-5 w-auto"/>
+                            <VisaIcon className="h-7 w-auto"/>
                             <MastercardIcon className="h-7 w-auto"/>
                             <EloIcon className="h-7 w-auto"/>
-                            <BoletoIcon className="h-6 w-auto text-gray-400"/>
+                            <BoletoIcon className="h-7 w-auto text-gray-400"/>
                         </div>
                     </div>
                 </div>
