@@ -9049,11 +9049,23 @@ function AppContent({ deferredPrompt }) {
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <img 
-                            src="https://img.mlstatic.com/org-img/MLB/MP/BANNERS/tipo2_575X40.jpg?v=1" 
-                            alt="Formas de Pagamento"
-                            className="w-full max-w-[280px] h-auto mx-auto md:mx-0"
-                        />
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
+                                <PixIcon className="h-6 w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
+                                <VisaIcon className="h-6 w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
+                                <MastercardIcon className="h-6 w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
+                                <EloIcon className="h-6 w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1 flex items-center justify-center h-8">
+                                <BoletoIcon className="h-5 w-auto text-black"/>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
