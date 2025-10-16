@@ -8908,9 +8908,58 @@ function AppContent({ deferredPrompt }) {
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-white mt-auto py-8 text-center border-t border-gray-800">
-          <p className="text-gray-500">© 2025 LovecestasePerfumes</p>
+     {showHeaderFooter && !currentPath.startsWith('order-success') && (
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
+            <div className="container mx-auto px-4 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+                    {/* Coluna 1: Sobre a Loja */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
+                        <p className="text-sm text-gray-400">
+                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
+                        </p>
+                    </div>
+
+                    {/* Coluna 2: Institucional */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#about" onClick={(e) => { e.preventDefault(); /* onNavigate('about'); */ }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
+                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); /* onNavigate('privacy'); */ }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
+                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); /* onNavigate('terms'); */ }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                        </ul>
+                    </div>
+
+                    {/* Coluna 3: Atendimento */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li>
+                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
+                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Coluna 4: Formas de Pagamento */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-3">
+                            <PixIcon className="h-7 w-auto"/>
+                            <VisaIcon className="h-5 w-auto"/>
+                            <MastercardIcon className="h-7 w-auto"/>
+                            <EloIcon className="h-7 w-auto"/>
+                            <BoletoIcon className="h-6 w-auto text-gray-400"/>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-black py-4 border-t border-gray-800">
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            </div>
         </footer>
       )}
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
