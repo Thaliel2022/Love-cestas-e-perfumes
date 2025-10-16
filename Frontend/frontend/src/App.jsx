@@ -8924,9 +8924,9 @@ function AppContent({ deferredPrompt }) {
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Institucional</h3>
                         <ul className="space-y-2 text-sm">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); /* onNavigate('about'); */ }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); /* onNavigate('privacy'); */ }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); /* onNavigate('terms'); */ }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                            <li><a href="#" onClick={(e) => e.preventDefault()} className="text-gray-500 cursor-not-allowed">Sobre Nós</a></li>
+                            <li><a href="#" onClick={(e) => e.preventDefault()} className="text-gray-500 cursor-not-allowed">Política de Privacidade</a></li>
+                            <li><a href="#" onClick={(e) => e.preventDefault()} className="text-gray-500 cursor-not-allowed">Termos de Serviço</a></li>
                         </ul>
                     </div>
 
@@ -8947,13 +8947,11 @@ function AppContent({ deferredPrompt }) {
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-4">
-                            <PixIcon className="h-7 w-auto"/>
-                            <VisaIcon className="h-7 w-auto"/>
-                            <MastercardIcon className="h-7 w-auto"/>
-                            <EloIcon className="h-7 w-auto"/>
-                            <BoletoIcon className="h-7 w-auto text-gray-400"/>
-                        </div>
+                        <img 
+                            src="https://img.mlstatic.com/org-img/MLB/MP/BANNERS/tipo2_575X40.jpg?v=1" 
+                            alt="Formas de Pagamento"
+                            className="w-full max-w-[280px] h-auto mx-auto md:mx-0"
+                        />
                     </div>
                 </div>
             </div>
