@@ -8987,7 +8987,7 @@ function AppContent({ deferredPrompt }) {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
 
-    const pages = {
+   const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
         'login': <LoginPage onNavigate={navigate} />,
@@ -9010,7 +9010,7 @@ function AppContent({ deferredPrompt }) {
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
-     {showHeaderFooter && !currentPath.startsWith('order-success') && (
+      {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
@@ -9062,6 +9062,7 @@ function AppContent({ deferredPrompt }) {
             </div>
         </footer>
       )}
+      
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
