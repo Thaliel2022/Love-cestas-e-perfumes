@@ -3683,6 +3683,41 @@ app.post('/api/refunds/request', verifyToken, async (req, res) => {
     }
 });
 
+// (Admin) Rota para enviar e-mail direto para um usuário
+app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { subject, message } = req.body;
+
+    if (!subject || !message) {
+        return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
+    }
+
+    try {
+        const [users] = await db.query("SELECT name, email FROM users WHERE id = ?", [id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        const user = users[0];
+
+        const emailHtml = createAdminDirectEmail(user.name, subject, message);
+
+        await sendEmailAsync({
+            from: FROM_EMAIL,
+            to: user.email,
+            subject: subject,
+            html: emailHtml,
+        });
+        
+        logAdminAction(req.user, 'ENVIOU_EMAIL_DIRETO', `Para: ${user.email}, Assunto: "${subject}"`);
+
+        res.json({ message: `E-mail enviado com sucesso para ${user.name}.` });
+
+    } catch (err) {
+        console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
+        res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
+    }
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
