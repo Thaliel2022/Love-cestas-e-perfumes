@@ -100,23 +100,26 @@ const rateLimit = require('express-rate-limit');
 const { body, validationResult } = require('express-validator');
 
 const allowedOrigins = [
-    process.env.APP_URL, // Ex: https://lovecestaseperfumes.com.br
-    `https://www.${process.env.APP_URL?.split('//')[1]}`, // Adiciona a versão com www.
+    process.env.APP_URL,
+    `https://www.${process.env.APP_URL?.split('//')[1]}`,
     'http://localhost:3000',
-    'https://love-cestas-e-perfumes.vercel.app' // <-- ADICIONADO
+    'https://love-cestas-e-perfumes.vercel.app' 
 ];
 
+// Regex para aceitar qualquer subdomínio de deploy do Vercel para o seu projeto
+const vercelPreviewRegex = /^https:\/\/love-cestas-e-perfumes-.*\.vercel\.app$/;
+
 app.use(cors({
-    origin: function (origin, callback) {
-        // Permite requisições sem 'origin' (ex: Postman, apps mobile) ou se a origem estiver na lista.
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            console.error(`CORS Bloqueado para a origem: ${origin}`); // Adiciona log para depuração
-            callback(new Error('Acesso de origem não permitido por CORS'));
-        }
-    },
-    credentials: true // Permite o envio de cookies
+    origin: function (origin, callback) {
+        // Permite se a origem estiver na lista, corresponder ao Regex, ou se não houver origem (ex: Postman)
+        if (!origin || allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
+            callback(null, true);
+        } else {
+            console.error(`CORS Bloqueado para a origem: ${origin}`);
+            callback(new Error('Acesso de origem não permitido por CORS'));
+        }
+    },
+    credentials: true
 }));
 
 app.use(express.json());
