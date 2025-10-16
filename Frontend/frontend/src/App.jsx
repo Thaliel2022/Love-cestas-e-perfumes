@@ -4290,8 +4290,12 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
-    // A condição agora é mais abrangente
-    const canRequest = cancellableStatuses.includes(order.status) && !order.refund_id && (order.status !== 'Entregue' || isWithinRefundPeriod);
+    // A condição agora verifica o status do pagamento do gateway
+    const canRequest = 
+        order.payment_status === 'approved' && // <-- VERIFICAÇÃO ADICIONADA
+        cancellableStatuses.includes(order.status) && 
+        !order.refund_id && 
+        (order.status !== 'Entregue' || isWithinRefundPeriod);
     const actionText = isOrderDelivered ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
