@@ -5224,15 +5224,15 @@ const AjudaPage = ({ onNavigate }) => {
         },
         {
             q: "Quais são as formas de pagamento aceitas?",
-            a: "Aceitamos pagamentos via Pix, Boleto Bancário e Cartão de Crédito. Todos os pagamentos são processados de forma segura através do Mercado Pago. Você pode parcelar suas compras no cartão de crédito, e as opções de parcelamento serão exibidas na página de finalização da compra."
+            a: <>Aceitamos pagamentos via Pix, Boleto Bancário e Cartão de Crédito. Todos os pagamentos são processados de forma segura através do Mercado Pago. Você pode parcelar suas compras no cartão de crédito, e as opções de parcelamento serão exibidas na página de finalização da compra.</>
         },
         {
             q: "Qual é o prazo de entrega?",
-            a: "O prazo de entrega varia de acordo com o seu CEP e a modalidade de envio escolhida (PAC ou Sedex). Você pode calcular o prazo estimado na página do produto ou no carrinho de compras antes de finalizar o pedido. Para João Pessoa, PB, também oferecemos a opção de retirada na loja."
+            a: <>O prazo de entrega varia de acordo com o seu CEP e a modalidade de envio escolhida (PAC ou Sedex). Você pode calcular o prazo estimado na página do produto ou no carrinho de compras antes de finalizar o pedido. Para João Pessoa, PB, também oferecemos a opção de retirada na loja.</>
         },
         {
             q: "Como funciona a política de troca e devolução?",
-            a: "Você pode solicitar a troca ou devolução de um produto em até 7 dias corridos após o recebimento. O produto não deve apresentar sinais de uso e deve estar em sua embalagem original. Para iniciar o processo, acesse a página de detalhes do seu pedido em <a href=\"#account/orders\" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); }} className=\"text-amber-400 underline hover:text-amber-300\">\"Meus Pedidos\"</a> e utilize a opção de solicitar cancelamento/reembolso, informando o motivo."
+            a: <>Você pode solicitar a troca ou devolução de um produto em até 7 dias corridos após o recebimento. O produto não deve apresentar sinais de uso e deve estar em sua embalagem original. Para iniciar o processo, acesse a página de detalhes do seu pedido em <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); }} className="text-amber-400 underline hover:text-amber-300">"Meus Pedidos"</a> e utilize a opção de solicitar cancelamento/reembolso, informando o motivo.</>
         },
     ];
 
