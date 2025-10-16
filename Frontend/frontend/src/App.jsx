@@ -8072,23 +8072,30 @@ const UserDetailsModal = ({ user, onClose, onUserUpdate }) => {
         }
     };
     
-    const handleSendEmail = async (e) => {
+    const handleSendEmail = (e) => {
         e.preventDefault();
-        setIsSendingEmail(true);
-        try {
-            const result = await apiService(`/users/${details.id}/send-email`, 'POST', {
-                subject: emailSubject,
-                message: emailMessage
-            });
-            notification.show(result.message);
-            setIsEmailModalOpen(false);
-            setEmailSubject('');
-            setEmailMessage('');
-        } catch (error) {
-            notification.show(`Erro ao enviar e-mail: ${error.message}`, 'error');
-        } finally {
-            setIsSendingEmail(false);
-        }
+        
+        confirmation.show(
+            `Você está prestes a enviar um e-mail para ${details.name}. Por favor, confirme sua identidade para continuar.`,
+            async () => {
+                setIsSendingEmail(true);
+                try {
+                    const result = await apiService(`/users/${details.id}/send-email`, 'POST', {
+                        subject: emailSubject,
+                        message: emailMessage
+                    });
+                    notification.show(result.message);
+                    setIsEmailModalOpen(false);
+                    setEmailSubject('');
+                    setEmailMessage('');
+                } catch (error) {
+                    notification.show(`Erro ao enviar e-mail: ${error.message}`, 'error');
+                } finally {
+                    setIsSendingEmail(false);
+                }
+            },
+            { requiresAuth: true, confirmText: 'Confirmar e Enviar' }
+        );
     };
     
     const handleDelete = () => {
