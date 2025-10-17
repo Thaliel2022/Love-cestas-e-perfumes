@@ -1918,28 +1918,16 @@ const SideCart = ({ onNavigate }) => {
             <AnimatePresence>
                 {isSideCartOpen && lastAddedItem && (
                     <motion.div
-                        className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] w-full max-w-sm px-4"
+                        className="fixed top-24 left-1/2 -translate-x-1/2 z-[999] w-full max-w-sm px-4"
                         initial={{ opacity: 0, y: -50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -50, transition: { duration: 0.2 } }}
                         layout
                     >
-                        <div className="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-4">
-                            <div className="flex items-start gap-4">
-                                <div className="w-16 h-16 bg-white rounded-md p-1 flex-shrink-0">
-                                    <img src={getFirstImage(lastAddedItem.images)} alt={lastAddedItem.name} className="w-full h-full object-contain" />
-                                </div>
-                                <div className="flex-grow">
-                                    <p className="font-bold text-white flex items-center gap-2"><CheckCircleIcon className="h-5 w-5 text-green-400"/> Adicionado ao carrinho!</p>
-                                    <p className="text-sm text-gray-300 truncate">{lastAddedItem.name}</p>
-                                    <p className="text-xs text-gray-400 mt-2">Subtotal do carrinho: <span className="font-bold text-amber-400">R$ {subtotal.toFixed(2)}</span></p>
-                                </div>
-                                <button onClick={closeSideCart} className="p-1 text-gray-500 hover:text-white flex-shrink-0"><XMarkIcon className="h-5 w-5"/></button>
-                            </div>
-                            <div className="flex gap-3 mt-4">
-                                <button onClick={handleViewCart} className="w-1/2 text-center text-sm py-2 rounded-md bg-gray-700 hover:bg-gray-600 font-semibold">Ver Carrinho</button>
-                                <button onClick={handleCheckout} className="w-1/2 text-center text-sm py-2 rounded-md bg-amber-500 text-black font-bold hover:bg-amber-400">Finalizar</button>
-                            </div>
+                        <div className="bg-green-600 border border-green-500 rounded-xl shadow-2xl p-4 flex items-center gap-4">
+                            <CheckCircleIcon className="h-6 w-6 text-white flex-shrink-0"/>
+                            <p className="font-bold text-white flex-grow">{lastAddedItem.name} adicionado ao carrinho!</p>
+                            <button onClick={closeSideCart} className="p-1 text-white/70 hover:text-white flex-shrink-0"><XMarkIcon className="h-5 w-5"/></button>
                         </div>
                     </motion.div>
                 )}
