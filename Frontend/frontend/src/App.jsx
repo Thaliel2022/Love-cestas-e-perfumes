@@ -349,12 +349,22 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- NOVOS ESTADOS PARA O CARRINHO LATERAL ---
+    // --- ESTADOS ATUALIZADOS PARA O CARRINHO LATERAL ---
     const [isSideCartOpen, setIsSideCartOpen] = useState(false);
     const [lastAddedItem, setLastAddedItem] = useState(null);
-    const openSideCart = useCallback(() => setIsSideCartOpen(true), []);
-    const closeSideCart = useCallback(() => setIsSideCartOpen(false), []);
-    // --- FIM DOS NOVOS ESTADOS ---
+    const [cartViewMode, setCartViewMode] = useState('full'); // 'full' ou 'toast'
+
+    const openSideCart = useCallback((mode = 'full') => {
+        setCartViewMode(mode);
+        setIsSideCartOpen(true);
+    }, []);
+    
+    const closeSideCart = useCallback(() => {
+        setIsSideCartOpen(false);
+        // Reseta o modo para 'full' após o fechamento, para a próxima abertura padrão
+        setTimeout(() => setCartViewMode('full'), 300);
+    }, []);
+    // --- FIM DOS ESTADOS ATUALIZADOS ---
 
 
     const fetchPersistentCart = useCallback(async () => {
@@ -511,7 +521,7 @@ const ShopProvider = ({ children }) => {
             }
             return updatedCart;
         });
-        openSideCart(); // ABRE O CARRINHO LATERAL
+        openSideCart('toast'); // ABRE O CARRINHO EM MODO 'TOAST'
     }, [cart, isAuthenticated, openSideCart]);
     
     const removeFromCart = useCallback(async (cartItemId) => {
@@ -584,7 +594,7 @@ const ShopProvider = ({ children }) => {
             isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            isSideCartOpen, openSideCart, closeSideCart, lastAddedItem // <-- EXPORTA AS NOVAS FUNÇÕES E ESTADO
+            isSideCartOpen, openSideCart, closeSideCart, lastAddedItem, cartViewMode // <-- EXPORTA AS NOVAS FUNÇÕES E ESTADOS
         }}>
             {children}
         </ShopContext.Provider>
@@ -1849,7 +1859,7 @@ const [products, setProducts] = useState({
 };
 
 const SideCart = ({ onNavigate }) => {
-    const { cart, updateQuantity, removeFromCart, isSideCartOpen, closeSideCart, lastAddedItem } = useShop();
+    const { cart, updateQuantity, removeFromCart, isSideCartOpen, closeSideCart, lastAddedItem, cartViewMode } = useShop();
 
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -1862,13 +1872,13 @@ const SideCart = ({ onNavigate }) => {
     // Efeito para fechar o "toast" mobile automaticamente
     useEffect(() => {
         let timer;
-        if (isSideCartOpen && isMobile) {
+        if (isSideCartOpen && isMobile && cartViewMode === 'toast') {
             timer = setTimeout(() => {
                 closeSideCart();
             }, 5000); // Fecha após 5 segundos
         }
         return () => clearTimeout(timer);
-    }, [isSideCartOpen, isMobile, closeSideCart]);
+    }, [isSideCartOpen, isMobile, cartViewMode, closeSideCart]);
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -1885,8 +1895,8 @@ const SideCart = ({ onNavigate }) => {
         onNavigate('cart');
     };
 
-    // Renderiza o TOAST para mobile
-    if (isMobile) {
+    // CONDIÇÃO ATUALIZADA: Só mostra o toast se for mobile E o modo for 'toast'
+    if (isMobile && cartViewMode === 'toast') {
         return (
             <AnimatePresence>
                 {isSideCartOpen && lastAddedItem && (
@@ -1920,120 +1930,149 @@ const SideCart = ({ onNavigate }) => {
         );
     }
     
-    // Renderiza o PAINEL LATERAL para desktop
+    // RENDERIZAÇÃO DO PAINEL LATERAL (para desktop ou para mobile quando o ícone do header é clicado)
+    const backdropVariants = {
+        visible: { opacity: 1 },
+        hidden: { opacity: 0 }
+    };
+
+    const cartVariants = {
+        open: { x: 0, transition: { type: "spring", stiffness: 350, damping: 35 } },
+        closed: { x: "100%", transition: { type: "spring", stiffness: 350, damping: 35 } }
+    };
+    
     return (
         <AnimatePresence>
             {isSideCartOpen && (
-                <motion.div
-                    className="fixed inset-y-0 right-0 z-50 flex max-w-full"
-                    initial={{ x: "100%" }}
-                    animate={{ x: 0 }}
-                    exit={{ x: "100%" }}
-                    transition={{ type: "spring", stiffness: 350, damping: 35 }}
+                 <div
+                    className="fixed inset-0 z-50"
+                    aria-labelledby="slide-over-title"
+                    role="dialog"
+                    aria-modal="true"
                 >
-                    <div className="w-screen max-w-sm">
-                        <div className="flex h-full flex-col bg-gray-900 text-white shadow-2xl border-l border-gray-800">
-                             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-700">
-                                <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2">
-                                    <CartIcon className="h-6 w-6" />
-                                    Carrinho
-                                </h2>
-                                <button
-                                    type="button"
-                                    className="-m-2 p-2 text-gray-400 hover:text-white"
-                                    onClick={closeSideCart}
-                                >
-                                    <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                                </button>
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
-                                <div className="flow-root">
-                                    {cart.length > 0 ? (
-                                        <ul role="list" className="-my-6 divide-y divide-gray-700">
-                                            {cart.map((item) => (
-                                                <li key={item.cartItemId} className="flex py-6">
-                                                    <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-700 bg-white p-1">
-                                                        <img
-                                                            src={getFirstImage(item.images)}
-                                                            alt={item.name}
-                                                            className="h-full w-full object-contain object-center"
-                                                        />
-                                                    </div>
+                    {/* Backdrop escurecido, SÓ é renderizado em mobile */}
+                    {isMobile && (
+                        <motion.div
+                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                            variants={backdropVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="hidden"
+                            onClick={closeSideCart}
+                        />
+                    )}
 
-                                                    <div className="ml-4 flex flex-1 flex-col">
-                                                        <div>
-                                                            <div className="flex justify-between text-base font-medium text-white">
-                                                                <h3>
-                                                                    <a href={`#product/${item.id}`} onClick={(e) => { e.preventDefault(); closeSideCart(); onNavigate(`product/${item.id}`); }}>{item.name}</a>
-                                                                </h3>
-                                                                <p className="ml-4 whitespace-nowrap">R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</p>
-                                                            </div>
-                                                            {item.variation && <p className="mt-1 text-sm text-gray-400">{item.variation.color} / {item.variation.size}</p>}
+                    <motion.div
+                        className="fixed inset-y-0 right-0 flex max-w-full"
+                        variants={cartVariants}
+                        initial="closed"
+                        animate="open"
+                        exit="closed"
+                    >
+                        <div className="w-screen max-w-sm">
+                            <div className={`flex h-full flex-col bg-gray-900 text-white shadow-2xl ${!isMobile ? 'border-l border-gray-800' : ''}`}>
+                                 <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-700">
+                                    <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2" id="slide-over-title">
+                                        <CartIcon className="h-6 w-6" />
+                                        Carrinho
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        className="-m-2 p-2 text-gray-400 hover:text-white"
+                                        onClick={closeSideCart}
+                                    >
+                                        <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                                    </button>
+                                </div>
+                                
+                                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
+                                    <div className="flow-root">
+                                        {cart.length > 0 ? (
+                                            <ul role="list" className="-my-6 divide-y divide-gray-700">
+                                                {cart.map((item) => (
+                                                    <li key={item.cartItemId} className="flex py-6">
+                                                        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-700 bg-white p-1">
+                                                            <img
+                                                                src={getFirstImage(item.images)}
+                                                                alt={item.name}
+                                                                className="h-full w-full object-contain object-center"
+                                                            />
                                                         </div>
-                                                        <div className="flex flex-1 items-end justify-between text-sm">
-                                                            <div className="flex items-center border border-gray-700 rounded-md">
-                                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-l-md">-</button>
-                                                                <span className="px-4 py-1 font-bold">{item.qty}</span>
-                                                                <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-r-md">+</button>
+
+                                                        <div className="ml-4 flex flex-1 flex-col">
+                                                            <div>
+                                                                <div className="flex justify-between text-base font-medium text-white">
+                                                                    <h3>
+                                                                        <a href={`#product/${item.id}`} onClick={(e) => { e.preventDefault(); closeSideCart(); onNavigate(`product/${item.id}`); }}>{item.name}</a>
+                                                                    </h3>
+                                                                    <p className="ml-4 whitespace-nowrap">R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</p>
+                                                                </div>
+                                                                {item.variation && <p className="mt-1 text-sm text-gray-400">{item.variation.color} / {item.variation.size}</p>}
                                                             </div>
-                                                            <div className="flex">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeFromCart(item.cartItemId)}
-                                                                    className="font-medium text-amber-500 hover:text-amber-400"
-                                                                >
-                                                                    Remover
-                                                                </button>
+                                                            <div className="flex flex-1 items-end justify-between text-sm">
+                                                                <div className="flex items-center border border-gray-700 rounded-md">
+                                                                    <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-l-md">-</button>
+                                                                    <span className="px-4 py-1 font-bold">{item.qty}</span>
+                                                                    <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-r-md">+</button>
+                                                                </div>
+                                                                <div className="flex">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeFromCart(item.cartItemId)}
+                                                                        className="font-medium text-amber-500 hover:text-amber-400"
+                                                                    >
+                                                                        Remover
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <div className="text-center py-16">
-                                            <CartIcon className="mx-auto h-12 w-12 text-gray-600" />
-                                            <h3 className="mt-4 text-lg font-medium text-gray-400">Seu carrinho está vazio</h3>
-                                            <p className="mt-1 text-sm text-gray-500">Adicione produtos para vê-los aqui.</p>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <div className="text-center py-16">
+                                                <CartIcon className="mx-auto h-12 w-12 text-gray-600" />
+                                                <h3 className="mt-4 text-lg font-medium text-gray-400">Seu carrinho está vazio</h3>
+                                                <p className="mt-1 text-sm text-gray-500">Adicione produtos para vê-los aqui.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {cart.length > 0 && (
+                                    <div className="border-t border-gray-700 px-4 py-6 sm:px-6">
+                                        <div className="flex justify-between text-lg font-bold text-white">
+                                            <p>Subtotal</p>
+                                            <p>R$ {subtotal.toFixed(2)}</p>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {cart.length > 0 && (
-                                <div className="border-t border-gray-700 px-4 py-6 sm:px-6">
-                                    <div className="flex justify-between text-lg font-bold text-white">
-                                        <p>Subtotal</p>
-                                        <p>R$ {subtotal.toFixed(2)}</p>
-                                    </div>
-                                    <p className="mt-0.5 text-sm text-gray-400">Frete e cupons serão calculados no checkout.</p>
-                                    <div className="mt-6">
-                                        <button
-                                            onClick={handleCheckout}
-                                            className="w-full flex items-center justify-center rounded-md border border-transparent bg-amber-400 px-6 py-3 text-base font-bold text-black shadow-sm hover:bg-amber-300 transition-transform hover:scale-[1.02]"
-                                        >
-                                            Finalizar Compra
-                                        </button>
-                                    </div>
-                                    <div className="mt-4 flex justify-center text-center text-sm text-gray-400">
-                                        <p>
-                                            ou{' '}
+                                        <p className="mt-0.5 text-sm text-gray-400">Frete e cupons serão calculados no checkout.</p>
+                                        <div className="mt-6">
                                             <button
-                                                type="button"
-                                                className="font-medium text-amber-500 hover:text-amber-400"
-                                                onClick={handleViewCart}
+                                                onClick={handleCheckout}
+                                                className="w-full flex items-center justify-center rounded-md border border-transparent bg-amber-400 px-6 py-3 text-base font-bold text-black shadow-sm hover:bg-amber-300 transition-transform hover:scale-[1.02]"
                                             >
-                                                Ver carrinho detalhado
-                                                <span aria-hidden="true"> &rarr;</span>
+                                                Finalizar Compra
                                             </button>
-                                        </p>
+                                        </div>
+                                        <div className="mt-4 flex justify-center text-center text-sm text-gray-400">
+                                            <p>
+                                                ou{' '}
+                                                <button
+                                                    type="button"
+                                                    className="font-medium text-amber-500 hover:text-amber-400"
+                                                    onClick={handleViewCart}
+                                                >
+                                                    Ver carrinho detalhado
+                                                    <span aria-hidden="true"> &rarr;</span>
+                                                </button>
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </motion.div>
+                    </motion.div>
+                </div>
             )}
         </AnimatePresence>
     );
