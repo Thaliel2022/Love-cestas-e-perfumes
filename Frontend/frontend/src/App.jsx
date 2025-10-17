@@ -190,7 +190,7 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
 async function apiUploadService(endpoint, file) {
     const formData = new FormData();
-    formData.append('image', file); // CORRIGIDO: de 'file' para 'image'
+    formData.append('file', file);
 
     const config = {
         method: 'POST',
