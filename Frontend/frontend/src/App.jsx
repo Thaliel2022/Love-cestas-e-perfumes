@@ -9026,7 +9026,9 @@ function AppContent({ deferredPrompt }) {
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Institucional</h3>
                         <ul className="space-y-2 text-sm">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
+                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
+                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
                         </ul>
                     </div>
 
@@ -9034,7 +9036,7 @@ function AppContent({ deferredPrompt }) {
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
                         <ul className="space-y-2 text-sm">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
                             <li>
                                 <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
                                     <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
