@@ -349,24 +349,6 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- ESTADOS ATUALIZADOS PARA O CARRINHO LATERAL ---
-    const [isSideCartOpen, setIsSideCartOpen] = useState(false);
-    const [lastAddedItem, setLastAddedItem] = useState(null);
-    const [cartViewMode, setCartViewMode] = useState('full'); // 'full' ou 'toast'
-
-    const openSideCart = useCallback((mode = 'full') => {
-        setCartViewMode(mode);
-        setIsSideCartOpen(true);
-    }, []);
-    
-    const closeSideCart = useCallback(() => {
-        setIsSideCartOpen(false);
-        // Reseta o modo para 'full' após o fechamento, para a próxima abertura padrão
-        setTimeout(() => setCartViewMode('full'), 300);
-    }, []);
-    // --- FIM DOS ESTADOS ATUALIZADOS ---
-
-
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -505,8 +487,6 @@ const ShopProvider = ({ children }) => {
         const currentQtyInCart = existing ? existing.qty : 0;
         
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-        
-        setLastAddedItem(productToAdd); // Define o último item adicionado
 
         setCart(currentCart => {
             let updatedCart;
@@ -521,8 +501,7 @@ const ShopProvider = ({ children }) => {
             }
             return updatedCart;
         });
-        openSideCart('toast'); // ABRE O CARRINHO EM MODO 'TOAST'
-    }, [cart, isAuthenticated, openSideCart]);
+    }, [cart, isAuthenticated]);
     
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
@@ -593,8 +572,7 @@ const ShopProvider = ({ children }) => {
             setSelectedShippingName,
             isGeolocating,
             couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            isSideCartOpen, openSideCart, closeSideCart, lastAddedItem, cartViewMode // <-- EXPORTA AS NOVAS FUNÇÕES E ESTADOS
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
             {children}
         </ShopContext.Provider>
@@ -1314,7 +1292,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, openSideCart } = useShop();
+    const { cart, wishlist } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1322,19 +1300,6 @@ const Header = memo(({ onNavigate }) => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
-    
-    // --- LÓGICA PARA DETECTAR SE É MOBILE ---
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-    const handleResize = useCallback(() => {
-        setIsMobile(window.innerWidth < 768);
-    }, []);
-
-    useEffect(() => {
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, [handleResize]);
-    // --- FIM DA LÓGICA ---
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1509,11 +1474,7 @@ const Header = memo(({ onNavigate }) => {
                             <HeartIcon className="h-6 w-6"/>
                             {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
                         </button>
-                        <motion.button 
-                            animate={cartAnimationControls} 
-                            onClick={() => isMobile ? onNavigate('cart') : openSideCart('full')} 
-                            className="relative hover:text-amber-400 transition p-1"
-                        >
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition p-1">
                             <CartIcon className="h-6 w-6"/>
                             {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                         </motion.button>
@@ -1875,213 +1836,6 @@ const [products, setProducts] = useState({
     );
 };
 
-const SideCart = ({ onNavigate }) => {
-    const { cart, updateQuantity, removeFromCart, isSideCartOpen, closeSideCart, lastAddedItem, cartViewMode } = useShop();
-
-    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    // Efeito para fechar o "toast" mobile automaticamente
-    useEffect(() => {
-        let timer;
-        if (isSideCartOpen && isMobile && cartViewMode === 'toast') {
-            timer = setTimeout(() => {
-                closeSideCart();
-            }, 5000); // Fecha após 5 segundos
-        }
-        return () => clearTimeout(timer);
-    }, [isSideCartOpen, isMobile, cartViewMode, closeSideCart]);
-
-    const subtotal = useMemo(() => cart.reduce((sum, item) => {
-        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
-        return sum + price * item.qty;
-    }, 0), [cart]);
-
-    const handleCheckout = () => {
-        closeSideCart();
-        onNavigate('checkout');
-    };
-
-    const handleViewCart = () => {
-        closeSideCart();
-        onNavigate('cart');
-    };
-
-    // CONDIÇÃO ATUALIZADA: Só mostra o toast se for mobile E o modo for 'toast'
-    if (isMobile && cartViewMode === 'toast') {
-        return (
-            <AnimatePresence>
-                {isSideCartOpen && lastAddedItem && (
-                    <motion.div
-                        className="fixed top-24 left-1/2 -translate-x-1/2 z-[999] w-full max-w-sm px-4"
-                        initial={{ opacity: 0, y: -50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -50, transition: { duration: 0.2 } }}
-                        layout
-                    >
-                        <div className="bg-green-600 border border-green-500 rounded-xl shadow-2xl p-4 flex items-center gap-4">
-                            <CheckCircleIcon className="h-6 w-6 text-white flex-shrink-0"/>
-                            <p className="font-bold text-white flex-grow">{lastAddedItem.name} adicionado ao carrinho!</p>
-                            <button onClick={closeSideCart} className="p-1 text-white/70 hover:text-white flex-shrink-0"><XMarkIcon className="h-5 w-5"/></button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        );
-    }
-    
-    // RENDERIZAÇÃO DO PAINEL LATERAL (para desktop ou para mobile quando o ícone do header é clicado)
-    const backdropVariants = {
-        visible: { opacity: 1 },
-        hidden: { opacity: 0 }
-    };
-
-    const cartVariants = {
-        open: { x: 0, transition: { type: "spring", stiffness: 350, damping: 35 } },
-        closed: { x: "100%", transition: { type: "spring", stiffness: 350, damping: 35 } }
-    };
-    
-    return (
-        <AnimatePresence>
-            {isSideCartOpen && (
-                 <div
-                    className="fixed inset-0 z-50"
-                    aria-labelledby="slide-over-title"
-                    role="dialog"
-                    aria-modal="true"
-                >
-                    {/* Backdrop escurecido, SÓ é renderizado em mobile */}
-                    {isMobile && (
-                        <motion.div
-                            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                            variants={backdropVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="hidden"
-                            onClick={closeSideCart}
-                        />
-                    )}
-
-                    <motion.div
-                        className="fixed inset-y-0 right-0 flex max-w-full"
-                        variants={cartVariants}
-                        initial="closed"
-                        animate="open"
-                        exit="closed"
-                    >
-                        <div className="w-screen max-w-sm">
-                            <div className={`flex h-full flex-col bg-gray-900 text-white shadow-2xl ${!isMobile ? 'border-l border-gray-800' : ''}`}>
-                                 <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-700">
-                                    <h2 className="text-xl font-bold text-amber-400 flex items-center gap-2" id="slide-over-title">
-                                        <CartIcon className="h-6 w-6" />
-                                        Carrinho
-                                    </h2>
-                                    <button
-                                        type="button"
-                                        className="-m-2 p-2 text-gray-400 hover:text-white"
-                                        onClick={closeSideCart}
-                                    >
-                                        <XMarkIcon className="h-6 w-6" aria-hidden="true" />
-                                    </button>
-                                </div>
-                                
-                                <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
-                                    <div className="flow-root">
-                                        {cart.length > 0 ? (
-                                            <ul role="list" className="-my-6 divide-y divide-gray-700">
-                                                {cart.map((item) => (
-                                                    <li key={item.cartItemId} className="flex py-6">
-                                                        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-700 bg-white p-1">
-                                                            <img
-                                                                src={getFirstImage(item.images)}
-                                                                alt={item.name}
-                                                                className="h-full w-full object-contain object-center"
-                                                            />
-                                                        </div>
-
-                                                        <div className="ml-4 flex flex-1 flex-col">
-                                                            <div>
-                                                                <div className="flex justify-between text-base font-medium text-white">
-                                                                    <h3>
-                                                                        <a href={`#product/${item.id}`} onClick={(e) => { e.preventDefault(); closeSideCart(); onNavigate(`product/${item.id}`); }}>{item.name}</a>
-                                                                    </h3>
-                                                                    <p className="ml-4 whitespace-nowrap">R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</p>
-                                                                </div>
-                                                                {item.variation && <p className="mt-1 text-sm text-gray-400">{item.variation.color} / {item.variation.size}</p>}
-                                                            </div>
-                                                            <div className="flex flex-1 items-end justify-between text-sm">
-                                                                <div className="flex items-center border border-gray-700 rounded-md">
-                                                                    <button onClick={() => updateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-l-md">-</button>
-                                                                    <span className="px-4 py-1 font-bold">{item.qty}</span>
-                                                                    <button onClick={() => updateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 text-lg hover:bg-gray-800 rounded-r-md">+</button>
-                                                                </div>
-                                                                <div className="flex">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => removeFromCart(item.cartItemId)}
-                                                                        className="font-medium text-amber-500 hover:text-amber-400"
-                                                                    >
-                                                                        Remover
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <div className="text-center py-16">
-                                                <CartIcon className="mx-auto h-12 w-12 text-gray-600" />
-                                                <h3 className="mt-4 text-lg font-medium text-gray-400">Seu carrinho está vazio</h3>
-                                                <p className="mt-1 text-sm text-gray-500">Adicione produtos para vê-los aqui.</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {cart.length > 0 && (
-                                    <div className="border-t border-gray-700 px-4 py-6 sm:px-6">
-                                        <div className="flex justify-between text-lg font-bold text-white">
-                                            <p>Subtotal</p>
-                                            <p>R$ {subtotal.toFixed(2)}</p>
-                                        </div>
-                                        <p className="mt-0.5 text-sm text-gray-400">Frete e cupons serão calculados no checkout.</p>
-                                        <div className="mt-6">
-                                            <button
-                                                onClick={handleCheckout}
-                                                className="w-full flex items-center justify-center rounded-md border border-transparent bg-amber-400 px-6 py-3 text-base font-bold text-black shadow-sm hover:bg-amber-300 transition-transform hover:scale-[1.02]"
-                                            >
-                                                Finalizar Compra
-                                            </button>
-                                        </div>
-                                        <div className="mt-4 flex justify-center text-center text-sm text-gray-400">
-                                            <p>
-                                                ou{' '}
-                                                <button
-                                                    type="button"
-                                                    className="font-medium text-amber-500 hover:text-amber-400"
-                                                    onClick={handleViewCart}
-                                                >
-                                                    Ver carrinho detalhado
-                                                    <span aria-hidden="true"> &rarr;</span>
-                                                </button>
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
-    );
-};
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
     const [allProducts, setAllProducts] = useState([]);
@@ -9255,7 +9009,6 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      {showHeaderFooter && <SideCart onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
