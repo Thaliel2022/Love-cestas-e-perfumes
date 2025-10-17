@@ -1322,6 +1322,19 @@ const Header = memo(({ onNavigate }) => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
+    
+    // --- LÓGICA PARA DETECTAR SE É MOBILE ---
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    const handleResize = useCallback(() => {
+        setIsMobile(window.innerWidth < 768);
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, [handleResize]);
+    // --- FIM DA LÓGICA ---
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1496,7 +1509,11 @@ const Header = memo(({ onNavigate }) => {
                             <HeartIcon className="h-6 w-6"/>
                             {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
                         </button>
-                        <motion.button animate={cartAnimationControls} onClick={openSideCart} className="relative hover:text-amber-400 transition p-1">
+                        <motion.button 
+                            animate={cartAnimationControls} 
+                            onClick={() => isMobile ? onNavigate('cart') : openSideCart('full')} 
+                            className="relative hover:text-amber-400 transition p-1"
+                        >
                             <CartIcon className="h-6 w-6"/>
                             {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                         </motion.button>
@@ -1901,7 +1918,7 @@ const SideCart = ({ onNavigate }) => {
             <AnimatePresence>
                 {isSideCartOpen && lastAddedItem && (
                     <motion.div
-                        className="fixed top-4 left-1/2 -translate-x-1/2 z-[999] w-[90%] max-w-sm"
+                        className="fixed top-20 left-1/2 -translate-x-1/2 z-[999] w-full max-w-sm px-4"
                         initial={{ opacity: 0, y: -50 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -50, transition: { duration: 0.2 } }}
