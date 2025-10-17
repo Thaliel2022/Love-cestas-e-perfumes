@@ -7963,7 +7963,8 @@ const BannerForm = ({ item, onSave, onCancel }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Desktop)</label>
-                    <div className="flex flex-col gap-2 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">Tamanho recomendado: **1920 x 720 pixels** (proporção 8:3).</p>
+                    <div className="flex flex-col gap-2 mt-2">
                         <img src={formData.image_url || 'https://placehold.co/200x100/eee/ccc?text=Desktop'} alt="Preview Desktop" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
                         <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
                         <input type="file" ref={desktopInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'desktop')} />
@@ -7974,7 +7975,8 @@ const BannerForm = ({ item, onSave, onCancel }) => {
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Mobile)</label>
-                    <div className="flex flex-col gap-2 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">Tamanho recomendado: **800 x 1200 pixels** (proporção 2:3, vertical).</p>
+                    <div className="flex flex-col gap-2 mt-2">
                         <img src={formData.image_url_mobile || 'https://placehold.co/100x100/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
                         <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="Opcional: https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
                         <input type="file" ref={mobileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'mobile')} />
