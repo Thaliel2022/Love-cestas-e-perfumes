@@ -9026,9 +9026,7 @@ function AppContent({ deferredPrompt }) {
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Institucional</h3>
                         <ul className="space-y-2 text-sm">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); onNavigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); onNavigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); onNavigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
                         </ul>
                     </div>
 
