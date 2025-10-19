@@ -3394,6 +3394,7 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Rota consolidada para dados do Dashboard com filtros
 // (Admin) Rota consolidada para dados do Dashboard com filtros
+// (Admin) Rota consolidada para dados do Dashboard com filtros
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
     const { filter } = req.query; // 'today', 'week', 'month', 'year'
     let startDate, endDate = new Date(); // endDate (período atual) é AGORA
@@ -3461,60 +3462,41 @@ app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => 
             ORDER_STATUS.DELIVERED
         ];
 
-        // --- CORREÇÃO: Consultas separadas para robustez ---
+        // --- CORREÇÃO: Consultas separadas e em LINHA ÚNICA para evitar erros de sintaxe ---
 
         // 1. Faturamento e Vendas (Período Atual)
         const [currentSalesStats] = await db.query(
-            `SELECT COUNT(id) as totalSales, COALESCE(SUM(total), 0) as totalRevenue
-             FROM orders
-             WHERE status IN (?) AND date >= ? AND date <= ?`,
+            `SELECT COUNT(id) as totalSales, COALESCE(SUM(total), 0) as totalRevenue FROM orders WHERE status IN (?) AND date >= ? AND date <= ?`,
             [validOrderStatus, startDate, endDate]
         );
 
         // 2. Faturamento (Período Anterior)
         const [prevSalesStats] = await db.query(
-            `SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
-             FROM orders
-             WHERE status IN (?) AND date >= ? AND date <= ?`,
+            `SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue FROM orders WHERE status IN (?) AND date >= ? AND date <= ?`,
             [validOrderStatus, prevStartDate, prevEndDate]
         );
 
         // 3. Novos Clientes (Período Atual)
         const [newCustomersStats] = await db.query(
-            `SELECT COUNT(id) as newCustomers
-             FROM users
-             WHERE created_at >= ? AND created_at <= ?`,
+            `SELECT COUNT(id) as newCustomers FROM users WHERE created_at >= ? AND created_at <= ?`,
             [startDate, endDate]
         );
 
         // 4. Pedidos Pendentes (Período Atual)
         const [pendingOrdersStats] = await db.query(
-            `SELECT COUNT(id) as pendingOrders
-             FROM orders
-             WHERE status = 'Pendente' AND date >= ? AND date <= ?`,
+            `SELECT COUNT(id) as pendingOrders FROM orders WHERE status = 'Pendente' AND date >= ? AND date <= ?`,
             [startDate, endDate]
         );
 
         // 5. Vendas Diárias (Gráfico)
         const [dailySales] = await db.query(
-            `SELECT DATE(date) as sale_date, SUM(total) as daily_total
-             FROM orders
-             WHERE status IN (?) AND date >= ? AND date <= ?
-             GROUP BY DATE(date)
-             ORDER BY sale_date ASC`,
+            `SELECT DATE(date) as sale_date, SUM(total) as daily_total FROM orders WHERE status IN (?) AND date >= ? AND date <= ? GROUP BY DATE(date) ORDER BY sale_date ASC`,
             [validOrderStatus, startDate, endDate]
         );
 
         // 6. Mais Vendidos (Gráfico)
         const [bestSellers] = await db.query(
-            `SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
-             FROM order_items oi
-             JOIN orders o ON oi.order_id = o.id
-             JOIN products p ON oi.product_id = p.id
-             WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
-             GROUP BY p.id, p.name
-             ORDER BY sales_in_period DESC
-             LIMIT 5`,
+            `SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status IN (?) AND o.date >= ? AND o.date <= ? GROUP BY p.id, p.name ORDER BY sales_in_period DESC LIMIT 5`,
             [validOrderStatus, startDate, endDate]
         );
 
