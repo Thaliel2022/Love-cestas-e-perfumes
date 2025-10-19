@@ -3519,6 +3519,100 @@ app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => 
     }
 });
 
+// (Admin) Rota para relatórios detalhados com intervalo de datas
+app.get('/api/reports/detailed', verifyToken, verifyAdmin, async (req, res) => {
+    let { startDate, endDate } = req.query;
+
+    // Validação e valores padrão
+    if (!startDate) {
+        startDate = new Date();
+        startDate.setDate(1); // Primeiro dia do mês atual
+        startDate.setHours(0, 0, 0, 0);
+    } else {
+        startDate = new Date(startDate);
+        startDate.setHours(0, 0, 0, 0);
+    }
+
+    if (!endDate) {
+        endDate = new Date(); // Hoje
+        endDate.setHours(23, 59, 59, 999);
+    } else {
+        endDate = new Date(endDate);
+        endDate.setHours(23, 59, 59, 999); // Fim do dia selecionado
+    }
+
+    try {
+        const validOrderStatus = [
+            ORDER_STATUS.PAYMENT_APPROVED,
+            ORDER_STATUS.PROCESSING,
+            ORDER_STATUS.READY_FOR_PICKUP,
+            ORDER_STATUS.SHIPPED,
+            ORDER_STATUS.OUT_FOR_DELIVERY,
+            ORDER_STATUS.DELIVERED
+        ];
+        
+        // 1. KPIs (Cards de Estatísticas)
+        const [kpiStats] = await db.query(
+            `SELECT
+                COALESCE(SUM(total), 0) as totalRevenue,
+                COUNT(id) as totalSales,
+                COALESCE(AVG(total), 0) as avgOrderValue,
+                (SELECT COUNT(id) FROM users WHERE created_at >= ? AND created_at <= ?) as newCustomers
+             FROM orders
+             WHERE status IN (?) AND date >= ? AND date <= ?`,
+            [startDate, endDate, validOrderStatus, startDate, endDate]
+        );
+
+        // 2. Gráfico de Vendas ao Longo do Tempo (Agrupado por dia)
+        const [salesOverTime] = await db.query(
+            `SELECT DATE(date) as sale_date, SUM(total) as daily_total
+             FROM orders
+             WHERE status IN (?) AND date >= ? AND date <= ?
+             GROUP BY DATE(date)
+             ORDER BY sale_date ASC`,
+            [validOrderStatus, startDate, endDate]
+        );
+
+        // 3. Gráfico/Tabela de Produtos Mais Vendidos
+        const [topProducts] = await db.query(
+            `SELECT p.name, SUM(oi.quantity) as total_quantity, SUM(oi.quantity * oi.price) as total_revenue
+             FROM order_items oi
+             JOIN products p ON oi.product_id = p.id
+             JOIN orders o ON oi.order_id = o.id
+             WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
+             GROUP BY p.id, p.name
+             ORDER BY total_quantity DESC
+             LIMIT 10`,
+            [validOrderStatus, startDate, endDate]
+        );
+
+        // 4. Tabela de Clientes Mais Valiosos
+        const [topCustomers] = await db.query(
+            `SELECT u.name, u.email, COUNT(o.id) as total_orders, SUM(o.total) as total_spent
+             FROM orders o
+             JOIN users u ON o.user_id = u.id
+             WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
+             GROUP BY u.id, u.name, u.email
+             ORDER BY total_spent DESC
+             LIMIT 10`,
+            [validOrderStatus, startDate, endDate]
+        );
+
+        res.json({
+            kpis: kpiStats[0],
+            salesOverTime,
+            topProducts,
+            topCustomers
+        });
+
+    } catch (err) {
+        console.error("Erro ao gerar relatório detalhado:", err);
+        res.status(500).json({ message: "Erro ao gerar dados do relatório." });
+    }
+});
+
+// --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
+
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
     const { secret } = req.body;

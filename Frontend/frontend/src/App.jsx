@@ -7977,19 +7977,210 @@ const AdminOrders = () => {
     );
 };
 const AdminReports = () => {
-    // A funcionalidade de exportação foi movida para o Dashboard.
-    // Esta página pode ser usada no futuro para relatórios mais complexos.
-    return(
+    const [reportData, setReportData] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const notification = useNotification();
+    
+    // Define as datas padrão
+    const getFirstDayOfMonth = () => {
+        const date = new Date();
+        date.setDate(1);
+        date.setHours(0, 0, 0, 0);
+        return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    };
+    const getToday = () => {
+        return new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    };
+
+    const [startDate, setStartDate] = useState(getFirstDayOfMonth());
+    const [endDate, setEndDate] = useState(getToday());
+
+    // Função para buscar os dados da API
+    const handleGenerateReport = useCallback(() => {
+        setIsLoading(true);
+        setReportData(null); // Limpa dados antigos
+        
+        // Destrói gráficos antigos para evitar sobreposição
+        if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
+        if (window.myTopProductsChart) window.myTopProductsChart.destroy();
+
+        apiService(`/reports/detailed?startDate=${startDate}&endDate=${endDate}`)
+            .then(data => {
+                setReportData(data);
+            })
+            .catch(err => {
+                notification.show(`Erro ao gerar relatório: ${err.message}`, 'error');
+            })
+            .finally(() => {
+                setIsLoading(false);
+            });
+    }, [startDate, endDate, notification]);
+
+    // Busca o relatório do mês atual ao carregar a página
+    useEffect(() => {
+        handleGenerateReport();
+    }, [handleGenerateReport]); // Roda apenas uma vez na montagem
+
+    // Efeito para RENDERIZAR os gráficos DEPOIS que os dados chegarem
+    useEffect(() => {
+        if (reportData && !isLoading) {
+            const renderCharts = () => {
+                if (window.Chart) {
+                    // Gráfico de Vendas ao Longo do Tempo
+                    const salesCtx = document.getElementById('salesOverTimeChart')?.getContext('2d');
+                    if (salesCtx && reportData.salesOverTime) {
+                        if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
+                        window.mySalesOverTimeChart = new window.Chart(salesCtx, {
+                            type: 'line',
+                            data: {
+                                labels: reportData.salesOverTime.map(d => new Date(d.sale_date + 'T00:00:00').toLocaleDateString('pt-BR')),
+                                datasets: [{
+                                    label: 'Faturamento (R$)',
+                                    data: reportData.salesOverTime.map(d => d.daily_total),
+                                    borderColor: 'rgba(212, 175, 55, 1)',
+                                    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                                    fill: true, tension: 0.3
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false }
+                        });
+                    }
+                    
+                    // Gráfico de Produtos Mais Vendidos
+                    const productsCtx = document.getElementById('topProductsChart')?.getContext('2d');
+                    if (productsCtx && reportData.topProducts) {
+                        if (window.myTopProductsChart) window.myTopProductsChart.destroy();
+                        window.myTopProductsChart = new window.Chart(productsCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: reportData.topProducts.map(p => p.name),
+                                datasets: [{
+                                    label: 'Unidades Vendidas',
+                                    data: reportData.topProducts.map(p => p.total_quantity),
+                                    backgroundColor: 'rgba(212, 175, 55, 0.8)',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                        });
+                    }
+                } else {
+                    console.warn("Chart.js não carregado, tentando renderizar gráficos novamente...");
+                    setTimeout(renderCharts, 100);
+                }
+            };
+            renderCharts();
+        }
+    }, [reportData, isLoading]); // Depende dos dados e do status de carregamento
+
+    const StatCard = ({ title, value }) => (
+        <div className="bg-white p-6 rounded-lg shadow-md text-center">
+            <h4 className="text-sm font-semibold text-gray-500 uppercase">{title}</h4>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+        </div>
+    );
+
+    return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Relatórios</h1>
-            <div className="bg-white p-6 rounded-lg shadow">
-                <p className="text-gray-600">
-                    A funcionalidade de exportação de relatórios de Vendas e Estoque foi movida para o Dashboard principal para acesso rápido.
-                </p>
-                <p className="text-gray-600 mt-4">
-                    Esta página será usada para relatórios mais detalhados no futuro.
-                </p>
+            <h1 className="text-3xl font-bold mb-6">Relatórios Detalhados</h1>
+            
+            {/* Seletor de Data */}
+            <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    <div>
+                        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Data de Início</label>
+                        <input
+                            type="date"
+                            id="startDate"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Data Final</label>
+                        <input
+                            type="date"
+                            id="endDate"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                        />
+                    </div>
+                    <button
+                        onClick={handleGenerateReport}
+                        disabled={isLoading}
+                        className="w-full md:w-auto bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 mt-3 md:mt-6"
+                    >
+                        {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                    </button>
+                </div>
             </div>
+
+            {isLoading && (
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500" /></div>
+            )}
+
+            {reportData && !isLoading && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="space-y-6"
+                >
+                    {/* KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard title="Faturamento Total" value={`R$ ${Number(reportData.kpis.totalRevenue).toFixed(2)}`} />
+                        <StatCard title="Total de Vendas" value={reportData.kpis.totalSales} />
+                        <StatCard title="Ticket Médio" value={`R$ ${Number(reportData.kpis.avgOrderValue).toFixed(2)}`} />
+                        <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} />
+                    </div>
+
+                    {/* Gráficos */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
+                            <h3 className="font-bold mb-4 text-lg">Vendas ao Longo do Tempo</h3>
+                            <div className="relative h-64">
+                                <canvas id="salesOverTimeChart"></canvas>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
+                            <h3 className="font-bold mb-4 text-lg">Produtos Mais Vendidos (por Unidade)</h3>
+                            <div className="relative h-64">
+                                <canvas id="topProductsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tabela de Clientes */}
+                    <div className="bg-white p-6 rounded-lg shadow">
+                        <h3 className="font-bold mb-4 text-lg">Clientes Mais Valiosos</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-gray-100">
+                                    <tr>
+                                        <th className="p-3 font-semibold">Cliente</th>
+                                        <th className="p-3 font-semibold">E-mail</th>
+                                        <th className="p-3 font-semibold">Total de Pedidos</th>
+                                        <th className="p-3 font-semibold">Valor Gasto (R$)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {reportData.topCustomers.map((customer, index) => (
+                                        <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
+                                            <td className="p-3">{customer.name}</td>
+                                            <td className="p-3">{customer.email}</td>
+                                            <td className="p-3">{customer.total_orders}</td>
+                                            <td className="p-3 font-medium">R$ {Number(customer.total_spent).toFixed(2)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </motion.div>
+            )}
+
         </div>
     );
 };
