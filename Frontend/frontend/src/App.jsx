@@ -1470,21 +1470,30 @@ const Header = memo(({ onNavigate }) => {
     };
 
     // --- Lógica Simplificada para Exibição do Endereço (Mobile) ---
+    // --- Lógica Revisada para Exibição do Endereço (Mobile) ---
     let addressDisplay = 'Selecione um endereço'; // Default placeholder
     if (shippingLocation && shippingLocation.cep) {
         const cleanCep = shippingLocation.cep.replace(/\D/g, '');
         if (cleanCep.length === 8) {
             const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
             const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - '); // City - ST
-            const prefix = isAuthenticated && user?.name ? `Enviar para ${user.name.split(' ')[0]} -` : 'Enviar para';
+            let prefix = 'Enviar para'; // Default
+
+            // Usa o alias do endereço se for um alias "real" (não genérico)
+            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
+                prefix = `Enviar para ${shippingLocation.alias} -`;
+            } else if (isAuthenticated && user?.name) { // Senão, usa o nome do usuário logado
+                prefix = `Enviar para ${user.name.split(' ')[0]} -`;
+            }
 
             if (displayCityState) {
                 addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
             } else {
-                 addressDisplay = `${prefix} ${formattedCep}`; // Fallback if city/state unknown
+                 addressDisplay = `${prefix} ${formattedCep}`; // Fallback se cidade/estado desconhecidos
             }
         }
     }
+    // --- Fim da Lógica Revisada do Endereço ---
     // --- Fim da Lógica Simplificada do Endereço ---
 
 
