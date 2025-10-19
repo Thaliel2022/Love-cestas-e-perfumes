@@ -1476,8 +1476,8 @@ const Header = memo(({ onNavigate }) => {
         const formattedCep = shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2');
         const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
         // Determine prefix based on authentication and if the alias looks like a saved one
-        const isSavedAddressAlias = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
-        const prefix = (isAuthenticated && isSavedAddressAlias && user?.name)
+        const isLikelySavedAddress = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
+        const prefix = (isAuthenticated && isLikelySavedAddress && user?.name)
             ? `Enviar para ${user.name.split(' ')[0]} -`
             : 'Enviar para'; // Default prefix or for CEP/Location/Guest
 
