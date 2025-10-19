@@ -3394,116 +3394,137 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Rota consolidada para dados do Dashboard com filtros
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
-    const { filter } = req.query; // 'today', 'week', 'month', 'year'
-    let startDate, endDate = new Date(); // End date is always today/now
+    const { filter } = req.query; // 'today', 'week', 'month', 'year'
+    let startDate, endDate = new Date(); // endDate (período atual) é AGORA
+    let prevStartDate, prevEndDate;
 
-    // Define o período com base no filtro
-    switch (filter) {
-        case 'today':
-            startDate = new Date();
-            startDate.setHours(0, 0, 0, 0);
-            break;
-        case 'week':
-            startDate = new Date();
-            startDate.setDate(startDate.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
-            break;
-        case 'year':
-            startDate = new Date();
-            startDate.setFullYear(startDate.getFullYear() - 1);
-            startDate.setHours(0, 0, 0, 0);
-            break;
-        case 'month':
-        default: // Default é o mês atual
-            startDate = new Date();
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
-    }
+    // Define os períodos ATUAL e ANTERIOR
+    switch (filter) {
+        case 'today':
+            startDate = new Date();
+            startDate.setHours(0, 0, 0, 0); // Hoje, 00:00
 
-    // Calcula o período anterior para comparação
-    let prevStartDate, prevEndDate;
-    const diff = endDate.getTime() - startDate.getTime(); // Duração do período atual em ms
-    prevEndDate = new Date(startDate.getTime() - 1); // Um dia antes do início do período atual
-    prevEndDate.setHours(23, 59, 59, 999); // Garante que pegue o dia anterior completo
-    prevStartDate = new Date(prevEndDate.getTime() - diff);
-    prevStartDate.setHours(0, 0, 0, 0); // Garante que comece no início do dia
+            prevStartDate = new Date(startDate);
+            prevStartDate.setDate(prevStartDate.getDate() - 1); // Ontem, 00:00
+            prevEndDate = new Date(startDate);
+            prevEndDate.setDate(prevEndDate.getDate() - 1);
+            prevEndDate.setHours(23, 59, 59, 999); // Ontem, 23:59
+            break;
+        case 'week':
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 6); // 7 dias atrás (contando hoje)
+            startDate.setHours(0, 0, 0, 0);
+            
+            prevEndDate = new Date(startDate);
+            prevEndDate.setDate(prevEndDate.getDate() - 1); // Dia anterior ao início da semana
+            prevEndDate.setHours(23, 59, 59, 999);
+            prevStartDate = new Date(prevEndDate);
+            prevStartDate.setDate(prevStartDate.getDate() - 6); // 7 dias antes disso
+            prevStartDate.setHours(0, 0, 0, 0);
+            break;
+        case 'year':
+            startDate = new Date();
+            startDate.setDate(1);
+            startDate.setMonth(0); // 1º de Janeiro deste ano
+            startDate.setHours(0, 0, 0, 0);
 
-    try {
-        const validOrderStatus = [
-            ORDER_STATUS.PAYMENT_APPROVED,
-            ORDER_STATUS.PROCESSING,
-            ORDER_STATUS.READY_FOR_PICKUP,
-            ORDER_STATUS.SHIPPED,
-            ORDER_STATUS.OUT_FOR_DELIVERY,
-            ORDER_STATUS.DELIVERED
-        ];
+            prevEndDate = new Date(startDate);
+            prevEndDate.setDate(prevEndDate.getDate() - 1); // 31 de Dezembro do ano passado
+            prevEndDate.setHours(23, 59, 59, 999);
+            prevStartDate = new Date(prevEndDate);
+            prevStartDate.setDate(1);
+            prevStartDate.setMonth(0); // 1º de Janeiro do ano passado
+            prevStartDate.setHours(0, 0, 0, 0);
+            break;
+        case 'month':
+        default: // Default é o mês atual
+            startDate = new Date();
+            startDate.setDate(1); // 1º dia do mês atual
+            startDate.setHours(0, 0, 0, 0);
 
-        // Consultas SQL com filtros de data
-        // Consulta principal para stats, agora usa CASE WHEN dentro das agregações
-        const statsQuery = `
-            SELECT
-                COALESCE(SUM(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN total ELSE 0 END), 0) as totalRevenue,
-                COUNT(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN id ELSE NULL END) as totalSales,
-                (SELECT COUNT(id) FROM users WHERE created_at >= ? AND created_at <= ?) as newCustomers,
-                (SELECT COUNT(id) FROM orders WHERE status = 'Pendente' AND date >= ? AND date <= ?) as pendingOrders
-            FROM orders
-        `;
-        const prevStatsQuery = `
-            SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
-            FROM orders
-            WHERE status IN (?) AND date >= ? AND date <= ?
-        `;
-        const dailySalesQuery = `
-            SELECT
-                DATE(date) as sale_date,
-                SUM(total) as daily_total
-            FROM orders
-            WHERE status IN (?) AND date >= ? AND date <= ?
-            GROUP BY DATE(date)
-            ORDER BY sale_date ASC;
-        `;
-        const bestSellersQuery = `
-            SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
-            FROM order_items oi
-            JOIN orders o ON oi.order_id = o.id
-            JOIN products p ON oi.product_id = p.id
-            WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
-            GROUP BY p.id, p.name
-            ORDER BY sales_in_period DESC
-            LIMIT 5;
-        `;
+            prevEndDate = new Date(startDate);
+            prevEndDate.setDate(prevEndDate.getDate() - 1); // Último dia do mês passado
+            prevEndDate.setHours(23, 59, 59, 999);
+            prevStartDate = new Date(prevEndDate);
+            prevStartDate.setDate(1); // 1º dia do mês passado
+            prevStartDate.setHours(0, 0, 0, 0);
+    }
 
-        // Executa as consultas com os parâmetros corretos
-        // Passando validOrderStatus como um único array para a cláusula IN(?)
-        const [statsResult] = await db.query(statsQuery, [
-            validOrderStatus, startDate, endDate, // Para totalRevenue
-            validOrderStatus, startDate, endDate, // Para totalSales
-            startDate, endDate,                // Para newCustomers
-            startDate, endDate                 // Para pendingOrders
-        ]);
-        const [prevStatsResult] = await db.query(prevStatsQuery, [validOrderStatus, prevStartDate, prevEndDate]);
-        const [dailySales] = await db.query(dailySalesQuery, [validOrderStatus, startDate, endDate]);
-        const [bestSellers] = await db.query(bestSellersQuery, [validOrderStatus, startDate, endDate]);
+    try {
+        const validOrderStatus = [
+            ORDER_STATUS.PAYMENT_APPROVED,
+            ORDER_STATUS.PROCESSING,
+            ORDER_STATUS.READY_FOR_PICKUP,
+            ORDER_STATUS.SHIPPED,
+            ORDER_STATUS.OUT_FOR_DELIVERY,
+            ORDER_STATUS.DELIVERED
+        ];
 
-        // Monta o objeto de resposta
-        const responseData = {
-            stats: {
-                totalRevenue: statsResult[0].totalRevenue,
-                totalSales: statsResult[0].totalSales,
-                newCustomers: statsResult[0].newCustomers,
-                pendingOrders: statsResult[0].pendingOrders,
-                prevPeriodRevenue: prevStatsResult[0].prevPeriodRevenue
-            },
-            dailySales,
-            bestSellers: bestSellers.map(p => ({ ...p, sales: p.sales_in_period })), // Renomeia 'sales_in_period'
-        };
+        // Consultas SQL com filtros de data
+        const statsQuery = `
+            SELECT
+                COALESCE(SUM(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN total ELSE 0 END), 0) as totalRevenue,
+                COUNT(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN id ELSE NULL END) as totalSales,
+                (SELECT COUNT(id) FROM users WHERE created_at >= ? AND created_at <= ?) as newCustomers,
+                (SELECT COUNT(id) FROM orders WHERE status = 'Pendente' AND date >= ? AND date <= ?) as pendingOrders
+            FROM orders
+        `;
+        const prevStatsQuery = `
+            SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
+            FROM orders
+            WHERE status IN (?) AND date >= ? AND date <= ?
+        `;
+        const dailySalesQuery = `
+            SELECT
+                DATE(date) as sale_date,
+                SUM(total) as daily_total
+            FROM orders
+            WHERE status IN (?) AND date >= ? AND date <= ?
+            GROUP BY DATE(date)
+            ORDER BY sale_date ASC;
+        `;
+        const bestSellersQuery = `
+            SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            JOIN products p ON oi.product_id = p.id
+            WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
+            GROUP BY p.id, p.name
+            ORDER BY sales_in_period DESC
+            LIMIT 5;
+        `;
 
-        res.json(responseData);
+        // Executa as consultas com os parâmetros corretos
+        // Passando validOrderStatus como um único array para a cláusula IN(?)
+        const [statsResult] = await db.query(statsQuery, [
+            validOrderStatus, startDate, endDate, // Para totalRevenue
+            validOrderStatus, startDate, endDate, // Para totalSales
+            startDate, endDate,                // Para newCustomers
+            startDate, endDate                 // Para pendingOrders
+        ]);
+        const [prevStatsResult] = await db.query(prevStatsQuery, [validOrderStatus, prevStartDate, prevEndDate]);
+        const [dailySales] = await db.query(dailySalesQuery, [validOrderStatus, startDate, endDate]);
+        const [bestSellers] = await db.query(bestSellersQuery, [validOrderStatus, startDate, endDate]);
 
-    } catch (err) {
-        console.error("Erro ao gerar dados do dashboard com filtro:", err);
-        res.status(500).json({ message: "Erro ao gerar dados do dashboard." });
-    }
+        // Monta o objeto de resposta
+        const responseData = {
+            stats: {
+                totalRevenue: statsResult[0].totalRevenue,
+                totalSales: statsResult[0].totalSales,
+                newCustomers: statsResult[0].newCustomers,
+                pendingOrders: statsResult[0].pendingOrders,
+                prevPeriodRevenue: prevStatsResult[0].prevPeriodRevenue
+            },
+            dailySales,
+            bestSellers: bestSellers.map(p => ({ ...p, sales: p.sales_in_period })), // Renomeia 'sales_in_period'
+        };
+
+        res.json(responseData);
+
+    } catch (err) {
+        console.error("Erro ao gerar dados do dashboard com filtro:", err);
+        res.status(500).json({ message: "Erro ao gerar dados do dashboard." });
+    }
 });
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
