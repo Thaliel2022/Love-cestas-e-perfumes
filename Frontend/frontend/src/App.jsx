@@ -9603,6 +9603,7 @@ function AppContent({ deferredPrompt }) {
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [showInstallButton, setShowInstallButton] = useState(true); // <-- Estado adicionado
 
   // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
@@ -9632,7 +9633,7 @@ function AppContent({ deferredPrompt }) {
 
     checkStatus(); // Verifica imediatamente quando o componente monta
 
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+    const intervalId = setInterval(checkStatus, 300000); // <-- Aumentado de 30000 para 300000 (5 minutos)
 
     return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
   }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
@@ -9640,19 +9641,19 @@ function AppContent({ deferredPrompt }) {
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
-  
+
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
+
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
+      sessionStorage.removeItem('pendingOrderId');
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); 
-  
+  }, [currentPath, navigate]);
+
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
@@ -9664,7 +9665,7 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-  
+
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -9687,7 +9688,7 @@ function AppContent({ deferredPrompt }) {
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-    
+
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -9696,10 +9697,10 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-        
+
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'dashboard': <AdminDashboard onNavigate={navigate} />,
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -9721,7 +9722,7 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
@@ -9729,7 +9730,7 @@ function AppContent({ deferredPrompt }) {
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -9752,7 +9753,7 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-  
+
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -9822,8 +9823,30 @@ function AppContent({ deferredPrompt }) {
             </div>
         </footer>
       )}
-      
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+
+      {/* Container do Botão de Instalação PWA - Reposicionado com bottom-20 */}
+      {deferredPrompt && showInstallButton && (
+          <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+              // Posição: Fixo, bottom-20 (5rem) acima do fundo, centralizado. Desktop: bottom-4
+              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex justify-center md:bottom-4"
+          >
+              <div className="relative"> {/* Container relativo para posicionar o X */}
+                 <InstallPWAButton deferredPrompt={deferredPrompt} />
+                 <button
+                     onClick={() => setShowInstallButton(false)} // Esconde o botão ao clicar no X
+                     className="absolute -top-2 -right-2 p-1 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-500 focus:ring-white"
+                     aria-label="Fechar aviso de instalação"
+                 >
+                     <XMarkIcon className="h-4 w-4" />
+                 </button>
+             </div>
+         </motion.div>
+       )}
+
     </div>
   );
 }
