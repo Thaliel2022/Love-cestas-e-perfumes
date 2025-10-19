@@ -2887,9 +2887,9 @@ const LoginPage = ({ onNavigate }) => {
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
-                                {/* Substituição do ícone */}
-                                <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-3 border border-gray-700 w-16 h-16 flex items-center justify-center">
-                                <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752296170/kk9tlhxb2qyioeoieq6g.png" alt="Logo" className="w-10 h-10" /> {/* URL da imagem atualizada */}
+                                {/* Ajustes no contêiner e na imagem */}
+                                <div className="mx-auto mb-4 inline-block w-20 h-20 flex items-center justify-center"> {/* Remove rounded-full, border, p, bg-gray-800 */}
+                                    <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" /> {/* w-full h-full para preencher */}
                                 </div>
                                 <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
