@@ -6564,10 +6564,12 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
         setIsSaving(true);
         try {
             const payload = {
-                productId: item.id,
-                newStock: parseInt(stock, 10),
-                variation: item.variation // Envia o objeto de variação (null se for perfume)
-            };
+            productId: item.id,
+            newStock: parseInt(stock, 10),
+            // CORREÇÃO: Certifica que o objeto `variation` está sendo enviado corretamente
+            // O `item` recebido já contém a estrutura correta vinda do `lowStockProducts`
+            variation: item.product_type === 'clothing' ? item.variation : null
+        };
             
             // CORREÇÃO: Removido o "/api" duplicado.
             await apiService('/products/stock-update', 'PUT', payload);
