@@ -5576,6 +5576,9 @@ const AdminDashboard = ({ onNavigate }) => {
     const [dailySalesData, setDailySalesData] = useState([]);
     const [bestSellersData, setBestSellersData] = useState([]);
 
+    // NOVO: Estado para a pesquisa de estoque baixo
+    const [lowStockSearch, setLowStockSearch] = useState('');
+
     // Funções de exportação
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
@@ -5684,30 +5687,23 @@ const AdminDashboard = ({ onNavigate }) => {
                     if (dailySalesCtx && dailySalesData) {
                         if (window.myDailySalesChart) window.myDailySalesChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA ---
-                        // Transforma 'YYYY-MM-DD' (ou data ISO) em uma data local segura
                         const safeLabels = dailySalesData.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            // A API retorna uma data (ex: 2025-10-18T03:00:00.000Z)
-                            const dateObj = new Date(d.sale_date); 
-                            if (isNaN(dateObj.getTime())) {
-                                // Fallback se a string de data for apenas YYYY-MM-DD
-                                const parts = d.sale_date.split('-');
-                                if (parts.length === 3) {
-                                     // new Date(ano, mês_zero_indexado, dia) - cria data local
-                                     const dateObjFallback = new Date(parts[0], parts[1] - 1, parts[2]);
-                                     return dateObjFallback.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                                }
-                                return "Data Inválida";
+                            const parts = d.sale_date.split('-'); 
+                            if (parts.length === 3) {
+                                 const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                                 return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                             }
-                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            // Fallback para datas ISO completas
+                            const dateObj = new Date(d.sale_date);
+                            if (isNaN(dateObj.getTime())) return "Data Inválida";
                             return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
                         
                         window.myDailySalesChart = new window.Chart(dailySalesCtx, {
                             type: 'line',
                             data: {
-                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
+                                labels: safeLabels, 
                                 datasets: [{
                                     label: 'Faturamento Diário (R$)',
                                     data: dailySalesData.map(d => d.daily_total),
@@ -5752,11 +5748,9 @@ const AdminDashboard = ({ onNavigate }) => {
                 }
             };
             
-            // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto
             setTimeout(renderCharts, 0); 
-
         }
-    }, [isLoadingData, dailySalesData, bestSellersData]); // Roda quando o carregamento termina ou os dados dos gráficos mudam
+    }, [isLoadingData, dailySalesData, bestSellersData]);
 
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
@@ -5795,8 +5789,19 @@ const AdminDashboard = ({ onNavigate }) => {
         }
     };
 
-    const LowStockAlerts = () => {
-        if (lowStockProducts.length === 0) return null;
+    // NOVO: Memoiza a lista filtrada de estoque baixo
+    const filteredLowStockProducts = useMemo(() => {
+        if (!lowStockSearch) {
+            return lowStockProducts;
+        }
+        return lowStockProducts.filter(item => 
+            item.name.toLowerCase().includes(lowStockSearch.toLowerCase())
+        );
+    }, [lowStockProducts, lowStockSearch]);
+
+    // MODIFICADO: LowStockAlerts agora recebe props
+    const LowStockAlerts = ({ products, totalCount, search, setSearch }) => {
+        if (totalCount === 0) return null;
         
         return (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
@@ -5805,12 +5810,24 @@ const AdminDashboard = ({ onNavigate }) => {
                     <div>
                         <h3 className="font-bold text-yellow-800">Alerta de Estoque Baixo</h3>
                         <p className="text-sm text-yellow-700">
-                            {lowStockProducts.length} item(ns) precisam de atenção.
+                            {totalCount} item(ns) precisam de atenção.
+                            {search && ` (Exibindo ${products.length})`}
                         </p>
                     </div>
                 </div>
-                <div className="mt-4 max-h-48 overflow-y-auto space-y-2">
-                    {lowStockProducts.map(item => (
+                {/* NOVO: Input de pesquisa adicionado */}
+                <div className="mt-4">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Pesquisar item na lista..."
+                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    />
+                </div>
+                <div className="mt-2 max-h-48 overflow-y-auto space-y-2">
+                    {/* MODIFICADO: Mapeia os 'products' (filtrados) recebidos via props */}
+                    {products.map(item => (
                          <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
                             <div className="flex items-center gap-2 overflow-hidden">
                                 <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
@@ -5900,7 +5917,13 @@ const AdminDashboard = ({ onNavigate }) => {
                 <>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <MaintenanceModeToggle />
-                        <LowStockAlerts />
+                        {/* MODIFICADO: Passa os props para LowStockAlerts */}
+                        <LowStockAlerts 
+                            products={filteredLowStockProducts}
+                            totalCount={lowStockProducts.length}
+                            search={lowStockSearch}
+                            setSearch={setLowStockSearch}
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
