@@ -6563,17 +6563,14 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            // Lógica para salvar o estoque...
-            // Isso precisará de uma nova rota no backend ou usar a rota de produto existente.
-            // Por enquanto, vamos simular a atualização e chamar o onSave.
+            const payload = {
+                productId: item.id,
+                newStock: parseInt(stock, 10),
+                variation: item.variation // Envia o objeto de variação (null se for perfume)
+            };
             
-            // Simulação de chamada de API
-            await new Promise(res => setTimeout(res, 700)); 
-            notification.show('Estoque atualizado!');
-            
-            // A implementação real chamaria a API:
-            // await apiService(`/api/products/${item.id}/stock`, 'PUT', { stock: stock });
-            
+            await apiService('/api/products/stock-update', 'PUT', payload);
+            notification.show('Estoque atualizado com sucesso!');
             onSave(); // Fecha o modal e atualiza a lista
         } catch (error) {
             notification.show(`Erro ao atualizar estoque: ${error.message}`, 'error');
@@ -6587,7 +6584,7 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
             <div className="space-y-4">
                 <p className="font-semibold text-lg">{item.name}</p>
                 <div className="flex items-center gap-4">
-                    <label className="font-medium text-gray-700">Estoque Atual:</label>
+                    <label className="font-medium text-gray-700">Novo Estoque:</label>
                     <input
                         type="number"
                         value={stock}
@@ -7320,6 +7317,19 @@ const AdminRefunds = ({ onNavigate }) => {
         const s = statuses[status] || { text: 'Desconhecido', class: 'bg-gray-200 text-gray-800' };
         return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${s.class}`}>{s.text}</span>;
     };
+    
+    // Função para extrair o método de pagamento
+    const getPaymentMethodName = (method, details) => {
+        if (method === 'mercadopago') {
+            try {
+                const parsedDetails = JSON.parse(details);
+                if (parsedDetails.method === 'credit_card') return 'Cartão de Crédito';
+                if (parsedDetails.method === 'pix') return 'Pix';
+                if (parsedDetails.method === 'boleto') return 'Boleto';
+            } catch (e) { /* cai para o fallback */ }
+        }
+        return method?.replace('_', ' ') || 'N/A';
+    };
 
     return (
         <div>
@@ -7370,7 +7380,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                         <td className="p-4 font-mono">#{r.order_id}</td>
                                         <td className="p-4">{r.customer_name}</td>
                                         <td className="p-4">{new Date(r.order_date).toLocaleDateString('pt-BR')}</td>
-                                        <td className="p-4 capitalize">{r.payment_method?.replace('_', ' ') || 'N/A'}</td>
+                                        <td className="p-4 capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</td>
                                         <td className="p-4">{new Date(r.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-bold">R$ {Number(r.amount).toFixed(2)}</td>
                                         <td className="p-4 text-gray-600 break-words">{r.reason}</td>
@@ -7404,7 +7414,7 @@ const AdminRefunds = ({ onNavigate }) => {
                                     <div><strong className="text-gray-500 block">Cliente</strong> {r.customer_name}</div>
                                     <div><strong className="text-gray-500 block">Valor</strong> <span className="font-bold">R$ {Number(r.amount).toFixed(2)}</span></div>
                                     <div><strong className="text-gray-500 block">Data Pedido</strong> {new Date(r.order_date).toLocaleDateString('pt-BR')}</div>
-                                    <div><strong className="text-gray-500 block">Pagamento</strong> <span className="capitalize">{r.payment_method?.replace('_', ' ') || 'N/A'}</span></div>
+                                    <div><strong className="text-gray-500 block">Pagamento</strong> <span className="capitalize">{getPaymentMethodName(r.payment_method, r.payment_details)}</span></div>
                                     <div><strong className="text-gray-500 block">Solicitado por</strong> {r.requester_name}</div>
                                 </div>
                                 <div className="border-t pt-3">
