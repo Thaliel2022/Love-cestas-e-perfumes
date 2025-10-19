@@ -9600,6 +9600,8 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
 // ... (imports e outros componentes) ...
 
+// ... (imports e outros componentes) ...
+
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -9754,7 +9756,10 @@ function AppContent({ deferredPrompt }) {
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
 
-  const showHeaderFooter = !currentPath.startsWith('admin');
+  // Define quais páginas não devem mostrar Header/Footer
+  const authPages = ['login', 'register', 'forgot-password'];
+  const showHeaderFooter = !currentPath.startsWith('admin') && !authPages.includes(currentPath.split('/')[0]);
+
 
   return (
     <div className="bg-black min-h-screen flex flex-col">
@@ -9830,6 +9835,8 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
+// ... (Restante do App e export default App) ...
 
 // ... (Restante do App e export default App) ...
 
