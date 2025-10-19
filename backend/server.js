@@ -3392,52 +3392,113 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Admin) Rota consolidada para dados do Dashboard
+// (Admin) Rota consolidada para dados do Dashboard com filtros
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
+    const { filter } = req.query; // 'today', 'week', 'month', 'year'
+    let startDate, endDate = new Date(); // End date is always today/now
+
+    // Define o período com base no filtro
+    switch (filter) {
+        case 'today':
+            startDate = new Date();
+            startDate.setHours(0, 0, 0, 0);
+            break;
+        case 'week':
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+            break;
+        case 'year':
+            startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 1);
+            startDate.setHours(0, 0, 0, 0);
+            break;
+        case 'month':
+        default: // Default é o mês atual
+            startDate = new Date();
+            startDate.setDate(1);
+            startDate.setHours(0, 0, 0, 0);
+    }
+
+    // Calcula o período anterior para comparação
+    let prevStartDate, prevEndDate;
+    const diff = endDate.getTime() - startDate.getTime(); // Duração do período atual em ms
+    prevEndDate = new Date(startDate.getTime() - 1); // Um dia antes do início do período atual
+    prevStartDate = new Date(prevEndDate.getTime() - diff);
+
     try {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const validOrderStatus = [
+            ORDER_STATUS.PAYMENT_APPROVED,
+            ORDER_STATUS.PROCESSING,
+            ORDER_STATUS.READY_FOR_PICKUP,
+            ORDER_STATUS.SHIPPED,
+            ORDER_STATUS.OUT_FOR_DELIVERY,
+            ORDER_STATUS.DELIVERED
+        ];
+        const validOrderStatusPlaceholders = validOrderStatus.map(() => '?').join(',');
 
-       const dailySalesQuery = `
-            SELECT 
-                DATE(date) as sale_date, 
-                SUM(total) as daily_total
-            FROM orders 
-            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente') AND date >= ?
-            GROUP BY DATE(date) 
-            ORDER BY sale_date ASC;
-        `;
+        // Consultas SQL com filtros de data
+        const statsQuery = `
+            SELECT
+                COALESCE(SUM(total), 0) as totalRevenue,
+                COUNT(id) as totalSales,
+                (SELECT COUNT(id) FROM users WHERE created_at >= ? AND created_at <= ?) as newCustomers,
+                (SELECT COUNT(id) FROM orders WHERE status = 'Pendente' AND date >= ? AND date <= ?) as pendingOrders
+            FROM orders
+            WHERE status IN (${validOrderStatusPlaceholders}) AND date >= ? AND date <= ?
+        `;
+        const prevStatsQuery = `
+            SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
+            FROM orders
+            WHERE status IN (${validOrderStatusPlaceholders}) AND date >= ? AND date <= ?
+        `;
+        const dailySalesQuery = `
+            SELECT
+                DATE(date) as sale_date,
+                SUM(total) as daily_total
+            FROM orders
+            WHERE status IN (${validOrderStatusPlaceholders}) AND date >= ? AND date <= ?
+            GROUP BY DATE(date)
+            ORDER BY sale_date ASC;
+        `;
+        const bestSellersQuery = `
+            SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
+            FROM order_items oi
+            JOIN orders o ON oi.order_id = o.id
+            JOIN products p ON oi.product_id = p.id
+            WHERE o.status IN (${validOrderStatusPlaceholders}) AND o.date >= ? AND o.date <= ?
+            GROUP BY p.id, p.name
+            ORDER BY sales_in_period DESC
+            LIMIT 5;
+        `;
 
-        const shippingMethodQuery = `
-            SELECT 
-                shipping_method, 
-                COUNT(id) as count 
-            FROM orders 
-            WHERE status NOT IN ('Cancelado', 'Pagamento Recusado', 'Pendente')
-            GROUP BY shipping_method 
-            ORDER BY count DESC;
-        `;
+        // Executa as consultas com os parâmetros corretos
+        const [statsResult] = await db.query(statsQuery, [
+            startDate, endDate, // Para newCustomers
+            startDate, endDate, // Para pendingOrders
+            ...validOrderStatus, startDate, endDate // Para totalRevenue, totalSales
+        ]);
+        const [prevStatsResult] = await db.query(prevStatsQuery, [...validOrderStatus, prevStartDate, prevEndDate]);
+        const [dailySales] = await db.query(dailySalesQuery, [...validOrderStatus, startDate, endDate]);
+        const [bestSellers] = await db.query(bestSellersQuery, [...validOrderStatus, startDate, endDate]);
 
-        const bestSellersQuery = `
-            SELECT id, name, sales 
-            FROM products 
-            WHERE sales > 0 
-            ORDER BY sales DESC 
-            LIMIT 5;
-        `;
-
-        const [dailySales] = await db.query(dailySalesQuery, [thirtyDaysAgo]);
-        const [shippingMethods] = await db.query(shippingMethodQuery);
-        const [bestSellers] = await db.query(bestSellersQuery);
-
-        res.json({
+        // Monta o objeto de resposta
+        const responseData = {
+            stats: {
+                totalRevenue: statsResult[0].totalRevenue,
+                totalSales: statsResult[0].totalSales,
+                newCustomers: statsResult[0].newCustomers,
+                pendingOrders: statsResult[0].pendingOrders,
+                prevPeriodRevenue: prevStatsResult[0].prevPeriodRevenue // Renomeado para clareza
+            },
             dailySales,
-            shippingMethods,
-            bestSellers
-        });
+            bestSellers: bestSellers.map(p => ({ ...p, sales: p.sales_in_period })), // Renomeia 'sales_in_period' para 'sales'
+        };
+
+        res.json(responseData);
 
     } catch (err) {
-        console.error("Erro ao gerar dados do dashboard:", err);
+        console.error("Erro ao gerar dados do dashboard com filtro:", err);
         res.status(500).json({ message: "Erro ao gerar dados do dashboard." });
     }
 });
