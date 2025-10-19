@@ -1465,23 +1465,31 @@ const Header = memo(({ onNavigate }) => {
 
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated && (
-                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex flex-col items-center text-xs hover:text-amber-400 transition px-2">
-                                <span>Devoluções</span>
-                                <span className="font-bold">& Pedidos</span>
+                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
+                                <PackageIcon className="h-6 w-6"/>
+                                <div className="flex flex-col items-start text-xs leading-tight">
+                                    <span>Devoluções</span>
+                                    <span className="font-bold">& Pedidos</span>
+                                </div>
                             </button>
                         )}
-                        <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition p-1">
+                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
                             <HeartIcon className="h-6 w-6"/>
-                            {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
+                            <span className="hidden sm:inline text-sm font-medium">Lista</span>
+                            {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}
                         </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition p-1">
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
                             <CartIcon className="h-6 w-6"/>
-                            {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                            <span className="hidden sm:inline text-sm font-medium">Carrinho</span>
+                            {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                         </motion.button>
-                        <div className="hidden md:block">
+                        <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
-                                   <button className="hover:text-amber-400 transition p-1"><UserIcon className="h-6 w-6"/></button>
+                                   <button className="flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
+                                        <UserIcon className="h-6 w-6"/>
+                                        <span className="hidden sm:inline text-sm font-medium">Conta</span>
+                                   </button>
                                    <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
                                        <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
                                        <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a>
@@ -1490,7 +1498,10 @@ const Header = memo(({ onNavigate }) => {
                                    </div>
                                 </div>
                             ) : (
-                                <button onClick={() => onNavigate('login')} className="bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button>
+                                <button onClick={() => onNavigate('login')} className="flex items-center gap-1 bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">
+                                    <UserIcon className="h-5 w-5"/>
+                                    <span className="text-sm">Login</span>
+                                </button>
                             )}
                         </div>
                     </div>
