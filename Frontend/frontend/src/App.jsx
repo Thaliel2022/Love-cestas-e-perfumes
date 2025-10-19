@@ -2800,6 +2800,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 };
 
 
+// ... (outros imports e componentes) ...
+
 const LoginPage = ({ onNavigate }) => {
     const { login, setUser } = useAuth();
     const notification = useNotification();
@@ -2869,6 +2871,7 @@ const LoginPage = ({ onNavigate }) => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
+            {/* Container principal com Flexbox para centralização */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
