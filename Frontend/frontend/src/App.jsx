@@ -270,19 +270,99 @@ const useShop = () => useContext(ShopContext);
 const useNotification = () => useContext(NotificationContext);
 const useConfirmation = () => useContext(ConfirmationContext);
 
+// --- VAPID Public Key ---
+// Chave pública VAPID gerada
+const VAPID_PUBLIC_KEY = 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I';
+
+// --- Helper para converter a VAPID Key ---
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// --- Função para Inscrever o Usuário ---
+async function subscribeUserToPush() {
+    // Verifica suporte ao Service Worker e Push Manager
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push notifications não são suportados neste navegador.');
+        return;
+    }
+
+    try {
+        // Obtém o registro do Service Worker
+        const registration = await navigator.serviceWorker.ready;
+
+        // Verifica se já existe uma inscrição
+        let subscription = await registration.pushManager.getSubscription();
+
+        if (subscription) {
+            console.log('Usuário já inscrito para push notifications.');
+            // Opcional: Reenviar a inscrição para o backend caso tenha se perdido
+            // await apiService('/save-subscription', 'POST', subscription);
+            return; // Já inscrito, não faz nada
+        }
+
+        // Se não houver inscrição, solicita permissão e inscreve
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            console.warn('Permissão para notificações não concedida.');
+            // Você pode exibir uma mensagem para o usuário aqui, se desejar
+            return;
+        }
+
+        // Inscreve o usuário
+        console.log('Inscrevendo usuário para push notifications...');
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true, // Necessário para a maioria dos navegadores
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) // Chave pública VAPID convertida
+        });
+
+        console.log('Inscrição push obtida:', subscription);
+
+        // Envia a inscrição para o backend
+        await apiService('/save-subscription', 'POST', subscription);
+        console.log('Inscrição enviada para o backend com sucesso.');
+
+    } catch (error) {
+        console.error('Falha ao inscrever para push notifications:', error);
+        // Tratar erros específicos, como chave VAPID inválida, etc.
+    }
+}
+
+
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(async () => {
         try {
+            // Opcional: Cancelar inscrição push no logout
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    console.log('Inscrição push cancelada no logout.');
+                    // Idealmente, notificar o backend para remover a inscrição também
+                    // await apiService('/remove-subscription', 'POST', { endpoint: subscription.endpoint });
+                }
+            }
             await apiService('/logout', 'POST');
         } catch (error) {
-            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
+            console.error("Erro na API de logout ou cancelamento de inscrição:", error);
         } finally {
             localStorage.removeItem('user');
             setUser(null);
-            // Redireciona para o login após garantir que tudo foi limpo
             window.location.hash = '#login';
         }
     }, []);
@@ -291,13 +371,16 @@ const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             try {
-                setUser(JSON.parse(storedUser));
+                const parsedUser = JSON.parse(storedUser);
+                setUser(parsedUser);
+                // Tenta inscrever para push se já estiver logado ao carregar
+                setTimeout(subscribeUserToPush, 1000); // Adiciona um pequeno delay
             } catch (e) {
                 localStorage.removeItem('user');
             }
         }
         setIsLoading(false);
-    }, []);
+    }, []); // Executa apenas na montagem
 
     useEffect(() => {
         const handleAuthError = () => {
@@ -318,17 +401,29 @@ const AuthProvider = ({ children }) => {
         if (response && response.user) {
             localStorage.setItem('user', JSON.stringify(response.user));
             setUser(response.user);
+            // Inscreve para push após login bem-sucedido
+            if (response.user && !response.twoFactorEnabled) { // Só inscreve se o login foi completo
+               subscribeUserToPush();
+            }
         }
+        // Se precisar de 2FA, a inscrição acontecerá após a verificação 2FA
         return response; // Retorna a resposta completa para a página de login
     };
-    
+
+     // Função auxiliar para lidar com login pós-2FA (chamada da LoginPage)
+     const completeLogin = (loggedInUser) => {
+        setUser(loggedInUser);
+        localStorage.setItem('user', JSON.stringify(loggedInUser));
+        subscribeUserToPush(); // Inscreve após verificação 2FA
+    };
+
     const register = async (name, email, password, cpf) => {
         return await apiService('/register', 'POST', { name, email, password, cpf });
     };
 
-    return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
+    // Adiciona completeLogin ao valor do contexto
+    return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser, completeLogin }}>{children}</AuthContext.Provider>;
 };
-
 const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
