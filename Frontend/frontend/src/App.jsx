@@ -8080,6 +8080,90 @@ const AdminReports = () => {
         </div>
     );
 
+    // --- INÍCIO DAS FUNÇÕES DE EXPORTAÇÃO (Movidas para dentro do componente) ---
+    const runWhenLibsReady = (callback, requiredLibs) => {
+        const check = () => {
+            const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
+            const isExcelReady = requiredLibs.includes('excel') ? (window.XLSX) : true;
+            if (isPdfReady && isExcelReady) callback();
+            else setTimeout(check, 100);
+        }; check();
+    };
+
+    const handleExportPDF = () => {
+        if (!reportData) {
+            notification.show("Não há dados para exportar.", "error");
+            return;
+        }
+
+        runWhenLibsReady(() => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const timestamp = new Date().toLocaleString('pt-BR');
+            const kpis = reportData.kpis;
+            const formattedStartDate = new Date(startDate + 'T00:00:00').toLocaleDateString('pt-BR');
+            const formattedEndDate = new Date(endDate + 'T00:00:00').toLocaleDateString('pt-BR');
+
+            // Título
+            doc.setFontSize(18);
+            doc.text("Relatório Detalhado de Vendas", pageWidth / 2, 16, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(`Período: ${formattedStartDate} a ${formattedEndDate}`, pageWidth / 2, 22, { align: 'center' });
+            doc.setFontSize(8);
+            doc.text(`Gerado em: ${timestamp}`, pageWidth - 14, 10, { align: 'right' });
+
+            // KPIs
+            doc.setFontSize(12);
+            doc.text("Resumo do Período", 14, 35);
+            doc.autoTable({
+                startY: 40,
+                head: [['Indicador', 'Valor']],
+                body: [
+                    ['Faturamento Total', `R$ ${Number(kpis.totalRevenue).toFixed(2)}`],
+                    ['Total de Vendas', kpis.totalSales],
+                    ['Ticket Médio', `R$ ${Number(kpis.avgOrderValue).toFixed(2)}`],
+                    ['Novos Clientes', kpis.newCustomers],
+                ],
+                theme: 'striped'
+            });
+            let lastY = doc.lastAutoTable.finalY + 10;
+
+            // Tabela de Produtos Mais Vendidos
+            doc.setFontSize(12);
+            doc.text("Produtos Mais Vendidos (por Unidade)", 14, lastY);
+            doc.autoTable({
+                startY: lastY + 5,
+                head: [['Produto', 'Unidades Vendidas', 'Faturamento (R$)']],
+                body: reportData.topProducts.map(p => [
+                    p.name,
+                    p.total_quantity,
+                    `R$ ${Number(p.total_revenue).toFixed(2)}`
+                ]),
+                theme: 'striped'
+            });
+            lastY = doc.lastAutoTable.finalY + 10;
+            
+            // Tabela de Clientes Mais Valiosos
+            doc.setFontSize(12);
+            doc.text("Clientes Mais Valiosos", 14, lastY);
+            doc.autoTable({
+                startY: lastY + 5,
+                head: [['Cliente', 'E-mail', 'Total de Pedidos', 'Valor Gasto (R$)']],
+                body: reportData.topCustomers.map(c => [
+                    c.name,
+                    c.email,
+                    c.total_orders,
+                    `R$ ${Number(c.total_spent).toFixed(2)}`
+                ]),
+                theme: 'striped'
+            });
+
+            doc.save(`relatorio_detalhado_${startDate}_a_${endDate}.pdf`);
+        }, ['pdf']);
+    };
+    // --- FIM DAS FUNÇÕES DE EXPORTAÇÃO ---
+
     return (
         <div>
             <h1 className="text-3xl font-bold mb-6">Relatórios Detalhados</h1>
@@ -8113,6 +8197,15 @@ const AdminReports = () => {
                         className="w-full md:w-auto bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 mt-3 md:mt-6"
                     >
                         {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                    </button>
+                    {/* --- NOVO BOTÃO DE EXPORTAR PDF --- */}
+                    <button
+                        onClick={handleExportPDF}
+                        disabled={isLoading || !reportData}
+                        className="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 mt-3 md:mt-6 flex items-center justify-center gap-2"
+                    >
+                        <DownloadIcon className="h-5 w-5"/>
+                        Exportar PDF
                     </button>
                 </div>
             </div>
