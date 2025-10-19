@@ -1392,7 +1392,7 @@ const Header = memo(({ onNavigate }) => {
             setIsMobileMenuOpen(false);
         }
     };
-    
+
     const handleSuggestionClick = (productId) => {
         onNavigate(`product/${productId}`);
         setSearchTerm('');
@@ -1405,33 +1405,73 @@ const Header = memo(({ onNavigate }) => {
         open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
         closed: { opacity: 0, y: -20, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
     };
-    
+
     const mobileMenuVariants = {
         open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
         closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
     };
 
+    // --- Lógica para Exibição do Endereço (Mobile) ---
+    const { addresses, shippingLocation } = useShop(); // Obter dados do contexto
+    let addressDisplay = 'Selecione um endereço'; // Placeholder
+    if (isAuthenticated && addresses.length > 0) {
+        const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
+        const userNamePart = user?.name ? user.name.split(' ')[0] : 'Usuário';
+        // Formatando o CEP para o display
+        const formattedCep = defaultAddr.cep ? defaultAddr.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+        addressDisplay = `Enviar para ${userNamePart} - ${defaultAddr.localidade} ${formattedCep}`;
+    } else if (shippingLocation.cep) {
+         // Formatando o CEP para o display
+        const formattedCep = shippingLocation.cep ? shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+        addressDisplay = `Enviar para Brasil - ${formattedCep} ${shippingLocation.city || ''}`;
+    }
+    // --- Fim da Lógica do Endereço ---
+
+
+    // --- Componente da Barra de Navegação Inferior (Mobile) ---
+    const BottomNavBar = () => (
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
+            <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
+                <HomeIcon className="h-6 w-6 mb-1"/>
+                <span className="text-xs">Início</span>
+            </button>
+            <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
+                <UserIcon className="h-6 w-6 mb-1"/>
+                <span className="text-xs">Conta</span>
+            </button>
+            <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className="relative flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
+                <motion.div animate={cartAnimationControls}>
+                    <CartIcon className="h-6 w-6 mb-1"/>
+                </motion.div>
+                <span className="text-xs">Carrinho</span>
+                {totalCartItems > 0 && <span className="absolute top-0 right-3 bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+            </button>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
+                <MenuIcon className="h-6 w-6 mb-1"/>
+                <span className="text-xs">Menu</span>
+            </button>
+        </div>
+    );
+    // --- Fim do Componente BottomNavBar ---
+
     return (
+        <> {/* Usa Fragment para agrupar Header e BottomNavBar */}
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            {/* O restante do código JSX do Header permanece o mesmo daqui para baixo... */}
-            {/* Top Bar */}
-            <div className="px-4 sm:px-6">
+            {/* Top Bar - Desktop */}
+            <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
-                    <div className="flex items-center">
-                        <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4 text-white">
-                            <MenuIcon className="h-6 w-6" />
-                        </button>
-                        <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-                    </div>
-                    
+                    {/* Logo Desktop */}
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+
+                    {/* Search Bar Desktop */}
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
-                           <input 
-                                type="text" value={searchTerm} 
+                           <input
+                                type="text" value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="O que você procura?" 
+                                placeholder="O que você procura?"
                                 className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
                            <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
@@ -1478,6 +1518,7 @@ const Header = memo(({ onNavigate }) => {
                         </form>
                     </div>
 
+                    {/* Icons Desktop */}
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated && (
                              <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
@@ -1523,6 +1564,73 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
+             {/* Top Bar - Mobile - NOVA ESTRUTURA */}
+             <div className="block md:hidden px-4 py-3 space-y-3">
+                {/* Logo Mobile */}
+                <div className="text-center">
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                </div>
+
+                {/* Search Bar Mobile */}
+                <form onSubmit={handleSearchSubmit} className="relative">
+                    <input
+                        type="text" value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                        placeholder="Pesquisar em LovecestasePerfumes"
+                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" // Ajustado para rounded-md
+                    />
+                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                     {/* Search Suggestions Mobile (mantém a mesma lógica) */}
+                    <AnimatePresence>
+                        {isSearchFocused && searchTerm.length > 0 && (
+                             <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+                            >
+                                <div className="max-h-60 overflow-y-auto">
+                                    {searchSuggestions.length > 0 ? (
+                                        searchSuggestions.map(p => (
+                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
+                                                <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" />
+                                                <div className="flex-grow">
+                                                    <p className="font-semibold text-gray-800 text-sm">{p.name}</p>
+                                                    {p.is_on_sale && p.sale_price > 0 ? (
+                                                        <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p>
+                                                    ) : (
+                                                        <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p>
+                                    )}
+                                </div>
+                                {searchTerm.trim() && (
+                                    <button
+                                        type="submit"
+                                        className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"
+                                    >
+                                        Ver todos os resultados
+                                    </button>
+                                )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </form>
+
+                 {/* Address Section Mobile */}
+                 <div className="flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors">
+                    <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/>
+                    <span className="truncate">{addressDisplay}</span>
+                    <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/>
+                 </div>
+            </div>
+
             {/* Bottom Bar (Desktop Navigation) */}
             <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
@@ -1533,10 +1641,10 @@ const Header = memo(({ onNavigate }) => {
                     <SaleIcon className="h-4 w-4" /> Promoções
                 </a>
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
-                
+
                 <AnimatePresence>
                     {activeMenu === 'Coleções' && (
-                        <motion.div 
+                        <motion.div
                             initial="closed" animate="open" exit="closed" variants={dropdownVariants}
                             className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700"
                         >
@@ -1560,17 +1668,17 @@ const Header = memo(({ onNavigate }) => {
                     )}
                 </AnimatePresence>
             </nav>
-            
-            {/* Mobile Menu */}
+
+            {/* Mobile Menu (Slide Out) - A lógica permanece a mesma, mas é ativada pela BottomNavBar */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <>
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/60 z-50 md:hidden"
                             onClick={() => setIsMobileMenuOpen(false)}
                         />
-                        <motion.div 
+                        <motion.div
                             variants={mobileMenuVariants} initial="closed" animate="open" exit="closed"
                             className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col"
                         >
@@ -1579,6 +1687,7 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow overflow-y-auto p-4">
+                                   {/* Search inside mobile menu */}
                                    <form onSubmit={handleSearchSubmit} className="relative mb-4">
                                     <input
                                         type="text"
@@ -1589,7 +1698,7 @@ const Header = memo(({ onNavigate }) => {
                                         placeholder="O que você procura?"
                                         className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
                                     />
-                                    <div className="relative"> 
+                                    <div className="relative">
                                         <AnimatePresence>
                                             {isSearchFocused && searchTerm.length > 0 && (
                                                 <motion.div
@@ -1650,7 +1759,7 @@ const Header = memo(({ onNavigate }) => {
                                         </div>
                                     )
                                 ))}
-                                
+
                                 <div className="border-b border-gray-800">
                                     <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
                                         <SaleIcon className="h-5 w-5"/> Promoções
@@ -1680,6 +1789,13 @@ const Header = memo(({ onNavigate }) => {
                 )}
             </AnimatePresence>
         </header>
+
+        {/* Renderiza a BottomNavBar fora do header, mas ainda controlada pelo estado do Header */}
+        <BottomNavBar />
+
+        {/* Adiciona padding na parte inferior do conteúdo principal para evitar que a BottomNavBar o cubra */}
+        <div className="pb-16 md:pb-0"></div>
+        </>
     );
 });
 
