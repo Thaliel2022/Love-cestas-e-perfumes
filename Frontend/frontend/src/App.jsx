@@ -5566,12 +5566,12 @@ const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
     const notification = useNotification();
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 });
-    const [lowStockProducts, setLowStockProducts] = useState([]);
+    const [lowStockProducts, setLowStockProducts] = useState([]); // <-- A lista completa ainda é buscada aqui
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true);
-    const [lowStockSearchTerm, setLowStockSearchTerm] = useState(''); // <-- NOVO ESTADO
+    // REMOVIDO: const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
 
     // Estados separados para os dados dos gráficos
     const [dailySalesData, setDailySalesData] = useState([]);
@@ -5665,7 +5665,7 @@ const AdminDashboard = ({ onNavigate }) => {
             setStats(statsData);
             setDailySalesData(dailySalesData);
             setBestSellersData(bestSellersData);
-            setLowStockProducts(lowStockItems || []);
+            setLowStockProducts(lowStockItems || []); // <-- A lista completa é salva no estado
         }).finally(() => {
             setIsLoadingData(false);
         });
@@ -5796,14 +5796,18 @@ const AdminDashboard = ({ onNavigate }) => {
         }
     };
 
-    const LowStockAlerts = () => {
-        if (lowStockProducts.length === 0) return null;
+    const LowStockAlerts = () => { // A prop 'lowStockProducts' é recebida implicitamente agora
+        // --- INÍCIO: Estado e Lógica movidos para cá ---
+        const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
 
-        // Filtra os produtos com estoque baixo ANTES de renderizar
+        // Filtra os produtos com estoque baixo usando a lista completa vinda do estado pai
         const filteredLowStockProducts = lowStockProducts.filter(item =>
             item.name.toLowerCase().includes(lowStockSearchTerm.toLowerCase())
             // Adicionar filtro por SKU se disponível no futuro: || (item.sku && item.sku.toLowerCase().includes(lowStockSearchTerm.toLowerCase()))
         );
+        // --- FIM: Estado e Lógica movidos para cá ---
+
+        if (lowStockProducts.length === 0) return null;
 
         return (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
@@ -5816,20 +5820,20 @@ const AdminDashboard = ({ onNavigate }) => {
                         </p>
                     </div>
                 </div>
-                 {/* Input de busca adicionado */}
+                 {/* Input de busca usa o estado local */}
                 <div className="mt-4 mb-2 relative">
                      <input
                         type="text"
                         placeholder="Buscar produto em alerta..."
-                        value={lowStockSearchTerm}
-                        onChange={(e) => setLowStockSearchTerm(e.target.value)}
+                        value={lowStockSearchTerm} // Usa estado local
+                        onChange={(e) => setLowStockSearchTerm(e.target.value)} // Atualiza estado local
                         className="w-full p-2 pl-8 border border-gray-300 rounded-md text-sm"
                     />
                     <SearchIcon className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"/>
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-2">
                     {filteredLowStockProducts.length > 0 ? (
-                        filteredLowStockProducts.map(item => (
+                        filteredLowStockProducts.map(item => ( // Usa a lista filtrada localmente
                              <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
                                 <div className="flex items-center gap-2 overflow-hidden">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
@@ -5892,6 +5896,8 @@ const AdminDashboard = ({ onNavigate }) => {
         </button>
     );
 
+    // REMOVIDO: Lógica de filtragem que estava aqui
+
     return (
         <div>
             {/* Modais */}
@@ -5922,7 +5928,7 @@ const AdminDashboard = ({ onNavigate }) => {
                 <>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <MaintenanceModeToggle />
-                        <LowStockAlerts />
+                        <LowStockAlerts /> {/* Passa a lista completa como prop */}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -5965,7 +5971,6 @@ const AdminDashboard = ({ onNavigate }) => {
         </div>
     );
 };
-
 const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariation, availableColors, availableSizes, onImageUpload, uploadStatus, isFirstOfColor }) => {
     const galleryInputRef = useRef(null);
     const cameraInputRef = useRef(null);
