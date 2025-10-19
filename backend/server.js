@@ -16,7 +16,6 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
-const webpush = require('web-push'); // <-- ADICIONADO
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -25,19 +24,6 @@ require('dotenv').config();
 // --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
-
-// --- Configuração do Web Push --- // <-- ADICIONADO
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'v9V-plWPSzCC3g9BVDVs9Q8Hsoglg36F8rQPJWj3cuQ'; // Sua chave privada (Mantenha segura!)
-const mailto = `mailto:${process.env.ADMIN_EMAIL || 'seuemail@exemplo.com'}`; // Seu email de contato
-
-if (!vapidPrivateKey || !vapidPublicKey) {
-    console.warn('AVISO: Chaves VAPID não configuradas nas variáveis de ambiente. As notificações push não funcionarão.');
-} else {
-    webpush.setVapidDetails(mailto, vapidPublicKey, vapidPrivateKey);
-    console.log('Web Push configurado com chaves VAPID.');
-}
-// --- Fim da Configuração Web Push ---
 
 
 // ---> Constantes para status de pedidos
@@ -154,10 +140,10 @@ app.use(helmet({
 }));
 
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutos
-	max: 1000, // Limite mais alto para ambiente de desenvolvimento
-	standardHeaders: 'draft-7', // Usa o padrão mais recente
-	legacyHeaders: false,
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 1000, // Limite mais alto para ambiente de desenvolvimento
+    standardHeaders: 'draft-7', // Usa o padrão mais recente
+    legacyHeaders: false,
     message: 'Muitas requisições deste IP, por favor tente novamente após 15 minutos',
     // Configuração de segurança específica para a Render.com
     // Confia no primeiro proxy na cadeia (que é o proxy da Render)
@@ -1292,7 +1278,7 @@ app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, res) => {
     const { q } = req.query;
-	if (!q || q.length < 1) {
+    if (!q || q.length < 1) {
         return res.json([]);
     }
     try {
@@ -1509,7 +1495,7 @@ app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) =>
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-	const fields = [
+    const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
