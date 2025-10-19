@@ -1202,7 +1202,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [itemsPerPage, setItemsPerPage] = useState(4);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
-    const minSwipeDistance = 50; 
+    const minSwipeDistance = 50;
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(1);
@@ -1222,7 +1222,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
             setCurrentIndex(maxIndex);
         }
     }, [itemsPerPage, products, currentIndex]);
-    
+
     const goNext = useCallback(() => {
         const maxIndex = Math.max(0, products.length - itemsPerPage);
         setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
@@ -1231,14 +1231,14 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const goPrev = useCallback(() => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
     }, []);
-    
+
     if (!products || products.length === 0) {
         return null;
     }
 
     const canGoPrev = currentIndex > 0;
     const canGoNext = products.length > itemsPerPage && currentIndex < (products.length - itemsPerPage);
-    
+
     const handleTouchStart = (e) => {
         setTouchEnd(null);
         setTouchStart(e.targetTouches[0].clientX);
@@ -1259,7 +1259,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
         } else if (isRightSwipe && canGoPrev) {
             goPrev();
         }
-        
+
         setTouchStart(null);
         setTouchEnd(null);
     };
@@ -1267,21 +1267,21 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     return (
         <div className="relative">
             {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-            <div 
+            <div
                 className="overflow-hidden cursor-grab active:cursor-grabbing"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
             >
                 <motion.div
-                    className="flex -mx-2 md:-mx-4"
+                    className="flex -mx-2 md:-mx-4" // Mantém align-items: stretch (padrão)
                     animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
                     transition={{ type: 'spring', stiffness: 350, damping: 40 }}
                 >
                     {products.map(product => (
-                        <div 
-                            key={product.id} 
-                            className="flex-shrink-0 px-2 md:px-4 self-start" // Adicionado self-start
+                        <div
+                            key={product.id}
+                            className="flex-shrink-0 px-2 md:px-4" // REMOVIDO self-start
                             style={{ width: `${100 / itemsPerPage}%` }}
                         >
                             <ProductCard product={product} onNavigate={onNavigate} />
