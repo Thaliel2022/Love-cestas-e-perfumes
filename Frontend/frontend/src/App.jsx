@@ -1317,7 +1317,18 @@ const Header = memo(({ onNavigate }) => {
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
 
     // Pega o path atual para destacar o ícone ativo na BottomNavBar
-    const currentPath = window.location.hash.slice(1) || 'home';
+    // Usa useState e useEffect para garantir que o valor está atualizado na re-renderização
+    const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+    useEffect(() => {
+        const handleHashChange = () => {
+             setCurrentPath(window.location.hash.slice(1) || 'home');
+        };
+        window.addEventListener('hashchange', handleHashChange);
+        // Atualiza no mount inicial também
+        handleHashChange();
+        return () => window.removeEventListener('hashchange', handleHashChange);
+     }, []);
+
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1477,29 +1488,31 @@ const Header = memo(({ onNavigate }) => {
 
         return (
             <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
+                {/* Ícone Início - Adicionado destaque */}
                 <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Início</span>
                 </button>
-                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                 {/* Ícone Conta - Adicionado destaque */}
+                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Conta</span>
                 </button>
-                {/* Botão Lista de Desejos Adicionado */}
+                 {/* Ícone Lista - Adicionado destaque */}
                 <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Lista</span>
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
+                 {/* Ícone Carrinho - Adicionado destaque */}
                 <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
                     </motion.div>
                     <span className="text-xs">Carrinho</span>
-                    {/* Badge do Carrinho Reposicionado */}
                     {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
-                {/* Botão Menu com estado ativo */}
+                 {/* Ícone Menu - Destaque mantido */}
                 <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <MenuIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Menu</span>
@@ -1655,15 +1668,15 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - REMOVIDO pt-3 */}
-             <div className="block md:hidden px-4"> {/* Alterado pt-3 para nada */}
+             {/* Top Bar - Mobile - Adicionado pt-3 */}
+             <div className="block md:hidden px-4 pt-3"> {/* Adicionado pt-3 para espaço no topo */}
                 {/* Logo Mobile */}
-                <div className="text-center mb-2"> {/* Mantém mb-2 */}
+                <div className="text-center mb-2">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                 </div>
 
                 {/* Search Bar Mobile */}
-                <form onSubmit={handleSearchSubmit} className="relative mb-2"> {/* Mantém mb-2 */}
+                <form onSubmit={handleSearchSubmit} className="relative mb-2">
                     <input
                         type="text" value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
