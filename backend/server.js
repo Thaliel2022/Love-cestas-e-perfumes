@@ -1715,7 +1715,9 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
             const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
             
             if (variationIndex === -1) {
-                throw new Error("Variação não encontrada no produto.");
+                // VERIFICAÇÃO DE SEGURANÇA ADICIONADA
+                console.error(`Variação não encontrada: ${variation.color}/${variation.size} para Produto ID: ${productId}`);
+                throw new Error("Variação não encontrada no produto. Não foi possível atualizar o estoque.");
             }
             
             variations[variationIndex].stock = parseInt(newStock, 10);
