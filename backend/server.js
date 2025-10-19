@@ -1721,7 +1721,7 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
             }
             
             variations[variationIndex].stock = parseInt(newStock, 10);
-            const totalStock = variations.reduce((sum, v) => sum + (v.stock || 0), 0);
+           const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
             
             await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
