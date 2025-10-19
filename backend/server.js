@@ -3393,12 +3393,13 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // (Admin) Rota consolidada para dados do Dashboard com filtros
+// (Admin) Rota consolidada para dados do Dashboard com filtros
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
     const { filter } = req.query; // 'today', 'week', 'month', 'year'
     let startDate, endDate = new Date(); // endDate (período atual) é AGORA
     let prevStartDate, prevEndDate;
 
-    // Define os períodos ATUAL e ANTERIOR
+    // Define os períodos ATUAL e ANTERIOR (LÓGICA CORRIGIDA)
     switch (filter) {
         case 'today':
             startDate = new Date();
@@ -3460,60 +3461,71 @@ app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => 
             ORDER_STATUS.DELIVERED
         ];
 
-        // Consultas SQL com filtros de data
-        const statsQuery = `
-            SELECT
-                COALESCE(SUM(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN total ELSE 0 END), 0) as totalRevenue,
-                COUNT(CASE WHEN status IN (?) AND date >= ? AND date <= ? THEN id ELSE NULL END) as totalSales,
-                (SELECT COUNT(id) FROM users WHERE created_at >= ? AND created_at <= ?) as newCustomers,
-                (SELECT COUNT(id) FROM orders WHERE status = 'Pendente' AND date >= ? AND date <= ?) as pendingOrders
-            FROM orders
-        `;
-        const prevStatsQuery = `
-            SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
-            FROM orders
-            WHERE status IN (?) AND date >= ? AND date <= ?
-        `;
-        const dailySalesQuery = `
-            SELECT
-                DATE(date) as sale_date,
-                SUM(total) as daily_total
-            FROM orders
-            WHERE status IN (?) AND date >= ? AND date <= ?
-            GROUP BY DATE(date)
-            ORDER BY sale_date ASC;
-        `;
-        const bestSellersQuery = `
-            SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
-            FROM order_items oi
-            JOIN orders o ON oi.order_id = o.id
-            JOIN products p ON oi.product_id = p.id
-            WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
-            GROUP BY p.id, p.name
-            ORDER BY sales_in_period DESC
-            LIMIT 5;
-        `;
+        // --- CORREÇÃO: Consultas separadas para robustez ---
 
-        // Executa as consultas com os parâmetros corretos
-        // Passando validOrderStatus como um único array para a cláusula IN(?)
-        const [statsResult] = await db.query(statsQuery, [
-            validOrderStatus, startDate, endDate, // Para totalRevenue
-            validOrderStatus, startDate, endDate, // Para totalSales
-            startDate, endDate,                // Para newCustomers
-            startDate, endDate                 // Para pendingOrders
-        ]);
-        const [prevStatsResult] = await db.query(prevStatsQuery, [validOrderStatus, prevStartDate, prevEndDate]);
-        const [dailySales] = await db.query(dailySalesQuery, [validOrderStatus, startDate, endDate]);
-        const [bestSellers] = await db.query(bestSellersQuery, [validOrderStatus, startDate, endDate]);
+        // 1. Faturamento e Vendas (Período Atual)
+        const [currentSalesStats] = await db.query(
+            `SELECT COUNT(id) as totalSales, COALESCE(SUM(total), 0) as totalRevenue
+             FROM orders
+             WHERE status IN (?) AND date >= ? AND date <= ?`,
+            [validOrderStatus, startDate, endDate]
+        );
+
+        // 2. Faturamento (Período Anterior)
+        const [prevSalesStats] = await db.query(
+            `SELECT COALESCE(SUM(total), 0) as prevPeriodRevenue
+             FROM orders
+             WHERE status IN (?) AND date >= ? AND date <= ?`,
+            [validOrderStatus, prevStartDate, prevEndDate]
+        );
+
+        // 3. Novos Clientes (Período Atual)
+        const [newCustomersStats] = await db.query(
+            `SELECT COUNT(id) as newCustomers
+             FROM users
+             WHERE created_at >= ? AND created_at <= ?`,
+            [startDate, endDate]
+        );
+
+        // 4. Pedidos Pendentes (Período Atual)
+        const [pendingOrdersStats] = await db.query(
+            `SELECT COUNT(id) as pendingOrders
+             FROM orders
+             WHERE status = 'Pendente' AND date >= ? AND date <= ?`,
+            [startDate, endDate]
+        );
+
+        // 5. Vendas Diárias (Gráfico)
+        const [dailySales] = await db.query(
+            `SELECT DATE(date) as sale_date, SUM(total) as daily_total
+             FROM orders
+             WHERE status IN (?) AND date >= ? AND date <= ?
+             GROUP BY DATE(date)
+             ORDER BY sale_date ASC`,
+            [validOrderStatus, startDate, endDate]
+        );
+
+        // 6. Mais Vendidos (Gráfico)
+        const [bestSellers] = await db.query(
+            `SELECT p.id, p.name, SUM(oi.quantity) as sales_in_period
+             FROM order_items oi
+             JOIN orders o ON oi.order_id = o.id
+             JOIN products p ON oi.product_id = p.id
+             WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
+             GROUP BY p.id, p.name
+             ORDER BY sales_in_period DESC
+             LIMIT 5`,
+            [validOrderStatus, startDate, endDate]
+        );
 
         // Monta o objeto de resposta
         const responseData = {
             stats: {
-                totalRevenue: statsResult[0].totalRevenue,
-                totalSales: statsResult[0].totalSales,
-                newCustomers: statsResult[0].newCustomers,
-                pendingOrders: statsResult[0].pendingOrders,
-                prevPeriodRevenue: prevStatsResult[0].prevPeriodRevenue
+                totalRevenue: currentSalesStats[0].totalRevenue,
+                totalSales: currentSalesStats[0].totalSales,
+                newCustomers: newCustomersStats[0].newCustomers,
+                pendingOrders: pendingOrdersStats[0].pendingOrders,
+                prevPeriodRevenue: prevSalesStats[0].prevPeriodRevenue
             },
             dailySales,
             bestSellers: bestSellers.map(p => ({ ...p, sales: p.sales_in_period })), // Renomeia 'sales_in_period'
