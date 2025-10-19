@@ -1640,15 +1640,15 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - NOVA ESTRUTURA */}
-             <div className="block md:hidden px-4 py-3 space-y-3">
+             {/* Top Bar - Mobile - NOVA ESTRUTURA (removido space-y-3) */}
+             <div className="block md:hidden px-4 py-3"> {/* <-- space-y-3 REMOVIDO DAQUI */}
                 {/* Logo Mobile */}
-                <div className="text-center">
+                <div className="text-center mb-3"> {/* Adicionado mb-3 para espaço abaixo da logo */}
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                 </div>
 
                 {/* Search Bar Mobile */}
-                <form onSubmit={handleSearchSubmit} className="relative">
+                <form onSubmit={handleSearchSubmit} className="relative mb-3"> {/* Adicionado mb-3 para espaço abaixo da busca */}
                     <input
                         type="text" value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
