@@ -2799,9 +2799,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-
-// ... (outros imports e componentes) ...
-
 const LoginPage = ({ onNavigate }) => {
     const { login, setUser } = useAuth();
     const notification = useNotification();
@@ -2946,8 +2943,6 @@ const LoginPage = ({ onNavigate }) => {
     );
 };
 
-// ... (restante do código) ...
-
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
@@ -3002,12 +2997,12 @@ const RegisterPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900">
             <motion.div 
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+               className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)] mx-4" // Adicionado mx-4 para margem lateral minima
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
                     <h2 className="text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
