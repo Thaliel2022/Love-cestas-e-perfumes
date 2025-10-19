@@ -9605,6 +9605,7 @@ function AppContent({ deferredPrompt }) {
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const [showInstallButton, setShowInstallButton] = useState(true); // Estado movido para App, mas mantido aqui para referência da remoção abaixo
 
   // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
@@ -9634,7 +9635,7 @@ function AppContent({ deferredPrompt }) {
 
     checkStatus(); // Verifica imediatamente quando o componente monta
 
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+    const intervalId = setInterval(checkStatus, 300000); // <-- Aumentado para 5 minutos
 
     return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
   }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
@@ -9642,19 +9643,19 @@ function AppContent({ deferredPrompt }) {
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
-  
+
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
+
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
+      sessionStorage.removeItem('pendingOrderId');
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); 
-  
+  }, [currentPath, navigate]);
+
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
@@ -9666,7 +9667,7 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-  
+
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -9689,7 +9690,7 @@ function AppContent({ deferredPrompt }) {
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-    
+
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -9698,10 +9699,10 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-        
+
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'dashboard': <AdminDashboard onNavigate={navigate} />,
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -9723,7 +9724,7 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
@@ -9731,7 +9732,7 @@ function AppContent({ deferredPrompt }) {
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -9754,11 +9755,13 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-  
+
   return (
+    // Container principal usa flex-col
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
+      {/* Adicionado flex flex-col flex-grow para garantir que main ocupe o espaço */}
+      <main className="flex flex-col flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
@@ -9824,8 +9827,9 @@ function AppContent({ deferredPrompt }) {
             </div>
         </footer>
       )}
-      
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+
+      {/* REMOVIDO: Container do botão PWA movido para o componente App */}
+
     </div>
   );
 }
