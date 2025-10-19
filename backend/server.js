@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const webpush = require('web-push'); // <-- ADICIONADO
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -24,6 +25,19 @@ require('dotenv').config();
 // --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
+
+// --- Configuração do Web Push --- // <-- ADICIONADO
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'v9V-plWPSzCC3g9BVDVs9Q8Hsoglg36F8rQPJWj3cuQ'; // Sua chave privada (Mantenha segura!)
+const mailto = `mailto:${process.env.ADMIN_EMAIL || 'seuemail@exemplo.com'}`; // Seu email de contato
+
+if (!vapidPrivateKey || !vapidPublicKey) {
+    console.warn('AVISO: Chaves VAPID não configuradas nas variáveis de ambiente. As notificações push não funcionarão.');
+} else {
+    webpush.setVapidDetails(mailto, vapidPublicKey, vapidPrivateKey);
+    console.log('Web Push configurado com chaves VAPID.');
+}
+// --- Fim da Configuração Web Push ---
 
 
 // ---> Constantes para status de pedidos
