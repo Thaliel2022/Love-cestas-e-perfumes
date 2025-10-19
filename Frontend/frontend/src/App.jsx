@@ -5684,16 +5684,24 @@ const AdminDashboard = ({ onNavigate }) => {
                     if (dailySalesCtx && dailySalesData) {
                         if (window.myDailySalesChart) window.myDailySalesChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA (IGUAL AO RELATÓRIO) ---
+                        // --- CORREÇÃO DA DATA ---
+                        // Transforma 'YYYY-MM-DD' (ou data ISO) em uma data local segura
                         const safeLabels = dailySalesData.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            const parts = d.sale_date.split('-'); // "YYYY-MM-DD"
-                            if (parts.length === 3) {
-                                // new Date(ano, mês_zero_indexado, dia) - cria data local segura
-                                const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-                                return dateObj.toLocaleDateString('pt-BR');
+                            // A API retorna uma data (ex: 2025-10-18T03:00:00.000Z)
+                            const dateObj = new Date(d.sale_date); 
+                            if (isNaN(dateObj.getTime())) {
+                                // Fallback se a string de data for apenas YYYY-MM-DD
+                                const parts = d.sale_date.split('-');
+                                if (parts.length === 3) {
+                                     // new Date(ano, mês_zero_indexado, dia) - cria data local
+                                     const dateObjFallback = new Date(parts[0], parts[1] - 1, parts[2]);
+                                     return dateObjFallback.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                                }
+                                return "Data Inválida";
                             }
-                            return "Data Inválida"; // Fallback
+                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
                         
                         window.myDailySalesChart = new window.Chart(dailySalesCtx, {
