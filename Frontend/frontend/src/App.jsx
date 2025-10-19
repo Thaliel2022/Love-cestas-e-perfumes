@@ -1307,7 +1307,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist } = useShop();
+    const { cart, wishlist } = useShop(); // Adicionado wishlist aqui para pegar a contagem
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1315,6 +1315,9 @@ const Header = memo(({ onNavigate }) => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
+
+    // Pega o path atual para destacar o ícone ativo na BottomNavBar
+    const currentPath = window.location.hash.slice(1) || 'home';
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1469,29 +1472,41 @@ const Header = memo(({ onNavigate }) => {
 
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
-    const BottomNavBar = () => (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
-            <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
-                <HomeIcon className="h-6 w-6 mb-1"/>
-                <span className="text-xs">Início</span>
-            </button>
-            <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
-                <UserIcon className="h-6 w-6 mb-1"/>
-                <span className="text-xs">Conta</span>
-            </button>
-            <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className="relative flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
-                <motion.div animate={cartAnimationControls}>
-                    <CartIcon className="h-6 w-6 mb-1"/>
-                </motion.div>
-                <span className="text-xs">Carrinho</span>
-                {totalCartItems > 0 && <span className="absolute top-0 right-3 bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-            </button>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center text-gray-400 hover:text-amber-400 transition-colors w-1/4">
-                <MenuIcon className="h-6 w-6 mb-1"/>
-                <span className="text-xs">Menu</span>
-            </button>
-        </div>
-    );
+    const BottomNavBar = () => {
+        const wishlistCount = wishlist.length; // Pega a contagem da lista de desejos
+
+        return (
+            <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
+                <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HomeIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Início</span>
+                </button>
+                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <UserIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Conta</span>
+                </button>
+                {/* Botão Lista de Desejos Adicionado */}
+                <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HeartIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Lista</span>
+                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                </button>
+                <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <motion.div animate={cartAnimationControls}>
+                        <CartIcon className="h-6 w-6 mb-1"/>
+                    </motion.div>
+                    <span className="text-xs">Carrinho</span>
+                    {/* Badge do Carrinho Reposicionado */}
+                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                </button>
+                {/* Botão Menu com estado ativo */}
+                <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <MenuIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Menu</span>
+                </button>
+            </div>
+        );
+    };
     // --- Fim do Componente BottomNavBar ---
 
     return (
