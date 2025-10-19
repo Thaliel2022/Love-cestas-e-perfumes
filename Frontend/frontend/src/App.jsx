@@ -1427,6 +1427,7 @@ const Header = memo(({ onNavigate }) => {
     };
 
     // --- Lógica e Estado para o Modal de Endereço ---
+    // addresses is fetched inside useEffect when modal opens if needed
     // Removido de useShop() aqui, pois já estava declarado acima
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
@@ -1440,6 +1441,7 @@ const Header = memo(({ onNavigate }) => {
     }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
 
     const handleSelectAddress = (addr) => {
+        // Update the global state which will trigger re-render
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
         setIsAddressModalOpen(false);
     };
@@ -1453,6 +1455,7 @@ const Header = memo(({ onNavigate }) => {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) { setCepError("CEP não encontrado."); } else {
+                // Update the global state which will trigger re-render
                 // Define um alias específico para CEP manual
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsAddressModalOpen(false);
@@ -1466,26 +1469,21 @@ const Header = memo(({ onNavigate }) => {
         if (cepError) setCepError('');
     };
 
-    // --- Lógica REVISADA para Exibição do Endereço (Mobile) ---
-    let addressDisplay = 'Selecione um endereço'; // Placeholder
-    const formattedCep = shippingLocation.cep ? shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-
-    if (shippingLocation.cep) { // Verifica se há alguma localização definida no estado global
-        // Verifica se o alias indica que é um endereço salvo (não começa com "CEP " nem é "Localização Atual")
-        // E se o usuário está logado para mostrar o nome
+    // --- Lógica FINALMENTE CORRIGIDA para Exibição do Endereço (Mobile) ---
+    let addressDisplay = 'Selecione um endereço'; // Default placeholder
+    // Prioritize showing the currently selected shippingLocation from context
+    if (shippingLocation && shippingLocation.cep) {
+        const formattedCep = shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2');
+        const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
+        // Determine prefix based on authentication and if the alias looks like a saved one
         const isSavedAddressAlias = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
+        const prefix = (isAuthenticated && isSavedAddressAlias && user?.name)
+            ? `Enviar para ${user.name.split(' ')[0]} -`
+            : 'Enviar para'; // Default prefix or for CEP/Location/Guest
 
-        if (isAuthenticated && isSavedAddressAlias) {
-            const userNamePart = user?.name ? user.name.split(' ')[0] : 'Usuário';
-            const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : ''; // Usa a cidade do estado global
-            addressDisplay = `Enviar para ${userNamePart} -${displayCity} ${formattedCep}`;
-        } else {
-            // Se for CEP manual, geolocalização ou usuário deslogado
-            const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : ''; // Usa a cidade do estado global
-            addressDisplay = `Enviar para Brasil - ${formattedCep}${displayCity}`;
-        }
+        addressDisplay = `${prefix}${displayCity} ${formattedCep}`;
     }
-    // --- Fim da Lógica REVISADA do Endereço ---
+    // --- Fim da Lógica FINALMENTE CORRIGIDA do Endereço ---
 
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
