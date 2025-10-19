@@ -1640,15 +1640,15 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - REMOVIDO py-3, adicionado mb-2/mb-3 */}
-             <div className="block md:hidden px-4 pt-3"> {/* Alterado py-3 para pt-3 */}
+             {/* Top Bar - Mobile - REMOVIDO pt-3 */}
+             <div className="block md:hidden px-4"> {/* Alterado pt-3 para nada */}
                 {/* Logo Mobile */}
-                <div className="text-center mb-2"> {/* Reduzido para mb-2 */}
+                <div className="text-center mb-2"> {/* Mantém mb-2 */}
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                 </div>
 
                 {/* Search Bar Mobile */}
-                <form onSubmit={handleSearchSubmit} className="relative mb-2"> {/* Reduzido para mb-2 */}
+                <form onSubmit={handleSearchSubmit} className="relative mb-2"> {/* Mantém mb-2 */}
                     <input
                         type="text" value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
@@ -1870,7 +1870,7 @@ const Header = memo(({ onNavigate }) => {
         <BottomNavBar />
 
         {/* Adiciona padding na parte inferior do conteúdo principal para evitar que a BottomNavBar o cubra */}
-        
+        <div className="pb-16 md:pb-0"></div>
         </>
     );
 });
