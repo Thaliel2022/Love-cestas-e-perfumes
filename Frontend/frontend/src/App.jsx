@@ -1307,7 +1307,8 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist } = useShop(); // Adicionado wishlist aqui para pegar a contagem
+    // Adicionado wishlist aqui para pegar a contagem e currentPath para o estado ativo
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1426,7 +1427,7 @@ const Header = memo(({ onNavigate }) => {
     };
 
     // --- Lógica e Estado para o Modal de Endereço ---
-    const { addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop(); // Obter dados e função do contexto
+    // Removido de useShop() aqui, pois já estava declarado acima
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
@@ -1452,6 +1453,7 @@ const Header = memo(({ onNavigate }) => {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) { setCepError("CEP não encontrado."); } else {
+                // Define um alias específico para CEP manual
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsAddressModalOpen(false);
                 setManualCep('');
@@ -1464,22 +1466,26 @@ const Header = memo(({ onNavigate }) => {
         if (cepError) setCepError('');
     };
 
-    // --- Lógica para Exibição do Endereço (Mobile) ---
+    // --- Lógica REVISADA para Exibição do Endereço (Mobile) ---
     let addressDisplay = 'Selecione um endereço'; // Placeholder
-    if (isAuthenticated && addresses.length > 0) {
-        const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
-        const userNamePart = user?.name ? user.name.split(' ')[0] : 'Usuário';
-        // Formatando o CEP para o display
-        const formattedCep = defaultAddr.cep ? defaultAddr.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-        addressDisplay = `Enviar para ${userNamePart} - ${defaultAddr.localidade} ${formattedCep}`;
-    } else if (shippingLocation.cep) {
-         // Formatando o CEP para o display
-        const formattedCep = shippingLocation.cep ? shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-        // Garante que a cidade seja exibida se existir
-        const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
-        addressDisplay = `Enviar para Brasil - ${formattedCep}${displayCity}`;
+    const formattedCep = shippingLocation.cep ? shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
+
+    if (shippingLocation.cep) { // Verifica se há alguma localização definida no estado global
+        // Verifica se o alias indica que é um endereço salvo (não começa com "CEP " nem é "Localização Atual")
+        // E se o usuário está logado para mostrar o nome
+        const isSavedAddressAlias = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
+
+        if (isAuthenticated && isSavedAddressAlias) {
+            const userNamePart = user?.name ? user.name.split(' ')[0] : 'Usuário';
+            const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : ''; // Usa a cidade do estado global
+            addressDisplay = `Enviar para ${userNamePart} -${displayCity} ${formattedCep}`;
+        } else {
+            // Se for CEP manual, geolocalização ou usuário deslogado
+            const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : ''; // Usa a cidade do estado global
+            addressDisplay = `Enviar para Brasil - ${formattedCep}${displayCity}`;
+        }
     }
-    // --- Fim da Lógica do Endereço ---
+    // --- Fim da Lógica REVISADA do Endereço ---
 
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
