@@ -3426,11 +3426,13 @@ app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
 
 // (Admin) Listar todas as solicitações de reembolso
 app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const sql = `
+    try {
+        const sql = `
             SELECT 
                 r.*, 
                 o.id as order_id, 
+                o.date as order_date,
+                o.payment_method,
                 u_req.name as requester_name, 
                 u_app.name as approver_name,
                 c.name as customer_name
@@ -3441,12 +3443,12 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
             LEFT JOIN users u_app ON r.approved_by_admin_id = u_app.id
             ORDER BY r.created_at DESC
         `;
-        const [refunds] = await db.query(sql);
-        res.json(refunds);
-    } catch (err) {
-        console.error("Erro ao listar reembolsos:", err);
-        res.status(500).json({ message: "Erro interno ao listar reembolsos." });
-    }
+        const [refunds] = await db.query(sql);
+        res.json(refunds);
+    } catch (err) {
+        console.error("Erro ao listar reembolsos:", err);
+        res.status(500).json({ message: "Erro interno ao listar reembolsos." });
+    }
 });
 
 // (Admin) Solicitar um novo reembolso para um pedido
