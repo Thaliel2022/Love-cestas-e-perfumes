@@ -1869,8 +1869,6 @@ const Header = memo(({ onNavigate }) => {
         {/* Renderiza a BottomNavBar fora do header, mas ainda controlada pelo estado do Header */}
         <BottomNavBar />
 
-        {/* Adiciona padding na parte inferior do conteúdo principal para evitar que a BottomNavBar o cubra */}
-        <div className="pb-16 md:pb-0"></div>
         </>
     );
 });
