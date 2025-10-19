@@ -2799,10 +2799,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
+
 const LoginPage = ({ onNavigate }) => {
     const { login, setUser } = useAuth();
     const notification = useNotification();
-    
+
     // Estados do formulário
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -2817,7 +2818,7 @@ const LoginPage = ({ onNavigate }) => {
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
-    
+
    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -2825,7 +2826,7 @@ const LoginPage = ({ onNavigate }) => {
         try {
             // Usa a função centralizada do AuthContext
             const response = await login(email, password);
-            
+
             if (response.twoFactorEnabled) {
                 // Se 2FA for necessário, muda para a próxima etapa
                 setTempAuthToken(response.token);
@@ -2850,8 +2851,8 @@ const LoginPage = ({ onNavigate }) => {
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
             const { user } = response;
-            
-            // Define manualmente o usuário no contexto e no localStorage
+
+            // Define manually o usuário no contexto e no localStorage
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
 
@@ -2868,14 +2869,14 @@ const LoginPage = ({ onNavigate }) => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
-            <motion.div 
+            <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
                 className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                
+
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
@@ -2916,15 +2917,15 @@ const LoginPage = ({ onNavigate }) => {
                             <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
                                 <div>
                                     <label className="text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
-                                    <input 
-                                        type="text" 
-                                        inputMode="numeric" 
-                                        pattern="\d{6}" 
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="\d{6}"
                                         maxLength="6"
-                                        placeholder="123456" 
-                                        value={twoFactorCode} 
-                                        onChange={e => setTwoFactorCode(e.target.value)} 
-                                        required 
+                                        placeholder="123456"
+                                        value={twoFactorCode}
+                                        onChange={e => setTwoFactorCode(e.target.value)}
+                                        required
                                         className="w-full text-center tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-2xl font-mono" />
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
@@ -2941,6 +2942,8 @@ const LoginPage = ({ onNavigate }) => {
         </div>
     );
 };
+
+// ... (restante do código) ...
 
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
