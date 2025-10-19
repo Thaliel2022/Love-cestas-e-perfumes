@@ -6561,8 +6561,7 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
     const notification = useNotification();
 
     const handleSave = async () => {
-        // Log para depuração: Verificar o conteúdo do item antes de criar o payload
-        console.log('QuickStockUpdateModal - Item recebido:', JSON.stringify(item, null, 2));
+       // console.log('QuickStockUpdateModal - Item recebido:', JSON.stringify(item, null, 2)); // Removido ou comentado
         setIsSaving(true);
         try {
             const payload = {
@@ -6573,10 +6572,7 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
             variation: item.product_type === 'clothing' ? item.variation : null
         };
 
-
-        
-        // Log para depuração: Verificar o payload final ANTES de enviar
-        console.log('QuickStockUpdateModal - Payload a ser enviado:', JSON.stringify(payload, null, 2));
+        // console.log('QuickStockUpdateModal - Payload a ser enviado:', JSON.stringify(payload, null, 2)); // Removido ou comentado
 
             // CORREÇÃO: Removido o "/api" duplicado.
             await apiService('/products/stock-update', 'PUT', payload);
