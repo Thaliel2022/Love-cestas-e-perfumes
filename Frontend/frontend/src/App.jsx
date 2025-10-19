@@ -6569,7 +6569,8 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
                 variation: item.variation // Envia o objeto de variação (null se for perfume)
             };
             
-            await apiService('/api/products/stock-update', 'PUT', payload);
+            // CORREÇÃO: Removido o "/api" duplicado do início da URL.
+            await apiService('/products/stock-update', 'PUT', payload);
             notification.show('Estoque atualizado com sucesso!');
             onSave(); // Fecha o modal e atualiza a lista
         } catch (error) {
