@@ -3394,7 +3394,6 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Rota consolidada para dados do Dashboard com filtros
 // (Admin) Rota consolidada para dados do Dashboard com filtros
-// (Admin) Rota consolidada para dados do Dashboard com filtros
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
     const { filter } = req.query; // 'today', 'week', 'month', 'year'
     let startDate, endDate = new Date(); // endDate (período atual) é AGORA
