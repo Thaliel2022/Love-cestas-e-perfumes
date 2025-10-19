@@ -1411,8 +1411,46 @@ const Header = memo(({ onNavigate }) => {
         closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
     };
 
+    // --- Lógica e Estado para o Modal de Endereço ---
+    const { addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop(); // Obter dados e função do contexto
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [manualCep, setManualCep] = useState('');
+    const [cepError, setCepError] = useState('');
+
+    // Busca endereços se o usuário estiver logado quando o modal for aberto
+    useEffect(() => {
+        if (isAddressModalOpen && isAuthenticated) {
+            fetchAddresses();
+        }
+    }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
+
+    const handleSelectAddress = (addr) => {
+        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
+        setIsAddressModalOpen(false);
+    };
+
+    const handleManualCepSubmit = async (e) => {
+        e.preventDefault();
+        setCepError('');
+        const cleanCep = manualCep.replace(/\D/g, '');
+        if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; }
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            const data = await response.json();
+            if (data.erro) { setCepError("CEP não encontrado."); } else {
+                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
+                setIsAddressModalOpen(false);
+                setManualCep('');
+            }
+        } catch { setCepError("Não foi possível buscar o CEP."); }
+    };
+
+    const handleCepInputChange = (e) => {
+        setManualCep(maskCEP(e.target.value));
+        if (cepError) setCepError('');
+    };
+
     // --- Lógica para Exibição do Endereço (Mobile) ---
-    const { addresses, shippingLocation } = useShop(); // Obter dados do contexto
     let addressDisplay = 'Selecione um endereço'; // Placeholder
     if (isAuthenticated && addresses.length > 0) {
         const defaultAddr = addresses.find(a => a.is_default) || addresses[0];
@@ -1423,7 +1461,9 @@ const Header = memo(({ onNavigate }) => {
     } else if (shippingLocation.cep) {
          // Formatando o CEP para o display
         const formattedCep = shippingLocation.cep ? shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2') : '';
-        addressDisplay = `Enviar para Brasil - ${formattedCep} ${shippingLocation.city || ''}`;
+        // Garante que a cidade seja exibida se existir
+        const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
+        addressDisplay = `Enviar para Brasil - ${formattedCep}${displayCity}`;
     }
     // --- Fim da Lógica do Endereço ---
 
@@ -1456,6 +1496,42 @@ const Header = memo(({ onNavigate }) => {
 
     return (
         <> {/* Usa Fragment para agrupar Header e BottomNavBar */}
+
+        {/* --- Modal de Endereço --- */}
+        <AnimatePresence>
+            {isAddressModalOpen && (
+                <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Selecionar Endereço de Entrega" size="md">
+                    <div className="space-y-4">
+                        {isAuthenticated && addresses && addresses.length > 0 && addresses.map(addr => (
+                             <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
+                                 <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
+                                 <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero} - {addr.bairro}</p>
+                                 <p className="text-sm text-gray-500">{addr.localidade} - {addr.uf}</p>
+                             </div>
+                        ))}
+                         {isAuthenticated && addresses.length === 0 && (
+                            <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado. Você pode adicionar endereços na sua conta ou inserir um CEP abaixo.</p>
+                         )}
+                         {!isAuthenticated && (
+                            <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços salvos ou insira um CEP abaixo.</p>
+                         )}
+                        <div className="pt-4 border-t">
+                            <form onSubmit={handleManualCepSubmit} className="space-y-2">
+                                 <label className="block text-sm font-medium text-gray-700">Calcular frete para um CEP</label>
+                                 <div className="flex gap-2">
+                                    <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
+                                    <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
+                                 </div>
+                                 {cepError && <p className="text-red-500 text-xs mt-1">{cepError}</p>}
+                            </form>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+        </AnimatePresence>
+        {/* --- Fim do Modal de Endereço --- */}
+
+
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
@@ -1623,12 +1699,12 @@ const Header = memo(({ onNavigate }) => {
                     </AnimatePresence>
                 </form>
 
-                 {/* Address Section Mobile */}
-                 <div className="flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors">
+                 {/* Address Section Mobile - AGORA É UM BOTÃO */}
+                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left">
                     <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/>
-                    <span className="truncate">{addressDisplay}</span>
+                    <span className="truncate flex-grow">{addressDisplay}</span>
                     <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/>
-                 </div>
+                 </button>
             </div>
 
             {/* Bottom Bar (Desktop Navigation) */}
