@@ -6572,7 +6572,12 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
             // O `item` recebido já contém a estrutura correta vinda do `lowStockProducts`
             variation: item.product_type === 'clothing' ? item.variation : null
         };
-            
+
+
+        
+        // Log para depuração: Verificar o payload final ANTES de enviar
+        console.log('QuickStockUpdateModal - Payload a ser enviado:', JSON.stringify(payload, null, 2));
+
             // CORREÇÃO: Removido o "/api" duplicado.
             await apiService('/products/stock-update', 'PUT', payload);
             notification.show('Estoque atualizado com sucesso!');
