@@ -9824,23 +9824,26 @@ function AppContent({ deferredPrompt }) {
         </footer>
       )}
 
-      {/* Container do Botão de Instalação PWA */}
-      {deferredPrompt && showInstallButton && ( // Controla visibilidade
+      {/* Container do Botão de Instalação PWA - Reposicionado e com 'X' ajustado */}
+      {deferredPrompt && showInstallButton && (
           <motion.div
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:bottom-4" // bottom-20 no mobile, bottom-4 no desktop
+              // Posição: Fixo, acima da NavBar (bottom-16 + mb-4 = ~20 Tailwind units), centralizado horizontalmente. Desktop: bottom-4
+              className="fixed bottom-16 mb-4 left-1/2 -translate-x-1/2 z-50 flex justify-center md:bottom-4 md:mb-0"
           >
-             <InstallPWAButton deferredPrompt={deferredPrompt} />
-             <button
-                 onClick={() => setShowInstallButton(false)} // Esconde o botão ao clicar no X
-                 className="p-1.5 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
-                 aria-label="Fechar aviso de instalação"
-             >
-                 <XMarkIcon className="h-4 w-4" />
-             </button>
+              <div className="relative"> {/* Container relativo para posicionar o X */}
+                 <InstallPWAButton deferredPrompt={deferredPrompt} />
+                 <button
+                     onClick={() => setShowInstallButton(false)} // Esconde o botão ao clicar no X
+                     className="absolute -top-2 -right-2 p-1 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-500 focus:ring-white"
+                     aria-label="Fechar aviso de instalação"
+                 >
+                     <XMarkIcon className="h-4 w-4" />
+                 </button>
+             </div>
          </motion.div>
        )}
 
