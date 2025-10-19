@@ -1640,25 +1640,25 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - NOVA ESTRUTURA (removido space-y-3) */}
-             <div className="block md:hidden px-4 py-3"> {/* <-- space-y-3 REMOVIDO DAQUI */}
+             {/* Top Bar - Mobile - REMOVIDO py-3, adicionado mb-2/mb-3 */}
+             <div className="block md:hidden px-4 pt-3"> {/* Alterado py-3 para pt-3 */}
                 {/* Logo Mobile */}
-                <div className="text-center mb-3"> {/* Adicionado mb-3 para espaço abaixo da logo */}
+                <div className="text-center mb-2"> {/* Reduzido para mb-2 */}
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                 </div>
 
                 {/* Search Bar Mobile */}
-                <form onSubmit={handleSearchSubmit} className="relative mb-3"> {/* Adicionado mb-3 para espaço abaixo da busca */}
+                <form onSubmit={handleSearchSubmit} className="relative mb-2"> {/* Reduzido para mb-2 */}
                     <input
                         type="text" value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         onFocus={() => setIsSearchFocused(true)}
                         onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
                         placeholder="Pesquisar em LovecestasePerfumes"
-                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" // Ajustado para rounded-md
+                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                     />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                     {/* Search Suggestions Mobile (mantém a mesma lógica) */}
+                     {/* Search Suggestions Mobile */}
                     <AnimatePresence>
                         {isSearchFocused && searchTerm.length > 0 && (
                              <motion.div
