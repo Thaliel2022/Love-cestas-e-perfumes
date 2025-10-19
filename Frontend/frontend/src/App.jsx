@@ -1307,29 +1307,16 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    // Adicionado wishlist aqui para pegar a contagem e currentPath para o estado ativo
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop(); // Removido currentPath daqui
     const [searchTerm, setSearchTerm] = useState('');
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mantido aqui para controlar o menu lateral
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
 
-    // Pega o path atual para destacar o ícone ativo na BottomNavBar
-    // Usa useState e useEffect para garantir que o valor está atualizado na re-renderização
-    const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-    useEffect(() => {
-        const handleHashChange = () => {
-             setCurrentPath(window.location.hash.slice(1) || 'home');
-        };
-        window.addEventListener('hashchange', handleHashChange);
-        // Atualiza no mount inicial também
-        handleHashChange();
-        return () => window.removeEventListener('hashchange', handleHashChange);
-     }, []);
-
+    // currentPath agora virá via props ou contexto se necessário para o Header, mas não é usado aqui diretamente
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1358,12 +1345,10 @@ const Header = memo(({ onNavigate }) => {
             });
     }, []);
 
-    // Busca o menu na primeira vez que o componente carrega
     useEffect(() => {
         fetchAndBuildMenu();
     }, [fetchAndBuildMenu]);
 
-    // Lógica de Retentativa: Se o menu mobile for aberto e estiver vazio, busca de novo.
     useEffect(() => {
         if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
             console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
@@ -1404,7 +1389,7 @@ const Header = memo(({ onNavigate }) => {
             onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
             setSearchTerm('');
             setSearchSuggestions([]);
-            setIsMobileMenuOpen(false);
+            setIsMobileMenuOpen(false); // Fecha o menu lateral ao pesquisar
         }
     };
 
@@ -1413,7 +1398,7 @@ const Header = memo(({ onNavigate }) => {
         setSearchTerm('');
         setSearchSuggestions([]);
         setIsSearchFocused(false);
-        setIsMobileMenuOpen(false);
+        setIsMobileMenuOpen(false); // Fecha o menu lateral ao clicar na sugestão
     };
 
     const dropdownVariants = {
@@ -1426,14 +1411,10 @@ const Header = memo(({ onNavigate }) => {
         closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
     };
 
-    // --- Lógica e Estado para o Modal de Endereço ---
-    // addresses is fetched inside useEffect when modal opens if needed
-    // Removido de useShop() aqui, pois já estava declarado acima
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
-    // Busca endereços se o usuário estiver logado quando o modal for aberto
     useEffect(() => {
         if (isAddressModalOpen && isAuthenticated) {
             fetchAddresses();
@@ -1441,7 +1422,6 @@ const Header = memo(({ onNavigate }) => {
     }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
 
     const handleSelectAddress = (addr) => {
-        // Update the global state which will trigger re-render
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
         setIsAddressModalOpen(false);
     };
@@ -1455,8 +1435,6 @@ const Header = memo(({ onNavigate }) => {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) { setCepError("CEP não encontrado."); } else {
-                // Update the global state which will trigger re-render
-                // Define um alias específico para CEP manual
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsAddressModalOpen(false);
                 setManualCep('');
@@ -1469,71 +1447,28 @@ const Header = memo(({ onNavigate }) => {
         if (cepError) setCepError('');
     };
 
-    // --- Lógica FINALMENTE CORRIGIDA para Exibição do Endereço (Mobile) ---
-    let addressDisplay = 'Selecione um endereço'; // Default placeholder
-    // Prioritize showing the currently selected shippingLocation from context
+    let addressDisplay = 'Selecione um endereço';
     if (shippingLocation && shippingLocation.cep) {
         const formattedCep = shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2');
         const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
-        // Determine prefix based on authentication and if the alias looks like a saved one
         const isLikelySavedAddress = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
         const prefix = (isAuthenticated && isLikelySavedAddress && user?.name)
             ? `Enviar para ${user.name.split(' ')[0]} -`
-            : 'Enviar para'; // Default prefix or for CEP/Location/Guest
-
+            : 'Enviar para';
         addressDisplay = `${prefix}${displayCity} ${formattedCep}`;
     }
-    // --- Fim da Lógica FINALMENTE CORRIGIDA do Endereço ---
 
-
-    // --- Componente da Barra de Navegação Inferior (Mobile) ---
-    const BottomNavBar = () => {
-        const wishlistCount = wishlist.length; // Pega a contagem da lista de desejos
-
-        return (
-            <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
-                {/* Ícone Início - Adicionado destaque */}
-                <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HomeIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Início</span>
-                </button>
-                 {/* Ícone Conta - Adicionado destaque */}
-                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <UserIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Conta</span>
-                </button>
-                 {/* Ícone Lista - Adicionado destaque */}
-                <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HeartIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
-                </button>
-                 {/* Ícone Carrinho - Adicionado destaque */}
-                <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <motion.div animate={cartAnimationControls}>
-                        <CartIcon className="h-6 w-6 mb-1"/>
-                    </motion.div>
-                    <span className="text-xs">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                </button>
-                 {/* Ícone Menu - Destaque mantido */}
-                <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <MenuIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Menu</span>
-                </button>
-            </div>
-        );
-    };
-    // --- Fim do Componente BottomNavBar ---
+    // REMOVIDO: Definição do BottomNavBar daqui
 
     return (
-        <> {/* Usa Fragment para agrupar Header e BottomNavBar */}
+        <> {/* Mantido Fragment por causa do Modal */}
 
         {/* --- Modal de Endereço --- */}
         <AnimatePresence>
             {isAddressModalOpen && (
                 <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Selecionar Endereço de Entrega" size="md">
-                    <div className="space-y-4">
+                    {/* ... conteúdo do modal ... */}
+                     <div className="space-y-4">
                         {isAuthenticated && addresses && addresses.length > 0 && addresses.map(addr => (
                              <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
                                  <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
@@ -1563,10 +1498,10 @@ const Header = memo(({ onNavigate }) => {
         </AnimatePresence>
         {/* --- Fim do Modal de Endereço --- */}
 
-
+        {/* Agora o Header contém apenas a parte de cima */}
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
             {/* Top Bar - Desktop */}
-            <div className="hidden md:block px-4 sm:px-6">
+             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
                     {/* Logo Desktop */}
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
@@ -1672,8 +1607,8 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - Adicionado pt-3 */}
-             <div className="block md:hidden px-4 pt-3"> {/* Adicionado pt-3 para espaço no topo */}
+             {/* Top Bar - Mobile */}
+             <div className="block md:hidden px-4 pt-3">
                 {/* Logo Mobile */}
                 <div className="text-center mb-2">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
@@ -1731,7 +1666,7 @@ const Header = memo(({ onNavigate }) => {
                     </AnimatePresence>
                 </form>
 
-                 {/* Address Section Mobile - AGORA É UM BOTÃO */}
+                 {/* Address Section Mobile */}
                  <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left">
                     <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/>
                     <span className="truncate flex-grow">{addressDisplay}</span>
@@ -1740,7 +1675,7 @@ const Header = memo(({ onNavigate }) => {
             </div>
 
             {/* Bottom Bar (Desktop Navigation) */}
-            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
+             <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
                     <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button>
@@ -1777,7 +1712,7 @@ const Header = memo(({ onNavigate }) => {
                 </AnimatePresence>
             </nav>
 
-            {/* Mobile Menu (Slide Out) - A lógica permanece a mesma, mas é ativada pela BottomNavBar */}
+            {/* Mobile Menu (Slide Out) */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <>
@@ -1795,8 +1730,7 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow overflow-y-auto p-4">
-                                   {/* REMOVIDO: Formulário de busca daqui */}
-
+                                {/* ... conteúdo do menu lateral ... */}
                                 {dynamicMenuItems.map((cat, index) => (
                                     cat && cat.sub && (
                                         <div key={cat.name} className="border-b border-gray-800">
@@ -1847,10 +1781,7 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
-        {/* Renderiza a BottomNavBar fora do header, mas ainda controlada pelo estado do Header */}
-        <BottomNavBar />
-
-        {/* REMOVIDO: <div className="pb-16 md:pb-0"></div> */}
+        {/* REMOVIDO: Renderização do BottomNavBar daqui */}
         </>
     );
 });
