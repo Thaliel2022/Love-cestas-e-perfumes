@@ -1307,11 +1307,13 @@ app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) =>
                     for (const v of variations) {
                         if (v.stock < LOW_STOCK_THRESHOLD) {
                             lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: product.images
-                            });
+                                id: product.id,
+                                name: `${product.name} (${v.color} / ${v.size})`,
+                                stock: v.stock,
+                                images: v.images && v.images.length > 0 ? JSON.stringify(v.images) : product.images, // Usa imagens da variação se houver, senão as principais
+                                product_type: 'clothing',
+                                variation: v // <--- ADICIONADO: Inclui o objeto completo da variação
+                            });
                         }
                     }
                 } catch (e) {
