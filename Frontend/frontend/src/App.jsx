@@ -1400,7 +1400,7 @@ const Header = memo(({ onNavigate }) => {
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
             {/* O restante do código JSX do Header permanece o mesmo daqui para baixo... */}
             {/* Top Bar */}
-            <div className="px-4 sm:px-6">
+            <div className="container mx-auto px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
                     <div className="flex items-center">
                         <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden mr-4 text-white">
@@ -1409,7 +1409,7 @@ const Header = memo(({ onNavigate }) => {
                         <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                     </div>
                     
-                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
+                    <div className="hidden lg:block flex-1 max-w-xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input 
                                 type="text" value={searchTerm} 
