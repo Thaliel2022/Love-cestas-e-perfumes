@@ -5565,14 +5565,18 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
     const notification = useNotification();
-    const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 }); // Renomeado prevMonthRevenue
+    const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 });
     const [lowStockProducts, setLowStockProducts] = useState([]);
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
-    const [isLoadingData, setIsLoadingData] = useState(true); // Estado de carregamento
+    const [isLoadingData, setIsLoadingData] = useState(true);
+    
+    // NOVO: Estados separados para os dados dos gráficos
+    const [dailySalesData, setDailySalesData] = useState([]);
+    const [bestSellersData, setBestSellersData] = useState([]);
 
-    // Funções de exportação
+    // Funções de exportação (mantidas, sem alterações)
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
@@ -5581,27 +5585,20 @@ const AdminDashboard = ({ onNavigate }) => {
             else setTimeout(check, 100);
         }; check();
     };
-
     const generatePdf = (data, headers, title) => {
         runWhenLibsReady(() => {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
             const timestamp = new Date().toLocaleString('pt-BR');
-
             doc.setFontSize(18);
             doc.text(title, pageWidth / 2, 16, { align: 'center' });
             doc.setFontSize(8);
             doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({ 
-                head: [headers], 
-                body: data,
-                startY: 25
-            });
+            doc.autoTable({ head: [headers], body: data, startY: 25 });
             doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
         }, ['pdf']);
     };
-
     const generateExcel = (data, filename) => {
         runWhenLibsReady(() => {
             const wb = window.XLSX.utils.book_new();
@@ -5610,7 +5607,6 @@ const AdminDashboard = ({ onNavigate }) => {
             window.XLSX.writeFile(wb, `${filename}.xlsx`);
         }, ['excel']);
     };
-
     const handleSalesExport = async (format) => {
         try {
             const orders = await apiService('/orders');
@@ -5624,7 +5620,6 @@ const AdminDashboard = ({ onNavigate }) => {
             notification.show(`Falha ao gerar relatório de vendas: ${error.message}`, 'error');
         }
     };
-    
     const handleStockExport = async (format) => {
         try {
             const products = await apiService('/products/all');
@@ -5639,31 +5634,41 @@ const AdminDashboard = ({ onNavigate }) => {
         }
     };
 
+    // Efeito para BUSCAR os dados
     const fetchDashboardData = useCallback((filter = 'month') => {
-        setIsLoadingData(true); // Inicia o carregamento
+        setIsLoadingData(true);
         console.log(`Fetching dashboard data with filter: ${filter}`);
         Promise.all([
-            // MODIFICAÇÃO: Passa o filtro para a API de relatórios
             apiService(`/reports/dashboard?filter=${filter}`).catch(err => {
                 console.error('Error fetching dashboard report data:', err);
                 notification.show(`Erro ao carregar dados do dashboard: ${err.message}`, 'error');
-                // Retorna objeto com estrutura mínima esperada em caso de erro
                 return { stats: { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 }, dailySales: [], bestSellers: [] };
             }),
             apiService('/products/low-stock').catch(err => {
                 console.error('Error fetching low stock products:', err);
-                return []; // Retorna array vazio em caso de erro
+                return [];
             })
         ]).then(([reportData, lowStockItems]) => {
-            // Verifica se reportData existe antes de tentar acessar suas propriedades
-            const statsData = reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 };
-            const dailySalesData = reportData?.dailySales || [];
-            const bestSellersData = reportData?.bestSellers || [];
-
-            setStats(statsData);
+            // Apenas define os estados
+            setStats(reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 });
+            setDailySalesData(reportData?.dailySales || []);
+            setBestSellersData(reportData?.bestSellers || []);
             setLowStockProducts(lowStockItems || []);
+        }).finally(() => {
+            setIsLoadingData(false); // Finaliza o carregamento
+        });
+    }, [notification]);
 
-            // --- CORREÇÃO: Função para esperar o Chart.js carregar ---
+    // Efeito principal que busca dados quando o filtro muda
+    useEffect(() => {
+        fetchDashboardData(activeFilter);
+    }, [activeFilter, fetchDashboardData]);
+
+    // --- CORREÇÃO: NOVO useEffect dedicado a RENDERIZAR os gráficos ---
+    // Este efeito roda DEPOIS que o componente re-renderiza (quando isLoadingData vira false)
+    useEffect(() => {
+        // Só tenta renderizar se NÃO estiver carregando e se os dados existirem
+        if (!isLoadingData) {
             const renderCharts = () => {
                 if (window.Chart) {
                     // Gráfico de Vendas Diárias
@@ -5682,10 +5687,10 @@ const AdminDashboard = ({ onNavigate }) => {
                                     fill: true, tension: 0.3
                                 }]
                             },
-                            options: { responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
+                            options: { responsive: true, maintainAspectRatio: false }
                         });
                     } else {
-                        console.warn("Elemento canvas 'dailySalesChart' não encontrado.");
+                        console.warn("Elemento canvas 'dailySalesChart' não encontrado (renderCharts).");
                     }
 
                     // Gráfico de Mais Vendidos
@@ -5707,27 +5712,20 @@ const AdminDashboard = ({ onNavigate }) => {
                                     borderWidth: 1
                                 }]
                             },
-                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
+                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
                         });
                     } else {
-                        console.warn("Elemento canvas 'bestSellersChart' não encontrado.");
+                        console.warn("Elemento canvas 'bestSellersChart' não encontrado (renderCharts).");
                     }
                 } else {
                     console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
                     setTimeout(renderCharts, 100); // Tenta novamente após 100ms
                 }
             };
-            
+
             renderCharts(); // Inicia a tentativa de renderização
-
-        }).finally(() => {
-            setIsLoadingData(false); // Finaliza o carregamento
-        });
-    }, [notification]); // Adiciona notification às dependências
-
-    useEffect(() => {
-        fetchDashboardData(activeFilter);
-    }, [activeFilter, fetchDashboardData]); // Adiciona fetchDashboardData às dependências
+        }
+    }, [isLoadingData, dailySalesData, bestSellersData]); // Roda quando o carregamento termina ou os dados dos gráficos mudam
 
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
@@ -5737,13 +5735,12 @@ const AdminDashboard = ({ onNavigate }) => {
 
     const handleFilterClick = (filter) => {
         setActiveFilter(filter);
-        // A busca de dados agora é feita pelo useEffect
     };
 
     // Calcula crescimento (com verificações)
     const calculateGrowth = () => {
         if (!stats || stats.prevPeriodRevenue === undefined || stats.totalRevenue === undefined) {
-            return { text: '--', color: 'text-gray-500' }; // Estado inicial ou inválido
+            return { text: '--', color: 'text-gray-500' };
         }
         const prevRevenue = Number(stats.prevPeriodRevenue);
         const currentRevenue = Number(stats.totalRevenue);
