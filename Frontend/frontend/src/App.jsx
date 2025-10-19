@@ -3353,42 +3353,164 @@ const CartPage = ({ onNavigate }) => {
         </div>
     );
 };
-const WishlistPage = ({ onNavigate }) => {
-    const { wishlist, removeFromWishlist } = useShop();
+// NOVO COMPONENTE: WishlistItemCard
+const WishlistItemCard = memo(({ item, onRemove, onNavigate }) => {
+    const { addToCart } = useShop(); // Pega addToCart do contexto
     const notification = useNotification();
-    
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+    const imageUrl = getFirstImage(item.images);
+    const isOnSale = !!(item.is_on_sale && item.sale_price > 0 && Number(item.price) > Number(item.sale_price));
+    const currentPrice = isOnSale ? item.sale_price : item.price;
+    const isOutOfStock = item.stock <= 0;
+
+    const handleAddToCart = async (e) => {
+        e.stopPropagation();
+        if (item.product_type === 'clothing') {
+            notification.show("Escolha cor e tamanho na página do produto.", "error");
+            onNavigate(`product/${item.id}`);
+            return;
+        }
+        if (isOutOfStock) {
+             notification.show("Este item está fora de estoque.", "error");
+             return;
+        }
+
+        setIsAddingToCart(true);
+        try {
+            await addToCart(item, 1);
+            notification.show(`${item.name} adicionado ao carrinho!`);
+        } catch (error) {
+            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
+        } finally {
+            setIsAddingToCart(false);
+        }
+    };
+
+    const cardVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+        exit: { opacity: 0, y: -20, transition: { duration: 0.3 } }
+    };
+
+    return (
+        <motion.div
+            layout // Garante animação suave ao remover
+            variants={cardVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col h-full"
+        >
+            <div className="relative h-48 sm:h-56 bg-white overflow-hidden group">
+                <img
+                    src={imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105"
+                    onClick={() => onNavigate(`product/${item.id}`)}
+                />
+                 {isOutOfStock && (
+                    <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">ESGOTADO</div>
+                )}
+                {isOnSale && !isOutOfStock && (
+                     <div className="absolute top-2 right-2 bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md z-10">OFERTA</div>
+                )}
+            </div>
+            <div className="p-4 flex flex-col flex-grow">
+                <div className="flex-grow">
+                    <p className="text-xs text-amber-400 font-semibold tracking-wider mb-1">{item.brand?.toUpperCase()}</p>
+                    <h4
+                        className="text-base font-bold tracking-tight cursor-pointer hover:text-amber-400 line-clamp-2"
+                        onClick={() => onNavigate(`product/${item.id}`)}
+                        title={item.name}
+                    >
+                        {item.name}
+                    </h4>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                    {isOnSale ? (
+                        <div>
+                            <p className="text-sm font-light text-gray-500 line-through">R$ {Number(item.price).toFixed(2).replace('.', ',')}</p>
+                            <p className="text-xl font-bold text-red-500">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                        </div>
+                    ) : (
+                        <p className="text-xl font-semibold text-white">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                    )}
+                </div>
+
+                <div className="mt-4 flex gap-2">
+                    <button
+                        onClick={handleAddToCart}
+                        disabled={isAddingToCart || isOutOfStock}
+                        className={`flex-grow ${isOutOfStock ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-amber-400 text-black hover:bg-amber-300'} transition font-bold py-2 px-3 rounded-md text-sm flex items-center justify-center gap-2 disabled:opacity-70`}
+                    >
+                        {isAddingToCart ? <SpinnerIcon className="h-5 w-5"/> : <CartIcon className="h-5 w-5"/>}
+                        {isOutOfStock ? 'Esgotado' : (item.product_type === 'clothing' ? 'Ver Opções' : 'Add Carrinho')}
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onRemove(item); }}
+                        title="Remover da lista"
+                        className="flex-shrink-0 border border-gray-700 text-gray-400 p-2 rounded-md hover:bg-red-900/50 hover:border-red-700 hover:text-red-400 transition"
+                    >
+                        <TrashIcon className="h-5 w-5"/>
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+});
+
+
+const WishlistPage = ({ onNavigate }) => {
+    const { wishlist, removeFromWishlist } = useShop(); // Pegar addToCart foi removido daqui
+    const notification = useNotification();
+
     const handleRemove = async (item) => {
         await removeFromWishlist(item.id);
         notification.show(`${item.name} removido da lista de desejos.`, 'error');
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 } // Anima os filhos em sequência
+        }
+    };
+
     return (
         <div className="bg-black text-white min-h-screen py-12">
             <div className="container mx-auto px-4">
-                <h1 className="text-3xl md:text-4xl font-bold mb-8">Lista de Desejos</h1>
-                 {wishlist.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Sua lista de desejos está vazia.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
-                    </div>
+                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Lista de Desejos</h1>
+                {wishlist.length === 0 ? (
+                    <EmptyState
+                        icon={<HeartIcon className="h-12 w-12"/>}
+                        title="Sua lista de desejos está vazia"
+                        message="Adicione produtos que você ama para encontrá-los facilmente mais tarde."
+                        buttonText="Ver Produtos"
+                        onButtonClick={() => onNavigate('products')}
+                    />
                 ) : (
-                    <div className="space-y-4">
-                        {wishlist.map(item => (
-                            <div key={item.id} className="bg-gray-900 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between border border-gray-800 gap-4">
-                                <div className="flex items-center flex-grow w-full sm:w-auto">
-                                    <div className="w-20 h-20 bg-white p-1 rounded-md flex-shrink-0">
-                                        <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
-                                    </div>
-                                    <h3 className="font-bold text-lg flex-grow px-4 sm:px-6 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                </div>
-                                <div className="flex items-center space-x-4 flex-shrink-0">
-                                    <button onClick={() => onNavigate(`product/${item.id}`)} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600">Ver Produto</button>
-                                    <button onClick={() => handleRemove(item)} className="text-gray-500 hover:text-red-500 p-2"><TrashIcon className="h-5 w-5"/></button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                 )}
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+                    >
+                        <AnimatePresence>
+                            {wishlist.map(item => (
+                                <WishlistItemCard
+                                    key={item.id}
+                                    item={item}
+                                    onRemove={handleRemove}
+                                    onNavigate={onNavigate}
+                                    // onAddToCart não é mais passado, pois o card lida com isso
+                                />
+                            ))}
+                        </AnimatePresence>
+                    </motion.div>
+                )}
             </div>
         </div>
     );
