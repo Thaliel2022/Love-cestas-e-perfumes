@@ -9600,8 +9600,6 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
 // ... (imports e outros componentes) ...
 
-// ... (imports e outros componentes) ...
-
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -9764,7 +9762,8 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
+      {/* Adicionado padding inferior responsivo para compensar BottomNavBar */}
+      <main className="flex-grow pb-16 md:pb-0">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
@@ -9835,8 +9834,6 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-
-// ... (Restante do App e export default App) ...
 
 // ... (Restante do App e export default App) ...
 
