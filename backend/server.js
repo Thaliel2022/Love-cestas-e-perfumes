@@ -1529,6 +1529,7 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
 
     // Add initial log
     console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
+    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
 
     if (!productId || newStock === undefined || newStock < 0) {
         console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
