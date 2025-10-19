@@ -5572,7 +5572,7 @@ const AdminDashboard = ({ onNavigate }) => {
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true); // Estado de carregamento
 
-    // Funções de exportação (sem alterações)
+    // Funções de exportação
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
