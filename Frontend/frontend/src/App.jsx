@@ -1763,58 +1763,7 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow overflow-y-auto p-4">
-                                   {/* Search inside mobile menu */}
-                                   <form onSubmit={handleSearchSubmit} className="relative mb-4">
-                                    <input
-                                        type="text"
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        onFocus={() => setIsSearchFocused(true)}
-                                        onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                        placeholder="O que você procura?"
-                                        className="w-full bg-gray-800 text-white px-4 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                    />
-                                    <div className="relative">
-                                        <AnimatePresence>
-                                            {isSearchFocused && searchTerm.length > 0 && (
-                                                <motion.div
-                                                    initial={{ opacity: 0, y: -10 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    exit={{ opacity: 0, y: -10 }}
-                                                    className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
-                                                >
-                                                    <div className="max-h-60 overflow-y-auto">
-                                                        {searchSuggestions.length > 0 ? (
-                                                            searchSuggestions.map(p => (
-                                                                <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
-                                                                    <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" />
-                                                                    <div className="flex-grow">
-                                                                        <p className="font-semibold text-gray-800 text-sm">{p.name}</p>
-                                                                        {p.is_on_sale && p.sale_price > 0 ? (
-                                                                            <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p>
-                                                                        ) : (
-                                                                            <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p>
-                                                        )}
-                                                    </div>
-                                                    {searchTerm.trim() && (
-                                                        <button
-                                                            type="submit"
-                                                            className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"
-                                                        >
-                                                            Ver todos os resultados
-                                                        </button>
-                                                    )}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                </form>
+                                   {/* REMOVIDO: Formulário de busca daqui */}
 
                                 {dynamicMenuItems.map((cat, index) => (
                                     cat && cat.sub && (
@@ -1869,6 +1818,7 @@ const Header = memo(({ onNavigate }) => {
         {/* Renderiza a BottomNavBar fora do header, mas ainda controlada pelo estado do Header */}
         <BottomNavBar />
 
+        {/* REMOVIDO: <div className="pb-16 md:pb-0"></div> */}
         </>
     );
 });
