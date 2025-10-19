@@ -9444,7 +9444,7 @@ const InstallPWAButton = ({ deferredPrompt }) => {
     return (
         <button
             onClick={handleInstallClick}
-            className="fixed bottom-20 right-6 z-50 bg-amber-500 text-black px-6 py-3 rounded-full shadow-lg hover:bg-amber-400 font-bold flex items-center gap-2 transition-transform hover:scale-105"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-black px-6 py-3 rounded-full shadow-lg hover:bg-amber-400 font-bold flex items-center gap-2 transition-transform hover:scale-105" // <-- Classe 'bottom-6' alterada para 'bottom-20'
         >
             <DownloadIcon className="h-5 w-5" />
             <span>Instalar App</span>
@@ -9751,9 +9751,7 @@ function AppContent({ deferredPrompt }) {
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
 
-  const noHeaderFooterPages = ['admin', 'login', 'register', 'forgot-password'];
-  const mainPageForLayout = currentPath.split('/')[0];
-  const showHeaderFooter = !noHeaderFooterPages.some(p => mainPageForLayout.startsWith(p));
+  const showHeaderFooter = !currentPath.startsWith('admin');
   
   return (
     <div className="bg-black min-h-screen flex flex-col">
@@ -9885,5 +9883,4 @@ export default function App() {
         </AuthProvider>
     );
 }
-
 
