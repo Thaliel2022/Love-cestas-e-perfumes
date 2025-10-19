@@ -916,30 +916,45 @@ const TrackingModal = memo(({ isOpen, onClose, order }) => {
 });
 
 // --- COMPONENTE DO BOTÃO DE VOLTAR AO TOPO ---
-const BackToTopButton = () => {
+const BackToTopButton = ({ scrollableRef }) => {
     const [isVisible, setIsVisible] = useState(false);
 
     const toggleVisibility = useCallback(() => {
-        if (window.pageYOffset > 300) {
+        const target = scrollableRef?.current;
+        let scrollTop = 0;
+        if (target) {
+            scrollTop = target.scrollTop; // Usa o scroll do elemento
+        } else {
+            scrollTop = window.pageYOffset; // Usa o scroll da página
+        }
+
+        if (scrollTop > 300) {
             setIsVisible(true);
         } else {
             setIsVisible(false);
         }
-    }, []);
+    }, [scrollableRef]);
 
     const scrollToTop = () => {
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
+        const target = scrollableRef?.current;
+        if (target) {
+            target.scrollTo({ top: 0, behavior: 'smooth' }); // Rola o elemento
+        } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Rola a página
+        }
     };
 
     useEffect(() => {
-        window.addEventListener('scroll', toggleVisibility);
-        return () => {
-            window.removeEventListener('scroll', toggleVisibility);
-        };
-    }, [toggleVisibility]);
+        const target = scrollableRef?.current || window;
+        
+        // Garante que o target (elemento) exista antes de adicionar o listener
+        if (target) {
+            target.addEventListener('scroll', toggleVisibility);
+            return () => {
+                target.removeEventListener('scroll', toggleVisibility);
+            };
+        }
+    }, [toggleVisibility, scrollableRef]);
 
     return (
         <AnimatePresence>
@@ -5439,6 +5454,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth(); // Importa 'user'
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
+    const mainContentRef = useRef(null); // <-- ADICIONADO O REF
 
     useEffect(() => {
         apiService('/orders')
@@ -5537,10 +5553,10 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                         </button>
                      </div>
                 </header>
-                <main className="flex-grow p-4 sm:p-6 overflow-y-auto">
+                <main ref={mainContentRef} className="flex-grow p-4 sm:p-6 overflow-y-auto">
                     {children}
                 </main>
-                <BackToTopButton />
+                <BackToTopButton scrollableRef={mainContentRef} />
             </div>
         </div>
     );
