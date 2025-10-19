@@ -1469,21 +1469,23 @@ const Header = memo(({ onNavigate }) => {
         if (cepError) setCepError('');
     };
 
-    // --- Lógica FINALMENTE CORRIGIDA para Exibição do Endereço (Mobile) ---
+    // --- Lógica Simplificada para Exibição do Endereço (Mobile) ---
     let addressDisplay = 'Selecione um endereço'; // Default placeholder
-    // Prioritize showing the currently selected shippingLocation from context
     if (shippingLocation && shippingLocation.cep) {
-        const formattedCep = shippingLocation.cep.replace(/(\d{5})(\d{3})/, '$1-$2');
-        const displayCity = shippingLocation.city ? ` ${shippingLocation.city}` : '';
-        // Determine prefix based on authentication and if the alias looks like a saved one
-        const isLikelySavedAddress = shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual';
-        const prefix = (isAuthenticated && isLikelySavedAddress && user?.name)
-            ? `Enviar para ${user.name.split(' ')[0]} -`
-            : 'Enviar para'; // Default prefix or for CEP/Location/Guest
+        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+        if (cleanCep.length === 8) {
+            const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
+            const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - '); // City - ST
+            const prefix = isAuthenticated && user?.name ? `Enviar para ${user.name.split(' ')[0]} -` : 'Enviar para';
 
-        addressDisplay = `${prefix}${displayCity} ${formattedCep}`;
+            if (displayCityState) {
+                addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
+            } else {
+                 addressDisplay = `${prefix} ${formattedCep}`; // Fallback if city/state unknown
+            }
+        }
     }
-    // --- Fim da Lógica FINALMENTE CORRIGIDA do Endereço ---
+    // --- Fim da Lógica Simplificada do Endereço ---
 
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
