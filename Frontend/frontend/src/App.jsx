@@ -2802,7 +2802,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 const LoginPage = ({ onNavigate }) => {
     const { login, setUser } = useAuth();
     const notification = useNotification();
-    
+
     // Estados do formulário
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -2817,7 +2817,7 @@ const LoginPage = ({ onNavigate }) => {
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
-    
+
    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
@@ -2825,7 +2825,7 @@ const LoginPage = ({ onNavigate }) => {
         try {
             // Usa a função centralizada do AuthContext
             const response = await login(email, password);
-            
+
             if (response.twoFactorEnabled) {
                 // Se 2FA for necessário, muda para a próxima etapa
                 setTempAuthToken(response.token);
@@ -2850,8 +2850,8 @@ const LoginPage = ({ onNavigate }) => {
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
             const { user } = response;
-            
-            // Define manualmente o usuário no contexto e no localStorage
+
+            // Define manually o usuário no contexto e no localStorage
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
 
@@ -2867,15 +2867,17 @@ const LoginPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
-            <motion.div 
+        // Garante largura total e centraliza com flexbox
+        <div className="w-full min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
+            <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
+                // w-full e max-w-md garantem a largura correta
                 className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                
+
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
@@ -2916,15 +2918,15 @@ const LoginPage = ({ onNavigate }) => {
                             <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
                                 <div>
                                     <label className="text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
-                                    <input 
-                                        type="text" 
-                                        inputMode="numeric" 
-                                        pattern="\d{6}" 
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="\d{6}"
                                         maxLength="6"
-                                        placeholder="123456" 
-                                        value={twoFactorCode} 
-                                        onChange={e => setTwoFactorCode(e.target.value)} 
-                                        required 
+                                        placeholder="123456"
+                                        value={twoFactorCode}
+                                        onChange={e => setTwoFactorCode(e.target.value)}
+                                        required
                                         className="w-full text-center tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-2xl font-mono" />
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
@@ -9603,7 +9605,6 @@ function AppContent({ deferredPrompt }) {
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
-  const [showInstallButton, setShowInstallButton] = useState(true); // <-- Estado adicionado
 
   // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
@@ -9633,7 +9634,7 @@ function AppContent({ deferredPrompt }) {
 
     checkStatus(); // Verifica imediatamente quando o componente monta
 
-    const intervalId = setInterval(checkStatus, 300000); // <-- Aumentado de 30000 para 300000 (5 minutos)
+    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
 
     return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
   }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
@@ -9641,19 +9642,19 @@ function AppContent({ deferredPrompt }) {
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
-
+  
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-
+    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId');
+      sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]);
-
+  }, [currentPath, navigate]); 
+  
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
@@ -9665,7 +9666,7 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-
+  
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -9688,7 +9689,7 @@ function AppContent({ deferredPrompt }) {
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-
+    
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -9697,10 +9698,10 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-
+        
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />,
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -9722,7 +9723,7 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-
+    
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
@@ -9730,7 +9731,7 @@ function AppContent({ deferredPrompt }) {
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-
+    
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -9753,7 +9754,7 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-
+  
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -9823,30 +9824,8 @@ function AppContent({ deferredPrompt }) {
             </div>
         </footer>
       )}
-
-      {/* Container do Botão de Instalação PWA - Reposicionado com bottom-20 */}
-      {deferredPrompt && showInstallButton && (
-          <motion.div
-              initial={{ y: 100, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 100, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-              // Posição: Fixo, bottom-20 (5rem) acima do fundo, centralizado. Desktop: bottom-4
-              className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex justify-center md:bottom-4"
-          >
-              <div className="relative"> {/* Container relativo para posicionar o X */}
-                 <InstallPWAButton deferredPrompt={deferredPrompt} />
-                 <button
-                     onClick={() => setShowInstallButton(false)} // Esconde o botão ao clicar no X
-                     className="absolute -top-2 -right-2 p-1 bg-gray-700 text-white rounded-full hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-amber-500 focus:ring-white"
-                     aria-label="Fechar aviso de instalação"
-                 >
-                     <XMarkIcon className="h-4 w-4" />
-                 </button>
-             </div>
-         </motion.div>
-       )}
-
+      
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
