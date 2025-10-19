@@ -2889,7 +2889,7 @@ const LoginPage = ({ onNavigate }) => {
                             <div className="text-center mb-6">
                                 {/* Ajustes no contêiner e na imagem */}
                                 <div className="mx-auto mb-4 inline-block w-20 h-20 flex items-center justify-center"> {/* Remove rounded-full, border, p, bg-gray-800 */}
-                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1760899799/r86vkpwdp24atr9gr8ru.png" alt="Logo" className="w-full h-full object-contain" /> {/* w-full h-full para preencher */}
+                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" /> {/* w-full h-full para preencher */}
                                 </div>
                                 <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
