@@ -5644,7 +5644,7 @@ const AdminDashboard = ({ onNavigate }) => {
     };
 
     const fetchDashboardData = useCallback((filter = 'month') => {
-        setIsLoadingData(true);
+        setIsLoadingData(true); 
         console.log(`Fetching dashboard data with filter: ${filter}`);
         Promise.all([
             apiService(`/reports/dashboard?filter=${filter}`).catch(err => {
@@ -5654,7 +5654,7 @@ const AdminDashboard = ({ onNavigate }) => {
             }),
             apiService('/products/low-stock').catch(err => {
                 console.error('Error fetching low stock products:', err);
-                return [];
+                return []; 
             })
         ]).then(([reportData, lowStockItems]) => {
             const statsData = reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 };
@@ -5666,13 +5666,13 @@ const AdminDashboard = ({ onNavigate }) => {
             setBestSellersData(bestSellersData);
             setLowStockProducts(lowStockItems || []);
         }).finally(() => {
-            setIsLoadingData(false);
+            setIsLoadingData(false); 
         });
-    }, [notification]);
+    }, [notification]); 
 
     useEffect(() => {
         fetchDashboardData(activeFilter);
-    }, [activeFilter, fetchDashboardData]);
+    }, [activeFilter, fetchDashboardData]); 
 
     // Efeito para RENDERIZAR os gráficos
     useEffect(() => {
@@ -5684,23 +5684,22 @@ const AdminDashboard = ({ onNavigate }) => {
                     if (dailySalesCtx && dailySalesData) {
                         if (window.myDailySalesChart) window.myDailySalesChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA ---
-                        // Transforma 'YYYY-MM-DD' em uma data local segura
+                        // --- CORREÇÃO DA DATA (IGUAL AO RELATÓRIO) ---
                         const safeLabels = dailySalesData.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            const parts = d.sale_date.split('-');
+                            const parts = d.sale_date.split('-'); // "YYYY-MM-DD"
                             if (parts.length === 3) {
-                                // new Date(ano, mês_zero_indexado, dia) - cria data local
+                                // new Date(ano, mês_zero_indexado, dia) - cria data local segura
                                 const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
                                 return dateObj.toLocaleDateString('pt-BR');
                             }
                             return "Data Inválida"; // Fallback
                         });
-
+                        
                         window.myDailySalesChart = new window.Chart(dailySalesCtx, {
                             type: 'line',
                             data: {
-                                labels: safeLabels,
+                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
                                 datasets: [{
                                     label: 'Faturamento Diário (R$)',
                                     data: dailySalesData.map(d => d.daily_total),
@@ -5711,7 +5710,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             },
                             options: { responsive: true, maintainAspectRatio: false }
                         });
-                    } else if (!isLoadingData) { // Só avisa se não estiver carregando
+                    } else if (!isLoadingData) { 
                         console.warn("Elemento canvas 'dailySalesChart' não encontrado ou dados ausentes.");
                     }
 
@@ -5736,16 +5735,16 @@ const AdminDashboard = ({ onNavigate }) => {
                             },
                             options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
                         });
-                    } else if (!isLoadingData) { // Só avisa se não estiver carregando
+                    } else if (!isLoadingData) {
                         console.warn("Elemento canvas 'bestSellersChart' não encontrado ou dados ausentes.");
                     }
                 } else {
                     console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
-                    setTimeout(renderCharts, 100); // Tenta novamente após 100ms
+                    setTimeout(renderCharts, 100); 
                 }
             };
             
-            // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto após o isLoading se tornar false
+            // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto
             setTimeout(renderCharts, 0); 
 
         }
@@ -5754,7 +5753,7 @@ const AdminDashboard = ({ onNavigate }) => {
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
         setSelectedStockItem(null);
-        fetchDashboardData(activeFilter); // Recarrega os dados com o filtro atual
+        fetchDashboardData(activeFilter); 
     };
 
     const handleFilterClick = (filter) => {
@@ -8053,16 +8052,16 @@ const AdminReports = () => {
                     if (salesCtx && reportData.salesOverTime) {
                         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA (IGUAL AO DASHBOARD) ---
+                        // --- CORREÇÃO DA DATA ---
                         const safeLabels = reportData.salesOverTime.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            const parts = d.sale_date.split('-'); // "YYYY-MM-DD"
-                            if (parts.length === 3) {
-                                // new Date(ano, mês_zero_indexado, dia) - cria data local segura
-                                const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-                                return dateObj.toLocaleDateString('pt-BR'); // ex: "19/10/2025"
+                            // Passa a string ISO completa (ex: 2025-10-18T03:00:00.000Z)
+                            const dateObj = new Date(d.sale_date); 
+                            if (isNaN(dateObj.getTime())) {
+                                return "Data Inválida";
                             }
-                            return "Data Inválida"; // Fallback
+                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
 
                         window.mySalesOverTimeChart = new window.Chart(salesCtx, {
