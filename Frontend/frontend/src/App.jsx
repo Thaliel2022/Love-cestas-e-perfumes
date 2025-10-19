@@ -8052,10 +8052,23 @@ const AdminReports = () => {
                     const salesCtx = document.getElementById('salesOverTimeChart')?.getContext('2d');
                     if (salesCtx && reportData.salesOverTime) {
                         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
+                        
+                        // --- CORREÇÃO DA DATA (IGUAL AO DASHBOARD) ---
+                        const safeLabels = reportData.salesOverTime.map(d => {
+                            if (!d.sale_date) return "Data Inválida";
+                            const parts = d.sale_date.split('-'); // "YYYY-MM-DD"
+                            if (parts.length === 3) {
+                                // new Date(ano, mês_zero_indexado, dia) - cria data local segura
+                                const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                                return dateObj.toLocaleDateString('pt-BR'); // ex: "19/10/2025"
+                            }
+                            return "Data Inválida"; // Fallback
+                        });
+
                         window.mySalesOverTimeChart = new window.Chart(salesCtx, {
                             type: 'line',
                             data: {
-                                labels: reportData.salesOverTime.map(d => new Date(d.sale_date + 'T00:00:00').toLocaleDateString('pt-BR')),
+                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
                                 datasets: [{
                                     label: 'Faturamento (R$)',
                                     data: reportData.salesOverTime.map(d => d.daily_total),
