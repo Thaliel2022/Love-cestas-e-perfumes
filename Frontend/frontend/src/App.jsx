@@ -5571,7 +5571,8 @@ const AdminDashboard = ({ onNavigate }) => {
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true);
-    
+    const [lowStockSearchTerm, setLowStockSearchTerm] = useState(''); // <-- NOVO ESTADO
+
     // Estados separados para os dados dos gráficos
     const [dailySalesData, setDailySalesData] = useState([]);
     const [bestSellersData, setBestSellersData] = useState([]);
@@ -5597,8 +5598,8 @@ const AdminDashboard = ({ onNavigate }) => {
             doc.text(title, pageWidth / 2, 16, { align: 'center' });
             doc.setFontSize(8);
             doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({ 
-                head: [headers], 
+            doc.autoTable({
+                head: [headers],
                 body: data,
                 startY: 25
             });
@@ -5628,7 +5629,7 @@ const AdminDashboard = ({ onNavigate }) => {
             notification.show(`Falha ao gerar relatório de vendas: ${error.message}`, 'error');
         }
     };
-    
+
     const handleStockExport = async (format) => {
         try {
             const products = await apiService('/products/all');
@@ -5644,7 +5645,7 @@ const AdminDashboard = ({ onNavigate }) => {
     };
 
     const fetchDashboardData = useCallback((filter = 'month') => {
-        setIsLoadingData(true); 
+        setIsLoadingData(true);
         console.log(`Fetching dashboard data with filter: ${filter}`);
         Promise.all([
             apiService(`/reports/dashboard?filter=${filter}`).catch(err => {
@@ -5654,7 +5655,7 @@ const AdminDashboard = ({ onNavigate }) => {
             }),
             apiService('/products/low-stock').catch(err => {
                 console.error('Error fetching low stock products:', err);
-                return []; 
+                return [];
             })
         ]).then(([reportData, lowStockItems]) => {
             const statsData = reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 };
@@ -5666,13 +5667,13 @@ const AdminDashboard = ({ onNavigate }) => {
             setBestSellersData(bestSellersData);
             setLowStockProducts(lowStockItems || []);
         }).finally(() => {
-            setIsLoadingData(false); 
+            setIsLoadingData(false);
         });
-    }, [notification]); 
+    }, [notification]);
 
     useEffect(() => {
         fetchDashboardData(activeFilter);
-    }, [activeFilter, fetchDashboardData]); 
+    }, [activeFilter, fetchDashboardData]);
 
     // Efeito para RENDERIZAR os gráficos
     useEffect(() => {
@@ -5683,13 +5684,13 @@ const AdminDashboard = ({ onNavigate }) => {
                     const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
                     if (dailySalesCtx && dailySalesData) {
                         if (window.myDailySalesChart) window.myDailySalesChart.destroy();
-                        
+
                         // --- CORREÇÃO DA DATA ---
                         // Transforma 'YYYY-MM-DD' (ou data ISO) em uma data local segura
                         const safeLabels = dailySalesData.map(d => {
                             if (!d.sale_date) return "Data Inválida";
                             // A API retorna uma data (ex: 2025-10-18T03:00:00.000Z)
-                            const dateObj = new Date(d.sale_date); 
+                            const dateObj = new Date(d.sale_date);
                             if (isNaN(dateObj.getTime())) {
                                 // Fallback se a string de data for apenas YYYY-MM-DD
                                 const parts = d.sale_date.split('-');
@@ -5703,7 +5704,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
                             return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
-                        
+
                         window.myDailySalesChart = new window.Chart(dailySalesCtx, {
                             type: 'line',
                             data: {
@@ -5718,7 +5719,7 @@ const AdminDashboard = ({ onNavigate }) => {
                             },
                             options: { responsive: true, maintainAspectRatio: false }
                         });
-                    } else if (!isLoadingData) { 
+                    } else if (!isLoadingData) {
                         console.warn("Elemento canvas 'dailySalesChart' não encontrado ou dados ausentes.");
                     }
 
@@ -5748,12 +5749,12 @@ const AdminDashboard = ({ onNavigate }) => {
                     }
                 } else {
                     console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
-                    setTimeout(renderCharts, 100); 
+                    setTimeout(renderCharts, 100);
                 }
             };
-            
+
             // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto
-            setTimeout(renderCharts, 0); 
+            setTimeout(renderCharts, 0);
 
         }
     }, [isLoadingData, dailySalesData, bestSellersData]); // Roda quando o carregamento termina ou os dados dos gráficos mudam
@@ -5761,7 +5762,7 @@ const AdminDashboard = ({ onNavigate }) => {
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
         setSelectedStockItem(null);
-        fetchDashboardData(activeFilter); 
+        fetchDashboardData(activeFilter);
     };
 
     const handleFilterClick = (filter) => {
@@ -5797,7 +5798,13 @@ const AdminDashboard = ({ onNavigate }) => {
 
     const LowStockAlerts = () => {
         if (lowStockProducts.length === 0) return null;
-        
+
+        // Filtra os produtos com estoque baixo ANTES de renderizar
+        const filteredLowStockProducts = lowStockProducts.filter(item =>
+            item.name.toLowerCase().includes(lowStockSearchTerm.toLowerCase())
+            // Adicionar filtro por SKU se disponível no futuro: || (item.sku && item.sku.toLowerCase().includes(lowStockSearchTerm.toLowerCase()))
+        );
+
         return (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
                 <div className="flex items-center">
@@ -5809,42 +5816,57 @@ const AdminDashboard = ({ onNavigate }) => {
                         </p>
                     </div>
                 </div>
-                <div className="mt-4 max-h-48 overflow-y-auto space-y-2">
-                    {lowStockProducts.map(item => (
-                         <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                                <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
-                                <span className="text-gray-800 truncate">{item.name}</span>
-                            </div>
-                            <div className="flex items-center gap-3 flex-shrink-0">
-                                <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
-                                    Restam: {item.stock}
-                                </span>
-                                <button 
-                                    onClick={() => {
-                                        setSelectedStockItem(item);
-                                        setIsStockModalOpen(true);
-                                    }} 
-                                    className="text-green-600 hover:underline text-xs font-semibold"
-                                >
-                                    Atualizar
-                                </button>
-                                <button onClick={() => {
-                                    const baseName = item.name.split(' (')[0];
-                                    onNavigate(`admin/products?search=${encodeURIComponent(baseName)}`);
-                                }} className="text-blue-600 hover:underline text-xs font-semibold">
-                                    Ver
-                                </button>
-                            </div>
-                         </div>
-                    ))}
+                 {/* Input de busca adicionado */}
+                <div className="mt-4 mb-2 relative">
+                     <input
+                        type="text"
+                        placeholder="Buscar produto em alerta..."
+                        value={lowStockSearchTerm}
+                        onChange={(e) => setLowStockSearchTerm(e.target.value)}
+                        className="w-full p-2 pl-8 border border-gray-300 rounded-md text-sm"
+                    />
+                    <SearchIcon className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"/>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                    {filteredLowStockProducts.length > 0 ? (
+                        filteredLowStockProducts.map(item => (
+                             <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
+                                    <span className="text-gray-800 truncate">{item.name}</span>
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                    <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
+                                        Restam: {item.stock}
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedStockItem(item);
+                                            setIsStockModalOpen(true);
+                                        }}
+                                        className="text-green-600 hover:underline text-xs font-semibold"
+                                    >
+                                        Atualizar
+                                    </button>
+                                    <button onClick={() => {
+                                        const baseName = item.name.split(' (')[0];
+                                        onNavigate(`admin/products?search=${encodeURIComponent(baseName)}`);
+                                    }} className="text-blue-600 hover:underline text-xs font-semibold">
+                                        Ver
+                                    </button>
+                                </div>
+                             </div>
+                        ))
+                    ) : (
+                        <p className="text-center text-sm text-gray-500 py-4">Nenhum produto encontrado na busca.</p>
+                    )}
                 </div>
             </div>
         );
     };
-    
+
     const StatCard = ({ title, value, comparisonValue, growth }) => (
-        <motion.div 
+        <motion.div
             className="bg-white p-6 rounded-lg shadow"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -5858,7 +5880,7 @@ const AdminDashboard = ({ onNavigate }) => {
             {comparisonValue && <p className="text-sm text-gray-400">{comparisonValue}</p>}
         </motion.div>
     );
-    
+
     const FilterButton = ({ label, filterName }) => (
         <button
             onClick={() => handleFilterClick(filterName)}
