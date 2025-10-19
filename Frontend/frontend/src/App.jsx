@@ -6561,6 +6561,8 @@ const QuickStockUpdateModal = ({ item, onClose, onSave }) => {
     const notification = useNotification();
 
     const handleSave = async () => {
+        // Log para depuração: Verificar o conteúdo do item antes de criar o payload
+        console.log('QuickStockUpdateModal - Item recebido:', JSON.stringify(item, null, 2));
         setIsSaving(true);
         try {
             const payload = {
