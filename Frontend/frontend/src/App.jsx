@@ -1470,7 +1470,6 @@ const Header = memo(({ onNavigate }) => {
     };
 
     // --- Lógica Simplificada para Exibição do Endereço (Mobile) ---
-    // --- Lógica Revisada para Exibição do Endereço (Mobile) ---
     let addressDisplay = 'Selecione um endereço'; // Default placeholder
     if (shippingLocation && shippingLocation.cep) {
         const cleanCep = shippingLocation.cep.replace(/\D/g, '');
@@ -1493,9 +1492,6 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-    // --- Fim da Lógica Revisada do Endereço ---
-    // --- Fim da Lógica Simplificada do Endereço ---
-
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
     const BottomNavBar = () => {
@@ -3536,14 +3532,16 @@ const CheckoutPage = ({ onNavigate }) => {
         clearOrderState,
         addresses,
         fetchAddresses,
+        shippingLocation, // <-- Usar shippingLocation do contexto
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
-        setSelectedShippingName // <-- Nova função para salvar a intenção
+        setSelectedShippingName
     } = useShop();
     const notification = useNotification();
 
-    const [selectedAddress, setSelectedAddress] = useState(null);
+    // Estado local para o endereço exibido, inicializado com o do contexto
+    const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
@@ -3554,29 +3552,67 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
+    // Ajuste no useEffect inicial
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
-            const defaultAddress = userAddresses.find(addr => addr.is_default) || userAddresses[0];
-            if (defaultAddress) {
-                setSelectedAddress(defaultAddress);
+            let addressToSet = null;
+            // Prioriza o shippingLocation atual do contexto
+            if (shippingLocation && shippingLocation.cep) {
+                // Tenta encontrar um endereço salvo que corresponda ao CEP e alias (se não for genérico)
+                const matchingSavedAddress = userAddresses.find(addr =>
+                    addr.cep === shippingLocation.cep &&
+                    (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
+                );
+                if (matchingSavedAddress) {
+                    addressToSet = matchingSavedAddress;
+                } else {
+                    // Se não encontrar correspondência salva (ex: CEP manual), usa os dados do contexto
+                    addressToSet = {
+                        cep: shippingLocation.cep,
+                        localidade: shippingLocation.city,
+                        uf: shippingLocation.state,
+                        alias: shippingLocation.alias,
+                        // Adiciona campos vazios para consistência da estrutura, mas eles não serão usados para envio
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
+                    };
+                }
             }
+
+            // Se ainda não encontrou um endereço, usa o padrão ou o primeiro da lista
+            if (!addressToSet) {
+                addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
+            }
+
+            setDisplayAddress(addressToSet); // Define o endereço a ser exibido
+
+            // Sincroniza o shippingLocation global se o endereço encontrado for diferente do atual no contexto
+            if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
+                 setShippingLocation({
+                    cep: addressToSet.cep,
+                    city: addressToSet.localidade,
+                    state: addressToSet.uf,
+                    alias: addressToSet.alias
+                 });
+            }
+
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses]);
+    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
 
-    useEffect(() => {
-        if (selectedAddress && !autoCalculatedShipping?.isPickup) {
-            setShippingLocation({
-                cep: selectedAddress.cep,
-                city: selectedAddress.localidade,
-                state: selectedAddress.uf,
-                alias: selectedAddress.alias
-            });
-        }
-    }, [selectedAddress, autoCalculatedShipping?.isPickup, setShippingLocation]);
-    
+    // Remove o useEffect que atualizava o global baseado no local, pois agora a inicialização já faz isso.
+    // useEffect(() => {
+    //     if (selectedAddress && !autoCalculatedShipping?.isPickup) {
+    //         setShippingLocation({
+    //             cep: selectedAddress.cep,
+    //             city: selectedAddress.localidade,
+    //             state: selectedAddress.uf,
+    //             alias: selectedAddress.alias
+    //         });
+    //     }
+    // }, [selectedAddress, autoCalculatedShipping?.isPickup, setShippingLocation]);
+
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name);
@@ -3590,10 +3626,33 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
+        // Se a opção selecionada for "Retirar na Loja", limpa o displayAddress para não mostrar endereço de entrega
+        if(option.isPickup) {
+            setDisplayAddress(null);
+        } else if (!displayAddress && addresses.length > 0) {
+            // Se estava em Retirada e voltou para Envio, tenta restaurar o endereço padrão ou o primeiro
+             const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
+             if (defaultOrFirst) {
+                setDisplayAddress(defaultOrFirst);
+                setShippingLocation({ // Atualiza o global também
+                    cep: defaultOrFirst.cep,
+                    city: defaultOrFirst.localidade,
+                    state: defaultOrFirst.uf,
+                    alias: defaultOrFirst.alias
+                 });
+             }
+        }
     };
 
     const handleAddressSelection = (address) => {
-        setSelectedAddress(address);
+        setDisplayAddress(address); // Atualiza o endereço exibido
+        // Atualiza também o shippingLocation global para recalcular frete
+        setShippingLocation({
+            cep: address.cep,
+            city: address.localidade,
+            state: address.uf,
+            alias: address.alias
+         });
         setIsAddressModalOpen(false);
     };
 
@@ -3606,9 +3665,15 @@ const CheckoutPage = ({ onNavigate }) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
-            const updatedAddresses = await fetchAddresses();
+            const updatedAddresses = await fetchAddresses(); // Rebusca endereços atualizados
             const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
-            setSelectedAddress(newAddress); 
+            setDisplayAddress(newAddress); // Define como endereço exibido
+             setShippingLocation({ // Atualiza o global
+                cep: newAddress.cep,
+                city: newAddress.localidade,
+                state: newAddress.uf,
+                alias: newAddress.alias
+             });
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
@@ -3639,11 +3704,12 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
-        if ((!selectedAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
+        // Validação usa displayAddress agora
+        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
             return;
         }
-        
+
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
             notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
             return;
@@ -3652,6 +3718,9 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsLoading(true);
 
         try {
+            // Garante que apenas endereços salvos (com ID) sejam enviados
+            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+
             const orderPayload = {
                 items: cart.map(item => ({
                     id: item.id,
@@ -3660,7 +3729,7 @@ const CheckoutPage = ({ onNavigate }) => {
                     variation: item.variation
                 })),
                 total: total,
-                shippingAddress: isPickup ? null : selectedAddress,
+                shippingAddress: finalShippingAddress, // Envia o endereço selecionado (se não for pickup)
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
@@ -3722,7 +3791,7 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                         <div className="lg:col-span-1 space-y-8">
-                            
+
                             <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                 <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
                                 <div className="space-y-3">
@@ -3740,7 +3809,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     ))}
                                 </div>
                             </div>
-                            
+
                             {autoCalculatedShipping?.isPickup ? (
                                 <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
@@ -3769,15 +3838,16 @@ const CheckoutPage = ({ onNavigate }) => {
                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
                                     {isAddressLoading ? (
                                         <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                    ) : selectedAddress ? (
+                                    ) : displayAddress ? ( // Usa displayAddress aqui
                                         <div className="p-4 bg-gray-800 rounded-md">
-                                            <p className="font-bold text-lg mb-2">{selectedAddress.alias}</p>
+                                            <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-400">Rua:</span> {selectedAddress.logradouro}</p>
-                                                <p><span className="font-semibold text-gray-400">Nº:</span> {selectedAddress.numero} {selectedAddress.complemento && `- ${selectedAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-400">Bairro:</span> {selectedAddress.bairro}</p>
-                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {selectedAddress.localidade} - {selectedAddress.uf}</p>
-                                                <p><span className="font-semibold text-gray-400">CEP:</span> {selectedAddress.cep}</p>
+                                                {/* Exibe detalhes apenas se existirem (evita mostrar campos vazios de CEP manual) */}
+                                                {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
+                                                {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
+                                                {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
+                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
                                             </div>
                                             <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
                                                 Alterar Endereço
@@ -3785,7 +3855,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                         </div>
                                     ) : (
                                         <div className="text-center p-4 bg-gray-800 rounded-md">
-                                            <p className="text-gray-400 mb-3">Nenhum endereço cadastrado.</p>
+                                            <p className="text-gray-400 mb-3">Nenhum endereço selecionado ou cadastrado.</p>
                                             <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
                                                 Adicionar Endereço
                                             </button>
@@ -3826,7 +3896,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                     <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
 
-                                <button onClick={handlePlaceOrderAndPay} disabled={(!selectedAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
                                         <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
