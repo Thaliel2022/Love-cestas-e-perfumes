@@ -3612,8 +3612,6 @@ app.get('/api/reports/detailed', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
-
-// --- ROTA PARA TAREFAS AGENDADAS (CRON JOB) ---
 app.post('/api/tasks/cancel-pending-orders', async (req, res) => {
     const { secret } = req.body;
     if (secret !== process.env.CRON_SECRET) {
