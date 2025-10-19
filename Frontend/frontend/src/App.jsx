@@ -5572,7 +5572,7 @@ const AdminDashboard = ({ onNavigate }) => {
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true); // Estado de carregamento
 
-    // Funções de exportação
+    // Funções de exportação (sem alterações)
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
@@ -5663,57 +5663,63 @@ const AdminDashboard = ({ onNavigate }) => {
             setStats(statsData);
             setLowStockProducts(lowStockItems || []);
 
-            // --- ATUALIZAÇÃO DOS GRÁFICOS (com verificações) ---
-            if (window.Chart) {
-                // Gráfico de Vendas Diárias
-                const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
-                if (dailySalesCtx) {
-                    if (window.myDailySalesChart) window.myDailySalesChart.destroy();
-                    window.myDailySalesChart = new window.Chart(dailySalesCtx, {
-                        type: 'line',
-                        data: {
-                            labels: dailySalesData.map(d => new Date(d.sale_date + 'T00:00:00').toLocaleDateString('pt-BR')),
-                            datasets: [{
-                                label: 'Faturamento Diário (R$)',
-                                data: dailySalesData.map(d => d.daily_total),
-                                borderColor: 'rgba(212, 175, 55, 1)',
-                                backgroundColor: 'rgba(212, 175, 55, 0.2)',
-                                fill: true, tension: 0.3
-                            }]
-                        },
-                        options: { responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
-                    });
-                } else {
-                    console.warn("Elemento canvas 'dailySalesChart' não encontrado.");
-                }
+            // --- CORREÇÃO: Função para esperar o Chart.js carregar ---
+            const renderCharts = () => {
+                if (window.Chart) {
+                    // Gráfico de Vendas Diárias
+                    const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
+                    if (dailySalesCtx) {
+                        if (window.myDailySalesChart) window.myDailySalesChart.destroy();
+                        window.myDailySalesChart = new window.Chart(dailySalesCtx, {
+                            type: 'line',
+                            data: {
+                                labels: dailySalesData.map(d => new Date(d.sale_date + 'T00:00:00').toLocaleDateString('pt-BR')),
+                                datasets: [{
+                                    label: 'Faturamento Diário (R$)',
+                                    data: dailySalesData.map(d => d.daily_total),
+                                    borderColor: 'rgba(212, 175, 55, 1)',
+                                    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                                    fill: true, tension: 0.3
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
+                        });
+                    } else {
+                        console.warn("Elemento canvas 'dailySalesChart' não encontrado.");
+                    }
 
-                // Gráfico de Mais Vendidos
-                const bestSellersCtx = document.getElementById('bestSellersChart')?.getContext('2d');
-                if (bestSellersCtx) {
-                    if (window.myBestSellersChart) window.myBestSellersChart.destroy();
-                    window.myBestSellersChart = new window.Chart(bestSellersCtx, {
-                        type: 'bar',
-                        data: {
-                            labels: bestSellersData.map(p => p.name),
-                            datasets: [{
-                                label: 'Unidades Vendidas',
-                                data: bestSellersData.map(p => p.sales || 0),
-                                backgroundColor: [
-                                    'rgba(212, 175, 55, 0.8)', 'rgba(192, 192, 192, 0.8)',
-                                    'rgba(205, 127, 50, 0.8)', 'rgba(169, 169, 169, 0.8)',
-                                    'rgba(245, 222, 179, 0.8)'
-                                ],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
-                    });
+                    // Gráfico de Mais Vendidos
+                    const bestSellersCtx = document.getElementById('bestSellersChart')?.getContext('2d');
+                    if (bestSellersCtx) {
+                        if (window.myBestSellersChart) window.myBestSellersChart.destroy();
+                        window.myBestSellersChart = new window.Chart(bestSellersCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: bestSellersData.map(p => p.name),
+                                datasets: [{
+                                    label: 'Unidades Vendidas',
+                                    data: bestSellersData.map(p => p.sales || 0),
+                                    backgroundColor: [
+                                        'rgba(212, 175, 55, 0.8)', 'rgba(192, 192, 192, 0.8)',
+                                        'rgba(205, 127, 50, 0.8)', 'rgba(169, 169, 169, 0.8)',
+                                        'rgba(245, 222, 179, 0.8)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false } // Adicionado para melhor responsividade
+                        });
+                    } else {
+                        console.warn("Elemento canvas 'bestSellersChart' não encontrado.");
+                    }
                 } else {
-                    console.warn("Elemento canvas 'bestSellersChart' não encontrado.");
+                    console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
+                    setTimeout(renderCharts, 100); // Tenta novamente após 100ms
                 }
-            } else {
-                console.warn("Biblioteca Chart.js não carregada ou dados do relatório ausentes.");
-            }
+            };
+            
+            renderCharts(); // Inicia a tentativa de renderização
+
         }).finally(() => {
             setIsLoadingData(false); // Finaliza o carregamento
         });
