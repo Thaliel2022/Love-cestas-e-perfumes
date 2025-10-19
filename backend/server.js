@@ -1445,45 +1445,49 @@ app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (re
 });
 
 app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
-    const LOW_STOCK_THRESHOLD = 5;
-    try {
-        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
+    const LOW_STOCK_THRESHOLD = 5;
+    try {
+        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
 
-        const lowStockItems = [];
+        const lowStockItems = [];
 
-        for (const product of allProducts) {
-            if (product.product_type === 'clothing') {
-                try {
-                    const variations = JSON.parse(product.variations || '[]');
-                    for (const v of variations) {
-                        if (v.stock < LOW_STOCK_THRESHOLD) {
-                            lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: product.images
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
-                }
-            } else { // perfume
-                if (product.stock < LOW_STOCK_THRESHOLD) {
-                    lowStockItems.push({
-                        id: product.id,
-                        name: product.name,
-                        stock: product.stock,
-                        images: product.images
-                    });
-                }
-            }
-        }
-        res.json(lowStockItems);
-    } catch (err) {
-        console.error("Erro ao buscar produtos com estoque baixo:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
-    }
+        for (const product of allProducts) {
+            if (product.product_type === 'clothing') {
+                try {
+                    const variations = JSON.parse(product.variations || '[]');
+                    for (const v of variations) {
+                        if (v.stock < LOW_STOCK_THRESHOLD) {
+                            lowStockItems.push({
+                                id: product.id,
+                                name: `${product.name} (${v.color} / ${v.size})`,
+                                stock: v.stock,
+                                images: v.images,
+                                product_type: 'clothing',
+                                variation: v // Retorna o objeto da variação
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
+                }
+            } else { // perfume
+                if (product.stock < LOW_STOCK_THRESHOLD) {
+                    lowStockItems.push({
+                        id: product.id,
+                        name: product.name,
+                        stock: product.stock,
+                        images: product.images,
+                        product_type: 'perfume',
+                        variation: null
+                    });
+                }
+            }
+        }
+        res.json(lowStockItems);
+    } catch (err) {
+        console.error("Erro ao buscar produtos com estoque baixo:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
+    }
 });
 
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
@@ -1686,6 +1690,56 @@ app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req
     }
 });
 
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body;
+    
+    if (!productId || newStock === undefined || newStock < 0) {
+        return res.status(400).json({ message: "ID do produto e novo estoque são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+            let variations = JSON.parse(product.variations || '[]');
+            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+            
+            if (variationIndex === -1) {
+                throw new Error("Variação não encontrada no produto.");
+            }
+            
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            const totalStock = variations.reduce((sum, v) => sum + (v.stock || 0), 0);
+            
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
+
+        } else { // Perfume ou outro tipo
+            await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
+        }
+
+        await connection.commit();
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar estoque:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        connection.release();
+    }
+});
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
 app.post('/api/reviews', verifyToken, async (req, res) => {
@@ -3433,6 +3487,7 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
                 o.id as order_id, 
                 o.date as order_date,
                 o.payment_method,
+                o.payment_details,
                 u_req.name as requester_name, 
                 u_app.name as approver_name,
                 c.name as customer_name
