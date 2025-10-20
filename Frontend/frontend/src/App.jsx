@@ -9971,8 +9971,6 @@ function usePushNotifications() {
   return { isSubscribed, subscriptionError, requestNotificationPermission };
 }
 
-
-// Dentro do seu componente AppContent
 // Dentro do seu componente AppContent
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
