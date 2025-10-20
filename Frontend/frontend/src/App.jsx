@@ -5489,41 +5489,13 @@ const MyProfileSection = () => {
     const handleDisable2FA = async (e) => { /* ... código sem alteração ... */ };
 
     // --- Função para renderizar UI de notificação ---
+   // --- Função para renderizar UI de notificação (VERSÃO SIMPLIFICADA PARA TESTE) ---
     const renderNotificationStatus = () => {
-        // --- LOG DE DEBUG 4 ---
-        // console.log('[renderNotificationStatus] Chamado. swReady:', swReady, 'Permission:', ('Notification' in window ? Notification.permission : 'N/A'), 'isSubscribed:', isSubscribed, 'Error:', subscriptionError);
-
-        if (!('Notification' in window) || !('PushManager' in window)) {
-            // console.log('[renderNotificationStatus] Não suportado.');
-            return <p className="text-sm text-gray-500">Notificações push não são suportadas neste navegador.</p>;
-        }
-        if (!swReady) {
-            // console.log('[renderNotificationStatus] SW não está pronto.');
-            return <p className="text-sm text-gray-500">Verificando status das notificações...</p>;
-        }
-
-        const permission = Notification.permission;
-
-        if (permission === 'granted' && isSubscribed) {
-            // console.log('[renderNotificationStatus] Status: Ativado.');
-            return <p className="text-sm font-semibold text-green-400">Notificações Ativadas</p>;
-        }
-        if (permission === 'denied') {
-            // console.log('[renderNotificationStatus] Status: Bloqueado.');
-            return <p className="text-sm font-semibold text-red-400">Notificações Bloqueadas (verifique as configurações do navegador)</p>;
-        }
-        if (subscriptionError) {
-             // console.log('[renderNotificationStatus] Status: Erro.', subscriptionError);
-             return <p className="text-sm text-red-400">Erro: {subscriptionError}</p>;
-        }
-        // Se a permissão for 'default', mostra o botão para ativar
-        // console.log('[renderNotificationStatus] Status: Padrão (mostrar botão).');
+        console.log('[renderNotificationStatus SIMPLIFICADO] Chamado.'); // Log simples
         return (
-            <button
-                onClick={requestNotificationPermission} // Chama a função retornada pelo hook
-                className="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 text-sm"
-            >
-                Ativar Notificações no Navegador
+            // Retorna um botão simples e visível sempre
+            <button className="bg-purple-600 text-white font-bold py-2 px-4 rounded-md text-sm">
+                TESTE NOTIFICAÇÃO
             </button>
         );
     };
