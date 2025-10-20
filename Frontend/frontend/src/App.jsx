@@ -9693,7 +9693,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
             return () => clearTimeout(timer);
         }
     }, [currentIndex, banners.length, goNext]);
-    
+
     const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
     const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
     const handleTouchEnd = () => {
@@ -9720,16 +9720,17 @@ const BannerCarousel = memo(({ onNavigate }) => {
     if (isLoading) {
         return <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center"><SpinnerIcon className="h-10 w-10 text-amber-400" /></div>;
     }
-    
+
     if (banners.length === 0) return null;
-    
+
     const isMobile = window.innerWidth < 640;
     const currentBanner = banners[currentIndex];
-    const imageUrl = isMobile && currentBanner.image_url_mobile ? currentBanner.image_url_mobile : currentBanner.image_url;
+    // Garante que image_url_mobile seja usada se existir e for mobile, senão usa image_url
+    const imageUrl = (isMobile && currentBanner.image_url_mobile) ? currentBanner.image_url_mobile : currentBanner.image_url;
 
     return (
-        <section 
-            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+        <section
+            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black" // Mantém a altura do container
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -9744,11 +9745,16 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
-                    <div className="absolute inset-0 bg-black/40" />
-                    
+                    {/* Alterado de div com background para img com object-fit */}
+                    <img
+                         src={imageUrl}
+                         alt={currentBanner.title || 'Banner promocional'}
+                         className="absolute inset-0 w-full h-full object-cover object-center" // object-cover garante o preenchimento, object-center centraliza
+                    />
+                    <div className="absolute inset-0 bg-black/40" /> {/* Overlay escuro */}
+
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
-                         <motion.div 
+                         <motion.div
                             className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
                             variants={bannerVariants}
                             initial="hidden"
@@ -9757,7 +9763,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             key={`content-${currentIndex}`}
                          >
                             {currentBanner.title && (
-                                <motion.h1 
+                                <motion.h1
                                     variants={itemVariants}
                                     className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
@@ -9765,7 +9771,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                                 </motion.h1>
                             )}
                             {currentBanner.subtitle && (
-                                <motion.p 
+                                <motion.p
                                     variants={itemVariants}
                                     className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
                                 >
