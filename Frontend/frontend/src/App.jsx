@@ -10156,13 +10156,17 @@ function AppContent({ deferredPrompt }) {
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
+ // Dentro da função AppContent...
+
+  // ... (definições de hooks, useEffects, renderPage, etc.) ...
+
   const showHeaderFooter = !currentPath.startsWith('admin');
 
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      {/* Exemplo de onde colocar o botão/status de permissão (opcional) */}
-      {showHeaderFooter && <PermissaoNotificacaoUI />}
+      {/* A linha abaixo NÃO deve existir aqui */}
+      {/* {showHeaderFooter && <PermissaoNotificacaoUI />} */}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
