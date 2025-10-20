@@ -5427,47 +5427,26 @@ const MyAddressesSection = () => {
 };
 
 const MyProfileSection = () => {
-    // --- Hooks devem vir primeiro ---
     const { user, setUser } = useAuth();
     const notification = useNotification();
-    const { requestNotificationPermission, isSubscribed, subscriptionError } = usePushNotifications(); // Hook de notificações push
 
-    // Estados para o Modal de Senha, 2FA, etc.
+    // Estados para o Modal de Senha
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+
+    // Estados para o Modal de 2FA
     const [is2faModalOpen, setIs2faModalOpen] = useState(false);
     const [is2faDisableModalOpen, setIs2faDisableModalOpen] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
     const [twoFactorSecret, setTwoFactorSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
-    const [disableVerificationCode, setDisableVerificationCode] = useState('');
+    const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
     const [is2faLoading, setIs2faLoading] = useState(false);
-    const [swReady, setSwReady] = useState(false);
 
-    // --- LOG DE DEBUG 1 ---
-    // console.log('[MyProfileSection] Renderizando. Usuário:', user ? user.name : 'Nenhum'); // Pode remover ou manter os logs se quiser
-
-    useEffect(() => {
-        // --- LOG DE DEBUG 2 ---
-        // console.log('[MyProfileSection] useEffect para SW Ready.');
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(() => {
-                 // --- LOG DE DEBUG 3 ---
-                // console.log('[MyProfileSection] Service Worker está pronto!');
-                setSwReady(true);
-            }).catch(err => {
-                console.error('[MyProfileSection] Erro ao esperar Service Worker:', err);
-            });
-        } else {
-             console.warn('[MyProfileSection] Service Worker não suportado.');
-        }
-    }, []);
-
-    // --- Funções Handler ---
     const handlePasswordChange = async (e) => {
-         e.preventDefault();
+        e.preventDefault();
         if (newPassword.length < 6) {
             notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
             return;
@@ -5483,28 +5462,64 @@ const MyProfileSection = () => {
         } finally {
             setIsPasswordLoading(false);
         }
-     };
-    const handleGenerate2FA = async () => { /* ... código sem alteração ... */ };
-    const handleVerifyAndEnable2FA = async (e) => { /* ... código sem alteração ... */ };
-    const handleDisable2FA = async (e) => { /* ... código sem alteração ... */ };
-
-    // --- Função para renderizar UI de notificação ---
-   // --- Função para renderizar UI de notificação (VERSÃO SIMPLIFICADA PARA TESTE) ---
-    const renderNotificationStatus = () => {
-        console.log('[renderNotificationStatus SIMPLIFICADO] Chamado.'); // Log simples
-        return (
-            // Retorna um botão simples e visível sempre
-            <button className="bg-purple-600 text-white font-bold py-2 px-4 rounded-md text-sm">
-                TESTE NOTIFICAÇÃO
-            </button>
-        );
     };
 
-    // --- JSX do Componente ---
+    const handleGenerate2FA = async () => {
+        setIs2faLoading(true);
+        try {
+            const data = await apiService('/2fa/generate', 'POST');
+            setQrCodeUrl(data.qrCodeUrl);
+            setTwoFactorSecret(data.secret);
+            setIs2faModalOpen(true);
+        } catch (error) {
+            notification.show(`Erro ao gerar código 2FA: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleVerifyAndEnable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/verify-enable', 'POST', { token: verificationCode });
+            notification.show('Autenticação de Dois Fatores ativada com sucesso!');
+            const updatedUser = { ...user, is_two_factor_enabled: 1 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro na verificação: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
+    const handleDisable2FA = async (e) => {
+        e.preventDefault();
+        setIs2faLoading(true);
+        try {
+            await apiService('/2fa/disable', 'POST', { 
+                password: disablePassword,
+                token: disableVerificationCode // ENVIA O TOKEN
+            });
+            notification.show('Autenticação de Dois Fatores desativada.');
+            const updatedUser = { ...user, is_two_factor_enabled: 0 };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            setIs2faDisableModalOpen(false);
+            setDisablePassword('');
+            setDisableVerificationCode(''); // LIMPA O ESTADO
+        } catch (error) {
+            notification.show(`Erro ao desativar: ${error.message}`, 'error');
+        } finally {
+            setIs2faLoading(false);
+        }
+    };
+
     return (
         <>
-            {/* ... Modais ... */}
-             <AnimatePresence>
+            <AnimatePresence>
                 {isPasswordModalOpen && (
                     <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
                         <form onSubmit={handlePasswordChange} className="space-y-4">
@@ -5518,51 +5533,89 @@ const MyProfileSection = () => {
                         </form>
                     </Modal>
                 )}
-             </AnimatePresence>
-             <AnimatePresence>
+            </AnimatePresence>
+
+            <AnimatePresence>
                 {is2faModalOpen && (
-                     <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
-                         {/* ... form 2FA enable ... */}
-                     </Modal>
+                    <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
+                        <div className="text-center space-y-4">
+                            <p className="text-gray-600">1. Escaneie este QR Code com seu aplicativo autenticador (Google Authenticator, Authy, etc).</p>
+                            <img src={qrCodeUrl} alt="QR Code para 2FA" className="mx-auto border-4 border-white shadow-lg"/>
+                            <p className="text-gray-600 text-sm">Se não puder escanear, insira esta chave manualmente:</p>
+                            <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
+                            <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
+                                <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
+                                <input 
+                                    type="text" 
+                                    value={verificationCode}
+                                    onChange={e => setVerificationCode(e.target.value)}
+                                    maxLength="6"
+                                    placeholder="123456"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
+                                />
+                                <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
+                                    {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
+                                </button>
+                            </form>
+                        </div>
+                    </Modal>
                 )}
             </AnimatePresence>
+
             <AnimatePresence>
                 {is2faDisableModalOpen && (
                      <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
-                         {/* ... form 2FA disable ... */}
+                        <form onSubmit={handleDisable2FA} className="space-y-4">
+                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
+                                <input 
+                                    type="text" 
+                                    value={disableVerificationCode} 
+                                    onChange={e => setDisableVerificationCode(e.target.value)}
+                                    maxLength="6"
+                                    placeholder="123456"
+                                    required 
+                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
+                                />
+                            </div>
+                            <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
+                                {is2faLoading ? <SpinnerIcon/> : "Confirmar e Desativar"}
+                            </button>
+                        </form>
                     </Modal>
                 )}
             </AnimatePresence>
 
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
-            <div className="bg-gray-800 p-6 rounded-lg space-y-4 mb-6">
+            <div className="bg-gray-800 p-6 rounded-lg space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
-          <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
-
-            {/* --- Seção de Notificações Push ---  <<<--- ADICIONADA AQUI */}
-            {/* --- Seção de Notificações Push --- */}
-            <div className="mt-8 pt-6 border-t border-gray-800"> {/* Div Principal da Seção */}
-                <h3 className="text-xl font-bold text-amber-400 mb-4">Notificações</h3> {/* Título */}
-                <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"> {/* Card Interno */}
-                    <div> {/* Lado Esquerdo: Textos */}
-                        <h4 className="font-bold">Notificações Push</h4>
-                        <p className="text-sm text-gray-400 mt-1">Receba atualizações sobre seus pedidos diretamente no seu dispositivo.</p>
-                    </div>
-                    <div className="flex-shrink-0"> {/* Lado Direito: Botão/Status */}
-                        {renderNotificationStatus()} {/* Chamada da função (mantém a versão de teste por enquanto) */}
-                    </div>
-                </div> {/* Fim do Card Interno */}
-            </div> {/* Fim da Div Principal da Seção */}
-            {/* --- FIM DA SEÇÃO DE NOTIFICAÇÕES --- */}
-
+            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
             {user?.role === 'admin' && (
                 <div className="mt-8 pt-6 border-t border-gray-800">
-                     <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        {/* ... código 2FA ... */}
+                        <div>
+                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
+                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
+                        </div>
+                        {user.is_two_factor_enabled ? (
+                            <div className="text-center flex-shrink-0">
+                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                            </div>
+                        ) : (
+                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
@@ -9640,7 +9693,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
             return () => clearTimeout(timer);
         }
     }, [currentIndex, banners.length, goNext]);
-
+    
     const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
     const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
     const handleTouchEnd = () => {
@@ -9667,17 +9720,16 @@ const BannerCarousel = memo(({ onNavigate }) => {
     if (isLoading) {
         return <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center"><SpinnerIcon className="h-10 w-10 text-amber-400" /></div>;
     }
-
+    
     if (banners.length === 0) return null;
-
+    
     const isMobile = window.innerWidth < 640;
     const currentBanner = banners[currentIndex];
-    // Garante que image_url_mobile seja usada se existir e for mobile, senão usa image_url
-    const imageUrl = (isMobile && currentBanner.image_url_mobile) ? currentBanner.image_url_mobile : currentBanner.image_url;
+    const imageUrl = isMobile && currentBanner.image_url_mobile ? currentBanner.image_url_mobile : currentBanner.image_url;
 
     return (
-        <section
-            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black" // Mantém a altura do container
+        <section 
+            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -9692,16 +9744,11 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    {/* Alterado de volta para object-cover */}
-                    <img
-                         src={imageUrl}
-                         alt={currentBanner.title || 'Banner promocional'}
-                         className="absolute inset-0 w-full h-full object-cover object-center" // object-cover garante o preenchimento, object-center centraliza
-                    />
-                    <div className="absolute inset-0 bg-black/40" /> {/* Overlay escuro */}
-
+                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
+                    <div className="absolute inset-0 bg-black/40" />
+                    
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
-                         <motion.div
+                         <motion.div 
                             className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
                             variants={bannerVariants}
                             initial="hidden"
@@ -9710,7 +9757,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             key={`content-${currentIndex}`}
                          >
                             {currentBanner.title && (
-                                <motion.h1
+                                <motion.h1 
                                     variants={itemVariants}
                                     className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
@@ -9718,7 +9765,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                                 </motion.h1>
                             )}
                             {currentBanner.subtitle && (
-                                <motion.p
+                                <motion.p 
                                     variants={itemVariants}
                                     className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
                                 >
@@ -9757,340 +9804,74 @@ const BannerCarousel = memo(({ onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-
-// Função para converter a chave pública VAPID de base64url para Uint8Array
-// Hook customizado para gerenciar a lógica de push
-function usePushNotifications() {
-  const { isAuthenticated, user } = useAuth(); // Assume que useAuth fornece o status de login e user
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subscriptionError, setSubscriptionError] = useState(null);
-  const VAPID_PUBLIC_KEY = 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública VAPID
-
-  useEffect(() => {
-    // Só tenta inscrever se o usuário estiver logado
-    if (isAuthenticated && 'serviceWorker' in navigator && 'PushManager' in window) {
-      const initializePush = async () => {
-        try {
-          // 1. Verifica a permissão atual
-          const permission = Notification.permission;
-          if (permission === 'granted') {
-            console.log("Permissão já concedida.");
-            // Tenta obter/criar a inscrição
-            const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
-            if (subscription) {
-              // Envia a inscrição para o backend
-              await sendSubscriptionToBackend(subscription);
-              setIsSubscribed(true);
-            } else {
-              setSubscriptionError("Não foi possível obter a inscrição push.");
-            }
-          } else if (permission === 'default') {
-            console.log("Permissão ainda não solicitada. O ideal é pedir após interação do usuário.");
-            // **MELHORIA:** Mova a solicitação de permissão para um botão ou ação do usuário.
-          } else {
-            console.log("Permissão negada.");
-            setSubscriptionError("Permissão de notificação negada.");
-          }
-        } catch (error) {
-          console.error("Erro ao inicializar notificações push:", error);
-          setSubscriptionError("Erro ao configurar notificações.");
-        }
-      };
-
-      // Chama a inicialização apenas uma vez após o SW estar pronto
-      navigator.serviceWorker.ready.then(() => {
-        initializePush();
-      });
-
-    } else if (!isAuthenticated) {
-      // Limpa o estado se o usuário deslogar
-      setIsSubscribed(false);
-      setSubscriptionError(null);
-    }
-  }, [isAuthenticated]); // Roda quando o status de autenticação muda
-
-  // Função para enviar a inscrição para o backend
-  const sendSubscriptionToBackend = async (subscription) => {
-    try {
-      // Ajuste o endpoint conforme sua API backend
-      await apiService('/subscribe', 'POST', { subscription });
-      console.log('Inscrição enviada para o backend com sucesso.');
-    } catch (error) {
-      console.error('Falha ao enviar inscrição para o backend:', error);
-      setSubscriptionError("Erro ao salvar preferências de notificação.");
-    }
-  };
-
-  // Função para solicitar permissão manualmente (idealmente chamada por um botão)
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-        alert("Este navegador não suporta notificações desktop");
-        return false;
-    }
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
-        console.log("Permissão já foi", Notification.permission);
-        return Notification.permission === 'granted';
-    }
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        console.log("Permissão concedida!");
-        const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
-        if (subscription) {
-            await sendSubscriptionToBackend(subscription);
-            setIsSubscribed(true);
-            setSubscriptionError(null);
-            return true;
-        } else {
-            setSubscriptionError("Não foi possível obter a inscrição push após permissão.");
-            return false;
-        }
-      } else {
-        console.log("Permissão negada pelo usuário.");
-        setSubscriptionError("Permissão de notificação negada.");
-        return false;
-      }
-    } catch(error) {
-        console.error("Erro ao solicitar permissão:", error);
-        setSubscriptionError("Erro ao solicitar permissão de notificação.");
-        return false;
-    }
-  };
-
-
-  return { isSubscribed, subscriptionError, requestNotificationPermission };
-}
-
-// Função principal de subscrição
-async function subscribeUserToPush(vapidPublicKey) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('Push messaging is not supported');
-    return null;
-  }
-
-  try {
-    const registration = await navigator.serviceWorker.ready; // Espera o SW estar ativo
-    let subscription = await registration.pushManager.getSubscription();
-
-    if (subscription === null) {
-      console.log('Não inscrito ainda, solicitando inscrição...');
-      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true, // Requerido pela maioria dos navegadores
-        applicationServerKey: applicationServerKey
-      });
-      console.log('Inscrição realizada:', subscription);
-      return subscription; // Retorna a nova inscrição
-    } else {
-      console.log('Usuário já inscrito:', subscription);
-      return subscription; // Retorna a inscrição existente
-    }
-  } catch (error) {
-    console.error('Falha ao inscrever o usuário: ', error);
-    if (Notification.permission === 'denied') {
-      console.warn('Permissão para notificações foi negada.');
-      // Você pode querer mostrar uma mensagem ao usuário aqui
-    }
-    return null; // Retorna null em caso de erro
-  }
-}
-
-// Hook customizado para gerenciar a lógica de push
-function usePushNotifications() {
-  const { isAuthenticated, user } = useAuth(); // Assume que useAuth fornece o status de login e user
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [subscriptionError, setSubscriptionError] = useState(null);
-  const VAPID_PUBLIC_KEY = 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública VAPID
-
-  useEffect(() => {
-    // Só tenta inscrever se o usuário estiver logado
-    if (isAuthenticated && 'serviceWorker' in navigator && 'PushManager' in window) {
-      const initializePush = async () => {
-        try {
-          // 1. Verifica a permissão atual
-          const permission = Notification.permission;
-          if (permission === 'granted') {
-            console.log("Permissão já concedida.");
-            // Tenta obter/criar a inscrição
-            const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
-            if (subscription) {
-              // Envia a inscrição para o backend
-              await sendSubscriptionToBackend(subscription);
-              setIsSubscribed(true);
-            } else {
-              setSubscriptionError("Não foi possível obter a inscrição push.");
-            }
-          } else if (permission === 'default') {
-            console.log("Permissão ainda não solicitada. O ideal é pedir após interação do usuário.");
-            // **MELHORIA:** Mova a solicitação de permissão para um botão ou ação do usuário.
-            // Exemplo de como solicitar (mas não ideal aqui no useEffect):
-            // const newPermission = await Notification.requestPermission();
-            // if (newPermission === 'granted') { ... }
-          } else {
-            console.log("Permissão negada.");
-            setSubscriptionError("Permissão de notificação negada.");
-          }
-        } catch (error) {
-          console.error("Erro ao inicializar notificações push:", error);
-          setSubscriptionError("Erro ao configurar notificações.");
-        }
-      };
-
-      // Chama a inicialização apenas uma vez após o SW estar pronto
-      navigator.serviceWorker.ready.then(() => {
-        initializePush();
-      });
-
-    } else if (!isAuthenticated) {
-      // Limpa o estado se o usuário deslogar
-      setIsSubscribed(false);
-      setSubscriptionError(null);
-      // Opcional: Desinscrever o usuário do push manager aqui se necessário
-      // navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => sub?.unsubscribe());
-    }
-  }, [isAuthenticated]); // Roda quando o status de autenticação muda
-
-  // Função para enviar a inscrição para o backend
-  const sendSubscriptionToBackend = async (subscription) => {
-    try {
-      // Ajuste o endpoint conforme sua API backend
-      await apiService('/subscribe', 'POST', { subscription });
-      console.log('Inscrição enviada para o backend com sucesso.');
-    } catch (error) {
-      console.error('Falha ao enviar inscrição para o backend:', error);
-      // Considere tentar novamente ou notificar o usuário
-      setSubscriptionError("Erro ao salvar preferências de notificação.");
-    }
-  };
-
-  // Função para solicitar permissão manualmente (idealmente chamada por um botão)
-  const requestNotificationPermission = async () => {
-    if (!('Notification' in window)) {
-        alert("Este navegador não suporta notificações desktop");
-        return false;
-    }
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
-        console.log("Permissão já foi", Notification.permission);
-        return Notification.permission === 'granted';
-    }
-
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        console.log("Permissão concedida!");
-        // Após conceder, tenta inscrever e enviar ao backend
-        const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
-        if (subscription) {
-            await sendSubscriptionToBackend(subscription);
-            setIsSubscribed(true);
-            setSubscriptionError(null); // Limpa erro anterior se houver
-            return true;
-        } else {
-            setSubscriptionError("Não foi possível obter a inscrição push após permissão.");
-            return false;
-        }
-      } else {
-        console.log("Permissão negada pelo usuário.");
-        setSubscriptionError("Permissão de notificação negada.");
-        return false;
-      }
-    } catch(error) {
-        console.error("Erro ao solicitar permissão:", error);
-        setSubscriptionError("Erro ao solicitar permissão de notificação.");
-        return false;
-    }
-  };
-
-
-  return { isSubscribed, subscriptionError, requestNotificationPermission };
-}
-
-
-// Dentro do seu componente AppContent
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
-  const { requestNotificationPermission, isSubscribed, subscriptionError } = usePushNotifications(); // Usa o hook
 
-  // ... (Restante do useEffect de status de manutenção, navegação, etc.)
-
-   useEffect(() => {
-    const checkStatus = () => { /* ... código de manutenção ... */
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  useEffect(() => {
+    const checkStatus = () => {
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
-                setIsInMaintenance(prevStatus => prevStatus !== isNowInMaintenance ? isNowInMaintenance : prevStatus);
+                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
+                setIsInMaintenance(prevStatus => {
+                    if (prevStatus !== isNowInMaintenance) {
+                        return isNowInMaintenance;
+                    }
+                    return prevStatus;
+                });
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção...", err);
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                if (isStatusLoading) setIsStatusLoading(false);
+                // Garante que a tela de carregamento só desapareça na primeira vez
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
             });
     };
-    checkStatus();
-    const intervalId = setInterval(checkStatus, 30000);
-    return () => clearInterval(intervalId);
-  }, [isStatusLoading]);
 
-  const navigate = useCallback((path) => { /* ... código navigate ... */
+    checkStatus(); // Verifica imediatamente quando o componente monta
+
+    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+
+    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
+  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
+
+  const navigate = useCallback((path) => {
     window.location.hash = path;
-   }, []);
-
-  useEffect(() => { /* ... código pendingOrderId ... */
+  }, []);
+  
+  useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting...`);
-      sessionStorage.removeItem('pendingOrderId');
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]);
-
-  useEffect(() => { /* ... código handleHashChange ... */
-    const handleHashChange = () => setCurrentPath(window.location.hash.slice(1) || 'home');
+  }, [currentPath, navigate]); 
+  
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentPath(window.location.hash.slice(1) || 'home');
+    };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  useEffect(() => { /* ... código scrollTo ... */
+  useEffect(() => {
     window.scrollTo(0, 0);
-   }, [currentPath]);
-
-  // Exemplo de como adicionar um botão para pedir permissão (pode ser em outro lugar, como Configurações da Conta)
-  const PermissaoNotificacaoUI = () => {
-    if (isLoading || !isAuthenticated || !('Notification' in window) || !('PushManager' in window)) return null; // Só mostra se logado, não carregando e suportado
-
-    // Verifica se o SW está pronto antes de mostrar o botão/status
-    const [swReady, setSwReady] = useState(false);
-    useEffect(() => {
-        navigator.serviceWorker.ready.then(() => setSwReady(true));
-    }, []);
-
-    if (!swReady) return <p className="text-xs text-gray-500 text-center py-1">Verificando status das notificações...</p>;
-
-    if (Notification.permission === 'granted' && isSubscribed) return <p className="text-xs text-green-500 text-center py-1">Notificações Ativadas</p>;
-    if (Notification.permission === 'denied') return <p className="text-xs text-red-500 text-center py-1">Notificações Bloqueadas</p>;
-    if (subscriptionError) return <p className="text-xs text-red-500 text-center py-1">Erro: {subscriptionError}</p>;
-
-    // Botão para pedir permissão se for 'default'
-    return (
-        <button
-            onClick={requestNotificationPermission}
-            className="text-xs bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mx-auto block my-2"
-        >
-            Ativar Notificações
-        </button>
-    );
-  };
-
-
-  if (isLoading || isStatusLoading) { /* ... código de loading ... */
+  }, [currentPath]);
+  
+  if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
             <SpinnerIcon className="h-8 w-8 text-amber-400"/>
@@ -10098,21 +9879,21 @@ function AppContent({ deferredPrompt }) {
       );
   }
 
-  const isAdminLoggedIn = isAuthenticated && user?.role === 'admin';
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
   const isAdminDomain = window.location.hostname.includes('vercel.app');
 
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) { /* ... código de manutenção ... */
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
       return <MaintenancePage />;
   }
 
-  const renderPage = () => { /* ... código renderPage ... */
+  const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
     const searchParams = new URLSearchParams(queryString);
     const initialSearch = searchParams.get('search') || '';
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-
+    
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -10121,10 +9902,10 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-
+        
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />,
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -10146,7 +9927,7 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-
+    
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
@@ -10154,7 +9935,7 @@ function AppContent({ deferredPrompt }) {
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-
+    
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -10175,29 +9956,83 @@ function AppContent({ deferredPrompt }) {
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
- // Dentro da função AppContent...
-
-  // ... (definições de hooks, useEffects, renderPage, etc.) ...
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-
+  
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      {/* A linha abaixo NÃO deve existir aqui */}
-      {/* {showHeaderFooter && <PermissaoNotificacaoUI />} */}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
-            { /* ... Código do Footer ... */ }
+            <div className="container mx-auto px-4 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+                    {/* Coluna 1: Sobre a Loja */}
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
+                        <p className="text-sm text-gray-400">
+                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
+                        </p>
+                    </div>
+
+                    {/* Coluna 2: Institucional */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
+                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
+                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                        </ul>
+                    </div>
+
+                    {/* Coluna 3: Atendimento */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li>
+                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
+                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Coluna 4: Formas de Pagamento */}
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
+                        </div>
+                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-black py-4 border-t border-gray-800">
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            </div>
         </footer>
-       )}
+      )}
+      
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
-
-
 
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -10209,37 +10044,18 @@ export default function App() {
             setDeferredPrompt(e);
             console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
-
-        // Registra o Service Worker APENAS uma vez
+        
+        // Registra o Service Worker a partir do arquivo estático
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('Service Worker estático registrado com sucesso:', registration);
-                        // Opcional: Verificar atualizações do SW
-                        registration.onupdatefound = () => {
-                            const installingWorker = registration.installing;
-                            if (installingWorker) {
-                                installingWorker.onstatechange = () => {
-                                    if (installingWorker.state === 'installed') {
-                                        if (navigator.serviceWorker.controller) {
-                                            console.log('Novo conteúdo disponível; por favor, atualize.');
-                                            // Poderia mostrar uma notificação para o usuário atualizar
-                                        } else {
-                                            console.log('Conteúdo cacheado para uso offline.');
-                                        }
-                                    }
-                                };
-                            }
-                        };
-                    })
+                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
                     .catch(error => console.log('Falha no registro do Service Worker estático:', error));
             });
         }
 
-
         // --- Carregamento de Scripts Externos ---
-        const loadScript = (src, id, callback) => { /* ... código loadScript ... */
+        const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if (callback) callback();
                 return;
@@ -10251,6 +10067,7 @@ export default function App() {
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
+
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
@@ -10273,4 +10090,3 @@ export default function App() {
     );
 }
 
-// ... (Restante do código original do App.js, como os Provedores se existirem fora da função App)
