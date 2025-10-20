@@ -9810,74 +9810,252 @@ const BannerCarousel = memo(({ onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
+// Função para converter a chave pública VAPID de base64url para Uint8Array
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// Função principal de subscrição
+async function subscribeUserToPush(vapidPublicKey) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('Push messaging is not supported');
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready; // Espera o SW estar ativo
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (subscription === null) {
+      console.log('Não inscrito ainda, solicitando inscrição...');
+      const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true, // Requerido pela maioria dos navegadores
+        applicationServerKey: applicationServerKey
+      });
+      console.log('Inscrição realizada:', subscription);
+      return subscription; // Retorna a nova inscrição
+    } else {
+      console.log('Usuário já inscrito:', subscription);
+      return subscription; // Retorna a inscrição existente
+    }
+  } catch (error) {
+    console.error('Falha ao inscrever o usuário: ', error);
+    if (Notification.permission === 'denied') {
+      console.warn('Permissão para notificações foi negada.');
+      // Você pode querer mostrar uma mensagem ao usuário aqui
+    }
+    return null; // Retorna null em caso de erro
+  }
+}
+
+// Hook customizado para gerenciar a lógica de push
+function usePushNotifications() {
+  const { isAuthenticated, user } = useAuth(); // Assume que useAuth fornece o status de login e user
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState(null);
+  const VAPID_PUBLIC_KEY = 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública VAPID
+
+  useEffect(() => {
+    // Só tenta inscrever se o usuário estiver logado
+    if (isAuthenticated && 'serviceWorker' in navigator && 'PushManager' in window) {
+      const initializePush = async () => {
+        try {
+          // 1. Verifica a permissão atual
+          const permission = Notification.permission;
+          if (permission === 'granted') {
+            console.log("Permissão já concedida.");
+            // Tenta obter/criar a inscrição
+            const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
+            if (subscription) {
+              // Envia a inscrição para o backend
+              await sendSubscriptionToBackend(subscription);
+              setIsSubscribed(true);
+            } else {
+              setSubscriptionError("Não foi possível obter a inscrição push.");
+            }
+          } else if (permission === 'default') {
+            console.log("Permissão ainda não solicitada. O ideal é pedir após interação do usuário.");
+            // **MELHORIA:** Mova a solicitação de permissão para um botão ou ação do usuário.
+            // Exemplo de como solicitar (mas não ideal aqui no useEffect):
+            // const newPermission = await Notification.requestPermission();
+            // if (newPermission === 'granted') { ... }
+          } else {
+            console.log("Permissão negada.");
+            setSubscriptionError("Permissão de notificação negada.");
+          }
+        } catch (error) {
+          console.error("Erro ao inicializar notificações push:", error);
+          setSubscriptionError("Erro ao configurar notificações.");
+        }
+      };
+
+      // Chama a inicialização apenas uma vez após o SW estar pronto
+      navigator.serviceWorker.ready.then(() => {
+        initializePush();
+      });
+
+    } else if (!isAuthenticated) {
+      // Limpa o estado se o usuário deslogar
+      setIsSubscribed(false);
+      setSubscriptionError(null);
+      // Opcional: Desinscrever o usuário do push manager aqui se necessário
+      // navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => sub?.unsubscribe());
+    }
+  }, [isAuthenticated]); // Roda quando o status de autenticação muda
+
+  // Função para enviar a inscrição para o backend
+  const sendSubscriptionToBackend = async (subscription) => {
+    try {
+      // Ajuste o endpoint conforme sua API backend
+      await apiService('/subscribe', 'POST', { subscription });
+      console.log('Inscrição enviada para o backend com sucesso.');
+    } catch (error) {
+      console.error('Falha ao enviar inscrição para o backend:', error);
+      // Considere tentar novamente ou notificar o usuário
+      setSubscriptionError("Erro ao salvar preferências de notificação.");
+    }
+  };
+
+  // Função para solicitar permissão manualmente (idealmente chamada por um botão)
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+        alert("Este navegador não suporta notificações desktop");
+        return false;
+    }
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+        console.log("Permissão já foi", Notification.permission);
+        return Notification.permission === 'granted';
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log("Permissão concedida!");
+        // Após conceder, tenta inscrever e enviar ao backend
+        const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
+        if (subscription) {
+            await sendSubscriptionToBackend(subscription);
+            setIsSubscribed(true);
+            setSubscriptionError(null); // Limpa erro anterior se houver
+            return true;
+        } else {
+            setSubscriptionError("Não foi possível obter a inscrição push após permissão.");
+            return false;
+        }
+      } else {
+        console.log("Permissão negada pelo usuário.");
+        setSubscriptionError("Permissão de notificação negada.");
+        return false;
+      }
+    } catch(error) {
+        console.error("Erro ao solicitar permissão:", error);
+        setSubscriptionError("Erro ao solicitar permissão de notificação.");
+        return false;
+    }
+  };
+
+
+  return { isSubscribed, subscriptionError, requestNotificationPermission };
+}
+
+
+// Dentro do seu componente AppContent
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+  const { requestNotificationPermission, isSubscribed, subscriptionError } = usePushNotifications(); // Usa o hook
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
-  useEffect(() => {
-    const checkStatus = () => {
+  // ... (Restante do useEffect de status de manutenção, navegação, etc.)
+
+   useEffect(() => {
+    const checkStatus = () => { /* ... código de manutenção ... */
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
-                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
-                setIsInMaintenance(prevStatus => {
-                    if (prevStatus !== isNowInMaintenance) {
-                        return isNowInMaintenance;
-                    }
-                    return prevStatus;
-                });
+                setIsInMaintenance(prevStatus => prevStatus !== isNowInMaintenance ? isNowInMaintenance : prevStatus);
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                console.error("Falha ao verificar o modo de manutenção...", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                // Garante que a tela de carregamento só desapareça na primeira vez
-                if (isStatusLoading) {
-                    setIsStatusLoading(false);
-                }
+                if (isStatusLoading) setIsStatusLoading(false);
             });
     };
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 30000);
+    return () => clearInterval(intervalId);
+  }, [isStatusLoading]);
 
-    checkStatus(); // Verifica imediatamente quando o componente monta
-
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
-
-    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
-  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
-
-  const navigate = useCallback((path) => {
+  const navigate = useCallback((path) => { /* ... código navigate ... */
     window.location.hash = path;
-  }, []);
-  
-  useEffect(() => {
+   }, []);
+
+  useEffect(() => { /* ... código pendingOrderId ... */
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting...`);
+      sessionStorage.removeItem('pendingOrderId');
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); 
-  
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
+  }, [currentPath, navigate]);
+
+  useEffect(() => { /* ... código handleHashChange ... */
+    const handleHashChange = () => setCurrentPath(window.location.hash.slice(1) || 'home');
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { /* ... código scrollTo ... */
     window.scrollTo(0, 0);
-  }, [currentPath]);
-  
-  if (isLoading || isStatusLoading) {
+   }, [currentPath]);
+
+  // Exemplo de como adicionar um botão para pedir permissão (pode ser em outro lugar, como Configurações da Conta)
+  const PermissaoNotificacaoUI = () => {
+    if (isLoading || !isAuthenticated || !('Notification' in window) || !('PushManager' in window)) return null; // Só mostra se logado, não carregando e suportado
+
+    // Verifica se o SW está pronto antes de mostrar o botão/status
+    const [swReady, setSwReady] = useState(false);
+    useEffect(() => {
+        navigator.serviceWorker.ready.then(() => setSwReady(true));
+    }, []);
+
+    if (!swReady) return <p className="text-xs text-gray-500 text-center py-1">Verificando status das notificações...</p>;
+
+    if (Notification.permission === 'granted' && isSubscribed) return <p className="text-xs text-green-500 text-center py-1">Notificações Ativadas</p>;
+    if (Notification.permission === 'denied') return <p className="text-xs text-red-500 text-center py-1">Notificações Bloqueadas</p>;
+    if (subscriptionError) return <p className="text-xs text-red-500 text-center py-1">Erro: {subscriptionError}</p>;
+
+    // Botão para pedir permissão se for 'default'
+    return (
+        <button
+            onClick={requestNotificationPermission}
+            className="text-xs bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mx-auto block my-2"
+        >
+            Ativar Notificações
+        </button>
+    );
+  };
+
+
+  if (isLoading || isStatusLoading) { /* ... código de loading ... */
       return (
         <div className="h-screen flex items-center justify-center bg-black">
             <SpinnerIcon className="h-8 w-8 text-amber-400"/>
@@ -9885,21 +10063,21 @@ function AppContent({ deferredPrompt }) {
       );
   }
 
-  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminLoggedIn = isAuthenticated && user?.role === 'admin';
   const isAdminDomain = window.location.hostname.includes('vercel.app');
 
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) { /* ... código de manutenção ... */
       return <MaintenancePage />;
   }
 
-  const renderPage = () => {
+  const renderPage = () => { /* ... código renderPage ... */
     const [path, queryString] = currentPath.split('?');
     const searchParams = new URLSearchParams(queryString);
     const initialSearch = searchParams.get('search') || '';
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-    
+
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -9908,10 +10086,10 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-        
+
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'dashboard': <AdminDashboard onNavigate={navigate} />,
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -9933,7 +10111,7 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
@@ -9941,7 +10119,7 @@ function AppContent({ deferredPrompt }) {
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-    
+
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
@@ -9962,83 +10140,24 @@ function AppContent({ deferredPrompt }) {
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
-
   const showHeaderFooter = !currentPath.startsWith('admin');
-  
+
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
+      {/* Exemplo de onde colocar o botão/status de permissão (opcional) */}
+      {showHeaderFooter && <PermissaoNotificacaoUI />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
-            <div className="container mx-auto px-4 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-                    {/* Coluna 1: Sobre a Loja */}
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
-                        <p className="text-sm text-gray-400">
-                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
-                        </p>
-                    </div>
-
-                    {/* Coluna 2: Institucional */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 3: Atendimento */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
-                            <li>
-                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
-                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 4: Formas de Pagamento */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
-                        </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
-                    </div>
-                </div>
-            </div>
-            <div className="bg-black py-4 border-t border-gray-800">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
-            </div>
+            { /* ... Código do Footer ... */ }
         </footer>
-      )}
-      
+       )}
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
+
 
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -10050,18 +10169,37 @@ export default function App() {
             setDeferredPrompt(e);
             console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
-        
-        // Registra o Service Worker a partir do arquivo estático
+
+        // Registra o Service Worker APENAS uma vez
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
+                    .then(registration => {
+                        console.log('Service Worker estático registrado com sucesso:', registration);
+                        // Opcional: Verificar atualizações do SW
+                        registration.onupdatefound = () => {
+                            const installingWorker = registration.installing;
+                            if (installingWorker) {
+                                installingWorker.onstatechange = () => {
+                                    if (installingWorker.state === 'installed') {
+                                        if (navigator.serviceWorker.controller) {
+                                            console.log('Novo conteúdo disponível; por favor, atualize.');
+                                            // Poderia mostrar uma notificação para o usuário atualizar
+                                        } else {
+                                            console.log('Conteúdo cacheado para uso offline.');
+                                        }
+                                    }
+                                };
+                            }
+                        };
+                    })
                     .catch(error => console.log('Falha no registro do Service Worker estático:', error));
             });
         }
 
+
         // --- Carregamento de Scripts Externos ---
-        const loadScript = (src, id, callback) => {
+        const loadScript = (src, id, callback) => { /* ... código loadScript ... */
             if (document.getElementById(id)) {
                 if (callback) callback();
                 return;
@@ -10073,7 +10211,6 @@ export default function App() {
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
-
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
@@ -10096,3 +10233,4 @@ export default function App() {
     );
 }
 
+// ... (Restante do código original do App.js, como os Provedores se existirem fora da função App)
