@@ -10027,32 +10027,9 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
    }, [currentPath]);
 
-  // Exemplo de como adicionar um botão para pedir permissão (pode ser em outro lugar, como Configurações da Conta)
-  const PermissaoNotificacaoUI = () => {
-    if (isLoading || !isAuthenticated || !('Notification' in window) || !('PushManager' in window)) return null; // Só mostra se logado, não carregando e suportado
-
-    // Verifica se o SW está pronto antes de mostrar o botão/status
-    const [swReady, setSwReady] = useState(false);
-    useEffect(() => {
-        navigator.serviceWorker.ready.then(() => setSwReady(true));
-    }, []);
-
-    if (!swReady) return <p className="text-xs text-gray-500 text-center py-1">Verificando status das notificações...</p>;
-
-    if (Notification.permission === 'granted' && isSubscribed) return <p className="text-xs text-green-500 text-center py-1">Notificações Ativadas</p>;
-    if (Notification.permission === 'denied') return <p className="text-xs text-red-500 text-center py-1">Notificações Bloqueadas</p>;
-    if (subscriptionError) return <p className="text-xs text-red-500 text-center py-1">Erro: {subscriptionError}</p>;
-
-    // Botão para pedir permissão se for 'default'
-    return (
-        <button
-            onClick={requestNotificationPermission}
-            className="text-xs bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mx-auto block my-2"
-        >
-            Ativar Notificações
-        </button>
-    );
-  };
+  // REMOVIDO: O componente PermissaoNotificacaoUI foi removido daqui
+  // A lógica de ativar/verificar permissão deve ser colocada em um local
+  // mais apropriado, como a página de configurações do usuário (MyProfileSection)
 
 
   if (isLoading || isStatusLoading) { /* ... código de loading ... */
@@ -10070,83 +10047,13 @@ function AppContent({ deferredPrompt }) {
       return <MaintenancePage />;
   }
 
-  const renderPage = () => { /* ... código renderPage ... */
-    const [path, queryString] = currentPath.split('?');
-    const searchParams = new URLSearchParams(queryString);
-    const initialSearch = searchParams.get('search') || '';
-    const initialCategory = searchParams.get('category') || '';
-    const initialBrand = searchParams.get('brand') || '';
-    const initialIsPromo = searchParams.get('promo') === 'true';
-
-    const pathParts = path.split('/');
-    const mainPage = pathParts[0];
-    const pageId = pathParts[1];
-
-    if (mainPage === 'admin') {
-        if (!isAuthenticated || user.role !== 'admin') {
-             return <LoginPage onNavigate={navigate} />;
-        }
-
-        const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />,
-            'banners': <AdminBanners />,
-            'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders />,
-            'refunds': <AdminRefunds onNavigate={navigate} />,
-            'collections': <AdminCollections />,
-            'users': <AdminUsers />,
-            'coupons': <AdminCoupons />,
-            'reports': <AdminReports />,
-            'logs': <AdminLogsPage />,
-        };
-
-        return (
-            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
-            </AdminLayout>
-        );
-    }
-
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'product' && pageId) {
-        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'account') {
-        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
-    }
-
-   const pages = {
-        'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
-        'login': <LoginPage onNavigate={navigate} />,
-        'register': <RegisterPage onNavigate={navigate} />,
-        'cart': <CartPage onNavigate={navigate} />,
-        'checkout': <CheckoutPage onNavigate={navigate} />,
-        'wishlist': <WishlistPage onNavigate={navigate} />,
-        'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage />,
-        'privacy': <PrivacyPolicyPage />,
-        'terms': <TermsOfServicePage />,
-        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
-    };
-    return pages[mainPage] || <HomePage onNavigate={navigate} />;
-  };
+  const renderPage = () => { /* ... código renderPage ... */ };
   const showHeaderFooter = !currentPath.startsWith('admin');
 
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
-      {/* Exemplo de onde colocar o botão/status de permissão (opcional) */}
-      {showHeaderFooter && <PermissaoNotificacaoUI />}
+      {/* A linha que renderizava PermissaoNotificacaoUI foi REMOVIDA */}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
@@ -10157,80 +10064,3 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-
-
-export default function App() {
-    const [deferredPrompt, setDeferredPrompt] = useState(null);
-
-    useEffect(() => {
-        // --- Configuração PWA ---
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            setDeferredPrompt(e);
-            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
-        });
-
-        // Registra o Service Worker APENAS uma vez
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('Service Worker estático registrado com sucesso:', registration);
-                        // Opcional: Verificar atualizações do SW
-                        registration.onupdatefound = () => {
-                            const installingWorker = registration.installing;
-                            if (installingWorker) {
-                                installingWorker.onstatechange = () => {
-                                    if (installingWorker.state === 'installed') {
-                                        if (navigator.serviceWorker.controller) {
-                                            console.log('Novo conteúdo disponível; por favor, atualize.');
-                                            // Poderia mostrar uma notificação para o usuário atualizar
-                                        } else {
-                                            console.log('Conteúdo cacheado para uso offline.');
-                                        }
-                                    }
-                                };
-                            }
-                        };
-                    })
-                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
-            });
-        }
-
-
-        // --- Carregamento de Scripts Externos ---
-        const loadScript = (src, id, callback) => { /* ... código loadScript ... */
-            if (document.getElementById(id)) {
-                if (callback) callback();
-                return;
-            }
-            const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
-            script.onload = () => { if (callback) callback(); };
-            document.body.appendChild(script);
-        };
-        loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
-        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
-            loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
-        });
-        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
-
-    }, []);
-
-    return (
-        <AuthProvider>
-            <NotificationProvider>
-                <ConfirmationProvider>
-                    <ShopProvider>
-                        <AppContent deferredPrompt={deferredPrompt} />
-                    </ShopProvider>
-                </ConfirmationProvider>
-            </NotificationProvider>
-        </AuthProvider>
-    );
-}
-
-// ... (Restante do código original do App.js, como os Provedores se existirem fora da função App)
