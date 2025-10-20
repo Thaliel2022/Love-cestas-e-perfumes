@@ -9745,13 +9745,14 @@ const BannerCarousel = memo(({ onNavigate }) => {
                     transition={{ duration: 1, ease: "easeInOut" }}
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
-                    {/* Alterado de div com background para img com object-fit */}
+                    {/* Alterado para object-contain */}
                     <img
                          src={imageUrl}
                          alt={currentBanner.title || 'Banner promocional'}
-                         className="absolute inset-0 w-full h-full object-cover object-center" // object-cover garante o preenchimento, object-center centraliza
+                         className="absolute inset-0 w-full h-full object-contain object-center" // object-contain garante que a imagem inteira caiba
                     />
-                    <div className="absolute inset-0 bg-black/40" /> {/* Overlay escuro */}
+                    {/* O overlay continua aqui para escurecer o fundo caso a imagem não preencha tudo */}
+                    <div className="absolute inset-0 bg-black/40 -z-10" />
 
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div
@@ -9766,6 +9767,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                                 <motion.h1
                                     variants={itemVariants}
                                     className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.7)' }} // Adiciona sombra para melhorar leitura sobre imagem
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -9774,6 +9776,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                                 <motion.p
                                     variants={itemVariants}
                                     className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
+                                    style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.7)' }} // Adiciona sombra para melhorar leitura
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
