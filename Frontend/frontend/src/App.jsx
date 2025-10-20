@@ -9812,19 +9812,107 @@ const BannerCarousel = memo(({ onNavigate }) => {
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
 // Função para converter a chave pública VAPID de base64url para Uint8Array
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
+// Hook customizado para gerenciar a lógica de push
+function usePushNotifications() {
+  const { isAuthenticated, user } = useAuth(); // Assume que useAuth fornece o status de login e user
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState(null);
+  const VAPID_PUBLIC_KEY = 'BLxVIxSxrYmdpdsSHq_mFFqc-V3VOZJy6vf0fFzIoKpz-Z0L89XHrfAXX4aFFOQ5QZ-8nlzwFBb1GmIHJmhaC9I'; // Sua chave pública VAPID
 
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
+  useEffect(() => {
+    // Só tenta inscrever se o usuário estiver logado
+    if (isAuthenticated && 'serviceWorker' in navigator && 'PushManager' in window) {
+      const initializePush = async () => {
+        try {
+          // 1. Verifica a permissão atual
+          const permission = Notification.permission;
+          if (permission === 'granted') {
+            console.log("Permissão já concedida.");
+            // Tenta obter/criar a inscrição
+            const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
+            if (subscription) {
+              // Envia a inscrição para o backend
+              await sendSubscriptionToBackend(subscription);
+              setIsSubscribed(true);
+            } else {
+              setSubscriptionError("Não foi possível obter a inscrição push.");
+            }
+          } else if (permission === 'default') {
+            console.log("Permissão ainda não solicitada. O ideal é pedir após interação do usuário.");
+            // **MELHORIA:** Mova a solicitação de permissão para um botão ou ação do usuário.
+          } else {
+            console.log("Permissão negada.");
+            setSubscriptionError("Permissão de notificação negada.");
+          }
+        } catch (error) {
+          console.error("Erro ao inicializar notificações push:", error);
+          setSubscriptionError("Erro ao configurar notificações.");
+        }
+      };
 
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
+      // Chama a inicialização apenas uma vez após o SW estar pronto
+      navigator.serviceWorker.ready.then(() => {
+        initializePush();
+      });
+
+    } else if (!isAuthenticated) {
+      // Limpa o estado se o usuário deslogar
+      setIsSubscribed(false);
+      setSubscriptionError(null);
+    }
+  }, [isAuthenticated]); // Roda quando o status de autenticação muda
+
+  // Função para enviar a inscrição para o backend
+  const sendSubscriptionToBackend = async (subscription) => {
+    try {
+      // Ajuste o endpoint conforme sua API backend
+      await apiService('/subscribe', 'POST', { subscription });
+      console.log('Inscrição enviada para o backend com sucesso.');
+    } catch (error) {
+      console.error('Falha ao enviar inscrição para o backend:', error);
+      setSubscriptionError("Erro ao salvar preferências de notificação.");
+    }
+  };
+
+  // Função para solicitar permissão manualmente (idealmente chamada por um botão)
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+        alert("Este navegador não suporta notificações desktop");
+        return false;
+    }
+    if (Notification.permission === 'granted' || Notification.permission === 'denied') {
+        console.log("Permissão já foi", Notification.permission);
+        return Notification.permission === 'granted';
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log("Permissão concedida!");
+        const subscription = await subscribeUserToPush(VAPID_PUBLIC_KEY);
+        if (subscription) {
+            await sendSubscriptionToBackend(subscription);
+            setIsSubscribed(true);
+            setSubscriptionError(null);
+            return true;
+        } else {
+            setSubscriptionError("Não foi possível obter a inscrição push após permissão.");
+            return false;
+        }
+      } else {
+        console.log("Permissão negada pelo usuário.");
+        setSubscriptionError("Permissão de notificação negada.");
+        return false;
+      }
+    } catch(error) {
+        console.error("Erro ao solicitar permissão:", error);
+        setSubscriptionError("Erro ao solicitar permissão de notificação.");
+        return false;
+    }
+  };
+
+
+  return { isSubscribed, subscriptionError, requestNotificationPermission };
 }
 
 // Função principal de subscrição
