@@ -16,9 +16,12 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const webpush = require('web-push'); // <--- ADICIONADO: Web Push
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
+
+// ... restante do código ...
 
 
 // --- Configuração do Resend ---
@@ -43,43 +46,45 @@ const ORDER_STATUS = {
 
 // Verificação de Variáveis de Ambiente Essenciais
 const checkRequiredEnvVars = async () => {
-    const requiredVars = [
-        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
-        'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
-        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
-        'RESEND_API_KEY', 'FROM_EMAIL', 'CRON_SECRET'
-    ];
-    const missingVars = requiredVars.filter(varName => !process.env[varName]);
-    if (missingVars.length > 0) {
-        console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
-        missingVars.forEach(varName => console.error(`- ${varName}`));
-        console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
-        process.exit(1);
-    }
+    const requiredVars = [
+        'DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET',
+        'MP_ACCESS_TOKEN', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY',
+        'CLOUDINARY_API_SECRET', 'APP_URL', 'BACKEND_URL', 'ME_TOKEN', 'ORIGIN_CEP',
+        'RESEND_API_KEY', 'FROM_EMAIL', 'CRON_SECRET',
+        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_EMAIL' // <-- ADICIONADO: VAPID Keys
+    ];
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    if (missingVars.length > 0) {
+        console.error('ERRO CRÍTICO: As seguintes variáveis de ambiente estão faltando:');
+        missingVars.forEach(varName => console.error(`- ${varName}`));
+        console.error('O servidor não pode iniciar. Por favor, configure as variáveis no seu arquivo .env');
+        process.exit(1);
+    }
 
-    const originCep = process.env.ORIGIN_CEP.replace(/\D/g, '');
-    if (originCep.length !== 8) {
-        console.error('ERRO CRÍTICO: O valor de ORIGIN_CEP na sua variável de ambiente é inválido. Deve ser um CEP de 8 dígitos.');
-        process.exit(1);
-    }
-    try {
-        console.log(`Validando o CEP de origem (ORIGIN_CEP): ${originCep}...`);
-        const response = await fetch(`https://viacep.com.br/ws/${originCep}/json/`);
-        const data = await response.json();
-        if (data.erro) {
-            console.error(`ERRO CRÍTICO: O CEP de origem '${process.env.ORIGIN_CEP}' não foi encontrado ou é inválido.`);
-            console.error('Por favor, corrija a variável de ambiente ORIGIN_CEP no seu servidor.');
-            process.exit(1);
-        }
-        console.log(`CEP de origem validado com sucesso: ${data.logradouro}, ${data.localidade} - ${data.uf}`);
-    } catch (error) {
-        console.warn('AVISO: Não foi possível validar o CEP de origem automaticamente. O servidor continuará, mas podem ocorrer erros no cálculo de frete se o CEP estiver incorreto.');
-        console.warn('Erro na validação do CEP:', error.message);
-    }
-    
-    console.log('Verificação de variáveis de ambiente concluída com sucesso.');
+    // ... (restante da validação do CEP)
+    const originCep = process.env.ORIGIN_CEP.replace(/\D/g, '');
+    if (originCep.length !== 8) {
+        console.error('ERRO CRÍTICO: O valor de ORIGIN_CEP na sua variável de ambiente é inválido. Deve ser um CEP de 8 dígitos.');
+        process.exit(1);
+    }
+    try {
+        console.log(`Validando o CEP de origem (ORIGIN_CEP): ${originCep}...`);
+        const response = await fetch(`https://viacep.com.br/ws/${originCep}/json/`);
+        const data = await response.json();
+        if (data.erro) {
+            console.error(`ERRO CRÍTICO: O CEP de origem '${process.env.ORIGIN_CEP}' não foi encontrado ou é inválido.`);
+            console.error('Por favor, corrija a variável de ambiente ORIGIN_CEP no seu servidor.');
+            process.exit(1);
+        }
+        console.log(`CEP de origem validado com sucesso: ${data.logradouro}, ${data.localidade} - ${data.uf}`);
+    } catch (error) {
+        console.warn('AVISO: Não foi possível validar o CEP de origem automaticamente. O servidor continuará, mas podem ocorrer erros no cálculo de frete se o CEP estiver incorreto.');
+        console.warn('Erro na validação do CEP:', error.message);
+    }
+
+    console.log('Verificação de variáveis de ambiente concluída com sucesso.');
 };
-checkRequiredEnvVars();
+checkRequiredEnvVars(); // Executa a verificação
 
 // --- CONFIGURAÇÃO INICIAL ---
 const app = express();
@@ -283,9 +288,11 @@ const imageUpload = multer({
     }
 }).single('image');
 
-const csvUpload = multer({
+// ... código anterior (config Multer) ...
+
+const csvUpload = multer({ /* ... Configuração CSV Upload ... */
     storage: memoryStorage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // Limite de 10MB para CSVs
+    limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype === 'text/csv') {
             cb(null, true);
@@ -294,6 +301,23 @@ const csvUpload = multer({
         }
     }
 }).single('file');
+
+// --- CONFIGURAÇÃO WEB PUSH ---  <------------------------------------ NOVO
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY,
+  privateKey: process.env.VAPID_PRIVATE_KEY // Mantenha esta chave SEGURA!
+};
+const vapidEmail = process.env.VAPID_EMAIL; // Coloque seu email de contato nas variáveis de ambiente
+
+webpush.setVapidDetails(
+  `mailto:${vapidEmail}`, // Adiciona 'mailto:'
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
+console.log("Configuração VAPID para Web Push carregada.");
+
+// --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
+// ... restante do código ...
 
 
 // --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
@@ -595,6 +619,62 @@ const createAdminDirectEmail = (customerName, subject, message) => {
     `;
     return createEmailBase(content);
 };
+
+// --- FUNÇÃO PARA ENVIAR NOTIFICAÇÃO PUSH ---  <------------------------ NOVO
+async function sendNotificationToUser(userId, payload) {
+  if (!userId) {
+      console.warn('[PUSH] Tentativa de enviar notificação sem userId.');
+      return;
+  }
+  try {
+    const sql = 'SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?';
+    const [subscriptions] = await db.query(sql, [userId]);
+
+    if (subscriptions.length === 0) {
+      console.log(`[PUSH] Nenhuma inscrição encontrada para o usuário ${userId}.`);
+      return;
+    }
+
+    // Garante que o payload tenha um ícone padrão se não for fornecido
+    const finalPayload = JSON.stringify({
+        icon: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', // SEU LOGO PADRÃO
+        badge: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', // SEU BADGE PADRÃO
+        ...payload // Permite sobrescrever com o payload fornecido
+    });
+
+    console.log(`[PUSH] Enviando notificação para ${subscriptions.length} dispositivo(s) do usuário ${userId}. Payload:`, finalPayload);
+
+    const sendPromises = subscriptions.map(sub => {
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth
+        }
+      };
+      return webpush.sendNotification(pushSubscription, finalPayload)
+        .catch(async (error) => { // Tornar o catch async
+          console.error(`[PUSH] Erro ao enviar para ${sub.endpoint.substring(0, 30)}...:`, error.statusCode || error.message);
+          // Se for 404 ou 410, a inscrição é inválida e deve ser removida do DB
+          if (error.statusCode === 404 || error.statusCode === 410) {
+            console.log("[PUSH] Removendo inscrição inválida do banco:", sub.endpoint);
+            try {
+                await db.query('DELETE FROM push_subscriptions WHERE endpoint = ?', [sub.endpoint]);
+                console.log("[PUSH] Inscrição inválida removida com sucesso.");
+            } catch (deleteError) {
+                console.error("[PUSH] Erro ao remover inscrição inválida do banco:", deleteError);
+            }
+          }
+        });
+    });
+
+    await Promise.all(sendPromises);
+    console.log(`[PUSH] Notificações para o usuário ${userId} despachadas.`);
+
+  } catch (error) {
+    console.error(`[PUSH] Erro GERAL ao enviar notificações para usuário ${userId}:`, error);
+  }
+}
 
 // --- ROTAS DA APLICAÇÃO ---
 
@@ -2181,133 +2261,165 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+// ATUALIZAÇÃO DE PEDIDO (com envio de notificação push)
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status, tracking_code } = req.body;
+    const { id } = req.params;
+    const { status, tracking_code } = req.body;
 
-  // --- BLOQUEIO DE SEGURANÇA ---
+    // --- BLOQUEIO DE SEGURANÇA ---
     if (status === ORDER_STATUS.REFUNDED) {
         return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
     }
 
-    const STATUS_PROGRESSION = [
-        ORDER_STATUS.PENDING,
-        ORDER_STATUS.PAYMENT_APPROVED,
-        ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP,
-        ORDER_STATUS.SHIPPED,
-        ORDER_STATUS.OUT_FOR_DELIVERY,
-        ORDER_STATUS.DELIVERED
-    ];
-    
-    const statusesThatTriggerEmail = [
-        ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP,
-        ORDER_STATUS.SHIPPED,
-        ORDER_STATUS.OUT_FOR_DELIVERY,
-        ORDER_STATUS.DELIVERED,
-        ORDER_STATUS.CANCELLED,
-        // ORDER_STATUS.REFUNDED foi removido daqui
-    ];
+    const STATUS_PROGRESSION = [ /* ... Status Progression Array ... */
+        ORDER_STATUS.PENDING, ORDER_STATUS.PAYMENT_APPROVED, ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED, ORDER_STATUS.OUT_FOR_DELIVERY,
+        ORDER_STATUS.DELIVERED
+    ];
+    const statusesThatTriggerEmail = [ /* ... Statuses Email Array ... */
+        ORDER_STATUS.PROCESSING, ORDER_STATUS.READY_FOR_PICKUP, ORDER_STATUS.SHIPPED,
+        ORDER_STATUS.OUT_FOR_DELIVERY, ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED,
+    ];
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    // Status que também disparam notificação PUSH
+    const statusesThatTriggerPush = [
+        ORDER_STATUS.READY_FOR_PICKUP,
+        ORDER_STATUS.SHIPPED
+    ];
 
-        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
-        if (currentOrderResult.length === 0) {
-            throw new Error("Pedido não encontrado.");
-        }
-        const currentOrder = currentOrderResult[0];
-        const { status: currentStatus } = currentOrder;
 
-        if (status && status !== currentStatus) {
-            const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
-            const newIndex = STATUS_PROGRESSION.indexOf(status);
+    const connection = await db.getConnection();
+    let orderUserId = null; // Para guardar o ID do usuário para a notificação
+    let customerName = '';
+    let isPickupOrder = false;
 
-            if (newIndex > currentIndex) {
-                const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
-                for (const intermediateStatus of statusesToInsert) {
-                    await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
-                }
-            } else {
-                await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
-            }
-            
-            // --- LÓGICA DE REEMBOLSO REMOVIDA DAQUI ---
-            
-            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
-            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
+    try {
+        await connection.beginTransaction();
 
-            if (isRevertingStock && !wasAlreadyReverted) {
-                const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
-                for (const item of itemsToAdjust) {
-                    const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                    const product = productResult[0];
-                    if (product.product_type === 'clothing' && item.variation_details) {
-                        const variation = JSON.parse(item.variation_details);
-                        let variations = JSON.parse(product.variations || '[]');
-                        const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                        if (variationIndex !== -1) {
-                            variations[variationIndex].stock += item.quantity;
-                            const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                            await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                        }
-                    } else {
-                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                    }
-                }
-                console.log(`Estoque e vendas do pedido #${id} revertidos.`);
-            }
-        }
-        
-        if (tracking_code !== undefined) {
-            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
-        }
+        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
+        if (currentOrderResult.length === 0) {
+            throw new Error("Pedido não encontrado.");
+        }
+        const currentOrder = currentOrderResult[0];
+        const { status: currentStatus } = currentOrder;
+        orderUserId = currentOrder.user_id; // Guarda o ID do usuário
+        isPickupOrder = currentOrder.shipping_method === 'Retirar na loja';
 
-        await connection.commit();
-        
-        // Envio de email fora da transação
-        if (status && status !== currentStatus && statusesThatTriggerEmail.includes(status)) {
-            const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
-            if (userResult.length > 0) {
-                const customerEmail = userResult[0].email;
-                const customerName = userResult[0].name;
-                const finalTrackingCode = tracking_code || currentOrder.tracking_code;
-                const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
-                const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
+        if (status && status !== currentStatus) {
+            // ... (Lógica de progressão de status, rollback de estoque, etc. como antes) ...
+             const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
+             const newIndex = STATUS_PROGRESSION.indexOf(status);
 
-                let emailHtml, emailSubject;
-                if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
-                    emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
-                    emailSubject = `Seu Pedido #${id} foi enviado!`;
-                } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
-                    let pickupDetails = {};
-                    try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
-                    emailHtml = createReadyForPickupEmail(customerName, id, pickupDetails);
-                    emailSubject = `Seu Pedido #${id} está pronto para retirada!`;
-                } else {
-                    emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
-                    emailSubject = `Atualização sobre seu Pedido #${id}`;
-                }
+             if (newIndex > currentIndex) {
+                 const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
+                 for (const intermediateStatus of statusesToInsert) {
+                     await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
+                 }
+             } else {
+                 await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
+             }
 
-                if (emailHtml && emailSubject) {
-                    sendEmailAsync({ from: FROM_EMAIL, to: customerEmail, subject: emailSubject, html: emailHtml });
-                }
-            }
-        }
-        
-        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
+             const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
+             const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
 
-        res.json({ message: "Pedido atualizado com sucesso." });
+             if (isRevertingStock && !wasAlreadyReverted) {
+                 const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
+                 for (const item of itemsToAdjust) {
+                     const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                     const product = productResult[0];
+                     if (product.product_type === 'clothing' && item.variation_details) {
+                         const variation = JSON.parse(item.variation_details);
+                         let variations = JSON.parse(product.variations || '[]');
+                         const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                         if (variationIndex !== -1) {
+                             variations[variationIndex].stock += item.quantity;
+                             const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                             await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                         }
+                     } else {
+                         await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                     }
+                 }
+                 console.log(`Estoque e vendas do pedido #${id} revertidos.`);
+             }
+        }
 
-   } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar pedido:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
-    } finally {
-        connection.release();
-    }
+        if (tracking_code !== undefined) {
+            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
+        }
+
+        await connection.commit();
+
+        // Envio de email E PUSH fora da transação
+        if (status && status !== currentStatus) {
+            const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
+            if (userResult.length > 0) {
+                 customerName = userResult[0].name; // Guarda o nome para o Push
+                const customerEmail = userResult[0].email;
+                const finalTrackingCode = tracking_code !== undefined ? tracking_code : currentOrder.tracking_code; // Pega o código atualizado ou o anterior
+                const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
+                const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
+
+                // Envia Email (se configurado para este status)
+                if (statusesThatTriggerEmail.includes(status)) {
+                    let emailHtml, emailSubject;
+                    if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
+                        emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
+                        emailSubject = `Seu Pedido #${id} foi enviado!`;
+                    } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
+                        let pickupDetails = {};
+                        try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
+                        emailHtml = createReadyForPickupEmail(customerName, id, pickupDetails);
+                        emailSubject = `Seu Pedido #${id} está pronto para retirada!`;
+                    } else {
+                        emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
+                        emailSubject = `Atualização sobre seu Pedido #${id}`;
+                    }
+
+                    if (emailHtml && emailSubject) {
+                        sendEmailAsync({ from: FROM_EMAIL, to: customerEmail, subject: emailSubject, html: emailHtml });
+                    }
+                }
+
+                // Envia Push Notification (se configurado para este status)
+                if (statusesThatTriggerPush.includes(status) && orderUserId) {
+                    let pushPayload = {};
+                    const appBaseUrl = process.env.APP_URL || '';
+
+                    if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) { // <-- Adicionado: Verifica se há código de rastreio
+                        pushPayload = {
+                            title: `🚚 Pedido #${id} Enviado!`,
+                            body: `Seu pedido está a caminho. Código: ${finalTrackingCode}`,
+                            url: `${appBaseUrl}/#account/orders/${id}` // Link para detalhes do pedido
+                        };
+                    } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
+                         pushPayload = {
+                            title: `📦 Pedido #${id} Pronto para Retirada!`,
+                            body: 'Seu pedido já pode ser retirado em nossa loja.',
+                            url: `${appBaseUrl}/#account/orders/${id}` // Link para detalhes do pedido
+                        };
+                    }
+
+                    if (Object.keys(pushPayload).length > 0) {
+                        // Atraso de 2 segundos antes de enviar o PUSH
+                        setTimeout(() => {
+                           sendNotificationToUser(orderUserId, pushPayload); // Chama a função PUSH
+                        }, 2000);
+                    }
+                }
+            }
+        }
+
+        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
+        res.json({ message: "Pedido atualizado com sucesso." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar pedido:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
+    } finally {
+        connection.release();
+    }
 });
 
 
@@ -3996,6 +4108,39 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
         console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
         res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
     }
+});
+
+// --- ROTA PARA SALVAR INSCRIÇÃO PUSH --- <----------------------------- NOVO
+app.post('/api/subscribe', verifyToken, async (req, res) => {
+  const subscription = req.body.subscription;
+  const userId = req.user.id; // Obtém o ID do usuário do token JWT verificado
+
+  if (!subscription || !subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
+    console.error("[PUSH SUBSCRIBE] Dados de inscrição inválidos recebidos:", subscription);
+    return res.status(400).json({ error: 'Dados de inscrição inválidos ou faltando.' });
+  }
+
+  try {
+    const sql = `
+      INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
+      VALUES (?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), p256dh = VALUES(p256dh), auth = VALUES(auth), created_at = NOW()
+    `; // ON DUPLICATE KEY UPDATE atualiza se o endpoint já existir
+    const values = [
+      userId,
+      subscription.endpoint,
+      subscription.keys.p256dh,
+      subscription.keys.auth
+    ];
+
+    await db.query(sql, values);
+
+    console.log(`[PUSH SUBSCRIBE] Inscrição salva/atualizada para usuário ${userId}, endpoint: ${subscription.endpoint.substring(0,30)}...`);
+    res.status(201).json({ message: 'Inscrição salva com sucesso.' });
+  } catch (error) {
+    console.error('[PUSH SUBSCRIBE] Erro ao salvar inscrição no banco:', error);
+    res.status(500).json({ error: 'Erro interno ao salvar inscrição.' });
+  }
 });
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
