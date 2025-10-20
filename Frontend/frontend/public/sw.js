@@ -1,80 +1,101 @@
-// public/sw.js
+/* eslint-disable no-restricted-globals */
 
-self.addEventListener('push', function(event) {
+// Define a URL da sua logo
+const LOGO_URL = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+
+// Listener para o evento 'push' (quando uma notificação chega do servidor)
+self.addEventListener('push', event => {
   console.log('[Service Worker] Push Recebido.');
-  console.log(`[Service Worker] Push data: "${event.data ? event.data.text() : 'Sem payload'}"`);
 
   let data = {};
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch (e) {
-      console.error("Erro ao parsear payload JSON:", e);
-      // Fallback se não for JSON
-      data = { title: "Nova Notificação", body: event.data.text() };
-    }
+  try {
+    // Tenta parsear os dados enviados pelo backend como JSON
+    data = event.data.json();
+  } catch (e) {
+    console.error('[Service Worker] Erro ao parsear dados do push:', e);
+    // Define dados padrão se o parse falhar
+    data = {
+      title: 'Notificação',
+      body: 'Você tem uma nova atualização.',
+      icon: LOGO_URL,
+      url: '/', // URL padrão para onde o clique levará
+    };
   }
 
-  const title = data.title || 'Love Cestas e Perfumes';
+  // Configurações da notificação a ser exibida
   const options = {
-    body: data.body || 'Você tem uma nova mensagem.',
-    // --- SEU LOGO AQUI ---
-    // Substitua pela URL completa do seu logo.
-    // Use uma imagem quadrada ou com boa visualização em formato pequeno (ex: 192x192 pixels).
-    icon: data.icon || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', // <-- URL DO SEU LOGO
-    // O 'badge' é um ícone menor, monocromático, usado em algumas plataformas (como Android).
-    // Crie um ícone simples, idealmente transparente com a silhueta do logo.
-    badge: data.badge || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', // <-- URL DO SEU BADGE (opcional, mas recomendado)
-    vibrate: [200, 100, 200], // Vibração [vibra, pausa, vibra]
-    tag: data.tag || 'general-notification', // Agrupa notificações (opcional)
-    renotify: data.renotify || false, // Se true, vibra/toca mesmo se já houver notificação com a mesma tag (opcional)
-    requireInteraction: data.requireInteraction || false, // Mantém a notificação até ser dispensada (opcional)
-    data: { // Dados extras para usar no evento 'notificationclick'
-      url: data.url || '/' // URL para abrir ao clicar
-    }
+    body: data.body || 'Você tem uma nova atualização.',
+    icon: data.icon || LOGO_URL, // Usa a logo como ícone principal
+    badge: LOGO_URL, // Ícone menor (opcional, pode ser a logo também)
+    vibrate: [200, 100, 200], // Padrão de vibração [vibra, pausa, vibra]
+    data: {
+      url: data.url || '/', // Passa a URL para o evento de clique
+    },
+    // Você pode adicionar actions (botões) aqui se desejar
+    // actions: [
+    //   { action: 'open_url', title: 'Ver Detalhes' },
+    // ]
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // Garante que o Service Worker permaneça ativo até a notificação ser exibida
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Notificação', options)
+  );
 });
 
-self.addEventListener('notificationclick', function(event) {
-  console.log('[Service Worker] Notificação clicada.');
+// Listener para o evento 'notificationclick' (quando o usuário clica na notificação)
+self.addEventListener('notificationclick', event => {
+  console.log('[Service Worker] Clique na Notificação Recebido.');
 
-  event.notification.close(); // Fecha a notificação
+  // Fecha a notificação
+  event.notification.close();
 
-  // Abre a URL definida nos dados da notificação ou a página inicial
-  const targetUrl = event.notification.data.url || '/';
+  // Obtém a URL dos dados da notificação
+  const urlToOpen = event.notification.data.url || '/';
 
+  // Tenta focar uma aba existente do site ou abre uma nova
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // Se uma janela/aba do site já estiver aberta, foca nela
-      for (let i = 0; i < clientList.length; i++) {
-        let client = clientList[i];
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true, // Inclui clientes não controlados pelo SW atual
+    }).then((clientList) => {
+      // Verifica se já existe uma janela/aba aberta com a mesma URL base
+      for (const client of clientList) {
         // Verifica se a URL base é a mesma e foca se possível
-        if (client.url && client.url.startsWith(self.location.origin) && 'focus' in client) {
-          // Navega para a URL específica se for diferente da atual
-          if (client.url !== self.location.origin + targetUrl) {
-              return client.navigate(targetUrl).then(client => client.focus());
-          } else {
-              return client.focus();
-          }
+        // (Você pode refinar essa lógica se precisar focar URLs específicas)
+        const clientUrl = new URL(client.url);
+        const targetUrl = new URL(urlToOpen, self.location.origin); // Garante que a URL alvo seja absoluta
+        if (clientUrl.origin === targetUrl.origin && 'focus' in client) {
+          return client.focus().then(focusedClient => {
+              // Após focar, navega para a URL específica da notificação
+              if (focusedClient) {
+                  return focusedClient.navigate(targetUrl.href);
+              }
+              // Se não conseguiu focar, abre uma nova janela como fallback
+              return clients.openWindow(targetUrl.href);
+          });
         }
       }
-      // Se nenhuma janela/aba estiver aberta, abre uma nova
+      // Se nenhuma aba correspondente estiver aberta, abre uma nova
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(targetUrl.href);
       }
     })
   );
 });
 
-// Opcional: Instala o Service Worker imediatamente e o mantém atualizado
+// Opcional: Instalar e Ativar o Service Worker (necessário para controle de cache, etc.)
+// Estes listeners são mais para PWAs com funcionalidade offline, mas são boa prática.
 self.addEventListener('install', event => {
-  console.log('[Service Worker] Instalando...');
-  self.skipWaiting(); // Força a ativação imediata
+  console.log('[Service Worker] Instalado');
+  // Pode adicionar lógica de pré-cache aqui se necessário
+  // event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache)));
+  self.skipWaiting(); // Força o SW a ativar imediatamente
 });
 
 self.addEventListener('activate', event => {
-  console.log('[Service Worker] Ativado.');
-   event.waitUntil(clients.claim()); // Garante que o SW controle a página imediatamente
+  console.log('[Service Worker] Ativado');
+  // Pode adicionar lógica para limpar caches antigos aqui
+  // event.waitUntil(caches.keys().then(cacheNames => Promise.all(cacheNames.map(name => caches.delete(name)))));
+  return self.clients.claim(); // Torna o SW ativo o controlador imediatamente
 });
