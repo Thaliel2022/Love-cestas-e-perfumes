@@ -5427,19 +5427,15 @@ const MyAddressesSection = () => {
 };
 
 const MyProfileSection = () => {
+    // --- Hooks devem vir primeiro ---
     const { user, setUser } = useAuth();
     const notification = useNotification();
+    const { requestNotificationPermission, isSubscribed, subscriptionError } = usePushNotifications(); // Hook de notificações push
 
-    // --- Hooks devem vir primeiro ---
-    // Hook de notificações push
-    const { requestNotificationPermission, isSubscribed, subscriptionError } = usePushNotifications(); // <-- MOVIDO PARA O TOPO
-
-    // Estados para o Modal de Senha
+    // Estados para o Modal de Senha, 2FA, etc.
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
     const [isPasswordLoading, setIsPasswordLoading] = useState(false);
-
-    // Estados para o Modal de 2FA
     const [is2faModalOpen, setIs2faModalOpen] = useState(false);
     const [is2faDisableModalOpen, setIs2faDisableModalOpen] = useState(false);
     const [qrCodeUrl, setQrCodeUrl] = useState('');
@@ -5448,61 +5444,63 @@ const MyProfileSection = () => {
     const [disablePassword, setDisablePassword] = useState('');
     const [disableVerificationCode, setDisableVerificationCode] = useState('');
     const [is2faLoading, setIs2faLoading] = useState(false);
+    const [swReady, setSwReady] = useState(false);
 
-    // Estado para verificar se o Service Worker está pronto (para notificações)
-    const [swReady, setSwReady] = useState(false); // <-- MOVIDO PARA O TOPO
-    useEffect(() => { // <-- MOVIDO PARA O TOPO
+    // --- LOG DE DEBUG 1 ---
+    console.log('[MyProfileSection] Renderizando. Usuário:', user ? user.name : 'Nenhum');
+
+    useEffect(() => {
+        // --- LOG DE DEBUG 2 ---
+        console.log('[MyProfileSection] useEffect para SW Ready.');
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then(() => setSwReady(true));
+            navigator.serviceWorker.ready.then(() => {
+                 // --- LOG DE DEBUG 3 ---
+                console.log('[MyProfileSection] Service Worker está pronto!');
+                setSwReady(true);
+            }).catch(err => {
+                console.error('[MyProfileSection] Erro ao esperar Service Worker:', err);
+            });
+        } else {
+             console.warn('[MyProfileSection] Service Worker não suportado.');
         }
     }, []);
 
-    // --- Funções Handler ---
-    const handlePasswordChange = async (e) => {
-        e.preventDefault();
-        if (newPassword.length < 6) {
-            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
-            return;
-        }
-        setIsPasswordLoading(true);
-        try {
-            await apiService('/users/me/password', 'PUT', { password: newPassword });
-            notification.show('Senha alterada com sucesso!');
-            setNewPassword('');
-            setIsPasswordModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-        } finally {
-            setIsPasswordLoading(false);
-        }
-    };
-
-    const handleGenerate2FA = async () => { /* ... código sem alteração ... */ };
-    const handleVerifyAndEnable2FA = async (e) => { /* ... código sem alteração ... */ };
-    const handleDisable2FA = async (e) => { /* ... código sem alteração ... */ };
+    // --- Funções Handler (sem logs adicionados aqui por enquanto) ---
+    const handlePasswordChange = async (e) => { /* ... */ };
+    const handleGenerate2FA = async () => { /* ... */ };
+    const handleVerifyAndEnable2FA = async (e) => { /* ... */ };
+    const handleDisable2FA = async (e) => { /* ... */ };
 
     // --- Função para renderizar UI de notificação ---
-    // Pode ser definida aqui, pois não é um hook
     const renderNotificationStatus = () => {
+        // --- LOG DE DEBUG 4 ---
+        console.log('[renderNotificationStatus] Chamado. swReady:', swReady, 'Permission:', ('Notification' in window ? Notification.permission : 'N/A'), 'isSubscribed:', isSubscribed, 'Error:', subscriptionError);
+
         if (!('Notification' in window) || !('PushManager' in window)) {
+            console.log('[renderNotificationStatus] Não suportado.');
             return <p className="text-sm text-gray-500">Notificações push não são suportadas neste navegador.</p>;
         }
         if (!swReady) {
+            console.log('[renderNotificationStatus] SW não está pronto.');
             return <p className="text-sm text-gray-500">Verificando status das notificações...</p>;
         }
 
         const permission = Notification.permission;
 
         if (permission === 'granted' && isSubscribed) {
+            console.log('[renderNotificationStatus] Status: Ativado.');
             return <p className="text-sm font-semibold text-green-400">Notificações Ativadas</p>;
         }
         if (permission === 'denied') {
+            console.log('[renderNotificationStatus] Status: Bloqueado.');
             return <p className="text-sm font-semibold text-red-400">Notificações Bloqueadas (verifique as configurações do navegador)</p>;
         }
         if (subscriptionError) {
+             console.log('[renderNotificationStatus] Status: Erro.', subscriptionError);
              return <p className="text-sm text-red-400">Erro: {subscriptionError}</p>;
         }
         // Se a permissão for 'default', mostra o botão para ativar
+        console.log('[renderNotificationStatus] Status: Padrão (mostrar botão).');
         return (
             <button
                 onClick={requestNotificationPermission} // Chama a função retornada pelo hook
@@ -5516,29 +5514,10 @@ const MyProfileSection = () => {
     // --- JSX do Componente ---
     return (
         <>
-            <AnimatePresence>
-                {/* ... Modais de Senha e 2FA (sem alterações) ... */}
-                 {isPasswordModalOpen && (
-                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
-                        {/* ... form ... */}
-                    </Modal>
-                )}
-            </AnimatePresence>
-             <AnimatePresence>
-                {is2faModalOpen && (
-                     <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
-                         {/* ... form ... */}
-                     </Modal>
-                )}
-            </AnimatePresence>
-            <AnimatePresence>
-                {is2faDisableModalOpen && (
-                     <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
-                         {/* ... form ... */}
-                    </Modal>
-                )}
-            </AnimatePresence>
-
+            {/* ... Modais ... */}
+             <AnimatePresence> {isPasswordModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
+             <AnimatePresence> {is2faModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
+             <AnimatePresence> {is2faDisableModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
 
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
             <div className="bg-gray-800 p-6 rounded-lg space-y-4 mb-6">
@@ -5564,8 +5543,7 @@ const MyProfileSection = () => {
 
             {user?.role === 'admin' && (
                 <div className="mt-8 pt-6 border-t border-gray-800">
-                    {/* ... Seção de Segurança 2FA (sem alterações) ... */}
-                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+                     <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
                     {/* ... código 2FA ... */}
                 </div>
             )}
