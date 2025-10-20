@@ -5539,21 +5539,22 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
+          <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
             {/* --- Seção de Notificações Push ---  <<<--- ADICIONADA AQUI */}
-            <div className="mt-8 pt-6 border-t border-gray-800">
-                <h3 className="text-xl font-bold text-amber-400 mb-4">Notificações</h3>
-                <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
+            {/* --- Seção de Notificações Push --- */}
+            <div className="mt-8 pt-6 border-t border-gray-800"> {/* Div Principal da Seção */}
+                <h3 className="text-xl font-bold text-amber-400 mb-4">Notificações</h3> {/* Título */}
+                <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"> {/* Card Interno */}
+                    <div> {/* Lado Esquerdo: Textos */}
                         <h4 className="font-bold">Notificações Push</h4>
                         <p className="text-sm text-gray-400 mt-1">Receba atualizações sobre seus pedidos diretamente no seu dispositivo.</p>
                     </div>
-                    <div className="flex-shrink-0">
-                        {renderNotificationStatus()} {/* <-- Chama a função para renderizar o status/botão */}
+                    <div className="flex-shrink-0"> {/* Lado Direito: Botão/Status */}
+                        {renderNotificationStatus()} {/* Chamada da função (mantém a versão de teste por enquanto) */}
                     </div>
-                </div>
-            </div>
+                </div> {/* Fim do Card Interno */}
+            </div> {/* Fim da Div Principal da Seção */}
             {/* --- FIM DA SEÇÃO DE NOTIFICAÇÕES --- */}
 
 
