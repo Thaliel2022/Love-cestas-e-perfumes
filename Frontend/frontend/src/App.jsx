@@ -5447,15 +5447,15 @@ const MyProfileSection = () => {
     const [swReady, setSwReady] = useState(false);
 
     // --- LOG DE DEBUG 1 ---
-    console.log('[MyProfileSection] Renderizando. Usuário:', user ? user.name : 'Nenhum');
+    // console.log('[MyProfileSection] Renderizando. Usuário:', user ? user.name : 'Nenhum'); // Pode remover ou manter os logs se quiser
 
     useEffect(() => {
         // --- LOG DE DEBUG 2 ---
-        console.log('[MyProfileSection] useEffect para SW Ready.');
+        // console.log('[MyProfileSection] useEffect para SW Ready.');
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.ready.then(() => {
                  // --- LOG DE DEBUG 3 ---
-                console.log('[MyProfileSection] Service Worker está pronto!');
+                // console.log('[MyProfileSection] Service Worker está pronto!');
                 setSwReady(true);
             }).catch(err => {
                 console.error('[MyProfileSection] Erro ao esperar Service Worker:', err);
@@ -5465,42 +5465,59 @@ const MyProfileSection = () => {
         }
     }, []);
 
-    // --- Funções Handler (sem logs adicionados aqui por enquanto) ---
-    const handlePasswordChange = async (e) => { /* ... */ };
-    const handleGenerate2FA = async () => { /* ... */ };
-    const handleVerifyAndEnable2FA = async (e) => { /* ... */ };
-    const handleDisable2FA = async (e) => { /* ... */ };
+    // --- Funções Handler ---
+    const handlePasswordChange = async (e) => {
+         e.preventDefault();
+        if (newPassword.length < 6) {
+            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
+            return;
+        }
+        setIsPasswordLoading(true);
+        try {
+            await apiService('/users/me/password', 'PUT', { password: newPassword });
+            notification.show('Senha alterada com sucesso!');
+            setNewPassword('');
+            setIsPasswordModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro: ${error.message}`, 'error');
+        } finally {
+            setIsPasswordLoading(false);
+        }
+     };
+    const handleGenerate2FA = async () => { /* ... código sem alteração ... */ };
+    const handleVerifyAndEnable2FA = async (e) => { /* ... código sem alteração ... */ };
+    const handleDisable2FA = async (e) => { /* ... código sem alteração ... */ };
 
     // --- Função para renderizar UI de notificação ---
     const renderNotificationStatus = () => {
         // --- LOG DE DEBUG 4 ---
-        console.log('[renderNotificationStatus] Chamado. swReady:', swReady, 'Permission:', ('Notification' in window ? Notification.permission : 'N/A'), 'isSubscribed:', isSubscribed, 'Error:', subscriptionError);
+        // console.log('[renderNotificationStatus] Chamado. swReady:', swReady, 'Permission:', ('Notification' in window ? Notification.permission : 'N/A'), 'isSubscribed:', isSubscribed, 'Error:', subscriptionError);
 
         if (!('Notification' in window) || !('PushManager' in window)) {
-            console.log('[renderNotificationStatus] Não suportado.');
+            // console.log('[renderNotificationStatus] Não suportado.');
             return <p className="text-sm text-gray-500">Notificações push não são suportadas neste navegador.</p>;
         }
         if (!swReady) {
-            console.log('[renderNotificationStatus] SW não está pronto.');
+            // console.log('[renderNotificationStatus] SW não está pronto.');
             return <p className="text-sm text-gray-500">Verificando status das notificações...</p>;
         }
 
         const permission = Notification.permission;
 
         if (permission === 'granted' && isSubscribed) {
-            console.log('[renderNotificationStatus] Status: Ativado.');
+            // console.log('[renderNotificationStatus] Status: Ativado.');
             return <p className="text-sm font-semibold text-green-400">Notificações Ativadas</p>;
         }
         if (permission === 'denied') {
-            console.log('[renderNotificationStatus] Status: Bloqueado.');
+            // console.log('[renderNotificationStatus] Status: Bloqueado.');
             return <p className="text-sm font-semibold text-red-400">Notificações Bloqueadas (verifique as configurações do navegador)</p>;
         }
         if (subscriptionError) {
-             console.log('[renderNotificationStatus] Status: Erro.', subscriptionError);
+             // console.log('[renderNotificationStatus] Status: Erro.', subscriptionError);
              return <p className="text-sm text-red-400">Erro: {subscriptionError}</p>;
         }
         // Se a permissão for 'default', mostra o botão para ativar
-        console.log('[renderNotificationStatus] Status: Padrão (mostrar botão).');
+        // console.log('[renderNotificationStatus] Status: Padrão (mostrar botão).');
         return (
             <button
                 onClick={requestNotificationPermission} // Chama a função retornada pelo hook
@@ -5515,9 +5532,35 @@ const MyProfileSection = () => {
     return (
         <>
             {/* ... Modais ... */}
-             <AnimatePresence> {isPasswordModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
-             <AnimatePresence> {is2faModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
-             <AnimatePresence> {is2faDisableModalOpen && ( <Modal>...</Modal> )} </AnimatePresence>
+             <AnimatePresence>
+                {isPasswordModalOpen && (
+                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
+                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                            </div>
+                            <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
+                                {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
+                            </button>
+                        </form>
+                    </Modal>
+                )}
+             </AnimatePresence>
+             <AnimatePresence>
+                {is2faModalOpen && (
+                     <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
+                         {/* ... form 2FA enable ... */}
+                     </Modal>
+                )}
+            </AnimatePresence>
+            <AnimatePresence>
+                {is2faDisableModalOpen && (
+                     <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
+                         {/* ... form 2FA disable ... */}
+                    </Modal>
+                )}
+            </AnimatePresence>
 
             <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
             <div className="bg-gray-800 p-6 rounded-lg space-y-4 mb-6">
@@ -5526,7 +5569,7 @@ const MyProfileSection = () => {
             </div>
             <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
-            {/* --- Seção de Notificações Push --- */}
+            {/* --- Seção de Notificações Push ---  <<<--- ADICIONADA AQUI */}
             <div className="mt-8 pt-6 border-t border-gray-800">
                 <h3 className="text-xl font-bold text-amber-400 mb-4">Notificações</h3>
                 <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -5539,12 +5582,15 @@ const MyProfileSection = () => {
                     </div>
                 </div>
             </div>
+            {/* --- FIM DA SEÇÃO DE NOTIFICAÇÕES --- */}
 
 
             {user?.role === 'admin' && (
                 <div className="mt-8 pt-6 border-t border-gray-800">
                      <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
-                    {/* ... código 2FA ... */}
+                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        {/* ... código 2FA ... */}
+                    </div>
                 </div>
             )}
         </>
@@ -10177,6 +10223,7 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
 
 
 export default function App() {
