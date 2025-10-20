@@ -9973,6 +9973,7 @@ function usePushNotifications() {
 
 
 // Dentro do seu componente AppContent
+// Dentro do seu componente AppContent
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -10064,3 +10065,80 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
+
+export default function App() {
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+    useEffect(() => {
+        // --- Configuração PWA ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
+        });
+
+        // Registra o Service Worker APENAS uma vez
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker estático registrado com sucesso:', registration);
+                        // Opcional: Verificar atualizações do SW
+                        registration.onupdatefound = () => {
+                            const installingWorker = registration.installing;
+                            if (installingWorker) {
+                                installingWorker.onstatechange = () => {
+                                    if (installingWorker.state === 'installed') {
+                                        if (navigator.serviceWorker.controller) {
+                                            console.log('Novo conteúdo disponível; por favor, atualize.');
+                                            // Poderia mostrar uma notificação para o usuário atualizar
+                                        } else {
+                                            console.log('Conteúdo cacheado para uso offline.');
+                                        }
+                                    }
+                                };
+                            }
+                        };
+                    })
+                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
+            });
+        }
+
+
+        // --- Carregamento de Scripts Externos ---
+        const loadScript = (src, id, callback) => { /* ... código loadScript ... */
+            if (document.getElementById(id)) {
+                if (callback) callback();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = src;
+            script.id = id;
+            script.async = true;
+            script.onload = () => { if (callback) callback(); };
+            document.body.appendChild(script);
+        };
+        loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
+        });
+        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
+
+    }, []);
+
+    return (
+        <AuthProvider>
+            <NotificationProvider>
+                <ConfirmationProvider>
+                    <ShopProvider>
+                        <AppContent deferredPrompt={deferredPrompt} />
+                    </ShopProvider>
+                </ConfirmationProvider>
+            </NotificationProvider>
+        </AuthProvider>
+    );
+}
+
+// ... (Restante do código original do App.js, como os Provedores se existirem fora da função App)
