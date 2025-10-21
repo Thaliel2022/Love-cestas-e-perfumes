@@ -2533,13 +2533,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-    const [thumbnailIndex, setThumbnailIndex] = useState(0);
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
 
+    // --- Hooks e Memos (Lógica Interna) ---
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
@@ -2553,6 +2553,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
+    const avgRating = useMemo(() => {
+        return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
+    }, [reviews]);
+
+    const itemsForShipping = useMemo(() => {
+        if (!product) return [];
+        return [{...product, qty: quantity}];
+    }, [product, quantity]);
+
+    const isClothing = product?.product_type === 'clothing';
+    const isPerfume = product?.product_type === 'perfume';
+    const isProductOutOfStock = product?.stock <= 0;
+    const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
+    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
+
+    // --- Funções Auxiliares (Lógica Interna) ---
     const getYouTubeEmbedUrl = (url) => {
         if (!url) return null;
         let videoId;
@@ -2570,6 +2586,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
+    };
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } // Altura ajustada
+        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        return null;
+    };
+
+    // --- Callbacks e Handlers (Lógica Interna) ---
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2581,12 +2613,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 apiService('/products', 'GET', null, { signal }),
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
-            
+
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-            setGalleryImages(images);
+            setGalleryImages(images); // Define a galeria inicial
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -2599,38 +2631,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (err.name !== 'AbortError') {
                  console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
+                 notification.show(err.message || "Produto não encontrado", 'error');
             }
         } finally {
             if (!signal.aborted) { setIsLoading(false); }
         }
+        // Retornar a função de cleanup do AbortController
         return () => { controller.abort(); };
-    }, []);
+    }, [notification]); // Removido confirmation se não for usado aqui
 
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
                 await apiService(`/reviews/${reviewId}`, 'DELETE');
                 notification.show('Avaliação excluída com sucesso.');
-                fetchProductData(productId);
+                fetchProductData(productId); // Atualiza dados após exclusão
             } catch (error) {
                 notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
             }
         });
     };
-    
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0);
-    }, [productId, fetchProductData]);
-    
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) return;
-            setIsLoadingInstallments(true); setInstallments([]);
-            try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Não foi possível carregar as opções de parcelamento.", error); } finally { setIsLoadingInstallments(false); }
-        };
-        if (product && !product.error && currentPrice) { fetchInstallments(currentPrice); }
-    }, [product, currentPrice]);
 
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
@@ -2646,15 +2666,19 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const stockLimit = selectedVariation?.stock || product?.stock;
-            if (stockLimit !== undefined && newQty > stockLimit) { return stockLimit; }
+            const currentStockLimit = isClothing ? selectedVariation?.stock : product?.stock; // Usa a variável correta
+            if (currentStockLimit !== undefined && newQty > currentStockLimit) {
+                 notification.show(`Apenas ${currentStockLimit} unidades disponíveis.`, 'error'); // Notificação
+                 return currentStockLimit;
+            }
             return newQty;
         });
     };
 
+
     const handleAction = async (action) => {
         if (!product) return;
-        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
@@ -2663,26 +2687,78 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const handleVariationSelection = useCallback((variation, color) => {
-        setQuantity(1);
+        setQuantity(1); // Reseta quantidade ao trocar variação
         setSelectedVariation(variation);
+        // Atualiza a galeria principal com imagens da cor selecionada, se houver
         if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations.filter(v => v.color === color).flatMap(v => v.images || []).filter((value, index, self) => self.indexOf(value) === index);
-            if (allImagesForColor.length > 0) { setGalleryImages(allImagesForColor); setMainImage(allImagesForColor[0]); return; }
+            // Pega imagens únicas associadas a QUALQUER variação dessa cor
+            const allImagesForColor = productVariations
+                .filter(v => v.color === color && v.images && v.images.length > 0)
+                .flatMap(v => v.images)
+                .filter((value, index, self) => self.indexOf(value) === index); // Garante imagens únicas
+
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setMainImage(allImagesForColor[0]);
+                return; // Para aqui se encontrou imagens específicas da cor
+            }
         }
+        // Se não encontrou imagens específicas da cor ou não é produto de vestuário, volta para as imagens principais
         setGalleryImages(productImages);
         setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+
     }, [productVariations, productImages]);
-    
-    const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    
+
+    // --- Effects (Lógica Interna) ---
+    useEffect(() => {
+        fetchProductData(productId);
+        window.scrollTo(0, 0); // Rola para o topo ao carregar
+    }, [productId, fetchProductData]);
+
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) {
+                setInstallments([]); // Limpa se o preço for inválido
+                setIsLoadingInstallments(false); // Marca como não carregando
+                return;
+            }
+            setIsLoadingInstallments(true);
+            setInstallments([]);
+            try {
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
+            } catch (error) {
+                console.warn("Não foi possível carregar as opções de parcelamento.", error);
+                setInstallments([]); // Limpa em caso de erro
+            } finally {
+                setIsLoadingInstallments(false);
+            }
+        };
+        // Garante que só busca se o produto existe, não deu erro e tem preço
+        if (product && !product.error && currentPrice > 0) {
+            fetchInstallments(currentPrice);
+        } else if (!product || product.error || !(currentPrice > 0)) {
+            // Se não for buscar, garante que o estado de carregamento seja false
+             setInstallments([]);
+             setIsLoadingInstallments(false);
+        }
+    }, [product, currentPrice]); // Dependências corretas
+
+    // --- Componentes Internos ---
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
-        return <button onClick={() => setActiveTab(tabName)} className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300 ${activeTab === tabName ? 'border-amber-400 text-amber-400' : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`}>{label}</button>;
-    };
-
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return <ul className="space-y-2">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1">&#10003;</span><span>{line}</span></li>)}</ul>;
+        return (
+            <button
+                onClick={() => setActiveTab(tabName)}
+                className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2
+                    ${activeTab === tabName
+                        ? 'border-amber-400 text-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
+                    }`}
+            >
+                {label}
+            </button>
+        );
     };
 
     const Lightbox = ({ mainImage, onClose }) => (
@@ -2691,164 +2767,218 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
         </div>
     );
-    
-    const THUMBNAIL_ITEM_HEIGHT = 92; 
-    const VISIBLE_THUMBNAILS = 5; 
-    const canScrollUp = thumbnailIndex > 0;
-    const canScrollDown = (galleryImages.length + (product?.video_url ? 1 : 0)) > VISIBLE_THUMBNAILS && thumbnailIndex < (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
 
-    const scrollThumbs = (direction) => {
-        setThumbnailIndex(prev => {
-            const newIndex = prev + direction;
-            const maxIndex = (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
-            if (newIndex < 0) return 0;
-            if (newIndex > maxIndex) return maxIndex;
-            return newIndex;
-        });
-    };
-    const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
-    const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
+    // --- Renderização Principal ---
+    if (isLoading) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">Carregando...</div>;
+    if (product?.error) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">{product.message}</div>;
+    if (!product) return <div className="bg-gray-950 min-h-screen"></div>; // Página vazia se produto for null
 
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
-        if (!installments || installments.length === 0) { return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>; }
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span>em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span>ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
-        return null;
-    };
-    
-    const itemsForShipping = useMemo(() => { if (!product) return []; return [{...product, qty: quantity}]; }, [product, quantity]);
-
-    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
-    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
-    if (!product) return <div className="bg-black min-h-screen"></div>;
-    
-    const isClothing = product.product_type === 'clothing';
-    const isPerfume = product.product_type === 'perfume';
-    const isProductOutOfStock = product.stock <= 0;
-    const stockLimit = isClothing ? selectedVariation?.stock : product.stock;
-    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
-    
     return (
-        <div className="bg-black text-white min-h-screen">
+        <div className="bg-gray-950 text-white min-h-screen"> {/* Fundo mais claro */}
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
-                    <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
+                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
                         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
                             <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
                         </div>
                     </Modal>
                 )}
             </AnimatePresence>
-            <div className="container mx-auto px-4 py-8">
-                <div className="mb-4">
-                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
+
+            <div className="container mx-auto px-4 py-8 lg:py-12">
+                {/* --- Breadcrumb / Voltar --- */}
+                <div className="mb-6">
+                    <button onClick={() => onNavigate('products')} className="text-sm text-gray-400 hover:text-amber-400 flex items-center w-fit transition-colors">
+                        <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
+                        Voltar para todos os produtos
+                    </button>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
-                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
-                            <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
-                            <div className="w-full sm:h-[640px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
-                                <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
-                                    {product.video_url && (
-                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
-                                            <img src={mainImage || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
-                                        </div>
-                                    )}
-                                    {galleryImages.map((img, index) => ( <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}><img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" /></div> ))}
-                                </motion.div>
-                            </div>
-                            <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:flex items-center justify-center absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
+
+                {/* --- Layout Principal: Galeria e Informações --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+                    {/* --- Coluna da Galeria --- */}
+                    <div className="lg:sticky lg:top-24 self-start">
+                        {/* Imagem Principal */}
+                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
+                             {isOnSale && (
+                                <div className="absolute top-3 left-3 bg-red-600 text-white font-bold px-3 py-1 rounded-full shadow text-xs z-10 flex items-center gap-1">
+                                    <SaleIcon className="h-4 w-4"/>
+                                    <span>-{discountPercent}%</span>
+                                </div>
+                             )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
-                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[640px] cursor-zoom-in relative">
-                            {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
+
+                        {/* Miniaturas Horizontais */}
+                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
+                           {product.video_url && (
+                                <div
+                                    onClick={() => setIsVideoModalOpen(true)}
+                                    className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors"
+                                >
+                                    {/* Usa a primeira imagem da galeria atual como fundo desfocado */}
+                                    <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                                    </div>
+                                </div>
+                            )}
+                            {galleryImages.map((img, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => setMainImage(img)}
+                                    onMouseEnter={() => setMainImage(img)}
+                                    className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
+                                >
+                                    <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
+                                </div>
+                            ))}
                         </div>
                     </div>
-                    <div className="lg:col-span-2 space-y-6">
+
+                    {/* --- Coluna de Informações e Ações --- */}
+                    <div className="space-y-6">
+                        {/* --- Cabeçalho do Produto --- */}
                         <div>
-                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <p className="text-xs text-gray-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
+                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
-                                {reviews.length > 0 && <span className="text-xs text-gray-400">({reviews.length})</span>}</div>
-                                <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
+                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
+                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
+                                </div>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm">
+                                    <ShareIcon className="h-4 w-4"/>
+                                    <span className="hidden sm:inline">Compartilhar</span>
+                                </button>
                             </div>
                         </div>
-                        {isOnSale ? ( <div className="flex items-baseline gap-4"><p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p><p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p></div> ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2)}</p> )}
-                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
-                            <div className="flex items-start">
-                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
-                                <div><p className="text-gray-300">{getInstallmentSummary()}</p><button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed" disabled={isLoadingInstallments || !installments || installments.length === 0}>Ver parcelas disponíveis</button></div>
+
+                        {/* --- Preço --- */}
+                        <div className="border-t border-b border-gray-800 py-4">
+                            {isOnSale ? (
+                                <div className="flex items-center gap-3">
+                                    <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
+                                    <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
+                                    <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>
+                                </div>
+                             ) : (
+                                <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
+                             )}
+                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
+                                <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
+                                <span>{getInstallmentSummary()}</span>
+                                {!isLoadingInstallments && installments && installments.length > 0 && (
+                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver mais)</button>
+                                )}
                             </div>
                         </div>
+
+                        {/* --- Variações --- */}
                         {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+
+                        {/* --- Quantidade e Estoque --- */}
                         {!isProductOutOfStock && (
                             <div className="flex items-center space-x-4">
-                                <p className="font-semibold">Quantidade:</p>
-                                <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
-                                {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
+                                <p className="font-semibold text-sm">Quantidade:</p>
+                                <div className="flex items-center border border-gray-700 rounded-md overflow-hidden">
+                                    <button onClick={() => handleQuantityChange(-1)} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors">-</button>
+                                    <span className="px-4 py-1.5 font-bold text-base border-x border-gray-700">{quantity}</span>
+                                    <button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button>
+                                </div>
+                                {stockLimit !== undefined && <span className="text-xs text-gray-500">({stockLimit} unid. disponíveis)</span>}
+                                {isQtyAtMax && <span className="text-xs text-red-400">Limite atingido</span>}
                             </div>
                         )}
-                        <div className="space-y-3">
-                            {isProductOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div> ) : isClothing && selectedVariation && stockLimit === 0 ? ( <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div> ) : (
+
+                        {/* --- Botões de Ação --- */}
+                        <div className="space-y-3 pt-2">
+                            {isProductOutOfStock ? (
+                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold">Produto Esgotado</div>
+                            ) : isClothing && selectedVariation && stockLimit === 0 ? (
+                                <div className="w-full bg-yellow-800 text-yellow-200 py-3 rounded-md text-base text-center font-bold">Variação Esgotada</div>
+                            ) : (
                                 <>
-                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
-                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
+                                    <button
+                                        onClick={() => handleAction('buyNow')}
+                                        className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                                        disabled={isClothing && !selectedVariation}
+                                    >
+                                        Comprar Agora
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction('addToCart')}
+                                        className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md"
+                                        disabled={isClothing && !selectedVariation}
+                                    >
+                                        <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho
+                                    </button>
                                 </>
                             )}
                         </div>
+
+                        {/* --- Calculadora de Frete --- */}
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
-                <div className="mt-16 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
-                        <TabButton label="Descrição" tabName="description" /><TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} /><TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} /><TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} /><TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} /><TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+
+                {/* --- Abas de Informação --- */}
+                <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
+                    <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
+                        <TabButton label="Descrição" tabName="description" />
+                        <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
+                        <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
+                        <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
+                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
+                        <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
+                    {/* Estilos 'prose' adicionados para melhor formatação de texto */}
+                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)} {/* Classe max-w-none para tabelas */}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
-                {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
-                {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
-                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
-                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
-                    <div className="space-y-6 mb-8">
+
+                {/* --- Produtos Relacionados --- */}
+                {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
+                {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
+
+                {/* --- Avaliações --- */}
+                <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
+                    <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
+                    <div className="space-y-6 mb-10">
                       {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
+                            <div key={review.id} className="bg-gray-900 p-5 rounded-lg border border-gray-800 relative shadow">
                                 {user && user.role === 'admin' && (
-                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
                                 )}
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
                                         <UserIcon className="h-5 w-5" />
                                     </div>
-                                    <span className="font-bold text-white">{review.user_name}</span>
+                                    <span className="font-semibold text-white text-sm">{review.user_name}</span>
+                                    <span className="text-xs text-gray-500 ml-auto">{new Date(review.created_at).toLocaleDateString('pt-BR')}</span>
                                 </div>
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-3">
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    <h4 className="font-bold text-white text-base">{product.name}</h4>
                                 </div>
-                                <p className="text-sm text-gray-400 mb-2">Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                                <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>
-                                <p className="text-gray-300 pr-6 break-words">{review.comment}</p>
+                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed pr-6 break-words">{review.comment}</p>}
                             </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
+                        )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
                     </div>
-                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
-                        <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
-                        <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
+                    {/* --- CTA para Avaliar --- */}
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
+                        <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
+                        <p className="text-gray-400 text-sm mb-4">Compartilhe sua opinião para ajudar outros clientes!</p>
+                        <p className="text-xs text-gray-500">Você pode avaliar os produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline hover:text-amber-300">Meus Pedidos</a>.</p>
                     </div>
                 </div>
             </div>
