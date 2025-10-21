@@ -2553,6 +2553,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
+    // Lógica para verificar se é novo (precisa estar aqui) - REINTRODUZIDA
+    const isNew = useMemo(() => {
+        if (!product || !product.created_at) return false;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        return new Date(product.created_at) > thirtyDaysAgo;
+    }, [product]);
+
+
     const avgRating = useMemo(() => {
         return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
     }, [reviews]);
@@ -2564,11 +2572,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0;
+    const isProductOutOfStock = product?.stock <= 0; // Calculado aqui, mas usado abaixo
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- Funções Auxiliares (Lógica Interna) ---
+    // --- Funções Auxiliares (Lógica Interna - Completa) ---
     const getYouTubeEmbedUrl = (url) => {
         if (!url) return null;
         let videoId;
@@ -2588,20 +2596,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const parseTextToList = (text) => {
         if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; // Tamanho do check e espaçamento
+        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
     };
 
     const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } // Altura ajustada
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } // Texto menor
+        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
         const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } // Texto menor
+        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
         const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } // Texto menor
+        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
         return null;
     };
 
-    // --- Callbacks e Handlers (Lógica Interna) ---
+    // --- Callbacks e Handlers (Lógica Interna - Completa) ---
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2709,7 +2717,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     }, [productVariations, productImages]);
 
-    // --- Effects (Lógica Interna) ---
+    // --- Effects (Lógica Interna - Completa) ---
     useEffect(() => {
         fetchProductData(productId);
         window.scrollTo(0, 0); // Rola para o topo ao carregar
@@ -2769,9 +2777,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 
     // --- Renderização Principal ---
-    if (isLoading) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">Carregando...</div>; // Mantido bg-gray-950 para loading
-    if (product?.error) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">{product.message}</div>; // Mantido bg-gray-950 para erro
-    if (!product) return <div className="bg-black min-h-screen"></div>; // Fundo revertido para black se produto for null
+    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
+    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
+    if (!product) return <div className="bg-black min-h-screen"></div>;
+
+    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock; // Estoque a ser verificado
+    const productOrVariationOutOfStock = currentStockStatus <= 0;
 
     return (
         <div className="bg-black text-white min-h-screen"> {/* Fundo revertido para black */}
@@ -2790,7 +2801,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <div className="container mx-auto px-4 py-8 lg:py-12">
                 {/* --- Breadcrumb / Voltar --- */}
                 <div className="mb-6">
-                    <button onClick={() => onNavigate('products')} className="text-sm text-gray-400 hover:text-amber-400 flex items-center w-fit transition-colors">
+                    <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> {/* Cor revertida */}
                         <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
                         Voltar para todos os produtos
                     </button>
@@ -2802,12 +2813,23 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="lg:sticky lg:top-24 self-start">
                         {/* Imagem Principal */}
                         <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {isOnSale && (
-                                <div className="absolute top-3 left-3 bg-red-600 text-white font-bold px-3 py-1 rounded-full shadow text-xs z-10 flex items-center gap-1">
-                                    <SaleIcon className="h-4 w-4"/>
-                                    <span>-{discountPercent}%</span>
+                             {/* Badges Revertidos/Adicionados */}
+                             {!productOrVariationOutOfStock && ( // Mostra apenas se tem estoque
+                                <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+                                    {isOnSale ? (
+                                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
+                                            <SaleIcon className="h-4 w-4"/>
+                                            <span>PROMOÇÃO {discountPercent}%</span>
+                                        </div>
+                                    ) : isNew ? (
+                                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
+                                    ) : null}
                                 </div>
                              )}
+                             {productOrVariationOutOfStock && ( // Badge de esgotado separado
+                                 <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div>
+                             )}
+
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
@@ -2818,7 +2840,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     onClick={() => setIsVideoModalOpen(true)}
                                     className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors"
                                 >
-                                    {/* Usa a primeira imagem da galeria atual como fundo desfocado */}
                                     <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
                                     <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
                                         <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
@@ -2842,7 +2863,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="space-y-6">
                         {/* --- Cabeçalho do Produto --- */}
                         <div>
-                            <p className="text-xs text-gray-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
+                            <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p> {/* Cor Revertida */}
                             <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
                             {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2 justify-between">
@@ -2882,7 +2903,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
 
                         {/* --- Quantidade e Estoque --- */}
-                        {!isProductOutOfStock && (
+                        {!productOrVariationOutOfStock && ( // Verifica estoque aqui também
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
                                 <div className="flex items-center border border-gray-700 rounded-md overflow-hidden">
@@ -2897,10 +2918,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         {/* --- Botões de Ação --- */}
                         <div className="space-y-3 pt-2">
-                            {isProductOutOfStock ? (
-                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold">Produto Esgotado</div>
-                            ) : isClothing && selectedVariation && stockLimit === 0 ? (
-                                <div className="w-full bg-yellow-800 text-yellow-200 py-3 rounded-md text-base text-center font-bold">Variação Esgotada</div>
+                            {productOrVariationOutOfStock ? ( // Condição unificada para esgotado
+                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold">
+                                    {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'}
+                                </div>
                             ) : (
                                 <>
                                     <button
