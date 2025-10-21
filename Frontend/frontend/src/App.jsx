@@ -3900,19 +3900,16 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
-    // Estado local para o endereço exibido, inicializado com o do contexto
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
-
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // Ajuste no useEffect inicial
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3930,7 +3927,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         localidade: shippingLocation.city,
                         uf: shippingLocation.state,
                         alias: shippingLocation.alias,
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
                     };
                 }
             }
@@ -4109,7 +4106,6 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- Componente para representar cada etapa ---
     const Step = ({ number, title, isActive, isCompleted, children }) => (
         <div className={`transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
             <div className="flex items-center gap-3 mb-4">
@@ -4133,7 +4129,6 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Determinar etapa atual ---
     const isPickupSelected = autoCalculatedShipping?.isPickup;
     const isDeliveryMethodSelected = !!autoCalculatedShipping;
     const isDeliveryInfoComplete = isPickupSelected || !!displayAddress;
@@ -4154,7 +4149,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
             <div className="bg-black text-white min-h-screen py-8 md:py-12">
                 <div className="container mx-auto px-4">
-                    {/* Botão Voltar */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                         <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
                         Voltar ao Carrinho
@@ -4162,9 +4156,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
                     <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                        {/* Coluna Esquerda: Passos */}
-                        <div className="lg:col-span-2 space-y-0"> {/* Reduzido o espaço entre steps */}
-                            {/* --- Etapa 1: Entrega --- */}
+                        <div className="lg:col-span-2 space-y-0">
                             <Step number="1" title="Entrega" isActive={currentStep === 1} isCompleted={currentStep > 1}>
                                 <div className="space-y-6">
                                     <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
@@ -4215,10 +4207,11 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 {isAddressLoading ? (
                                                     <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
                                                 ) : displayAddress ? (
-                                                    <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
+                                                    // Tornando o bloco de endereço clicável
+                                                    <button onClick={() => setIsAddressModalOpen(true)} className="w-full text-left p-4 bg-gray-800 rounded-md border border-gray-700 hover:border-amber-400 transition-colors duration-200 cursor-pointer group">
                                                         <div className="flex justify-between items-start">
                                                             <div>
-                                                                <p className="font-bold text-white mb-2">{displayAddress.alias}</p>
+                                                                <p className="font-bold text-white mb-2 group-hover:text-amber-300">{displayAddress.alias}</p>
                                                                 <div className="space-y-1 text-gray-300 text-sm">
                                                                     {displayAddress.logradouro && <p>{displayAddress.logradouro}, {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
                                                                     {displayAddress.bairro && <p>{displayAddress.bairro}</p>}
@@ -4226,11 +4219,11 @@ const CheckoutPage = ({ onNavigate }) => {
                                                                     <p>{displayAddress.cep}</p>
                                                                 </div>
                                                             </div>
-                                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline font-semibold text-xs flex-shrink-0 ml-4">
+                                                            <span className="text-amber-400 font-semibold text-xs flex-shrink-0 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                 Alterar
-                                                            </button>
+                                                            </span>
                                                         </div>
-                                                    </div>
+                                                    </button>
                                                 ) : (
                                                     <div className="text-center p-4 bg-gray-800 rounded-md border border-gray-700">
                                                         <p className="text-gray-400 mb-3">Nenhum endereço selecionado.</p>
@@ -4250,19 +4243,29 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </Step>
 
-                            {/* --- Etapa 2: Pagamento --- */}
                             <Step number="2" title="Pagamento" isActive={currentStep === 2} isCompleted={false}>
                                 <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
                                     <h3 className="font-semibold text-lg mb-3 text-gray-200">Selecione a forma de pagamento</h3>
                                     <div className="space-y-3">
                                         <div onClick={() => setPaymentMethod('mercadopago')} className={`p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
                                             <input type="radio" readOnly checked={paymentMethod === 'mercadopago'} className="mt-1 w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 flex-shrink-0"/>
-                                            <CreditCardIcon className="h-6 w-6 text-amber-400 flex-shrink-0"/>
-                                            <div className="flex-grow">
-                                                <span className="font-bold text-white">Cartão, Pix e Boleto</span>
-                                                <p className="text-xs text-gray-400">Pagamento seguro via Mercado Pago.</p>
+                                            {/* Ícones de pagamento substituindo a imagem */}
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <PixIcon className="h-6 w-auto text-cyan-500"/>
+                                                <VisaIcon className="h-4 w-auto"/>
+                                                <MastercardIcon className="h-6 w-auto"/>
+                                                <EloIcon className="h-6 w-auto"/>
+                                                <BoletoIcon className="h-5 w-auto text-gray-400"/>
                                             </div>
-                                            <img src="https://img.mlstatic.com/org-img/banners/ar/medios/online/468X60.jpg" alt="Mercado Pago" className="h-6 hidden sm:block"/>
+                                            <div className="flex-grow">
+                                                <span className="font-bold text-white">Pagamento Online</span>
+                                                <p className="text-xs text-gray-400">Cartão, Pix e Boleto via Mercado Pago.</p>
+                                            </div>
+                                             {/* Ícone de escudo */}
+                                             <div className="flex-shrink-0 flex items-center gap-1 text-green-500" title="Pagamento Seguro">
+                                                 <ShieldCheckIcon className="h-5 w-5"/>
+                                                 <span className="text-xs font-medium hidden sm:inline">Seguro</span>
+                                             </div>
                                         </div>
                                     </div>
                                 </div>
