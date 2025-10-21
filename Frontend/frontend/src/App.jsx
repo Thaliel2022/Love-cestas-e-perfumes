@@ -3892,7 +3892,7 @@ const CheckoutPage = ({ onNavigate }) => {
         clearOrderState,
         addresses,
         fetchAddresses,
-        shippingLocation,
+        shippingLocation, // <-- Usar shippingLocation do contexto
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
@@ -3917,7 +3917,9 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
+            // Prioriza o shippingLocation atual do contexto
             if (shippingLocation && shippingLocation.cep) {
+                // Tenta encontrar um endereço salvo que corresponda ao CEP e alias (se não for genérico)
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
                     (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
@@ -3925,19 +3927,26 @@ const CheckoutPage = ({ onNavigate }) => {
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
+                    // Se não encontrar correspondência salva (ex: CEP manual), usa os dados do contexto
                     addressToSet = {
                         cep: shippingLocation.cep,
                         localidade: shippingLocation.city,
                         uf: shippingLocation.state,
                         alias: shippingLocation.alias,
+                        // Adiciona campos vazios para consistência da estrutura, mas eles não serão usados para envio
                         logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
                     };
                 }
             }
+
+            // Se ainda não encontrou um endereço, usa o padrão ou o primeiro da lista
             if (!addressToSet) {
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
-            setDisplayAddress(addressToSet);
+
+            setDisplayAddress(addressToSet); // Define o endereço a ser exibido
+
+            // Sincroniza o shippingLocation global se o endereço encontrado for diferente do atual no contexto
             if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
                  setShippingLocation({
                     cep: addressToSet.cep,
@@ -3946,10 +3955,11 @@ const CheckoutPage = ({ onNavigate }) => {
                     alias: addressToSet.alias
                  });
             }
+
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]);
+    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
 
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
@@ -3964,13 +3974,15 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
+        // Se a opção selecionada for "Retirar na Loja", limpa o displayAddress para não mostrar endereço de entrega
         if(option.isPickup) {
             setDisplayAddress(null);
         } else if (!displayAddress && addresses.length > 0) {
+            // Se estava em Retirada e voltou para Envio, tenta restaurar o endereço padrão ou o primeiro
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
                 setDisplayAddress(defaultOrFirst);
-                setShippingLocation({
+                setShippingLocation({ // Atualiza o global também
                     cep: defaultOrFirst.cep,
                     city: defaultOrFirst.localidade,
                     state: defaultOrFirst.uf,
@@ -3981,7 +3993,8 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const handleAddressSelection = (address) => {
-        setDisplayAddress(address);
+        setDisplayAddress(address); // Atualiza o endereço exibido
+        // Atualiza também o shippingLocation global para recalcular frete
         setShippingLocation({
             cep: address.cep,
             city: address.localidade,
@@ -4000,10 +4013,10 @@ const CheckoutPage = ({ onNavigate }) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
-            const updatedAddresses = await fetchAddresses();
+            const updatedAddresses = await fetchAddresses(); // Rebusca endereços atualizados
             const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
-            setDisplayAddress(newAddress);
-             setShippingLocation({
+            setDisplayAddress(newAddress); // Define como endereço exibido
+             setShippingLocation({ // Atualiza o global
                 cep: newAddress.cep,
                 city: newAddress.localidade,
                 state: newAddress.uf,
@@ -4039,17 +4052,23 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
+        // Validação usa displayAddress agora
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, preencha todos os dados de entrega e pagamento.", 'error');
+            notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
             return;
         }
+
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
             notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
             return;
         }
+
         setIsLoading(true);
+
         try {
+            // Garante que apenas endereços salvos (com ID) sejam enviados
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+
             const orderPayload = {
                 items: cart.map(item => ({
                     id: item.id,
@@ -4058,7 +4077,7 @@ const CheckoutPage = ({ onNavigate }) => {
                     variation: item.variation
                 })),
                 total: total,
-                shippingAddress: finalShippingAddress,
+                shippingAddress: finalShippingAddress, // Envia o endereço selecionado (se não for pickup)
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
@@ -4071,6 +4090,7 @@ const CheckoutPage = ({ onNavigate }) => {
             };
             const orderResult = await apiService('/orders', 'POST', orderPayload);
             const { orderId } = orderResult;
+
             if (paymentMethod === 'mercadopago') {
                 sessionStorage.setItem('pendingOrderId', orderId);
                 const mpPayload = { orderId };
@@ -4084,6 +4104,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
+
         } catch (error) {
             notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
             setIsLoading(false);
@@ -4093,51 +4114,29 @@ const CheckoutPage = ({ onNavigate }) => {
     const getShippingName = (name) => {
         if (name) {
             const lowerCaseName = name.toLowerCase();
-            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) return 'PAC';
+            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
+                return 'PAC';
+            }
         }
         return name || 'N/A';
     };
 
+    // --- FUNÇÃO AUXILIAR PARA CALCULAR DATA (REINTRODUZIDA) ---
     const getDeliveryDateText = (deliveryTime) => {
         if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
             date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
+            // Pula Sábados (6) e Domingos (0)
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                addedDays++;
+            }
         }
+        // Formata a data para "dia de mês" (ex: "28 de outubro")
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
-
-    // --- Componente para representar cada etapa ---
-    const Step = ({ number, title, isActive, isCompleted, children }) => (
-        <div className={`transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
-            <div className="flex items-center gap-3 mb-4">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg ${isCompleted ? 'bg-green-600 text-white' : (isActive ? 'bg-amber-400 text-black' : 'bg-gray-700 text-gray-400')}`}>
-                    {isCompleted ? <CheckIcon className="h-5 w-5" /> : number}
-                </div>
-                <h2 className={`text-xl font-bold ${isActive ? 'text-amber-400' : 'text-gray-500'}`}>{title}</h2>
-            </div>
-            <AnimatePresence>
-            {isActive && (
-                 <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="pl-11 border-l-2 border-gray-700 ml-4 pb-6"
-                 >
-                    <div className="pl-6">{children}</div>
-                </motion.div>
-            )}
-            </AnimatePresence>
-        </div>
-    );
-
-    // --- Determinar etapa atual ---
-    const isPickupSelected = autoCalculatedShipping?.isPickup;
-    const isDeliveryMethodSelected = !!autoCalculatedShipping;
-    const isDeliveryInfoComplete = isPickupSelected || !!displayAddress;
-    const currentStep = isDeliveryInfoComplete ? 2 : 1;
+    // --- FIM DA FUNÇÃO AUXILIAR ---
 
     return (
         <>
@@ -4152,187 +4151,124 @@ const CheckoutPage = ({ onNavigate }) => {
                 <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
             </Modal>
 
-            <div className="bg-black text-white min-h-screen py-8 md:py-12">
-                <div className="container mx-auto px-4">
-                    {/* Botão Voltar */}
-                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
-                        <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
-                        Voltar ao Carrinho
-                    </button>
+            <div className="bg-black text-white min-h-screen">
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <div className="lg:col-span-1 space-y-8">
 
-                    <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                        {/* Coluna Esquerda: Passos */}
-                        <div className="lg:col-span-2 space-y-0"> {/* Reduzido o espaço entre steps */}
-                            {/* --- Etapa 1: Entrega --- */}
-                            <Step number="1" title="Entrega" isActive={currentStep === 1} isCompleted={currentStep > 1}>
-                                <div className="space-y-6">
-                                    <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
-                                        <h3 className="font-semibold text-lg mb-3 text-gray-200">Selecione a forma de entrega</h3>
-                                        <div className="space-y-3">
-                                            {shippingOptions.map(option => (
-                                                <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer flex items-start gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
-                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="mt-1 w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 flex-shrink-0"/>
-                                                    <div className="flex-grow">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="font-bold text-white">{option.name}</span>
-                                                            <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
-                                                        </div>
-                                                        <p className="text-sm text-gray-400">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
-                                                    </div>
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
+                                <div className="space-y-3">
+                                    {shippingOptions.map(option => (
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
+                                                    <span className="font-bold">{option.name}</span>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {isDeliveryMethodSelected && (
-                                        isPickupSelected ? (
-                                            <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-200">Detalhes da Retirada</h3>
-                                                <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 mb-4">
-                                                    <p className="font-bold">Endereço para Retirada:</p>
-                                                    <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                                                    <p className="font-bold mt-2">Horário:</p>
-                                                    <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
-                                                    <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
-                                                </div>
-                                                <div className="space-y-3">
-                                                    <div className="flex items-center">
-                                                        <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
-                                                        <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
-                                                    </div>
-                                                    {isSomeoneElsePickingUp && (
-                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-2 overflow-hidden">
-                                                            <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"/>
-                                                            <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"/>
-                                                        </motion.div>
-                                                    )}
-                                                </div>
+                                                <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                        ) : (
-                                            <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-200">Endereço de Entrega</h3>
-                                                {isAddressLoading ? (
-                                                    <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                                ) : displayAddress ? (
-                                                    // Tornando o bloco de endereço clicável
-                                                    <button onClick={() => setIsAddressModalOpen(true)} className="w-full text-left p-4 bg-gray-800 rounded-md border border-gray-700 hover:border-amber-400 transition-colors duration-200 cursor-pointer group">
-                                                        <div className="flex justify-between items-start">
-                                                            <div>
-                                                                <p className="font-bold text-white mb-2 group-hover:text-amber-300">{displayAddress.alias}</p>
-                                                                <div className="space-y-1 text-gray-300 text-sm">
-                                                                    {displayAddress.logradouro && <p>{displayAddress.logradouro}, {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
-                                                                    {displayAddress.bairro && <p>{displayAddress.bairro}</p>}
-                                                                    <p>{displayAddress.localidade} - {displayAddress.uf}</p>
-                                                                    <p>{displayAddress.cep}</p>
-                                                                </div>
-                                                            </div>
-                                                            <span className="text-amber-400 font-semibold text-xs flex-shrink-0 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                Alterar
-                                                            </span>
-                                                        </div>
-                                                    </button>
-                                                ) : (
-                                                    <div className="text-center p-4 bg-gray-800 rounded-md border border-gray-700">
-                                                        <p className="text-gray-400 mb-3">Nenhum endereço selecionado.</p>
-                                                        <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                                                             <button onClick={() => setIsAddressModalOpen(true)} className="bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-600 font-bold text-sm">
-                                                                Selecionar Endereço
-                                                            </button>
-                                                             <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold text-sm">
-                                                                Adicionar Novo
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    )}
-                                </div>
-                            </Step>
-
-                            {/* --- Etapa 2: Pagamento --- */}
-                            <Step number="2" title="Pagamento" isActive={currentStep === 2} isCompleted={false}>
-                                <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
-                                    <h3 className="font-semibold text-lg mb-3 text-gray-200">Selecione a forma de pagamento</h3>
-                                    <div className="space-y-3">
-                                        <div onClick={() => setPaymentMethod('mercadopago')} className={`p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/40' : 'border-gray-700 hover:bg-gray-800'}`}>
-                                            <input type="radio" readOnly checked={paymentMethod === 'mercadopago'} className="mt-1 w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 flex-shrink-0"/>
-                                            {/* Ícones de pagamento substituindo a imagem */}
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                <PixIcon className="h-6 w-auto text-cyan-500"/>
-                                                <VisaIcon className="h-4 w-auto"/>
-                                                <MastercardIcon className="h-6 w-auto"/>
-                                                <EloIcon className="h-6 w-auto"/>
-                                                <BoletoIcon className="h-5 w-auto text-gray-400"/>
-                                            </div>
-                                            <div className="flex-grow">
-                                                <span className="font-bold text-white">Pagamento Online</span>
-                                                <p className="text-xs text-gray-400">Cartão, Pix e Boleto via Mercado Pago.</p>
-                                            </div>
-                                             {/* Ícone de escudo */}
-                                             <div className="flex-shrink-0 flex items-center gap-1 text-green-500" title="Pagamento Seguro">
-                                                 <ShieldCheckIcon className="h-5 w-5"/>
-                                                 <span className="text-xs font-medium hidden sm:inline">Seguro</span>
-                                             </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Step>
-                        </div>
-
-                        {/* Coluna Direita: Resumo */}
-                        <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
-                                <h2 className="text-2xl font-bold mb-6 text-center text-amber-400 border-b border-gray-700 pb-4">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                                    {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 py-1.5 text-sm gap-2">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain bg-white rounded flex-shrink-0"/>
-                                                <span className="truncate">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
-                                            </div>
-                                            <span className="flex-shrink-0 font-medium">R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                            {/* LINHA ALTERADA ABAIXO */}
+                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
                                         </div>
                                     ))}
                                 </div>
-                                <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-300">
-                                        <span>Subtotal</span>
-                                        <span>R$ {subtotal.toFixed(2)}</span>
+                            </div>
+
+                            {/* ... Restante do JSX da seção de entrega (Retirada ou Endereço) ... */}
+                            {autoCalculatedShipping?.isPickup ? (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
+                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
+                                        <p className="font-bold">Endereço para Retirada:</p>
+                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p className="font-bold mt-2">Horário:</p>
+                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                        <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
                                     </div>
-                                    {appliedCoupon && (
-                                        <div className="flex justify-between text-green-400">
-                                            <span>Desconto ({appliedCoupon.code})</span>
-                                            <span>- R$ {discount.toFixed(2)}</span>
+                                    <div className="mt-4 space-y-3">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
+                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
+                                        </div>
+                                        {isSomeoneElsePickingUp && (
+                                            <div className="space-y-2 overflow-hidden">
+                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
+                                    {isAddressLoading ? (
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : displayAddress ? ( // Usa displayAddress aqui
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
+                                            <div className="space-y-1 text-gray-300 text-sm">
+                                                {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
+                                                {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
+                                                {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
+                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
+                                            </div>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
+                                                Alterar Endereço
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço selecionado ou cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
+                                            </button>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
+                                <div className="space-y-3">
+                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
+                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
+                                {cart.map(item => (
+                                    <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1">
+                                        <span className="truncate pr-2">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                        <span>R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                                <div className="border-t border-gray-700 mt-4 pt-4">
+                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-300">
+                                        <div className="flex justify-between text-gray-300 py-1">
                                             <span>Entrega ({getShippingName(autoCalculatedShipping.name)}):</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-400 text-xs text-center py-1">Selecione o método de entrega.</div>
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o método de entrega.</div>
                                     )}
-                                    <div className="flex justify-between font-bold text-xl text-white pt-3 border-t border-gray-700 mt-3">
-                                        <span>Total:</span>
-                                        <span className="text-amber-400">R$ {total.toFixed(2)}</span>
-                                    </div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
 
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={currentStep !== 2 || isLoading}
-                                    className="w-full mt-8 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-300 shadow-[0_5px_15px_rgba(212,175,55,0.3)] hover:shadow-[0_8px_20px_rgba(212,175,55,0.4)]"
-                                >
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
-                                        <SpinnerIcon className="h-6 w-6"/>
+                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
                                         'Finalizar e Pagar'
                                     )}
                                 </button>
-                                {currentStep !== 2 && <p className="text-center text-xs text-red-400 mt-2">Complete a etapa de Entrega para continuar.</p>}
                             </div>
                         </div>
                     </div>
