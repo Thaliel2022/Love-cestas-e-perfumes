@@ -10052,10 +10052,155 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // ... (restante do código do componente permanece igual até o footer) ...
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  useEffect(() => {
+    const checkStatus = () => {
+        apiService('/settings/maintenance-status')
+            .then(data => {
+                const isNowInMaintenance = data.maintenanceMode === 'on';
+                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
+                setIsInMaintenance(prevStatus => {
+                    if (prevStatus !== isNowInMaintenance) {
+                        return isNowInMaintenance;
+                    }
+                    return prevStatus;
+                });
+            })
+            .catch(err => {
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                setIsInMaintenance(false);
+            })
+            .finally(() => {
+                // Garante que a tela de carregamento só desapareça na primeira vez
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
+            });
+    };
+
+    checkStatus(); // Verifica imediatamente quando o componente monta
+
+    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+
+    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
+  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
+
+  const navigate = useCallback((path) => {
+    window.location.hash = path;
+  }, []);
+  
+  useEffect(() => {
+    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
+    if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); 
+      navigate(`order-success/${pendingOrderId}`);
+    } else if (currentPath.startsWith('order-success')) {
+        sessionStorage.removeItem('pendingOrderId');
+    }
+  }, [currentPath, navigate]); 
+  
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentPath(window.location.hash.slice(1) || 'home');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPath]);
+  
+  if (isLoading || isStatusLoading) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        </div>
+      );
+  }
+
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminDomain = window.location.hostname.includes('vercel.app');
+
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
+
+  const renderPage = () => {
+    const [path, queryString] = currentPath.split('?');
+    const searchParams = new URLSearchParams(queryString);
+    const initialSearch = searchParams.get('search') || '';
+    const initialCategory = searchParams.get('category') || '';
+    const initialBrand = searchParams.get('brand') || '';
+    const initialIsPromo = searchParams.get('promo') === 'true';
+    
+    const pathParts = path.split('/');
+    const mainPage = pathParts[0];
+    const pageId = pathParts[1];
+
+    if (mainPage === 'admin') {
+        if (!isAuthenticated || user.role !== 'admin') {
+             return <LoginPage onNavigate={navigate} />;
+        }
+        
+        const adminSubPage = pageId || 'dashboard';
+        const adminPages = {
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'banners': <AdminBanners />,
+            'products': <AdminProducts onNavigate={navigate} />,
+            'orders': <AdminOrders />,
+            'refunds': <AdminRefunds onNavigate={navigate} />,
+            'collections': <AdminCollections />,
+            'users': <AdminUsers />,
+            'coupons': <AdminCoupons />,
+            'reports': <AdminReports />,
+            'logs': <AdminLogsPage />,
+        };
+
+        return (
+            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
+                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
+            </AdminLayout>
+        );
+    }
+
+    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
+        return <LoginPage onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'product' && pageId) {
+        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
+    }
+
+    if (mainPage === 'order-success' && pageId) {
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'account') {
+        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
+    }
+
+   const pages = {
+        'home': <HomePage onNavigate={navigate} />,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
+        'login': <LoginPage onNavigate={navigate} />,
+        'register': <RegisterPage onNavigate={navigate} />,
+        'cart': <CartPage onNavigate={navigate} />,
+        'checkout': <CheckoutPage onNavigate={navigate} />,
+        'wishlist': <WishlistPage onNavigate={navigate} />,
+        'ajuda': <AjudaPage onNavigate={navigate} />,
+        'about': <AboutPage />,
+        'privacy': <PrivacyPolicyPage />,
+        'terms': <TermsOfServicePage />,
+        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
+    };
+    return pages[mainPage] || <HomePage onNavigate={navigate} />;
+  };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-
+  
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -10099,25 +10244,33 @@ function AppContent({ deferredPrompt }) {
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        {/* IMAGEM COM TAMANHO AJUSTADO E ESTILOS REMOVIDOS */}
-                        <div className="flex justify-center md:justify-start">
-                            {/* **IMPORTANTE:** Substitua pela URL da sua imagem! */}
-                            <img
-                                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1761025785/u58ozktjomtph4vf414x.png" /* <= SUBSTITUA AQUI */
-                                alt="Formas de Pagamento"
-                                className="h-12 w-auto" /* Aumentado a altura (h-12) e removido bg-white, p-1, rounded */
-                            />
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
                         </div>
                          <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800">a
+            <div className="bg-black py-4 border-t border-gray-800">
                 <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
-
+      
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
