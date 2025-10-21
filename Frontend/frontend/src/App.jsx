@@ -975,31 +975,52 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop();
+    const { addToCart, shippingLocation } = useShop(); // Removido 'cart' se não for usado aqui
     const notification = useNotification();
-    const [isAddingToCart, setIsAddingToCart] = useState(false);
-    const [isBuyingNow, setIsBuyingNow] = useState(false);
-    const [cardShippingInfo, setCardShippingInfo] = useState(null);
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
-    
-    const imageUrl = getFirstImage(product.images);
+    const { user } = useAuth(); // Para lógica de isAdmin
+    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); // Adicionado para WishlistButton interno
+    const { isAuthenticated } = useAuth(); // Adicionado para WishlistButton interno
 
-    const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
+    const [isAddingToCart, setIsAddingToCart] = useState(false); // Renomeado de isAdding
+    const [isBuyingNow, setIsBuyingNow] = useState(false); // Adicionado estado para 'Comprar'
+    const [cardShippingInfo, setCardShippingInfo] = useState(null); // Adicionado estado de frete
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); // Adicionado estado de loading frete
+
+    // CORREÇÃO IMAGEM: Simplifica a obtenção da imagem inicial diretamente
+    const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
+
+    const isOnSale = product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product.price;
-    const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
-    
+
+    const discountPercent = useMemo(() => {
+        if (isOnSale && product.price > 0) { // Adicionado verificação product.price > 0
+            return Math.round(((product.price - product.sale_price) / product.price) * 100);
+        }
+        return 0;
+    }, [isOnSale, product]);
+
     const isNew = useMemo(() => {
+        if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product.created_at]);
+    }, [product]);
 
+    // CORREÇÃO RATING: Usa product.avg_rating e product.review_count se disponíveis
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
+    const reviewCount = product.review_count || 0;
 
+    // Lógica de estoque (mantida da versão anterior corrigida)
+    const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
+    const isProductOutOfStock = product.stock <= 0;
+    const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
+    const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
+
+    // --- Efeito de Frete (Mantido da versão anterior) ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
-
-        const debounceTimer = setTimeout(() => {
+        // ... (lógica completa de cálculo de frete como na resposta anterior) ...
+         const debounceTimer = setTimeout(() => {
             if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
@@ -1038,7 +1059,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 };
                 calculateShipping();
             } else {
-                setCardShippingInfo(null);
+                setCardShippingInfo(null); // Limpa se não tiver CEP
+                 setIsCardShippingLoading(false); // Garante que loading pare se não houver CEP
             }
         }, 500);
 
@@ -1046,8 +1068,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice]);
+    }, [product, shippingLocation.cep, currentPrice]); // Dependências corretas
 
+    // --- Cálculo de parcelas (Mantido da versão anterior) ---
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -1056,7 +1079,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    const handleAddToCart = async (e) => {
+    // --- Handlers de Ação (Adaptados da versão anterior) ---
+    const handleAddToCartInternal = async (e) => { // Renomeado para evitar conflito
         e.stopPropagation();
         if (product.product_type === 'clothing') {
             notification.show("Escolha cor e tamanho na página do produto.", "error");
@@ -1074,7 +1098,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    const handleBuyNow = async (e) => {
+    const handleBuyNowInternal = async (e) => { // Renomeado para evitar conflito
         e.stopPropagation();
          if (product.product_type === 'clothing') {
             onNavigate(`product/${product.id}`);
@@ -1090,15 +1114,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
             setIsBuyingNow(false);
         }
     };
-    
-    const WishlistButton = ({ product }) => {
-        const { wishlist, addToWishlist, removeFromWishlist } = useShop();
-        const { isAuthenticated } = useAuth();
-        const notification = useNotification();
-        const isWishlisted = wishlist.some(item => item.id === product.id);
 
+    // --- WishlistButton Interno (Adaptado da versão anterior) ---
+    const WishlistButton = ({ product }) => {
+        const isWishlisted = wishlist.some(item => item.id === product.id);
         const handleWishlistToggle = async (e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Impede a navegação ao clicar no coração
             if (!isAuthenticated) {
                 notification.show("Faça login para adicionar à lista de desejos", "error");
                 return;
@@ -1111,10 +1132,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 notification.show(result.message, result.success ? 'success' : 'error');
             }
         };
-
         return (
-            <button 
-                onClick={handleWishlistToggle} 
+            <button
+                onClick={handleWishlistToggle}
                 className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
@@ -1123,67 +1143,71 @@ const ProductCard = memo(({ product, onNavigate }) => {
         );
     };
 
+    // --- Card Animation ---
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
 
-    const isOutOfStock = product.stock <= 0;
-
     return (
-        <motion.div 
+        <motion.div
+            layout // Adicionado para animar a remoção/adição
             variants={cardVariants}
+            initial="hidden" // Define estado inicial
+            animate="visible" // Anima para o estado visível
+            exit="hidden" // Define estado de saída (se usado com AnimatePresence)
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300" 
+            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} // Grayscale adicionado
+            onClick={() => onNavigate(`product/${product.id}`)} // Navegação no card todo
         >
             {/* --- Seção da Imagem --- */}
-            <div className="relative h-64 bg-white overflow-hidden group"> 
-                <img 
-                    src={imageUrl} 
-                    alt={product.name} 
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2" 
-                    onClick={() => onNavigate(`product/${product.id}`)} 
+            <div className="relative h-64 bg-white overflow-hidden group">
+                <img
+                    src={imageUrl} // Usa a URL calculada no useMemo
+                    alt={product.name}
+                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
+                    // Removido onMouseEnter/Leave para simplificar, a imagem principal é definida uma vez
                 />
-                <WishlistButton product={product} />
-                
+                <WishlistButton product={product} /> {/* Usa o componente interno */}
+
                 {/* --- Badges/Selos --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                        <div className="bg-red-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Cor alterada para bg-red-600 */}
+                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
                             <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span> 
+                            <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
                     ) : null}
                 </div>
-                 {product.product_type === 'clothing' && !isOutOfStock && ( 
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo original mantido */}
-                        Ver Cores e Tamanhos 
-                    </div> 
+                 {product.product_type === 'clothing' && !isOutOfStock && (
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo Original */}
+                        Ver Cores e Tamanhos
+                    </div>
                  )}
             </div>
-            
+
             {/* --- Seção de Informações --- */}
-            <div className="p-4 flex flex-col flex-grow"> 
+            <div className="p-4 flex flex-col flex-grow">
                 {/* --- Marca e Nome --- */}
                 <div>
-                    <p className="text-[11px] text-gray-400 font-medium tracking-wide mb-0.5">{product.brand.toUpperCase()}</p>
-                    <h4 
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10" 
-                        onClick={() => onNavigate(`product/${product.id}`)}
+                    {/* COR CORRIGIDA ABAIXO */}
+                    <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
+                    <h4
+                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
                         title={product.name}
                     >
                         {product.name}
                     </h4>
                     <div className="flex items-center mt-1.5 h-4 gap-1">
                         {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
-                        {product.review_count > 0 && ( <span className="text-[10px] text-gray-500">({product.review_count})</span> )}
+                        {reviewCount > 0 && ( <span className="text-[10px] text-gray-500">({reviewCount})</span> )}
                     </div>
                 </div>
-                
+
                 {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
                     {isOnSale ? (
@@ -1195,9 +1219,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             </div>
                         </div>
                     ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
-                    
+
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
-                    
+
                     {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
                         <div className="mt-3">
@@ -1205,17 +1229,17 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         </div>
                     ) : (
                         <div className="mt-3 flex items-stretch space-x-2">
-                            <button 
-                                onClick={handleBuyNow} 
-                                disabled={isBuyingNow || isAddingToCart} 
+                            <button
+                                onClick={handleBuyNowInternal}
+                                disabled={isBuyingNow || isAddingToCart}
                                 className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50"
                             >
                                 {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'}
                             </button>
-                            <button 
-                                onClick={handleAddToCart} 
-                                disabled={isAddingToCart || isBuyingNow} 
-                                title="Adicionar ao Carrinho" 
+                            <button
+                                onClick={handleAddToCartInternal}
+                                disabled={isAddingToCart || isBuyingNow}
+                                title="Adicionar ao Carrinho"
                                 className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
                             >
                                 {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
@@ -1224,20 +1248,30 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     )}
                 </div>
             </div>
-            
+
             {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
-                    {isCardShippingLoading ? ( 
-                        <SpinnerIcon className="h-3 w-3 text-gray-500" /> 
+                    {isCardShippingLoading ? (
+                        <SpinnerIcon className="h-3 w-3 text-gray-500" />
                     ) : cardShippingInfo.includes('Erro') ? (
                          <ExclamationCircleIcon className="h-3 w-3 text-red-500" />
                     ) : (
-                        <TruckIcon className="h-3 w-3 text-green-500"/> 
+                        <TruckIcon className="h-3 w-3 text-green-500"/>
                     )}
                     <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
                         {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
                     </span>
+                </div>
+            )}
+            {/* Botão de Edição Admin */}
+             {user && user.role === 'admin' && (
+                <div className="absolute top-2 right-12 z-10"> {/* Ajuste na posição se necessário */}
+                    <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }} // Modificado para ir para a lista filtrada
+                            className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1 rounded-full shadow-md transition-colors"
+                            title="Editar Produto">
+                        <EditIcon className="h-4 w-4" />
+                    </button>
                 </div>
             )}
         </motion.div>
