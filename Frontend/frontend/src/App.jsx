@@ -3906,18 +3906,6 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
 
-    // Remove o useEffect que atualizava o global baseado no local, pois agora a inicialização já faz isso.
-    // useEffect(() => {
-    //     if (selectedAddress && !autoCalculatedShipping?.isPickup) {
-    //         setShippingLocation({
-    //             cep: selectedAddress.cep,
-    //             city: selectedAddress.localidade,
-    //             state: selectedAddress.uf,
-    //             alias: selectedAddress.alias
-    //         });
-    //     }
-    // }, [selectedAddress, autoCalculatedShipping?.isPickup, setShippingLocation]);
-
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name);
@@ -4078,6 +4066,23 @@ const CheckoutPage = ({ onNavigate }) => {
         return name || 'N/A';
     };
 
+    // --- FUNÇÃO AUXILIAR PARA CALCULAR DATA (REINTRODUZIDA) ---
+    const getDeliveryDateText = (deliveryTime) => {
+        if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
+        const date = new Date();
+        let addedDays = 0;
+        while (addedDays < deliveryTime) {
+            date.setDate(date.getDate() + 1);
+            // Pula Sábados (6) e Domingos (0)
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                addedDays++;
+            }
+        }
+        // Formata a data para "dia de mês" (ex: "28 de outubro")
+        return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
+    };
+    // --- FIM DA FUNÇÃO AUXILIAR ---
+
     return (
         <>
             <AddressSelectionModal
@@ -4109,15 +4114,17 @@ const CheckoutPage = ({ onNavigate }) => {
                                                 </div>
                                                 <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : `Prazo estimado: ${option.delivery_time} dias úteis`}</p>
+                                            {/* LINHA ALTERADA ABAIXO */}
+                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
+                            {/* ... Restante do JSX da seção de entrega (Retirada ou Endereço) ... */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
+                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
                                         <p className="font-bold">Endereço para Retirada:</p>
                                         <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
@@ -4147,7 +4154,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="p-4 bg-gray-800 rounded-md">
                                             <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                {/* Exibe detalhes apenas se existirem (evita mostrar campos vazios de CEP manual) */}
                                                 {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
                                                 {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
                                                 {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
