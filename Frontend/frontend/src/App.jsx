@@ -2588,16 +2588,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const parseTextToList = (text) => {
         if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
+        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; // Tamanho do check e espaçamento
     };
 
     const getInstallmentSummary = () => {
         if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } // Altura ajustada
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } // Texto menor
         const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } // Texto menor
         const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } // Texto menor
         return null;
     };
 
@@ -2769,12 +2769,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 
     // --- Renderização Principal ---
-    if (isLoading) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">Carregando...</div>;
-    if (product?.error) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">{product.message}</div>;
-    if (!product) return <div className="bg-gray-950 min-h-screen"></div>; // Página vazia se produto for null
+    if (isLoading) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">Carregando...</div>; // Mantido bg-gray-950 para loading
+    if (product?.error) return <div className="text-white text-center py-20 bg-gray-950 min-h-screen">{product.message}</div>; // Mantido bg-gray-950 para erro
+    if (!product) return <div className="bg-black min-h-screen"></div>; // Fundo revertido para black se produto for null
 
     return (
-        <div className="bg-gray-950 text-white min-h-screen"> {/* Fundo mais claro */}
+        <div className="bg-black text-white min-h-screen"> {/* Fundo revertido para black */}
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             <AnimatePresence>
