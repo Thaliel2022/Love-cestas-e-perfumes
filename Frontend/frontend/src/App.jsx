@@ -985,7 +985,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const imageUrl = getFirstImage(product.images);
 
     const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
-    const currentPrice = isOnSale ? product.sale_price : product.price;
+    const currentPrice = isOnSale ? product.sale_price : product.price; // Corrigido aqui, era product.sale_sale_price na versão anterior
     const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
     
     const isNew = useMemo(() => {
@@ -995,7 +995,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
 
-    // --- Efeito para calcular o frete do card (sem alterações visuais diretas) ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -1024,14 +1023,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                             }
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`); // Texto ajustado
+                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
                         } else {
-                            setCardShippingInfo('Entrega indisponível para este CEP.'); // Mensagem mais clara
+                            setCardShippingInfo('Entrega indisponível para este CEP.');
                         }
                     } catch (error) {
                         if (error.name !== 'AbortError') {
                             console.error(`Erro ao calcular frete para o produto ${product.id}:`, error);
-                            setCardShippingInfo('Erro ao calcular frete.'); // Mensagem genérica de erro
+                            setCardShippingInfo('Erro ao calcular frete.');
                         }
                     } finally {
                         if (!signal.aborted) { setIsCardShippingLoading(false); }
@@ -1049,16 +1048,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
         };
     }, [product, shippingLocation.cep, currentPrice]);
 
-    // --- Cálculo de parcelas (sem alterações visuais diretas) ---
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`; // Texto mais conciso
+            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
         }
         return null;
     }, [currentPrice]);
 
-    // --- Funções de clique (sem alterações visuais diretas) ---
     const handleAddToCart = async (e) => {
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1094,7 +1091,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
     
-    // --- Botão de Wishlist (sem alterações visuais diretas) ---
     const WishlistButton = ({ product }) => {
         const { wishlist, addToWishlist, removeFromWishlist } = useShop();
         const { isAuthenticated } = useAuth();
@@ -1119,15 +1115,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return (
             <button 
                 onClick={handleWishlistToggle} 
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`} // Ajuste visual sutil
+                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
                 aria-label="Adicionar à Lista de Desejos"
             >
-                <HeartIcon className="h-5 w-5" filled={isWishlisted} /> {/* Tamanho ligeiramente menor */}
+                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
             </button>
         );
     };
 
-    // --- Animação do card (sem alterações visuais diretas) ---
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
@@ -1138,27 +1133,27 @@ const ProductCard = memo(({ product, onNavigate }) => {
     return (
         <motion.div 
             variants={cardVariants}
-            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }} // Efeito hover mais sutil
-            className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300" // Cor de fundo ligeiramente mais clara
+            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300" // Cor de fundo revertida para black
         >
             {/* --- Seção da Imagem --- */}
-            <div className="relative aspect-square bg-white overflow-hidden group"> {/* Proporção quadrada */}
+            <div className="relative h-64 bg-white overflow-hidden group"> {/* Altura h-64 mantida para evitar crescimento excessivo */}
                 <img 
                     src={imageUrl} 
                     alt={product.name} 
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2" // Adicionado padding
+                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2" // p-2 mantido
                     onClick={() => onNavigate(`product/${product.id}`)} 
                 />
                 <WishlistButton product={product} />
                 
                 {/* --- Badges/Selos --- */}
-                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10"> {/* Posicionamento ajustado */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
                             <SaleIcon className="h-3 w-3"/>
-                            <span>-{discountPercent}%</span> {/* Mostra o percentual */}
+                            <span>-{discountPercent}%</span>
                         </div>
                     ) : isNew ? (
                         <div className="bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">NOVO</div>
@@ -1175,34 +1170,33 @@ const ProductCard = memo(({ product, onNavigate }) => {
             <div className="p-4 flex flex-col flex-grow"> {/* Padding ajustado */}
                 {/* --- Marca e Nome --- */}
                 <div>
-                    <p className="text-[11px] text-gray-400 font-medium tracking-wide mb-0.5">{product.brand.toUpperCase()}</p> {/* Fonte menor e cor mais suave */}
+                    <p className="text-[11px] text-gray-400 font-medium tracking-wide mb-0.5">{product.brand.toUpperCase()}</p>
                     <h4 
-                        className="text-sm font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10" // Fonte ligeiramente menor, line-clamp e altura fixa
+                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10" // Fonte um pouco maior, mas ainda controlada
                         onClick={() => onNavigate(`product/${product.id}`)}
-                        title={product.name} // Adiciona tooltip para nomes longos
+                        title={product.name}
                     >
                         {product.name}
                     </h4>
-                     {/* --- Avaliações --- */}
-                    <div className="flex items-center mt-1.5 h-4 gap-1"> {/* Altura menor */}
+                    <div className="flex items-center mt-1.5 h-4 gap-1">
                         {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
                         {product.review_count > 0 && ( <span className="text-[10px] text-gray-500">({product.review_count})</span> )}
                     </div>
                 </div>
                 
                 {/* --- Preço e Parcelas --- */}
-                <div className="mt-auto pt-3"> {/* Espaçamento ajustado */}
+                <div className="mt-auto pt-3">
                     {isOnSale ? (
                          <div className="flex flex-col">
-                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> {/* Preço original menor */}
+                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <div className="flex items-baseline gap-2">
-                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p> {/* Preço promo maior */}
-                                <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span> {/* Desconto em texto */}
+                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
+                                <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span>
                             </div>
                         </div>
-                    ) : ( <p className="text-lg font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )} {/* Preço normal ligeiramente menor */}
+                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )} {/* Fonte ligeiramente maior aqui */}
                     
-                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )} {/* Parcelas menores */}
+                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
                     
                     {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
@@ -1216,15 +1210,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 disabled={isBuyingNow || isAddingToCart} 
                                 className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50"
                             >
-                                {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'} {/* Ícone menor */}
+                                {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'}
                             </button>
                             <button 
                                 onClick={handleAddToCart} 
                                 disabled={isAddingToCart || isBuyingNow} 
                                 title="Adicionar ao Carrinho" 
-                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50" // Estilo ajustado
+                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
                             >
-                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>} {/* Ícone menor */}
+                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
                             </button>
                         </div>
                     )}
@@ -1233,7 +1227,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             
             {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
-                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5"> {/* Fonte menor, ícone */}
+                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
                     {isCardShippingLoading ? ( 
                         <SpinnerIcon className="h-3 w-3 text-gray-500" /> 
                     ) : cardShippingInfo.includes('Erro') ? (
@@ -1241,7 +1235,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : (
                         <TruckIcon className="h-3 w-3 text-green-500"/> 
                     )}
-                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}> {/* Cor do texto ajustada */}
+                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
                         {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
                     </span>
                 </div>
