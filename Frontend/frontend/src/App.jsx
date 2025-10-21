@@ -10112,7 +10112,7 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800">
+            <div className="bg-black py-4 border-t border-gray-800">a
                 <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
