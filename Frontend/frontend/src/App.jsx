@@ -985,7 +985,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const imageUrl = getFirstImage(product.images);
 
     const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
-    const currentPrice = isOnSale ? product.sale_price : product.price; // Corrigido aqui, era product.sale_sale_price na versão anterior
+    const currentPrice = isOnSale ? product.sale_price : product.price;
     const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
     
     const isNew = useMemo(() => {
@@ -1134,14 +1134,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
         <motion.div 
             variants={cardVariants}
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300" // Cor de fundo revertida para black
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300" 
         >
             {/* --- Seção da Imagem --- */}
-            <div className="relative h-64 bg-white overflow-hidden group"> {/* Altura h-64 mantida para evitar crescimento excessivo */}
+            <div className="relative h-64 bg-white overflow-hidden group"> 
                 <img 
                     src={imageUrl} 
                     alt={product.name} 
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2" // p-2 mantido
+                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2" 
                     onClick={() => onNavigate(`product/${product.id}`)} 
                 />
                 <WishlistButton product={product} />
@@ -1151,28 +1151,28 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow flex items-center gap-1">
-                            <SaleIcon className="h-3 w-3"/>
-                            <span>-{discountPercent}%</span>
+                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo original mantido */}
+                            <SaleIcon className="h-4 w-4"/>
+                            <span>PROMOÇÃO {discountPercent}%</span> {/* Texto Revertido */}
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">NOVO</div>
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Texto Revertido
                     ) : null}
                 </div>
                  {product.product_type === 'clothing' && !isOutOfStock && ( 
-                    <div className="absolute bottom-0 left-0 w-full bg-black/60 text-center text-[10px] py-1 text-amber-300 font-medium">
-                        Ver Opções
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo original mantido */}
+                        Ver Cores e Tamanhos {/* Texto Revertido */}
                     </div> 
                  )}
             </div>
             
             {/* --- Seção de Informações --- */}
-            <div className="p-4 flex flex-col flex-grow"> {/* Padding ajustado */}
+            <div className="p-4 flex flex-col flex-grow"> 
                 {/* --- Marca e Nome --- */}
                 <div>
                     <p className="text-[11px] text-gray-400 font-medium tracking-wide mb-0.5">{product.brand.toUpperCase()}</p>
                     <h4 
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10" // Fonte um pouco maior, mas ainda controlada
+                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10" 
                         onClick={() => onNavigate(`product/${product.id}`)}
                         title={product.name}
                     >
@@ -1194,7 +1194,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span>
                             </div>
                         </div>
-                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )} {/* Fonte ligeiramente maior aqui */}
+                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
                     
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
                     
