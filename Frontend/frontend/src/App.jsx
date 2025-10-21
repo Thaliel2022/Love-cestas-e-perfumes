@@ -3900,16 +3900,19 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
+    // Estado local para o endereço exibido, inicializado com o do contexto
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
+
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
+    // Ajuste no useEffect inicial
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3927,7 +3930,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         localidade: shippingLocation.city,
                         uf: shippingLocation.state,
                         alias: shippingLocation.alias,
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
                     };
                 }
             }
@@ -4106,6 +4109,7 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
+    // --- Componente para representar cada etapa ---
     const Step = ({ number, title, isActive, isCompleted, children }) => (
         <div className={`transition-all duration-300 ${isActive ? 'opacity-100' : 'opacity-60'}`}>
             <div className="flex items-center gap-3 mb-4">
@@ -4129,6 +4133,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
+    // --- Determinar etapa atual ---
     const isPickupSelected = autoCalculatedShipping?.isPickup;
     const isDeliveryMethodSelected = !!autoCalculatedShipping;
     const isDeliveryInfoComplete = isPickupSelected || !!displayAddress;
@@ -4149,6 +4154,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
             <div className="bg-black text-white min-h-screen py-8 md:py-12">
                 <div className="container mx-auto px-4">
+                    {/* Botão Voltar */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                         <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
                         Voltar ao Carrinho
@@ -4156,7 +4162,9 @@ const CheckoutPage = ({ onNavigate }) => {
 
                     <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                        <div className="lg:col-span-2 space-y-0">
+                        {/* Coluna Esquerda: Passos */}
+                        <div className="lg:col-span-2 space-y-0"> {/* Reduzido o espaço entre steps */}
+                            {/* --- Etapa 1: Entrega --- */}
                             <Step number="1" title="Entrega" isActive={currentStep === 1} isCompleted={currentStep > 1}>
                                 <div className="space-y-6">
                                     <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
@@ -4243,6 +4251,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </Step>
 
+                            {/* --- Etapa 2: Pagamento --- */}
                             <Step number="2" title="Pagamento" isActive={currentStep === 2} isCompleted={false}>
                                 <div className="bg-gray-900 p-4 md:p-6 rounded-lg border border-gray-800">
                                     <h3 className="font-semibold text-lg mb-3 text-gray-200">Selecione a forma de pagamento</h3>
