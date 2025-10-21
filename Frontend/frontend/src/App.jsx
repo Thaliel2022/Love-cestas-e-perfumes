@@ -2554,11 +2554,10 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
 };
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
-    // ... (outros states e hooks permanecem os mesmos) ...
-    const { user } = useAuth(); // Importado para lógica de admin
-    const notification = useNotification(); // Para notificações
-    const confirmation = useConfirmation(); // Para confirmações
-    const { addToCart } = useShop(); // Para adicionar ao carrinho
+    const { user } = useAuth();
+    const { addToCart } = useShop();
+    const notification = useNotification();
+    const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
     const [product, setProduct] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -2575,8 +2574,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
 
-    // --- Hooks e Memos (Lógica Interna - Completa) ---
-    // ... (lógica interna como avgRating, itemsForShipping, etc., permanece a mesma) ...
+    // --- Hooks e Memos (Lógica Interna) ---
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
@@ -2590,6 +2588,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
+    // Lógica para verificar se é novo (precisa estar aqui) - REINTRODUZIDA
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -2608,14 +2607,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0;
+    const isProductOutOfStock = product?.stock <= 0; // Calculado aqui, mas usado abaixo
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-
     // --- Funções Auxiliares (Lógica Interna - Completa) ---
-    // ... (getYouTubeEmbedUrl, parseTextToList, getInstallmentSummary permanecem os mesmos) ...
-     const getYouTubeEmbedUrl = (url) => {
+    const getYouTubeEmbedUrl = (url) => {
         if (!url) return null;
         let videoId;
         try {
@@ -2647,9 +2644,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return null;
     };
 
-
     // --- Callbacks e Handlers (Lógica Interna - Completa) ---
-    // ... (fetchProductData, handleDeleteReview, handleShare, handleQuantityChange, handleAction, handleVariationSelection permanecem os mesmos) ...
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2757,10 +2752,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     }, [productVariations, productImages]);
 
-
     // --- Effects (Lógica Interna - Completa) ---
-    // ... (useEffect para fetchProductData e fetchInstallments permanecem os mesmos) ...
-     useEffect(() => {
+    useEffect(() => {
         fetchProductData(productId);
         window.scrollTo(0, 0); // Rola para o topo ao carregar
     }, [productId, fetchProductData]);
@@ -2795,8 +2788,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [product, currentPrice]); // Dependências corretas
 
     // --- Componentes Internos ---
-    // ... (TabButton e Lightbox permanecem os mesmos) ...
-        const TabButton = ({ label, tabName, isVisible = true }) => {
+    const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
         return (
             <button
@@ -2876,8 +2868,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* Miniaturas Horizontais - Scrollbar styling removido */}
-                        <div className="flex gap-3 overflow-x-auto pb-2">
+                        {/* Miniaturas Horizontais */}
+                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
                            {product.video_url && (
                                 <div
                                     onClick={() => setIsVideoModalOpen(true)}
@@ -2902,9 +2894,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                     </div>
 
-                     {/* --- Coluna de Informações e Ações --- */}
-                     {/* ... (Conteúdo da coluna de informações permanece o mesmo) ... */}
-                      <div className="space-y-6">
+                    {/* --- Coluna de Informações e Ações --- */}
+                    <div className="space-y-6">
                         {/* --- Cabeçalho do Produto --- */}
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p> {/* Cor Revertida */}
@@ -2992,8 +2983,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 {/* --- Abas de Informação --- */}
-                 {/* ... (Conteúdo das abas permanece o mesmo) ... */}
-                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
+                <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
@@ -3013,16 +3003,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
 
-
                 {/* --- Produtos Relacionados --- */}
-                {/* ... (Carrosséis permanecem os mesmos) ... */}
-                 {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
+                {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
                 {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
 
-
                 {/* --- Avaliações --- */}
-                {/* ... (Seção de avaliações permanece a mesma) ... */}
-                 <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
+                <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
                     <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-6 mb-10">
                       {reviews.length > 0 ? reviews.map((review) => (
@@ -10060,7 +10046,6 @@ const BannerCarousel = memo(({ onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -10259,14 +10244,22 @@ function AppContent({ deferredPrompt }) {
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        {/* SUBSTITUIÇÃO DOS ÍCONES PELA IMAGEM */}
-                        <div className="flex justify-center md:justify-start">
-                            {/* **IMPORTANTE:** Substitua 'URL_DA_IMAGEM_AQUI' pela URL real da sua imagem */}
-                            <img 
-                                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1761025623/bigz9c0wv1in4vn3qqqa.png" 
-                                alt="Formas de Pagamento" 
-                                className="h-10 w-auto bg-white p-1 rounded" 
-                            />
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
                         </div>
                          <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
