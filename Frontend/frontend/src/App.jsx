@@ -10263,7 +10263,7 @@ function AppContent({ deferredPrompt }) {
                         <div className="flex justify-center md:justify-start">
                             {/* **IMPORTANTE:** Substitua 'URL_DA_IMAGEM_AQUI' pela URL real da sua imagem */}
                             <img 
-                                src="URL_DA_IMAGEM_AQUI" 
+                                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1761025623/bigz9c0wv1in4vn3qqqa.png" 
                                 alt="Formas de Pagamento" 
                                 className="h-10 w-auto bg-white p-1 rounded" 
                             />
