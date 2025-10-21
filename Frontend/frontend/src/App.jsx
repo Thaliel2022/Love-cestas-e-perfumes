@@ -9962,6 +9962,8 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+ // ... (restante do componente AppContent) ...
+
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -10002,26 +10004,33 @@ function AppContent({ deferredPrompt }) {
                         </ul>
                     </div>
 
-                    {/* Coluna 4: Formas de Pagamento */}
+                    {/* Coluna 4: Formas de Pagamento - ÍCONES AJUSTADOS/REUTILIZADOS */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                        {/* Container com fundo branco e espaçamento para melhor visualização dos ícones */}
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 bg-white p-2 rounded-md">
+                            {/* Pix */}
+                            <div title="Pix" className="h-7 flex items-center justify-center">
                                 <PixIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                            {/* Visa */}
+                            <div title="Visa" className="h-7 flex items-center justify-center">
                                 <VisaIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                            {/* Mastercard */}
+                            <div title="Mastercard" className="h-7 flex items-center justify-center">
                                 <MastercardIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                            {/* Elo */}
+                            <div title="Elo" className="h-7 flex items-center justify-center">
                                 <EloIcon className="h-full w-auto"/>
                             </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            {/* Boleto */}
+                            <div title="Boleto" className="h-7 flex items-center justify-center">
+                                <BoletoIcon className="h-6 w-auto text-black"/> {/* Mantido h-6 para proporção */}
                             </div>
                         </div>
+                         <p className="text-xs text-gray-500">Pagamentos seguros via Mercado Pago.</p> {/* Mensagem atualizada */}
                          <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
@@ -10036,7 +10045,6 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
