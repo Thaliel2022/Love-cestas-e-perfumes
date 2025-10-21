@@ -1188,6 +1188,16 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         Ver Cores e Tamanhos
                     </div>
                  )}
+                {/* Botão de Edição Admin - Posição ajustada */}
+                 {user && user.role === 'admin' && (
+                    <div className="absolute top-2 right-10 z-10"> {/* Alterado de right-12 para right-10 */}
+                        <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
+                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" // Aumentado padding para toque mais fácil
+                                title="Editar Produto">
+                            <EditIcon className="h-4 w-4" />
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* --- Seção de Informações --- */}
@@ -1264,16 +1274,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </span>
                 </div>
             )}
-            {/* Botão de Edição Admin */}
-             {user && user.role === 'admin' && (
-                <div className="absolute top-2 right-12 z-10"> {/* Ajuste na posição se necessário */}
-                    <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }} // Modificado para ir para a lista filtrada
-                            className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1 rounded-full shadow-md transition-colors"
-                            title="Editar Produto">
-                        <EditIcon className="h-4 w-4" />
-                    </button>
-                </div>
-            )}
+            {/* Botão de Edição Admin (Removido daqui pois foi movido para dentro da seção da imagem) */}
         </motion.div>
     );
 });
