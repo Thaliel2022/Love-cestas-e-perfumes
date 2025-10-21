@@ -1284,6 +1284,8 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
+    // Removido user daqui se não for mais usado
+    // const { user } = useAuth(); 
 
     const updateItemsPerPage = useCallback(() => {
         if (window.innerWidth < 640) setItemsPerPage(1);
@@ -1347,7 +1349,13 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
     return (
         <div className="relative">
-            {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+            {/* Título sem o botão de edição */}
+            {title && (
+                <div className="flex justify-center items-center mb-10 relative">
+                    <h2 className="text-3xl md:text-4xl font-bold text-center">{title}</h2>
+                    {/* Ícone de edição removido daqui */}
+                </div>
+            )}
             <div
                 className="overflow-hidden cursor-grab active:cursor-grabbing"
                 onTouchStart={handleTouchStart}
