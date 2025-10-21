@@ -1657,9 +1657,12 @@ const Header = memo(({ onNavigate }) => {
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
-                                   <button className="flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
-                                        <UserIcon className="h-6 w-6"/>
-                                        <span className="hidden sm:inline text-sm font-medium">Conta</span>
+                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none"> {/* Ajuste: items-start, leading-none */}
+                                        <UserIcon className="h-6 w-6 mt-0.5"/> {/* Pequeno ajuste para alinhar com texto */}
+                                        <div className="flex flex-col items-start text-xs"> {/* Ajuste: flex-col, items-start, text-xs */}
+                                            <span>Olá, {user.name.split(' ')[0]}</span> {/* Exibe "Olá, PrimeiroNome" */}
+                                            <span className="font-bold text-sm">Conta</span> {/* Mantém "Conta" em negrito e tamanho normal */}
+                                        </div>
                                    </button>
                                    <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
                                        <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
