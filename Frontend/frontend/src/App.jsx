@@ -54,15 +54,7 @@ const ShareIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cla
 const ChevronUpIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 const CameraIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
 const BarsGripIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={className}><path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z M2 8a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 5a1 1 0 0 1 1-1h10a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z" /></svg>;
-// Ícone Oficial do Pix (Brasil) 
-const PixIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} fill="currentColor">
-        {/* Fundo Verde */}
-        <path fill="#32BCAD" d="M255.48 511.19c140.75 0 255.48-114.74 255.48-255.49S396.23 0 255.48 0 0 114.74 0 255.7s114.73 255.49 255.48 255.49z"/>
-        {/* Símbolo Branco Interno */}
-        <path fill="#FFF" d="m382.16 301.69-106.33-61.64c-3.1-1.8-6.09-3.69-8.91-5.73v-72.88c0-3.32-2.7-6.02-6.02-6.02h-11.85c-3.31 0-6.01 2.7-6.01 6.02v67.16c-3.05 1.76-6.23 3.42-9.48 4.96l-105.7 61.1c-4.49 2.6-6.01 8.35-3.41 12.84l5.92 10.26c2.6 4.5 8.35 6.01 12.84 3.41l105.69-61.08c3.1-1.8 6.09-3.69 8.91-5.74v72.89c0 3.31 2.7 6.01 6.01 6.01h11.85c3.32 0 6.02-2.7 6.02-6.01v-67.16c3.05-1.76 6.23-3.42 9.48-4.96l106.33-61.64c4.49-2.6 6.01-8.35 3.41-12.84l-5.92-10.26c-2.6-4.5-8.35-6.01-12.84-3.41z"/>
-    </svg>
-);
+const PixIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" className={className}><path fill="#32BCAD" d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24ZM119.2 136.8a32 32 0 0 1 0-17.6l44-25.4a4 4 0 0 1 5.6 3.2V156a4 4 0 0 1-5.6 3.2Zm51.2 29.6-44-25.4a32 32 0 0 1-16.8 0l-44 25.4a8 8 0 0 1-9.6-7.2V96a8 8 0 0 1 9.6-7.2l44 25.4a32 32 0 0 1 16.8 0l44-25.4a8 8 0 0 1 9.6 7.2v64a8 8 0 0 1-9.6 7.2Z"/></svg>;
 const VisaIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 122" className={className}><path fill="#142688" d="M379.3 1.8c-2.3-1-5.1-1.3-7.8-.8L10.3 35.5C4.5 37-1.3 42.6.4 48.7l28.9 104.4c1.7 6.1 7.5 10.3 13.8 10.3h288c5.1 0 9.8-3.1 11.8-7.7l37.1-85.1C387.8 59.8 381.6 2.8 379.3 1.8z"/><path fill="#ffffff" d="M285.3 49.3l-20.7 70.9-20.1-70.9h-18.3l29.4 94.4h20.6l29.4-94.4h-19.9zM191.7 49.3c-11.4 0-18.1 6.8-18.1 15.6 0 6.6 4.3 11.2 11.4 14.5l6.9 3.1c3.4 1.5 4.5 3.1 4.5 5.2 0 3.3-2.9 4.6-6.1 4.6-4.5 0-7.3-1.4-9.9-2.8l-1.9-1.1-2.1 12.1c2.8 1.4 6.7 2.4 11.2 2.4 12.3 0 19.3-6.4 19.3-16.4 0-7.3-4.5-12-12-15.3l-6.8-3c-3.1-1.4-4.4-2.8-4.4-4.9 0-2.1 2.2-3.8 5.7-3.8 3.6 0 6.1 1.2 8.3 2.3l1.5.8 2-11.6c-2.4-1.1-5.7-2-9.6-2zM337.3 49.3h-14.2c-2.7 0-4.5 1.1-5.2 3.8l-23.3 84.6h19.5l4-15.1h20.9l2.4 15.1h18.2L337.3 49.3zm-17.6 57.3l8.7-31.8 4.8 31.8h-13.5zM128.2 60.6c0-23.1 13-28.9 25.1-28.9 8.2 0 15.4 2.8 20.9 5.7l-4.2 15.3c-4-2.4-9.3-4.2-14.8-4.2-5.7 0-9.4 3-9.4 8s3.7 8 9.4 8c5.4 0 10.8-1.8 14.8-4.2l4.2 15.3c-5.5 2.9-12.7 5.7-20.9 5.7-12.1 0-25.1-5.7-25.1-28.9z"/></svg>;
 const MastercardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40" className={className}><circle cx="20" cy="20" r="20" fill="#EB001B"/><circle cx="40" cy="20" r="20" fill="#F79E1B"/><path d="M30 20a20 20 0 0 1-10 17.32a20 20 0 0 1 0-34.64A20 20 0 0 1 30 20z" fill="#FF5F00"/></svg>;
 const EloIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 81 48" className={className}><circle cx="67.5" cy="24" r="13.5" fill="#FAB51A"/><path d="M40.5 48a24 24 0 1 1 0-48a24 24 0 0 1 0 48z" fill="#000"/><path d="M22.5 24a13.5 13.5 0 1 1-27 0a13.5 13.5 0 0 1 27 0z" fill="#FAB51A"/></svg>;
@@ -9970,8 +9962,6 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
- // ... (restante do componente AppContent) ...
-
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -10012,33 +10002,26 @@ function AppContent({ deferredPrompt }) {
                         </ul>
                     </div>
 
-                    {/* Coluna 4: Formas de Pagamento - ÍCONES AJUSTADOS/REUTILIZADOS */}
+                    {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        {/* Container com fundo branco e espaçamento para melhor visualização dos ícones */}
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 bg-white p-2 rounded-md">
-                            {/* Pix */}
-                            <div title="Pix" className="h-7 flex items-center justify-center">
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
                                 <PixIcon className="h-full w-auto"/>
                             </div>
-                            {/* Visa */}
-                            <div title="Visa" className="h-7 flex items-center justify-center">
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
                                 <VisaIcon className="h-full w-auto"/>
                             </div>
-                            {/* Mastercard */}
-                            <div title="Mastercard" className="h-7 flex items-center justify-center">
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
                                 <MastercardIcon className="h-full w-auto"/>
                             </div>
-                            {/* Elo */}
-                            <div title="Elo" className="h-7 flex items-center justify-center">
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
                                 <EloIcon className="h-full w-auto"/>
                             </div>
-                            {/* Boleto */}
-                            <div title="Boleto" className="h-7 flex items-center justify-center">
-                                <BoletoIcon className="h-6 w-auto text-black"/> {/* Mantido h-6 para proporção */}
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
                             </div>
                         </div>
-                         <p className="text-xs text-gray-500">Pagamentos seguros via Mercado Pago.</p> {/* Mensagem atualizada */}
                          <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
@@ -10053,6 +10036,7 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
