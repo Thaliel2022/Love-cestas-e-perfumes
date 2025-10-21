@@ -1151,17 +1151,17 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo original mantido */}
+                        <div className="bg-red-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Cor alterada para bg-red-600 */}
                             <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span> {/* Texto Revertido */}
+                            <span>PROMOÇÃO {discountPercent}%</span> 
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Texto Revertido
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
                  {product.product_type === 'clothing' && !isOutOfStock && ( 
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo original mantido */}
-                        Ver Cores e Tamanhos {/* Texto Revertido */}
+                        Ver Cores e Tamanhos 
                     </div> 
                  )}
             </div>
