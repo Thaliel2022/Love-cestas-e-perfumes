@@ -975,52 +975,31 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); // Removido 'cart' se não for usado aqui
+    const { addToCart, shippingLocation } = useShop();
     const notification = useNotification();
-    const { user } = useAuth(); // Para lógica de isAdmin
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); // Adicionado para WishlistButton interno
-    const { isAuthenticated } = useAuth(); // Adicionado para WishlistButton interno
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [isBuyingNow, setIsBuyingNow] = useState(false);
+    const [cardShippingInfo, setCardShippingInfo] = useState(null);
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
+    
+    const imageUrl = getFirstImage(product.images);
 
-    const [isAddingToCart, setIsAddingToCart] = useState(false); // Renomeado de isAdding
-    const [isBuyingNow, setIsBuyingNow] = useState(false); // Adicionado estado para 'Comprar'
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); // Adicionado estado de frete
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); // Adicionado estado de loading frete
-
-    // CORREÇÃO IMAGEM: Simplifica a obtenção da imagem inicial diretamente
-    const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
-
-    const isOnSale = product.is_on_sale && product.sale_price > 0;
+    const isOnSale = !!(product.is_on_sale && product.sale_price > 0 && Number(product.price) > Number(product.sale_price));
     const currentPrice = isOnSale ? product.sale_price : product.price;
-
-    const discountPercent = useMemo(() => {
-        if (isOnSale && product.price > 0) { // Adicionado verificação product.price > 0
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
-        return 0;
-    }, [isOnSale, product]);
-
+    const discountPercent = isOnSale ? Math.round(((product.price - product.sale_price) / product.price) * 100) : 0;
+    
     const isNew = useMemo(() => {
-        if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product]);
+    }, [product.created_at]);
 
-    // CORREÇÃO RATING: Usa product.avg_rating e product.review_count se disponíveis
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
-    const reviewCount = product.review_count || 0;
 
-    // Lógica de estoque (mantida da versão anterior corrigida)
-    const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-    const isProductOutOfStock = product.stock <= 0;
-    const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
-    const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
-
-    // --- Efeito de Frete (Mantido da versão anterior) ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
-        // ... (lógica completa de cálculo de frete como na resposta anterior) ...
-         const debounceTimer = setTimeout(() => {
+
+        const debounceTimer = setTimeout(() => {
             if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
@@ -1044,14 +1023,14 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
                             }
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
+                            setCardShippingInfo(`Entrega R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} : previsão ${formattedDate}.`);
                         } else {
-                            setCardShippingInfo('Entrega indisponível para este CEP.');
+                            setCardShippingInfo('Entrega não disponível.');
                         }
                     } catch (error) {
                         if (error.name !== 'AbortError') {
                             console.error(`Erro ao calcular frete para o produto ${product.id}:`, error);
-                            setCardShippingInfo('Erro ao calcular frete.');
+                            setCardShippingInfo('Não foi possível calcular.');
                         }
                     } finally {
                         if (!signal.aborted) { setIsCardShippingLoading(false); }
@@ -1059,8 +1038,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 };
                 calculateShipping();
             } else {
-                setCardShippingInfo(null); // Limpa se não tiver CEP
-                 setIsCardShippingLoading(false); // Garante que loading pare se não houver CEP
+                setCardShippingInfo(null);
             }
         }, 500);
 
@@ -1068,19 +1046,17 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice]); // Dependências corretas
+    }, [product, shippingLocation.cep, currentPrice]);
 
-    // --- Cálculo de parcelas (Mantido da versão anterior) ---
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
+            return `em até 4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} sem juros`;
         }
         return null;
     }, [currentPrice]);
 
-    // --- Handlers de Ação (Adaptados da versão anterior) ---
-    const handleAddToCartInternal = async (e) => { // Renomeado para evitar conflito
+    const handleAddToCart = async (e) => {
         e.stopPropagation();
         if (product.product_type === 'clothing') {
             notification.show("Escolha cor e tamanho na página do produto.", "error");
@@ -1098,7 +1074,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    const handleBuyNowInternal = async (e) => { // Renomeado para evitar conflito
+    const handleBuyNow = async (e) => {
         e.stopPropagation();
          if (product.product_type === 'clothing') {
             onNavigate(`product/${product.id}`);
@@ -1114,12 +1090,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
             setIsBuyingNow(false);
         }
     };
-
-    // --- WishlistButton Interno (Adaptado da versão anterior) ---
+    
     const WishlistButton = ({ product }) => {
+        const { wishlist, addToWishlist, removeFromWishlist } = useShop();
+        const { isAuthenticated } = useAuth();
+        const notification = useNotification();
         const isWishlisted = wishlist.some(item => item.id === product.id);
+
         const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); // Impede a navegação ao clicar no coração
+            e.stopPropagation();
             if (!isAuthenticated) {
                 notification.show("Faça login para adicionar à lista de desejos", "error");
                 return;
@@ -1132,146 +1111,86 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 notification.show(result.message, result.success ? 'success' : 'error');
             }
         };
+
         return (
-            <button
-                onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
-                aria-label="Adicionar à Lista de Desejos"
-            >
-                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
+            <button onClick={handleWishlistToggle} className={`absolute top-3 right-3 bg-black/50 p-2 rounded-full text-white transition ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-400'}`}>
+                <HeartIcon className="h-6 w-6" filled={isWishlisted} />
             </button>
         );
     };
 
-    // --- Card Animation ---
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
     };
 
+    const isOutOfStock = product.stock <= 0;
+
     return (
-        <motion.div
-            layout // Adicionado para animar a remoção/adição
+        <motion.div 
             variants={cardVariants}
-            initial="hidden" // Define estado inicial
-            animate="visible" // Anima para o estado visível
-            exit="hidden" // Define estado de saída (se usado com AnimatePresence)
-            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} // Grayscale adicionado
-            onClick={() => onNavigate(`product/${product.id}`)} // Navegação no card todo
+            whileHover={{ y: -8, scale: 1.02, boxShadow: "0px 15px 30px -5px rgba(212, 175, 55, 0.2)" }}
+            className="bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full"
         >
-            {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
-                <img
-                    src={imageUrl} // Usa a URL calculada no useMemo
-                    alt={product.name}
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                    // Removido onMouseEnter/Leave para simplificar, a imagem principal é definida uma vez
-                />
-                <WishlistButton product={product} /> {/* Usa o componente interno */}
-
-                {/* --- Badges/Selos --- */}
-                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
-                    {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
-                    ) : isOnSale ? (
-                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
-                            <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span>
-                        </div>
-                    ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
-                    ) : null}
-                </div>
-                 {product.product_type === 'clothing' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo Original */}
-                        Ver Cores e Tamanhos
-                    </div>
-                 )}
-            </div>
-
-            {/* --- Seção de Informações --- */}
-            <div className="p-4 flex flex-col flex-grow">
-                {/* --- Marca e Nome --- */}
-                <div>
-                    {/* COR CORRIGIDA ABAIXO */}
-                    <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
-                    <h4
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
-                        title={product.name}
-                    >
-                        {product.name}
-                    </h4>
-                    <div className="flex items-center mt-1.5 h-4 gap-1">
-                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
-                        {reviewCount > 0 && ( <span className="text-[10px] text-gray-500">({reviewCount})</span> )}
-                    </div>
-                </div>
-
-                {/* --- Preço e Parcelas --- */}
-                <div className="mt-auto pt-3">
-                    {isOnSale ? (
-                         <div className="flex flex-col">
-                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                            <div className="flex items-baseline gap-2">
-                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
-                                <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span>
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-500 group-hover:scale-105" onClick={() => onNavigate(`product/${product.id}`)} />
+                <WishlistButton product={product} />
+                {isOutOfStock && (
+                    <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">ESGOTADO</div>
+                )}
+                {!isOutOfStock && (
+                    <div className="absolute top-3 left-3 flex flex-col gap-2">
+                        {isOnSale ? (
+                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+                                <SaleIcon className="h-4 w-4"/>
+                                <span>PROMOÇÃO {discountPercent}%</span>
                             </div>
+                        ) : isNew ? (
+                            <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div>
+                        ) : null}
+                    </div>
+                )}
+                 {product.product_type === 'clothing' && ( <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300">Ver Cores e Tamanhos</div> )}
+            </div>
+            <div className="p-5 flex flex-col flex-grow">
+                <div>
+                    <p className="text-xs text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                    <h4 className="text-xl font-bold tracking-wider mt-1 cursor-pointer hover:text-amber-400" onClick={() => onNavigate(`product/${product.id}`)}>{product.name}</h4>
+                    <div className="flex items-center mt-2 h-5 gap-1">
+                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-5 w-5 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
+                        {product.review_count > 0 && ( <span className="text-xs text-gray-400">({product.review_count})</span> )}
+                    </div>
+                </div>
+                
+                <div className="mt-auto pt-4">
+                    {isOnSale ? (
+                         <div>
+                            <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                         </div>
-                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
-
-                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
-
-                    {/* --- Botões de Ação --- */}
+                    ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
+                    
+                    {installmentInfo && ( <p className="text-sm text-gray-400 mt-1">{installmentInfo}</p> )}
+                    
                     {isOutOfStock ? (
-                        <div className="mt-3">
-                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
+                        <div className="mt-4">
+                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-4 rounded-md font-bold text-center">Produto Esgotado</div>
                         </div>
                     ) : (
-                        <div className="mt-3 flex items-stretch space-x-2">
-                            <button
-                                onClick={handleBuyNowInternal}
-                                disabled={isBuyingNow || isAddingToCart}
-                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'}
+                        <div className="mt-4 flex items-stretch space-x-2">
+                            <button onClick={handleBuyNow} disabled={isBuyingNow || isAddingToCart} className="flex-grow bg-amber-400 text-black py-2 px-4 rounded-md hover:bg-amber-300 transition font-bold text-center flex items-center justify-center disabled:opacity-50">
+                                {isBuyingNow ? <SpinnerIcon /> : 'Comprar'}
                             </button>
-                            <button
-                                onClick={handleAddToCartInternal}
-                                disabled={isAddingToCart || isBuyingNow}
-                                title="Adicionar ao Carrinho"
-                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
+                            <button onClick={handleAddToCart} disabled={isAddingToCart || isBuyingNow} title="Adicionar ao Carrinho" className="flex-shrink-0 border border-amber-400 text-amber-400 p-2 rounded-md hover:bg-amber-400 hover:text-black transition flex items-center justify-center disabled:opacity-50">
+                                {isAddingToCart ? <SpinnerIcon className="text-amber-400" /> : <CartIcon className="h-6 w-6"/>}
                             </button>
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
-                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
-                    {isCardShippingLoading ? (
-                        <SpinnerIcon className="h-3 w-3 text-gray-500" />
-                    ) : cardShippingInfo.includes('Erro') ? (
-                         <ExclamationCircleIcon className="h-3 w-3 text-red-500" />
-                    ) : (
-                        <TruckIcon className="h-3 w-3 text-green-500"/>
-                    )}
-                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
-                        {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
-                    </span>
-                </div>
-            )}
-            {/* Botão de Edição Admin */}
-             {user && user.role === 'admin' && (
-                <div className="absolute top-2 right-12 z-10"> {/* Ajuste na posição se necessário */}
-                    <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }} // Modificado para ir para a lista filtrada
-                            className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1 rounded-full shadow-md transition-colors"
-                            title="Editar Produto">
-                        <EditIcon className="h-4 w-4" />
-                    </button>
+                <div className="p-2 text-xs text-center border-t border-gray-800 bg-gray-900/50">
+                    {isCardShippingLoading ? ( <span className="text-gray-500">Calculando frete...</span> ) : ( <span className="text-green-400">{cardShippingInfo}</span> )}
                 </div>
             )}
         </motion.div>
@@ -1738,12 +1657,9 @@ const Header = memo(({ onNavigate }) => {
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
-                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none"> {/* Ajuste: items-start, leading-none */}
-                                        <UserIcon className="h-6 w-6 mt-0.5"/> {/* Pequeno ajuste para alinhar com texto */}
-                                        <div className="flex flex-col items-start text-xs"> {/* Ajuste: flex-col, items-start, text-xs */}
-                                            <span>Olá, {user.name.split(' ')[0]}</span> {/* Exibe "Olá, PrimeiroNome" */}
-                                            <span className="font-bold text-sm">Conta</span> {/* Mantém "Conta" em negrito e tamanho normal */}
-                                        </div>
+                                   <button className="flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
+                                        <UserIcon className="h-6 w-6"/>
+                                        <span className="hidden sm:inline text-sm font-medium">Conta</span>
                                    </button>
                                    <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
                                        <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span>
@@ -2567,13 +2483,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+    const [thumbnailIndex, setThumbnailIndex] = useState(0);
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
 
-    // --- Hooks e Memos (Lógica Interna) ---
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
@@ -2587,30 +2503,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
-    // Lógica para verificar se é novo (precisa estar aqui) - REINTRODUZIDA
-    const isNew = useMemo(() => {
-        if (!product || !product.created_at) return false;
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product]);
-
-
-    const avgRating = useMemo(() => {
-        return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    }, [reviews]);
-
-    const itemsForShipping = useMemo(() => {
-        if (!product) return [];
-        return [{...product, qty: quantity}];
-    }, [product, quantity]);
-
-    const isClothing = product?.product_type === 'clothing';
-    const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0; // Calculado aqui, mas usado abaixo
-    const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
-
-    // --- Funções Auxiliares (Lógica Interna - Completa) ---
     const getYouTubeEmbedUrl = (url) => {
         if (!url) return null;
         let videoId;
@@ -2628,22 +2520,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     };
 
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
-    };
-
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
-        return null;
-    };
-
-    // --- Callbacks e Handlers (Lógica Interna - Completa) ---
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2655,12 +2531,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 apiService('/products', 'GET', null, { signal }),
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
-
+            
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-            setGalleryImages(images); // Define a galeria inicial
+            setGalleryImages(images);
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -2673,26 +2549,38 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (err.name !== 'AbortError') {
                  console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
-                 notification.show(err.message || "Produto não encontrado", 'error');
             }
         } finally {
             if (!signal.aborted) { setIsLoading(false); }
         }
-        // Retornar a função de cleanup do AbortController
         return () => { controller.abort(); };
-    }, [notification]); // Removido confirmation se não for usado aqui
+    }, []);
 
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
                 await apiService(`/reviews/${reviewId}`, 'DELETE');
                 notification.show('Avaliação excluída com sucesso.');
-                fetchProductData(productId); // Atualiza dados após exclusão
+                fetchProductData(productId);
             } catch (error) {
                 notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
             }
         });
     };
+    
+    useEffect(() => {
+        fetchProductData(productId);
+        window.scrollTo(0, 0);
+    }, [productId, fetchProductData]);
+    
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) return;
+            setIsLoadingInstallments(true); setInstallments([]);
+            try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Não foi possível carregar as opções de parcelamento.", error); } finally { setIsLoadingInstallments(false); }
+        };
+        if (product && !product.error && currentPrice) { fetchInstallments(currentPrice); }
+    }, [product, currentPrice]);
 
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
@@ -2708,19 +2596,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const currentStockLimit = isClothing ? selectedVariation?.stock : product?.stock; // Usa a variável correta
-            if (currentStockLimit !== undefined && newQty > currentStockLimit) {
-                 notification.show(`Apenas ${currentStockLimit} unidades disponíveis.`, 'error'); // Notificação
-                 return currentStockLimit;
-            }
+            const stockLimit = selectedVariation?.stock || product?.stock;
+            if (stockLimit !== undefined && newQty > stockLimit) { return stockLimit; }
             return newQty;
         });
     };
 
-
     const handleAction = async (action) => {
         if (!product) return;
-        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
@@ -2729,78 +2613,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const handleVariationSelection = useCallback((variation, color) => {
-        setQuantity(1); // Reseta quantidade ao trocar variação
+        setQuantity(1);
         setSelectedVariation(variation);
-        // Atualiza a galeria principal com imagens da cor selecionada, se houver
         if (color && productVariations.length > 0) {
-            // Pega imagens únicas associadas a QUALQUER variação dessa cor
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color && v.images && v.images.length > 0)
-                .flatMap(v => v.images)
-                .filter((value, index, self) => self.indexOf(value) === index); // Garante imagens únicas
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return; // Para aqui se encontrou imagens específicas da cor
-            }
+            const allImagesForColor = productVariations.filter(v => v.color === color).flatMap(v => v.images || []).filter((value, index, self) => self.indexOf(value) === index);
+            if (allImagesForColor.length > 0) { setGalleryImages(allImagesForColor); setMainImage(allImagesForColor[0]); return; }
         }
-        // Se não encontrou imagens específicas da cor ou não é produto de vestuário, volta para as imagens principais
         setGalleryImages(productImages);
         setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-
     }, [productVariations, productImages]);
-
-    // --- Effects (Lógica Interna - Completa) ---
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0); // Rola para o topo ao carregar
-    }, [productId, fetchProductData]);
-
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) {
-                setInstallments([]); // Limpa se o preço for inválido
-                setIsLoadingInstallments(false); // Marca como não carregando
-                return;
-            }
-            setIsLoadingInstallments(true);
-            setInstallments([]);
-            try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                setInstallments(installmentData || []);
-            } catch (error) {
-                console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                setInstallments([]); // Limpa em caso de erro
-            } finally {
-                setIsLoadingInstallments(false);
-            }
-        };
-        // Garante que só busca se o produto existe, não deu erro e tem preço
-        if (product && !product.error && currentPrice > 0) {
-            fetchInstallments(currentPrice);
-        } else if (!product || product.error || !(currentPrice > 0)) {
-            // Se não for buscar, garante que o estado de carregamento seja false
-             setInstallments([]);
-             setIsLoadingInstallments(false);
-        }
-    }, [product, currentPrice]); // Dependências corretas
-
-    // --- Componentes Internos ---
+    
+    const avgRating = reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
+    
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
-        return (
-            <button
-                onClick={() => setActiveTab(tabName)}
-                className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2
-                    ${activeTab === tabName
-                        ? 'border-amber-400 text-white'
-                        : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'
-                    }`}
-            >
-                {label}
-            </button>
-        );
+        return <button onClick={() => setActiveTab(tabName)} className={`px-4 md:px-6 py-2 text-base md:text-lg font-semibold border-b-2 transition-colors duration-300 ${activeTab === tabName ? 'border-amber-400 text-amber-400' : 'border-transparent text-gray-500 hover:text-white hover:border-gray-500'}`}>{label}</button>;
+    };
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-2">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1">&#10003;</span><span>{line}</span></li>)}</ul>;
     };
 
     const Lightbox = ({ mainImage, onClose }) => (
@@ -2809,231 +2641,164 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
         </div>
     );
+    
+    const THUMBNAIL_ITEM_HEIGHT = 92; 
+    const VISIBLE_THUMBNAILS = 5; 
+    const canScrollUp = thumbnailIndex > 0;
+    const canScrollDown = (galleryImages.length + (product?.video_url ? 1 : 0)) > VISIBLE_THUMBNAILS && thumbnailIndex < (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
 
-    // --- Renderização Principal ---
+    const scrollThumbs = (direction) => {
+        setThumbnailIndex(prev => {
+            const newIndex = prev + direction;
+            const maxIndex = (galleryImages.length + (product?.video_url ? 1 : 0)) - VISIBLE_THUMBNAILS;
+            if (newIndex < 0) return 0;
+            if (newIndex > maxIndex) return maxIndex;
+            return newIndex;
+        });
+    };
+    const UpArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
+    const DownArrow = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>;
+
+    const getInstallmentSummary = () => {
+        if (isLoadingInstallments) { return <div className="h-5 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
+        if (!installments || installments.length === 0) { return <span className="text-gray-500">Opções de parcelamento indisponíveis.</span>; }
+        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
+        if (noInterest) { return <span>em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
+        const lastInstallment = installments[installments.length - 1];
+        if (lastInstallment) { return <span>ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
+        return null;
+    };
+    
+    const itemsForShipping = useMemo(() => { if (!product) return []; return [{...product, qty: quantity}]; }, [product, quantity]);
+
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
-
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock; // Estoque a ser verificado
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
-
+    
+    const isClothing = product.product_type === 'clothing';
+    const isPerfume = product.product_type === 'perfume';
+    const isProductOutOfStock = product.stock <= 0;
+    const stockLimit = isClothing ? selectedVariation?.stock : product.stock;
+    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
+    
     return (
-        <div className="bg-black text-white min-h-screen"> {/* Fundo revertido para black */}
+        <div className="bg-black text-white min-h-screen">
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
-                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
+                    <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
                         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
                             <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
                         </div>
                     </Modal>
                 )}
             </AnimatePresence>
-
-            <div className="container mx-auto px-4 py-8 lg:py-12">
-                {/* --- Breadcrumb / Voltar --- */}
-                <div className="mb-6">
-                    <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> {/* Cor revertida */}
-                        <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
-                        Voltar para todos os produtos
-                    </button>
+            <div className="container mx-auto px-4 py-8">
+                <div className="mb-4">
+                    <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); }} className="text-sm text-amber-400 hover:underline flex items-center w-fit"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>Voltar para todos os produtos</a>
                 </div>
-
-                {/* --- Layout Principal: Galeria e Informações --- */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    {/* --- Coluna da Galeria --- */}
-                    <div className="lg:sticky lg:top-24 self-start">
-                        {/* Imagem Principal */}
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {/* Badges Revertidos/Adicionados */}
-                             {!productOrVariationOutOfStock && ( // Mostra apenas se tem estoque
-                                <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
-                                    {isOnSale ? (
-                                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
-                                            <SaleIcon className="h-4 w-4"/>
-                                            <span>PROMOÇÃO {discountPercent}%</span>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div className="lg:col-span-3 flex flex-col-reverse sm:flex-row gap-4 self-start">
+                        <div className="relative flex-shrink-0 w-full sm:w-24 flex sm:flex-col items-center">
+                            <AnimatePresence>{canScrollUp && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(-1)} className="hidden sm:flex items-center justify-center absolute top-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollUp}><UpArrow /></motion.button> )}</AnimatePresence>
+                            <div className="w-full sm:h-[640px] overflow-x-auto sm:overflow-hidden scrollbar-hide pt-2 sm:py-10">
+                                <motion.div className="flex sm:flex-col gap-3" animate={{ y: `-${thumbnailIndex * THUMBNAIL_ITEM_HEIGHT}px` }} transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+                                    {product.video_url && (
+                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center">
+                                            <img src={mainImage || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                         </div>
-                                    ) : isNew ? (
-                                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
-                                    ) : null}
-                                </div>
-                             )}
-                             {productOrVariationOutOfStock && ( // Badge de esgotado separado
-                                 <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div>
-                             )}
-
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
+                                    )}
+                                    {galleryImages.map((img, index) => ( <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-500'}`}><img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" /></div> ))}
+                                </motion.div>
+                            </div>
+                            <AnimatePresence>{canScrollDown && ( <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => scrollThumbs(1)} className="hidden sm:flex items-center justify-center absolute bottom-0 left-1/2 -translate-x-1/2 z-10 w-8 h-8 bg-black/40 hover:bg-black/70 rounded-full text-white disabled:cursor-default transition-all" disabled={!canScrollDown}><DownArrow /></motion.button> )}</AnimatePresence>
                         </div>
-
-                        {/* Miniaturas Horizontais */}
-                        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                           {product.video_url && (
-                                <div
-                                    onClick={() => setIsVideoModalOpen(true)}
-                                    className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors"
-                                >
-                                    <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
-                                    </div>
-                                </div>
-                            )}
-                            {galleryImages.map((img, index) => (
-                                <div
-                                    key={index}
-                                    onClick={() => setMainImage(img)}
-                                    onMouseEnter={() => setMainImage(img)}
-                                    className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
-                                >
-                                    <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
-                                </div>
-                            ))}
+                        <div onClick={() => setIsLightboxOpen(true)} className="flex-grow bg-white p-4 rounded-lg flex items-center justify-center h-80 sm:h-[640px] cursor-zoom-in relative">
+                            {isOnSale && ( <div className="absolute top-3 left-3 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm z-10 flex items-center gap-2"><SaleIcon className="h-5 w-5"/><span>PROMOÇÃO {discountPercent}%</span></div> )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain" />
                         </div>
                     </div>
-
-                    {/* --- Coluna de Informações e Ações --- */}
-                    <div className="space-y-6">
-                        {/* --- Cabeçalho do Produto --- */}
+                    <div className="lg:col-span-2 space-y-6">
                         <div>
-                            <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p> {/* Cor Revertida */}
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <p className="text-sm text-amber-400 font-semibold tracking-wider">{product.brand.toUpperCase()}</p>
+                            <h1 className="text-3xl lg:text-4xl font-bold my-1">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-lg font-light text-gray-300">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
-                                </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm">
-                                    <ShareIcon className="h-4 w-4"/>
-                                    <span className="hidden sm:inline">Compartilhar</span>
-                                </button>
+                                <div className="flex items-center gap-1">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-5 w-5 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}
+                                {reviews.length > 0 && <span className="text-xs text-gray-400">({reviews.length})</span>}</div>
+                                <button onClick={handleShare} className="flex items-center gap-2 text-gray-400 hover:text-amber-400 transition-colors p-2 rounded-lg hover:bg-gray-800"><ShareIcon className="h-5 w-5"/><span className="text-sm font-semibold hidden sm:inline">Compartilhar</span></button>
                             </div>
                         </div>
-
-                        {/* --- Preço --- */}
-                        <div className="border-t border-b border-gray-800 py-4">
-                            {isOnSale ? (
-                                <div className="flex items-center gap-3">
-                                    <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
-                                    <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>
-                                </div>
-                             ) : (
-                                <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
-                             )}
-                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
-                                <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                                <span>{getInstallmentSummary()}</span>
-                                {!isLoadingInstallments && installments && installments.length > 0 && (
-                                    <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver mais)</button>
-                                )}
+                        {isOnSale ? ( <div className="flex items-baseline gap-4"><p className="text-5xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p><p className="text-2xl font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2)}</p></div> ) : ( <p className="text-2xl font-semibold text-white">R$ {Number(product.price).toFixed(2)}</p> )}
+                        <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                            <div className="flex items-start">
+                                <CreditCardIcon className="h-6 w-6 text-amber-400 mr-4 flex-shrink-0 mt-0.5" />
+                                <div><p className="text-gray-300">{getInstallmentSummary()}</p><button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline mt-1 disabled:text-gray-500 disabled:no-underline disabled:cursor-not-allowed" disabled={isLoadingInstallments || !installments || installments.length === 0}>Ver parcelas disponíveis</button></div>
                             </div>
                         </div>
-
-                        {/* --- Variações --- */}
                         {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
-
-                        {/* --- Quantidade e Estoque --- */}
-                        {!productOrVariationOutOfStock && ( // Verifica estoque aqui também
+                        {!isProductOutOfStock && (
                             <div className="flex items-center space-x-4">
-                                <p className="font-semibold text-sm">Quantidade:</p>
-                                <div className="flex items-center border border-gray-700 rounded-md overflow-hidden">
-                                    <button onClick={() => handleQuantityChange(-1)} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors">-</button>
-                                    <span className="px-4 py-1.5 font-bold text-base border-x border-gray-700">{quantity}</span>
-                                    <button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button>
-                                </div>
-                                {stockLimit !== undefined && <span className="text-xs text-gray-500">({stockLimit} unid. disponíveis)</span>}
-                                {isQtyAtMax && <span className="text-xs text-red-400">Limite atingido</span>}
+                                <p className="font-semibold">Quantidade:</p>
+                                <div className="flex items-center border border-gray-700 rounded-md"><button onClick={() => handleQuantityChange(-1)} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-l-md">-</button><span className="px-5 py-2 font-bold text-lg">{quantity}</span><button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-4 py-2 text-xl hover:bg-gray-800 rounded-r-md disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button></div>
+                                {stockLimit !== undefined && <span className="text-sm text-gray-400">({stockLimit} em estoque)</span>}
                             </div>
                         )}
-
-                        {/* --- Botões de Ação --- */}
-                        <div className="space-y-3 pt-2">
-                            {productOrVariationOutOfStock ? ( // Condição unificada para esgotado
-                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold">
-                                    {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'}
-                                </div>
-                            ) : (
+                        <div className="space-y-3">
+                            {isProductOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-4 rounded-md text-lg text-center font-bold">Produto Esgotado</div> ) : isClothing && selectedVariation && stockLimit === 0 ? ( <div className="w-full bg-yellow-800 text-yellow-200 py-4 rounded-md text-lg text-center font-bold">Variação Esgotada</div> ) : (
                                 <>
-                                    <button
-                                        onClick={() => handleAction('buyNow')}
-                                        className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
-                                        disabled={isClothing && !selectedVariation}
-                                    >
-                                        Comprar Agora
-                                    </button>
-                                    <button
-                                        onClick={() => handleAction('addToCart')}
-                                        className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md"
-                                        disabled={isClothing && !selectedVariation}
-                                    >
-                                        <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho
-                                    </button>
+                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-4 rounded-md text-lg hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Comprar Agora</button>
+                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-700 text-white py-3 rounded-md text-lg hover:bg-gray-600 transition font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={(isClothing && !selectedVariation)}>Adicionar ao Carrinho</button>
                                 </>
                             )}
                         </div>
-
-                        {/* --- Calculadora de Frete --- */}
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
-
-                {/* --- Abas de Informação --- */}
-                <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
-                        <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
-                        <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
-                        <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
-                        <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                <div className="mt-16 pt-10 border-t border-gray-800">
+                    <div className="flex justify-center border-b border-gray-800 mb-6 flex-wrap">
+                        <TabButton label="Descrição" tabName="description" /><TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} /><TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} /><TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} /><TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} /><TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    {/* Estilos 'prose' adicionados para melhor formatação de texto */}
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
+                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px]">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)} {/* Classe max-w-none para tabelas */}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
-
-                {/* --- Produtos Relacionados --- */}
-                {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
-                {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
-
-                {/* --- Avaliações --- */}
-                <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
-                    <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
-                    <div className="space-y-6 mb-10">
+                {crossSellProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
+                {relatedProducts.length > 0 && ( <div className="mt-20 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
+                <div className="mt-20 pt-10 border-t border-gray-800 max-w-4xl mx-auto">
+                    <h2 className="text-3xl font-bold mb-6 text-center">Avaliações de Clientes</h2>
+                    <div className="space-y-6 mb-8">
                       {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="bg-gray-900 p-5 rounded-lg border border-gray-800 relative shadow">
+                            <div key={review.id} className="bg-gray-900 p-4 rounded-lg border border-gray-800 relative">
                                 {user && user.role === 'admin' && (
-                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDeleteReview(review.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button>
                                 )}
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400">
                                         <UserIcon className="h-5 w-5" />
                                     </div>
-                                    <span className="font-semibold text-white text-sm">{review.user_name}</span>
-                                    <span className="text-xs text-gray-500 ml-auto">{new Date(review.created_at).toLocaleDateString('pt-BR')}</span>
+                                    <span className="font-bold text-white">{review.user_name}</span>
                                 </div>
-                                <div className="flex items-center gap-2 mb-3">
+                                <div className="flex items-center gap-2 mb-2">
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                    <h4 className="font-bold text-white text-base">{product.name}</h4>
                                 </div>
-                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed pr-6 break-words">{review.comment}</p>}
+                                <p className="text-sm text-gray-400 mb-2">Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                <p className="text-sm text-amber-500 font-semibold mb-3">Compra verificada</p>
+                                <p className="text-gray-300 pr-6 break-words">{review.comment}</p>
                             </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
+                        )) : <p className="text-gray-500 text-center mb-8">Nenhuma avaliação ainda.</p>}
                     </div>
-                    {/* --- CTA para Avaliar --- */}
-                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
-                        <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
-                        <p className="text-gray-400 text-sm mb-4">Compartilhe sua opinião para ajudar outros clientes!</p>
-                        <p className="text-xs text-gray-500">Você pode avaliar os produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline hover:text-amber-300">Meus Pedidos</a>.</p>
+                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center">
+                        <p className="text-gray-400">Para deixar uma avaliação, você precisa ter comprado este produto.</p>
+                        <p className="text-sm text-gray-500 mt-2">Encontre seus produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline">Meus Pedidos</a> para avaliá-los.</p>
                     </div>
                 </div>
             </div>
@@ -3892,7 +3657,7 @@ const CheckoutPage = ({ onNavigate }) => {
         clearOrderState,
         addresses,
         fetchAddresses,
-        shippingLocation,
+        shippingLocation, // <-- Usar shippingLocation do contexto
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
@@ -3900,31 +3665,238 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
+    // Estado local para o endereço exibido, inicializado com o do contexto
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
+
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // --- Lógica Interna (Mantida) ---
-    useEffect(() => { /* ... busca inicial de endereço ... */ }, [fetchAddresses, shippingLocation, setShippingLocation]);
-    useEffect(() => { /* ... define dados de retirada ... */ }, [user, isSomeoneElsePickingUp]);
-    const handleSelectShipping = (option) => { /* ... lógica seleção de frete ... */ };
-    const handleAddressSelection = (address) => { /* ... lógica seleção de endereço ... */ };
-    const handleAddNewAddress = () => { /* ... abre modal novo endereço ... */ };
-    const handleSaveNewAddress = async (formData) => { /* ... salva novo endereço ... */ };
-    const subtotal = useMemo(() => { /* ... cálculo subtotal ... */ }, [cart]);
-    const shippingCost = useMemo(() => { /* ... cálculo custo frete ... */ }, [autoCalculatedShipping]);
-    const discount = useMemo(() => { /* ... cálculo desconto ... */ }, [appliedCoupon, subtotal, shippingCost]);
-    const total = useMemo(() => { /* ... cálculo total ... */ }, [subtotal, discount, shippingCost]);
-    const handlePlaceOrderAndPay = async () => { /* ... lógica finalizar pedido ... */ };
-    const getShippingName = (name) => { /* ... formata nome frete ... */ };
-    const getDeliveryDateText = (deliveryTime) => { /* ... calcula e formata data entrega ... */ };
-    // --- Fim Lógica Interna ---
+    // Ajuste no useEffect inicial
+    useEffect(() => {
+        setIsAddressLoading(true);
+        fetchAddresses().then(userAddresses => {
+            let addressToSet = null;
+            // Prioriza o shippingLocation atual do contexto
+            if (shippingLocation && shippingLocation.cep) {
+                // Tenta encontrar um endereço salvo que corresponda ao CEP e alias (se não for genérico)
+                const matchingSavedAddress = userAddresses.find(addr =>
+                    addr.cep === shippingLocation.cep &&
+                    (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
+                );
+                if (matchingSavedAddress) {
+                    addressToSet = matchingSavedAddress;
+                } else {
+                    // Se não encontrar correspondência salva (ex: CEP manual), usa os dados do contexto
+                    addressToSet = {
+                        cep: shippingLocation.cep,
+                        localidade: shippingLocation.city,
+                        uf: shippingLocation.state,
+                        alias: shippingLocation.alias,
+                        // Adiciona campos vazios para consistência da estrutura, mas eles não serão usados para envio
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
+                    };
+                }
+            }
+
+            // Se ainda não encontrou um endereço, usa o padrão ou o primeiro da lista
+            if (!addressToSet) {
+                addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
+            }
+
+            setDisplayAddress(addressToSet); // Define o endereço a ser exibido
+
+            // Sincroniza o shippingLocation global se o endereço encontrado for diferente do atual no contexto
+            if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
+                 setShippingLocation({
+                    cep: addressToSet.cep,
+                    city: addressToSet.localidade,
+                    state: addressToSet.uf,
+                    alias: addressToSet.alias
+                 });
+            }
+
+        }).finally(() => {
+            setIsAddressLoading(false);
+        });
+    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
+
+    // Remove o useEffect que atualizava o global baseado no local, pois agora a inicialização já faz isso.
+    // useEffect(() => {
+    //     if (selectedAddress && !autoCalculatedShipping?.isPickup) {
+    //         setShippingLocation({
+    //             cep: selectedAddress.cep,
+    //             city: selectedAddress.localidade,
+    //             state: selectedAddress.uf,
+    //             alias: selectedAddress.alias
+    //         });
+    //     }
+    // }, [selectedAddress, autoCalculatedShipping?.isPickup, setShippingLocation]);
+
+    useEffect(() => {
+        if (user && !isSomeoneElsePickingUp) {
+            setPickupPersonName(user.name);
+            setPickupPersonCpf(user.cpf);
+        } else {
+            setPickupPersonName('');
+            setPickupPersonCpf('');
+        }
+    }, [user, isSomeoneElsePickingUp]);
+
+    const handleSelectShipping = (option) => {
+        setAutoCalculatedShipping(option);
+        setSelectedShippingName(option.name);
+        // Se a opção selecionada for "Retirar na Loja", limpa o displayAddress para não mostrar endereço de entrega
+        if(option.isPickup) {
+            setDisplayAddress(null);
+        } else if (!displayAddress && addresses.length > 0) {
+            // Se estava em Retirada e voltou para Envio, tenta restaurar o endereço padrão ou o primeiro
+             const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
+             if (defaultOrFirst) {
+                setDisplayAddress(defaultOrFirst);
+                setShippingLocation({ // Atualiza o global também
+                    cep: defaultOrFirst.cep,
+                    city: defaultOrFirst.localidade,
+                    state: defaultOrFirst.uf,
+                    alias: defaultOrFirst.alias
+                 });
+             }
+        }
+    };
+
+    const handleAddressSelection = (address) => {
+        setDisplayAddress(address); // Atualiza o endereço exibido
+        // Atualiza também o shippingLocation global para recalcular frete
+        setShippingLocation({
+            cep: address.cep,
+            city: address.localidade,
+            state: address.uf,
+            alias: address.alias
+         });
+        setIsAddressModalOpen(false);
+    };
+
+    const handleAddNewAddress = () => {
+        setIsAddressModalOpen(false);
+        setIsNewAddressModalOpen(true);
+    };
+
+    const handleSaveNewAddress = async (formData) => {
+        try {
+            const savedAddress = await apiService('/addresses', 'POST', formData);
+            notification.show('Endereço salvo com sucesso!');
+            const updatedAddresses = await fetchAddresses(); // Rebusca endereços atualizados
+            const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
+            setDisplayAddress(newAddress); // Define como endereço exibido
+             setShippingLocation({ // Atualiza o global
+                cep: newAddress.cep,
+                city: newAddress.localidade,
+                state: newAddress.uf,
+                alias: newAddress.alias
+             });
+            setIsNewAddressModalOpen(false);
+        } catch (error) {
+            notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
+        }
+    };
+
+    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        return sum + price * item.qty;
+    }, 0), [cart]);
+
+    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping') {
+            discountValue = shippingCost;
+        }
+        return discountValue;
+    }, [appliedCoupon, subtotal, shippingCost]);
+
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
+    const handlePlaceOrderAndPay = async () => {
+        const isPickup = autoCalculatedShipping?.isPickup;
+        // Validação usa displayAddress agora
+        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
+            notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
+            return;
+        }
+
+        if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
+            notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            // Garante que apenas endereços salvos (com ID) sejam enviados
+            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+
+            const orderPayload = {
+                items: cart.map(item => ({
+                    id: item.id,
+                    qty: item.qty,
+                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                    variation: item.variation
+                })),
+                total: total,
+                shippingAddress: finalShippingAddress, // Envia o endereço selecionado (se não for pickup)
+                paymentMethod: paymentMethod,
+                shipping_method: autoCalculatedShipping.name,
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon ? appliedCoupon.code : null,
+                discount_amount: discount,
+                pickup_details: isPickup ? JSON.stringify({
+                    personName: isSomeoneElsePickingUp ? pickupPersonName : user.name,
+                    personCpf: isSomeoneElsePickingUp ? pickupPersonCpf.replace(/\D/g, '') : user.cpf,
+                }) : null,
+            };
+            const orderResult = await apiService('/orders', 'POST', orderPayload);
+            const { orderId } = orderResult;
+
+            if (paymentMethod === 'mercadopago') {
+                sessionStorage.setItem('pendingOrderId', orderId);
+                const mpPayload = { orderId };
+                const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
+                if (paymentResult && paymentResult.init_point) {
+                    window.location.href = paymentResult.init_point;
+                } else {
+                    throw new Error("Não foi possível obter o link de pagamento.");
+                }
+            } else {
+                clearOrderState();
+                onNavigate(`order-success/${orderId}`);
+            }
+
+        } catch (error) {
+            notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
+            setIsLoading(false);
+        }
+    };
+
+    const getShippingName = (name) => {
+        if (name) {
+            const lowerCaseName = name.toLowerCase();
+            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
+                return 'PAC';
+            }
+        }
+        return name || 'N/A';
+    };
 
     return (
         <>
@@ -3939,218 +3911,123 @@ const CheckoutPage = ({ onNavigate }) => {
                 <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
             </Modal>
 
-            {/* --- Layout Principal --- */}
             <div className="bg-black text-white min-h-screen">
-                <div className="container mx-auto px-4 py-8 lg:py-12">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center lg:text-left">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <div className="lg:col-span-1 space-y-8">
 
-                        {/* --- Coluna Esquerda: Entrega, Endereço, Pagamento --- */}
-                        <div className="lg:col-span-2 space-y-8">
-
-                            {/* --- Seção Forma de Entrega --- */}
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 shadow-md">
-                                <h2 className="text-xl font-bold text-amber-400 mb-5 flex items-center gap-2">
-                                    <TruckIcon className="h-6 w-6"/> 1. Forma de Entrega
-                                </h2>
-                                <div className="space-y-4">
-                                    {shippingOptions.map(option => {
-                                        const isSelected = autoCalculatedShipping?.name === option.name;
-                                        return (
-                                            <div
-                                                key={option.name}
-                                                onClick={() => handleSelectShipping(option)}
-                                                className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer flex items-center justify-between gap-4 ${
-                                                    isSelected ? 'border-amber-400 bg-gray-800 shadow-lg' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    {/* Radio button estilizado */}
-                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-amber-400' : 'border-gray-600'}`}>
-                                                        {isSelected && <div className="w-2.5 h-2.5 bg-amber-400 rounded-full"></div>}
-                                                    </div>
-                                                    <div>
-                                                        <span className="font-semibold text-base block">{option.name}</span>
-                                                        <span className="text-sm text-gray-400 block">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</span>
-                                                    </div>
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
+                                <div className="space-y-3">
+                                    {shippingOptions.map(option => (
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
+                                                    <span className="font-bold">{option.name}</span>
                                                 </div>
-                                                <span className={`font-bold text-lg whitespace-nowrap ${isSelected ? 'text-amber-400' : 'text-white'}`}>
-                                                    {option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}
-                                                </span>
+                                                <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                        );
-                                    })}
+                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : `Prazo estimado: ${option.delivery_time} dias úteis`}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
-                            {/* --- Seção Endereço ou Detalhes de Retirada --- */}
-                            {autoCalculatedShipping && ( // Mostra apenas se uma opção de entrega foi selecionada
-                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 shadow-md">
-                                    {autoCalculatedShipping.isPickup ? (
-                                        <>
-                                            <h2 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
-                                                <BoxIcon className="h-6 w-6"/> Detalhes da Retirada
-                                            </h2>
-                                            <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
-                                                <p className="font-bold text-gray-300">Endereço para Retirada:</p>
-                                                <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                                                <p className="font-bold mt-2 text-gray-300">Horário:</p>
-                                                <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
-                                                <p className="text-amber-300 text-xs mt-3">
-                                                    <ExclamationCircleIcon className="h-4 w-4 inline mr-1"/>
-                                                    Aguarde a notificação de "Pronto para Retirada".
-                                                </p>
+                            {autoCalculatedShipping?.isPickup ? (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
+                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
+                                        <p className="font-bold">Endereço para Retirada:</p>
+                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p className="font-bold mt-2">Horário:</p>
+                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                        <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
+                                    </div>
+                                    <div className="mt-4 space-y-3">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
+                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
+                                        </div>
+                                        {isSomeoneElsePickingUp && (
+                                            <div className="space-y-2 overflow-hidden">
+                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
                                             </div>
-                                            <div className="mt-5 space-y-3">
-                                                <div className="flex items-center">
-                                                    <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 focus:ring-offset-gray-900"/>
-                                                    <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
-                                                </div>
-                                                {isSomeoneElsePickingUp && (
-                                                    <AnimatePresence>
-                                                        <motion.div
-                                                            initial={{ height: 0, opacity: 0 }}
-                                                            animate={{ height: 'auto', opacity: 1 }}
-                                                            exit={{ height: 0, opacity: 0 }}
-                                                            className="space-y-3 overflow-hidden"
-                                                        >
-                                                            <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"/>
-                                                            <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded text-sm"/>
-                                                        </motion.div>
-                                                    </AnimatePresence>
-                                                )}
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
+                                    {isAddressLoading ? (
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : displayAddress ? ( // Usa displayAddress aqui
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
+                                            <div className="space-y-1 text-gray-300 text-sm">
+                                                {/* Exibe detalhes apenas se existirem (evita mostrar campos vazios de CEP manual) */}
+                                                {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
+                                                {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
+                                                {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
+                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
                                             </div>
-                                        </>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
+                                                Alterar Endereço
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <>
-                                            <h2 className="text-xl font-bold text-amber-400 mb-4 flex items-center gap-2">
-                                                <MapPinIcon className="h-6 w-6"/> Endereço de Entrega
-                                            </h2>
-                                            {isAddressLoading ? (
-                                                <div className="p-4 bg-gray-800 rounded-md animate-pulse h-32"></div>
-                                            ) : displayAddress ? (
-                                                <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
-                                                    <p className="font-semibold text-base mb-2">{displayAddress.alias}</p>
-                                                    <div className="space-y-1 text-gray-300 text-sm">
-                                                        {displayAddress.logradouro && <p>{displayAddress.logradouro}, {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
-                                                        {displayAddress.bairro && <p>{displayAddress.bairro}</p>}
-                                                        <p>{displayAddress.localidade} - {displayAddress.uf}</p>
-                                                        <p>{displayAddress.cep}</p>
-                                                    </div>
-                                                    <button onClick={() => setIsAddressModalOpen(true)} className="absolute top-4 right-4 text-amber-400 hover:underline text-xs font-semibold">
-                                                        Alterar
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
-                                                    <p className="text-gray-400 mb-4">Nenhum endereço selecionado ou cadastrado.</p>
-                                                    <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm">
-                                                        <PlusIcon className="h-4 w-4 inline mr-1"/> Adicionar Endereço
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </>
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço selecionado ou cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* --- Seção Forma de Pagamento --- */}
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 shadow-md">
-                                <h2 className="text-xl font-bold text-amber-400 mb-5 flex items-center gap-2">
-                                    <CreditCardIcon className="h-6 w-6"/> 2. Forma de Pagamento
-                                </h2>
-                                <div className="space-y-4">
-                                    {/* Opção Mercado Pago */}
-                                    <div
-                                        onClick={() => setPaymentMethod('mercadopago')}
-                                        className={`p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer flex items-center gap-4 ${
-                                            paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-lg' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'
-                                        }`}
-                                    >
-                                         {/* Radio button estilizado */}
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-600'}`}>
-                                            {paymentMethod === 'mercadopago' && <div className="w-2.5 h-2.5 bg-amber-400 rounded-full"></div>}
-                                        </div>
-                                        <div>
-                                            <span className="font-semibold text-base block">Pagar com Mercado Pago</span>
-                                            <span className="text-sm text-gray-400 block">Use Cartão de Crédito (até 4x s/ juros), Pix ou Boleto em ambiente seguro.</span>
-                                        </div>
-                                        {/* Logos Pequenos */}
-                                        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-                                            <PixIcon className="h-5 w-auto text-gray-300"/>
-                                            <VisaIcon className="h-4 w-auto text-gray-300"/>
-                                            <MastercardIcon className="h-5 w-auto text-gray-300"/>
-                                            <BoletoIcon className="h-4 w-auto text-gray-300"/>
-                                        </div>
-                                    </div>
-                                    {/* Adicionar outras formas de pagamento aqui se necessário */}
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
+                                <div className="space-y-3">
+                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
+                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>
-
-                        {/* --- Coluna Direita: Resumo do Pedido --- */}
                         <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28 shadow-md">
-                                <h2 className="text-xl font-bold text-amber-400 mb-5 text-center lg:text-left">Resumo do Pedido</h2>
-
-                                {/* Itens do Carrinho */}
-                                <div className="space-y-3 mb-4 max-h-60 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                                    {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex items-center gap-3 text-sm">
-                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded flex-shrink-0"/>
-                                            <div className="flex-grow overflow-hidden">
-                                                <p className="text-gray-300 truncate">{item.qty}x {item.name}</p>
-                                                {item.variation && <p className="text-xs text-gray-500">{item.variation.color} / {item.variation.size}</p>}
-                                            </div>
-                                            <span className="text-gray-300 font-medium whitespace-nowrap">
-                                                R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Totais */}
-                                <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-400">
-                                        <span>Subtotal</span>
-                                        <span>R$ {subtotal.toFixed(2)}</span>
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
+                                {cart.map(item => (
+                                    <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1">
+                                        <span className="truncate pr-2">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                        <span>R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
                                     </div>
+                                ))}
+                                <div className="border-t border-gray-700 mt-4 pt-4">
+                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-400">
-                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)})</span>
+                                        <div className="flex justify-between text-gray-300 py-1">
+                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)}):</span>
                                             <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-500 text-center py-1">Selecione a entrega</div>
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o método de entrega.</div>
                                     )}
-                                    {appliedCoupon && (
-                                        <div className="flex justify-between text-green-400 font-medium">
-                                            <span>Desconto ({appliedCoupon.code})</span>
-                                            <span>- R$ {discount.toFixed(2)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
-                                        <span>Total</span>
-                                        <span className="text-amber-400">R$ {total.toFixed(2)}</span>
-                                    </div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
 
-                                {/* Botão Finalizar */}
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading || cart.length === 0}
-                                    className="w-full mt-6 bg-amber-400 text-black py-3.5 rounded-md hover:bg-amber-300 transition font-bold text-lg disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-black"
-                                >
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
                                     {isLoading ? (
-                                        <>
-                                            <SpinnerIcon className="h-5 w-5"/> Processando...
-                                        </>
+                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
                                     ) : (
                                         'Finalizar e Pagar'
                                     )}
                                 </button>
-                                {cart.length === 0 && <p className="text-center text-xs text-red-400 mt-2">Seu carrinho está vazio.</p>}
-                                {cart.length > 0 && (!autoCalculatedShipping || (!displayAddress && !autoCalculatedShipping?.isPickup)) && <p className="text-center text-xs text-gray-500 mt-2">Selecione a forma de entrega e endereço.</p>}
                             </div>
                         </div>
                     </div>
