@@ -1389,7 +1389,6 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    // Adicionado wishlist aqui para pegar a contagem e currentPath para o estado ativo
     const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -1398,20 +1397,53 @@ const Header = memo(({ onNavigate }) => {
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
-
-    // Pega o path atual para destacar o ícone ativo na BottomNavBar
-    // Usa useState e useEffect para garantir que o valor está atualizado na re-renderização
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+
+    // --- NOVO: Estado para visibilidade da BottomNavBar ---
+    const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
+    const lastScrollY = useRef(0);
+    const isScrollingDown = useRef(false); // Ref para evitar múltiplos updates
+
     useEffect(() => {
         const handleHashChange = () => {
              setCurrentPath(window.location.hash.slice(1) || 'home');
         };
         window.addEventListener('hashchange', handleHashChange);
-        // Atualiza no mount inicial também
         handleHashChange();
         return () => window.removeEventListener('hashchange', handleHashChange);
      }, []);
 
+    // --- NOVO: Efeito para controlar a visibilidade da BottomNavBar no scroll ---
+    useEffect(() => {
+        const controlNavbar = () => {
+            const currentScrollY = window.scrollY;
+            const threshold = 5; // Pequena margem para evitar flickering
+
+            // Só executa em telas menores (mobile)
+            if (window.innerWidth < 768) {
+                if (currentScrollY > lastScrollY.current + threshold && !isScrollingDown.current) {
+                    // Scrolling Down
+                    setIsBottomNavVisible(false);
+                    isScrollingDown.current = true;
+                } else if (currentScrollY < lastScrollY.current - threshold && isScrollingDown.current) {
+                    // Scrolling Up
+                    setIsBottomNavVisible(true);
+                    isScrollingDown.current = false;
+                }
+            } else {
+                // Em telas maiores, a barra está sempre visível (ou não existe)
+                setIsBottomNavVisible(true);
+                isScrollingDown.current = false;
+            }
+
+            lastScrollY.current = currentScrollY;
+        };
+
+        window.addEventListener('scroll', controlNavbar);
+        return () => {
+            window.removeEventListener('scroll', controlNavbar);
+        };
+    }, []); // Executa apenas uma vez
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1440,12 +1472,10 @@ const Header = memo(({ onNavigate }) => {
             });
     }, []);
 
-    // Busca o menu na primeira vez que o componente carrega
     useEffect(() => {
         fetchAndBuildMenu();
     }, [fetchAndBuildMenu]);
 
-    // Lógica de Retentativa: Se o menu mobile for aberto e estiver vazio, busca de novo.
     useEffect(() => {
         if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
             console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
@@ -1508,14 +1538,10 @@ const Header = memo(({ onNavigate }) => {
         closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
     };
 
-    // --- Lógica e Estado para o Modal de Endereço ---
-    // addresses is fetched inside useEffect when modal opens if needed
-    // Removido de useShop() aqui, pois já estava declarado acima
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
-    // Busca endereços se o usuário estiver logado quando o modal for aberto
     useEffect(() => {
         if (isAddressModalOpen && isAuthenticated) {
             fetchAddresses();
@@ -1523,7 +1549,6 @@ const Header = memo(({ onNavigate }) => {
     }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
 
     const handleSelectAddress = (addr) => {
-        // Update the global state which will trigger re-render
         setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
         setIsAddressModalOpen(false);
     };
@@ -1537,8 +1562,6 @@ const Header = memo(({ onNavigate }) => {
             const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
             const data = await response.json();
             if (data.erro) { setCepError("CEP não encontrado."); } else {
-                // Update the global state which will trigger re-render
-                // Define um alias específico para CEP manual
                 setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
                 setIsAddressModalOpen(false);
                 setManualCep('');
@@ -1551,53 +1574,59 @@ const Header = memo(({ onNavigate }) => {
         if (cepError) setCepError('');
     };
 
-    // --- Lógica Simplificada para Exibição do Endereço (Mobile) ---
-    let addressDisplay = 'Selecione um endereço'; // Default placeholder
+    let addressDisplay = 'Selecione um endereço';
     if (shippingLocation && shippingLocation.cep) {
         const cleanCep = shippingLocation.cep.replace(/\D/g, '');
         if (cleanCep.length === 8) {
             const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
-            const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - '); // City - ST
-            let prefix = 'Enviar para'; // Default
+            const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - ');
+            let prefix = 'Enviar para';
 
-            // Usa o alias do endereço se for um alias "real" (não genérico)
             if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
                 prefix = `Enviar para ${shippingLocation.alias} -`;
-            } else if (isAuthenticated && user?.name) { // Senão, usa o nome do usuário logado
+            } else if (isAuthenticated && user?.name) {
                 prefix = `Enviar para ${user.name.split(' ')[0]} -`;
             }
 
             if (displayCityState) {
                 addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
             } else {
-                 addressDisplay = `${prefix} ${formattedCep}`; // Fallback se cidade/estado desconhecidos
+                 addressDisplay = `${prefix} ${formattedCep}`;
             }
         }
     }
 
     // --- Componente da Barra de Navegação Inferior (Mobile) ---
     const BottomNavBar = () => {
-        const wishlistCount = wishlist.length; // Pega a contagem da lista de desejos
+        const wishlistCount = wishlist.length;
+
+        // --- NOVO: Variantes para animação ---
+        const navVariants = {
+            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
+            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
+        };
 
         return (
-            <div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden">
-                {/* Ícone Início - Adicionado destaque */}
+            // --- NOVO: Envolve com motion.div ---
+            <motion.div
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden"
+                initial={false} // Não anima no carregamento inicial
+                animate={isBottomNavVisible ? "visible" : "hidden"}
+                variants={navVariants}
+            >
                 <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Início</span>
                 </button>
-                 {/* Ícone Conta - Adicionado destaque */}
                 <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Conta</span>
                 </button>
-                 {/* Ícone Lista - Adicionado destaque */}
                 <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Lista</span>
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
-                 {/* Ícone Carrinho - Adicionado destaque */}
                 <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
@@ -1605,20 +1634,17 @@ const Header = memo(({ onNavigate }) => {
                     <span className="text-xs">Carrinho</span>
                     {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
-                 {/* Ícone Menu - Destaque mantido */}
                 <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <MenuIcon className="h-6 w-6 mb-1"/>
                     <span className="text-xs">Menu</span>
                 </button>
-            </div>
+            </motion.div>
         );
     };
     // --- Fim do Componente BottomNavBar ---
 
     return (
-        <> {/* Usa Fragment para agrupar Header e BottomNavBar */}
-
-        {/* --- Modal de Endereço --- */}
+        <>
         <AnimatePresence>
             {isAddressModalOpen && (
                 <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Selecionar Endereço de Entrega" size="md">
@@ -1650,17 +1676,12 @@ const Header = memo(({ onNavigate }) => {
                 </Modal>
             )}
         </AnimatePresence>
-        {/* --- Fim do Modal de Endereço --- */}
-
 
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
-                    {/* Logo Desktop */}
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-
-                    {/* Search Bar Desktop */}
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input
@@ -1714,8 +1735,6 @@ const Header = memo(({ onNavigate }) => {
                             </AnimatePresence>
                         </form>
                     </div>
-
-                    {/* Icons Desktop */}
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated && (
                              <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1">
@@ -1739,11 +1758,11 @@ const Header = memo(({ onNavigate }) => {
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
-                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none"> {/* Ajuste: items-start, leading-none */}
-                                        <UserIcon className="h-6 w-6 mt-0.5"/> {/* Pequeno ajuste para alinhar com texto */}
-                                        <div className="flex flex-col items-start text-xs"> {/* Ajuste: flex-col, items-start, text-xs */}
-                                            <span>Olá, {user.name.split(' ')[0]}</span> {/* Exibe "Olá, PrimeiroNome" */}
-                                            <span className="font-bold text-sm">Conta</span> {/* Mantém "Conta" em negrito e tamanho normal */}
+                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none">
+                                        <UserIcon className="h-6 w-6 mt-0.5"/>
+                                        <div className="flex flex-col items-start text-xs">
+                                            <span>Olá, {user.name.split(' ')[0]}</span>
+                                            <span className="font-bold text-sm">Conta</span>
                                         </div>
                                    </button>
                                    <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800">
@@ -1764,14 +1783,10 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Top Bar - Mobile - Adicionado pt-3 */}
-             <div className="block md:hidden px-4 pt-3"> {/* Adicionado pt-3 para espaço no topo */}
-                {/* Logo Mobile */}
+             <div className="block md:hidden px-4 pt-3">
                 <div className="text-center mb-2">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
                 </div>
-
-                {/* Search Bar Mobile */}
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
                     <input
                         type="text" value={searchTerm}
@@ -1782,7 +1797,6 @@ const Header = memo(({ onNavigate }) => {
                         className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
                     />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                     {/* Search Suggestions Mobile */}
                     <AnimatePresence>
                         {isSearchFocused && searchTerm.length > 0 && (
                              <motion.div
@@ -1822,8 +1836,6 @@ const Header = memo(({ onNavigate }) => {
                         )}
                     </AnimatePresence>
                 </form>
-
-                 {/* Address Section Mobile - AGORA É UM BOTÃO */}
                  <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left">
                     <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/>
                     <span className="truncate flex-grow">{addressDisplay}</span>
@@ -1831,7 +1843,6 @@ const Header = memo(({ onNavigate }) => {
                  </button>
             </div>
 
-            {/* Bottom Bar (Desktop Navigation) */}
             <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}>
@@ -1855,9 +1866,7 @@ const Header = memo(({ onNavigate }) => {
                                             <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3>
                                             <ul className="space-y-2">
                                                 {cat.sub.map(subCat => (
-                                                    <li key={subCat.name}>
-                                                        <a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a>
-                                                    </li>
+                                                    <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a></li>
                                                 ))}
                                             </ul>
                                         </div>
@@ -1869,7 +1878,6 @@ const Header = memo(({ onNavigate }) => {
                 </AnimatePresence>
             </nav>
 
-            {/* Mobile Menu (Slide Out) - A lógica permanece a mesma, mas é ativada pela BottomNavBar */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
                     <>
@@ -1887,8 +1895,6 @@ const Header = memo(({ onNavigate }) => {
                                 <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button>
                             </div>
                             <div className="flex-grow overflow-y-auto p-4">
-                                   {/* REMOVIDO: Formulário de busca daqui */}
-
                                 {dynamicMenuItems.map((cat, index) => (
                                     cat && cat.sub && (
                                         <div key={cat.name} className="border-b border-gray-800">
@@ -1908,7 +1914,6 @@ const Header = memo(({ onNavigate }) => {
                                         </div>
                                     )
                                 ))}
-
                                 <div className="border-b border-gray-800">
                                     <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300">
                                         <SaleIcon className="h-5 w-5"/> Promoções
@@ -1939,10 +1944,8 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
-        {/* Renderiza a BottomNavBar fora do header, mas ainda controlada pelo estado do Header */}
+        {/* Renderiza a BottomNavBar */}
         <BottomNavBar />
-
-        {/* REMOVIDO: <div className="pb-16 md:pb-0"></div> */}
         </>
     );
 });
