@@ -10123,16 +10123,34 @@ function AppContent({ deferredPrompt }) {
 
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
+    // --- NOVO: Estado para verificar se é iOS ---
+    const [isIOS, setIsIOS] = useState(false);
 
     useEffect(() => {
-        // --- Configuração PWA ---
+        // --- NOVO: Detecção de iOS ---
+        const checkIOS = () => {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            // iPad on iOS 13 detection
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        }
+        setIsIOS(checkIOS());
+        // --- FIM DA DETECÇÃO ---
+
+        // Configuração PWA
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
             console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
-        
-        // Registra o Service Worker a partir do arquivo estático
+
+        // Registra o Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -10141,7 +10159,7 @@ export default function App() {
             });
         }
 
-        // --- Carregamento de Scripts Externos ---
+        // Carregamento de Scripts Externos
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) {
                 if (callback) callback();
@@ -10169,11 +10187,11 @@ export default function App() {
             <NotificationProvider>
                 <ConfirmationProvider>
                     <ShopProvider>
-                        <AppContent deferredPrompt={deferredPrompt} />
+                        {/* --- NOVO: Passa isIOS como prop --- */}
+                        <AppContent deferredPrompt={deferredPrompt} isIOS={isIOS} />
                     </ShopProvider>
                 </ConfirmationProvider>
             </NotificationProvider>
         </AuthProvider>
     );
 }
-
