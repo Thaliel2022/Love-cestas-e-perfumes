@@ -2448,11 +2448,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
 
-    // --- INÍCIO DA MODIFICAÇÃO: Refs e Estado para Galeria ---
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
-    // --- FIM DA MODIFICAÇÃO ---
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -2656,17 +2654,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, currentPrice]);
 
-    // --- INÍCIO DA MODIFICAÇÃO: Efeito e Funções para Galeria ---
+    // Efeito e Funções para Galeria
     const checkScrollButtons = useCallback(() => {
         const gallery = galleryRef.current;
         if (gallery) {
             setCanScrollLeft(gallery.scrollLeft > 0);
-            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); // +1 para margem
+            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
         }
     }, []);
 
     useEffect(() => {
-        checkScrollButtons(); // Verifica no mount inicial e quando as imagens mudam
+        checkScrollButtons();
         const gallery = galleryRef.current;
         if (gallery) {
             gallery.addEventListener('scroll', checkScrollButtons);
@@ -2676,19 +2674,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 window.removeEventListener('resize', checkScrollButtons);
             };
         }
-    }, [galleryImages, checkScrollButtons]); // Re-verifica quando galleryImages muda
+    }, [galleryImages, checkScrollButtons]);
 
     const scrollGallery = (direction) => {
         const gallery = galleryRef.current;
         if (gallery) {
-            const scrollAmount = gallery.clientWidth * 0.7; // Rola 70% da largura visível
+            const scrollAmount = gallery.clientWidth * 0.7;
             gallery.scrollBy({
                 left: direction === 'left' ? -scrollAmount : scrollAmount,
                 behavior: 'smooth'
             });
         }
     };
-    // --- FIM DA MODIFICAÇÃO ---
 
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
@@ -2711,9 +2708,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
     const productOrVariationOutOfStock = currentStockStatus <= 0;
 
-    // --- INÍCIO DA MODIFICAÇÃO: Calcula se há itens suficientes para scroll ---
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Mostra se tiver mais de 4 itens (ajuste conforme necessário)
-    // --- FIM DA MODIFICAÇÃO ---
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -2742,12 +2737,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* --- INÍCIO DA MODIFICAÇÃO: Galeria com Setas --- */}
+                        {/* --- INÍCIO DA MODIFICAÇÃO: Galeria com Setas e CSS para esconder scrollbar --- */}
                         <div className="relative group">
                             <div
-                                ref={galleryRef} // Adiciona a ref
-                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide" // scrollbar-hide para ocultar visualmente
+                                ref={galleryRef}
+                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
+                                // Adiciona CSS inline para esconder scrollbars de forma mais robusta
+                                style={{
+                                    msOverflowStyle: 'none', // IE and Edge
+                                    scrollbarWidth: 'none' // Firefox
+                                }}
                             >
+                                {/* Estilo para esconder scrollbar no WebKit (Chrome, Safari) */}
+                                <style>{`
+                                    .scrollbar-hide::-webkit-scrollbar {
+                                        display: none;
+                                    }
+                                `}</style>
+
                                {product.video_url && (
                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
                                         <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
@@ -2770,20 +2777,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             {/* Setas de Navegação */}
                             {showGalleryArrows && (
                                 <>
-                                    <button
-                                        onClick={() => scrollGallery('left')}
-                                        disabled={!canScrollLeft}
-                                        className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`}
-                                        aria-label="Scroll Left"
-                                    >
+                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
                                     </button>
-                                     <button
-                                        onClick={() => scrollGallery('right')}
-                                        disabled={!canScrollRight}
-                                        className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`}
-                                        aria-label="Scroll Right"
-                                    >
+                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                 </>
