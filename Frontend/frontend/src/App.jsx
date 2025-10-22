@@ -9891,19 +9891,66 @@ const BannerCarousel = memo(({ onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-function AppContent({ deferredPrompt }) {
+// --- NOVO: Componente para Instruções de Instalação no iOS ---
+const IOSInstallPrompt = () => {
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        // Verifica se o prompt já foi dispensado antes
+        const dismissed = localStorage.getItem('iosInstallPromptDismissed');
+        // Verifica se o app já está rodando como PWA (standalone)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+        // Mostra o prompt apenas se não foi dispensado e não está rodando como PWA
+        if (!dismissed && !isStandalone) {
+            // Pequeno delay para não aparecer imediatamente no carregamento
+            const timer = setTimeout(() => setIsVisible(true), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
+    const handleDismiss = () => {
+        setIsVisible(false);
+        localStorage.setItem('iosInstallPromptDismissed', 'true');
+    };
+
+    if (!isVisible) return null;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm p-4 bg-gray-800 text-white rounded-xl shadow-lg border border-gray-700 flex items-center gap-3"
+        >
+            <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="App Icon" className="h-12 w-12 rounded-lg flex-shrink-0" />
+            <div className="flex-grow">
+                <p className="font-semibold text-sm">Instale nosso App!</p>
+                <p className="text-xs text-gray-300">
+                    Toque no ícone <ShareIcon className="h-3 w-3 inline-block mx-0.5" /> e depois em "Adicionar à Tela de Início".
+                </p>
+            </div>
+            <button onClick={handleDismiss} className="text-gray-400 hover:text-white flex-shrink-0 p-1">
+                <XMarkIcon className="h-5 w-5" />
+            </button>
+        </motion.div>
+    );
+};
+// --- FIM DO NOVO COMPONENTE ---
+
+
+// --- ALTERAÇÃO: Recebe isIOS como prop ---
+function AppContent({ deferredPrompt, isIOS }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
-                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
                 setIsInMaintenance(prevStatus => {
                     if (prevStatus !== isNowInMaintenance) {
                         return isNowInMaintenance;
@@ -9916,36 +9963,31 @@ function AppContent({ deferredPrompt }) {
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                // Garante que a tela de carregamento só desapareça na primeira vez
                 if (isStatusLoading) {
                     setIsStatusLoading(false);
                 }
             });
     };
-
-    checkStatus(); // Verifica imediatamente quando o componente monta
-
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
-
-    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
-  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 30000);
+    return () => clearInterval(intervalId);
+  }, [isStatusLoading]);
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
-  
+
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
+      sessionStorage.removeItem('pendingOrderId');
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]); 
-  
+  }, [currentPath, navigate]);
+
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
@@ -9957,7 +9999,7 @@ function AppContent({ deferredPrompt }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-  
+
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -9980,7 +10022,7 @@ function AppContent({ deferredPrompt }) {
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-    
+
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -9989,10 +10031,9 @@ function AppContent({ deferredPrompt }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
-        
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'dashboard': <AdminDashboard onNavigate={navigate} />,
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -10003,7 +10044,6 @@ function AppContent({ deferredPrompt }) {
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
         };
-
         return (
             <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
                 {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
@@ -10014,19 +10054,15 @@ function AppContent({ deferredPrompt }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
-    
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
-
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
-    
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
-
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
@@ -10045,7 +10081,7 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-  
+
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -10061,7 +10097,6 @@ function AppContent({ deferredPrompt }) {
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
                     </div>
-
                     {/* Coluna 2: Institucional */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Institucional</h3>
@@ -10071,7 +10106,6 @@ function AppContent({ deferredPrompt }) {
                             <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
                         </ul>
                     </div>
-
                     {/* Coluna 3: Atendimento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
@@ -10085,28 +10119,17 @@ function AppContent({ deferredPrompt }) {
                             </li>
                         </ul>
                     </div>
-
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <PixIcon className="h-full w-auto"/> </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <VisaIcon className="h-full w-auto"/> </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <MastercardIcon className="h-full w-auto"/> </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <EloIcon className="h-full w-auto"/> </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <BoletoIcon className="h-6 w-auto text-black"/> </div>
                         </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
+                        <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
@@ -10115,8 +10138,11 @@ function AppContent({ deferredPrompt }) {
             </div>
         </footer>
       )}
-      
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+
+      {/* --- ALTERAÇÃO: Renderização condicional do botão/prompt --- */}
+      {deferredPrompt && !isIOS && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+      {isIOS && <IOSInstallPrompt />}
+      {/* --- FIM DA ALTERAÇÃO --- */}
     </div>
   );
 }
