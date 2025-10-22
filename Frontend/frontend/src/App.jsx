@@ -2448,9 +2448,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
 
+    // --- INÍCIO DA MODIFICAÇÃO: Refs e Estado para Galeria ---
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    // --- FIM DA MODIFICAÇÃO ---
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -2654,17 +2656,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, currentPrice]);
 
-    // Efeito e Funções para Galeria
+    // --- INÍCIO DA MODIFICAÇÃO: Efeito e Funções para Galeria ---
     const checkScrollButtons = useCallback(() => {
         const gallery = galleryRef.current;
         if (gallery) {
             setCanScrollLeft(gallery.scrollLeft > 0);
-            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
+            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); // +1 para margem
         }
     }, []);
 
     useEffect(() => {
-        checkScrollButtons();
+        checkScrollButtons(); // Verifica no mount inicial e quando as imagens mudam
         const gallery = galleryRef.current;
         if (gallery) {
             gallery.addEventListener('scroll', checkScrollButtons);
@@ -2674,18 +2676,19 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 window.removeEventListener('resize', checkScrollButtons);
             };
         }
-    }, [galleryImages, checkScrollButtons]);
+    }, [galleryImages, checkScrollButtons]); // Re-verifica quando galleryImages muda
 
     const scrollGallery = (direction) => {
         const gallery = galleryRef.current;
         if (gallery) {
-            const scrollAmount = gallery.clientWidth * 0.7;
+            const scrollAmount = gallery.clientWidth * 0.7; // Rola 70% da largura visível
             gallery.scrollBy({
                 left: direction === 'left' ? -scrollAmount : scrollAmount,
                 behavior: 'smooth'
             });
         }
     };
+    // --- FIM DA MODIFICAÇÃO ---
 
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
@@ -2708,7 +2711,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
     const productOrVariationOutOfStock = currentStockStatus <= 0;
 
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+    // --- INÍCIO DA MODIFICAÇÃO: Calcula se há itens suficientes para scroll ---
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Mostra se tiver mais de 4 itens (ajuste conforme necessário)
+    // --- FIM DA MODIFICAÇÃO ---
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -2737,24 +2742,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* --- INÍCIO DA MODIFICAÇÃO: Galeria com Setas e CSS para esconder scrollbar --- */}
+                        {/* --- INÍCIO DA MODIFICAÇÃO: Galeria com Setas --- */}
                         <div className="relative group">
                             <div
-                                ref={galleryRef}
-                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                // Adiciona CSS inline para esconder scrollbars de forma mais robusta
-                                style={{
-                                    msOverflowStyle: 'none', // IE and Edge
-                                    scrollbarWidth: 'none' // Firefox
-                                }}
+                                ref={galleryRef} // Adiciona a ref
+                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide" // scrollbar-hide para ocultar visualmente
                             >
-                                {/* Estilo para esconder scrollbar no WebKit (Chrome, Safari) */}
-                                <style>{`
-                                    .scrollbar-hide::-webkit-scrollbar {
-                                        display: none;
-                                    }
-                                `}</style>
-
                                {product.video_url && (
                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
                                         <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
@@ -2777,10 +2770,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             {/* Setas de Navegação */}
                             {showGalleryArrows && (
                                 <>
-                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
+                                    <button
+                                        onClick={() => scrollGallery('left')}
+                                        disabled={!canScrollLeft}
+                                        className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`}
+                                        aria-label="Scroll Left"
+                                    >
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
                                     </button>
-                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
+                                     <button
+                                        onClick={() => scrollGallery('right')}
+                                        disabled={!canScrollRight}
+                                        className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`}
+                                        aria-label="Scroll Right"
+                                    >
                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
                                     </button>
                                 </>
@@ -9891,66 +9894,19 @@ const BannerCarousel = memo(({ onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-// --- NOVO: Componente para Instruções de Instalação no iOS ---
-const IOSInstallPrompt = () => {
-    const [isVisible, setIsVisible] = useState(false);
-
-    useEffect(() => {
-        // Verifica se o prompt já foi dispensado antes
-        const dismissed = localStorage.getItem('iosInstallPromptDismissed');
-        // Verifica se o app já está rodando como PWA (standalone)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-
-        // Mostra o prompt apenas se não foi dispensado e não está rodando como PWA
-        if (!dismissed && !isStandalone) {
-            // Pequeno delay para não aparecer imediatamente no carregamento
-            const timer = setTimeout(() => setIsVisible(true), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, []);
-
-    const handleDismiss = () => {
-        setIsVisible(false);
-        localStorage.setItem('iosInstallPromptDismissed', 'true');
-    };
-
-    if (!isVisible) return null;
-
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm p-4 bg-gray-800 text-white rounded-xl shadow-lg border border-gray-700 flex items-center gap-3"
-        >
-            <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="App Icon" className="h-12 w-12 rounded-lg flex-shrink-0" />
-            <div className="flex-grow">
-                <p className="font-semibold text-sm">Instale nosso App!</p>
-                <p className="text-xs text-gray-300">
-                    Toque no ícone <ShareIcon className="h-3 w-3 inline-block mx-0.5" /> e depois em "Adicionar à Tela de Início".
-                </p>
-            </div>
-            <button onClick={handleDismiss} className="text-gray-400 hover:text-white flex-shrink-0 p-1">
-                <XMarkIcon className="h-5 w-5" />
-            </button>
-        </motion.div>
-    );
-};
-// --- FIM DO NOVO COMPONENTE ---
-
-
-// --- ALTERAÇÃO: Recebe isIOS como prop ---
-function AppContent({ deferredPrompt, isIOS }) {
+function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
+                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
                 setIsInMaintenance(prevStatus => {
                     if (prevStatus !== isNowInMaintenance) {
                         return isNowInMaintenance;
@@ -9963,31 +9919,36 @@ function AppContent({ deferredPrompt, isIOS }) {
                 setIsInMaintenance(false);
             })
             .finally(() => {
+                // Garante que a tela de carregamento só desapareça na primeira vez
                 if (isStatusLoading) {
                     setIsStatusLoading(false);
                 }
             });
     };
-    checkStatus();
-    const intervalId = setInterval(checkStatus, 30000);
-    return () => clearInterval(intervalId);
-  }, [isStatusLoading]);
+
+    checkStatus(); // Verifica imediatamente quando o componente monta
+
+    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
+
+    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
+  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
-
+  
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
       console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId');
+      sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
         sessionStorage.removeItem('pendingOrderId');
     }
-  }, [currentPath, navigate]);
-
+  }, [currentPath, navigate]); 
+  
   useEffect(() => {
     const handleHashChange = () => {
       setCurrentPath(window.location.hash.slice(1) || 'home');
@@ -9999,7 +9960,7 @@ function AppContent({ deferredPrompt, isIOS }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [currentPath]);
-
+  
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex items-center justify-center bg-black">
@@ -10022,7 +9983,7 @@ function AppContent({ deferredPrompt, isIOS }) {
     const initialCategory = searchParams.get('category') || '';
     const initialBrand = searchParams.get('brand') || '';
     const initialIsPromo = searchParams.get('promo') === 'true';
-
+    
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
@@ -10031,9 +9992,10 @@ function AppContent({ deferredPrompt, isIOS }) {
         if (!isAuthenticated || user.role !== 'admin') {
              return <LoginPage onNavigate={navigate} />;
         }
+        
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />,
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
@@ -10044,6 +10006,7 @@ function AppContent({ deferredPrompt, isIOS }) {
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
         };
+
         return (
             <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
                 {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
@@ -10054,15 +10017,19 @@ function AppContent({ deferredPrompt, isIOS }) {
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} />;
     }
+    
     if (mainPage === 'product' && pageId) {
         return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
     }
+
     if (mainPage === 'order-success' && pageId) {
         return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
     }
+    
     if (mainPage === 'account') {
         return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
     }
+
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
@@ -10081,7 +10048,7 @@ function AppContent({ deferredPrompt, isIOS }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
-
+  
   return (
     <div className="bg-black min-h-screen flex flex-col">
       {showHeaderFooter && <Header onNavigate={navigate} />}
@@ -10097,6 +10064,7 @@ function AppContent({ deferredPrompt, isIOS }) {
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
                     </div>
+
                     {/* Coluna 2: Institucional */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Institucional</h3>
@@ -10106,6 +10074,7 @@ function AppContent({ deferredPrompt, isIOS }) {
                             <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
                         </ul>
                     </div>
+
                     {/* Coluna 3: Atendimento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
@@ -10119,17 +10088,28 @@ function AppContent({ deferredPrompt, isIOS }) {
                             </li>
                         </ul>
                     </div>
+
                     {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <PixIcon className="h-full w-auto"/> </div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <VisaIcon className="h-full w-auto"/> </div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <MastercardIcon className="h-full w-auto"/> </div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <EloIcon className="h-full w-auto"/> </div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"> <BoletoIcon className="h-6 w-auto text-black"/> </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
+                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
@@ -10138,52 +10118,24 @@ function AppContent({ deferredPrompt, isIOS }) {
             </div>
         </footer>
       )}
-
-      {/* --- ALTERAÇÃO: Renderização condicional do botão/prompt --- */}
-      {deferredPrompt && !isIOS && <InstallPWAButton deferredPrompt={deferredPrompt} />}
-      {isIOS && <IOSInstallPrompt />}
-      {/* --- FIM DA ALTERAÇÃO --- */}
+      
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
 }
 
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-    const [isIOS, setIsIOS] = useState(false);
 
     useEffect(() => {
-        // --- INÍCIO DA MODIFICAÇÃO: Detecção de iOS Refinada ---
-        const checkIOS = () => {
-            const ua = navigator.userAgent;
-            // Verifica iPhone, iPod, iPad diretamente no userAgent
-            const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
-            // Verifica iPads mais recentes que podem se identificar como MacIntel
-            const isModernIPad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-            // Verifica se NÃO está rodando como PWA instalado (standalone) - específico do iOS
-            const isStandalone = window.navigator.standalone === true;
-
-            // Retorna true se for um dispositivo iOS (ou iPad recente) E NÃO estiver já instalado
-            return (isIOSDevice || isModernIPad) && !isStandalone;
-        }
-        setIsIOS(checkIOS());
-         // Log para depuração
-        console.log("Is iOS device (and not standalone)?", checkIOS());
-        // --- FIM DA MODIFICAÇÃO ---
-
-        // Configuração PWA (apenas para não-iOS)
-        const beforeInstallHandler = (e) => {
-             // Só previne e guarda o prompt se NÃO for iOS
-             if (!checkIOS()) {
-                 e.preventDefault();
-                 setDeferredPrompt(e);
-                 console.log('`beforeinstallprompt` event foi disparado (não-iOS) e está pronto para ser usado.');
-             } else {
-                 console.log('`beforeinstallprompt` event disparado em iOS, ignorando.');
-             }
-        };
-        window.addEventListener('beforeinstallprompt', beforeInstallHandler);
-
-        // Registra o Service Worker
+        // --- Configuração PWA ---
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
+        });
+        
+        // Registra o Service Worker a partir do arquivo estático
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -10192,10 +10144,9 @@ export default function App() {
             });
         }
 
-        // Carregamento de Scripts Externos
+        // --- Carregamento de Scripts Externos ---
         const loadScript = (src, id, callback) => {
-            // ... (código loadScript inalterado) ...
-             if (document.getElementById(id)) {
+            if (document.getElementById(id)) {
                 if (callback) callback();
                 return;
             }
@@ -10214,11 +10165,6 @@ export default function App() {
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
-        // Cleanup listener
-        return () => {
-             window.removeEventListener('beforeinstallprompt', beforeInstallHandler);
-        };
-
     }, []);
 
     return (
@@ -10226,10 +10172,11 @@ export default function App() {
             <NotificationProvider>
                 <ConfirmationProvider>
                     <ShopProvider>
-                        <AppContent deferredPrompt={deferredPrompt} isIOS={isIOS} />
+                        <AppContent deferredPrompt={deferredPrompt} />
                     </ShopProvider>
                 </ConfirmationProvider>
             </NotificationProvider>
         </AuthProvider>
     );
 }
+
