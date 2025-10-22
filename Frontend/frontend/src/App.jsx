@@ -10123,32 +10123,39 @@ function AppContent({ deferredPrompt }) {
 
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-    // --- NOVO: Estado para verificar se é iOS ---
     const [isIOS, setIsIOS] = useState(false);
 
     useEffect(() => {
-        // --- NOVO: Detecção de iOS ---
+        // --- INÍCIO DA MODIFICAÇÃO: Detecção de iOS Refinada ---
         const checkIOS = () => {
-            return [
-                'iPad Simulator',
-                'iPhone Simulator',
-                'iPod Simulator',
-                'iPad',
-                'iPhone',
-                'iPod'
-            ].includes(navigator.platform)
-            // iPad on iOS 13 detection
-            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+            const ua = navigator.userAgent;
+            // Verifica iPhone, iPod, iPad diretamente no userAgent
+            const isIOSDevice = /iPad|iPhone|iPod/.test(ua);
+            // Verifica iPads mais recentes que podem se identificar como MacIntel
+            const isModernIPad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+            // Verifica se NÃO está rodando como PWA instalado (standalone) - específico do iOS
+            const isStandalone = window.navigator.standalone === true;
+
+            // Retorna true se for um dispositivo iOS (ou iPad recente) E NÃO estiver já instalado
+            return (isIOSDevice || isModernIPad) && !isStandalone;
         }
         setIsIOS(checkIOS());
-        // --- FIM DA DETECÇÃO ---
+         // Log para depuração
+        console.log("Is iOS device (and not standalone)?", checkIOS());
+        // --- FIM DA MODIFICAÇÃO ---
 
-        // Configuração PWA
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            setDeferredPrompt(e);
-            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
-        });
+        // Configuração PWA (apenas para não-iOS)
+        const beforeInstallHandler = (e) => {
+             // Só previne e guarda o prompt se NÃO for iOS
+             if (!checkIOS()) {
+                 e.preventDefault();
+                 setDeferredPrompt(e);
+                 console.log('`beforeinstallprompt` event foi disparado (não-iOS) e está pronto para ser usado.');
+             } else {
+                 console.log('`beforeinstallprompt` event disparado em iOS, ignorando.');
+             }
+        };
+        window.addEventListener('beforeinstallprompt', beforeInstallHandler);
 
         // Registra o Service Worker
         if ('serviceWorker' in navigator) {
@@ -10161,7 +10168,8 @@ export default function App() {
 
         // Carregamento de Scripts Externos
         const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) {
+            // ... (código loadScript inalterado) ...
+             if (document.getElementById(id)) {
                 if (callback) callback();
                 return;
             }
@@ -10180,6 +10188,11 @@ export default function App() {
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
 
+        // Cleanup listener
+        return () => {
+             window.removeEventListener('beforeinstallprompt', beforeInstallHandler);
+        };
+
     }, []);
 
     return (
@@ -10187,7 +10200,6 @@ export default function App() {
             <NotificationProvider>
                 <ConfirmationProvider>
                     <ShopProvider>
-                        {/* --- NOVO: Passa isIOS como prop --- */}
                         <AppContent deferredPrompt={deferredPrompt} isIOS={isIOS} />
                     </ShopProvider>
                 </ConfirmationProvider>
