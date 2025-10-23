@@ -3906,34 +3906,47 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
+    // --- INÍCIO DA CORREÇÃO ---
+    // Funções auxiliares para garantir que os valores sejam numéricos antes de usar useMemo
+    const safeNumber = (value, defaultValue = 0) => {
+        const num = Number(value);
+        return isNaN(num) ? defaultValue : num;
+    };
+
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
-        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
-        return sum + price * item.qty;
+        const price = safeNumber(item.is_on_sale && item.sale_price ? item.sale_price : item.price);
+        const qty = safeNumber(item.qty, 1); // Default para 1 se qty for inválido
+        return sum + price * qty;
     }, 0), [cart]);
 
-    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+    const shippingCost = useMemo(() => safeNumber(autoCalculatedShipping?.price), [autoCalculatedShipping]);
 
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let discountValue = 0;
+        const couponValue = safeNumber(appliedCoupon.value);
+
         if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+            discountValue = subtotal * (couponValue / 100);
         } else if (appliedCoupon.type === 'fixed') {
-            discountValue = parseFloat(appliedCoupon.value);
+            discountValue = couponValue;
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
-        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
-        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
-            return subtotal + shippingCost;
+
+        const maxDiscount = subtotal + shippingCost;
+        if (appliedCoupon.type !== 'free_shipping' && discountValue > maxDiscount) {
+            return maxDiscount;
         }
         return discountValue;
     }, [appliedCoupon, subtotal, shippingCost]);
 
     const total = useMemo(() => {
          const calculatedTotal = subtotal - discount + shippingCost;
-         return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
+         return calculatedTotal < 0 ? 0 : calculatedTotal;
     }, [subtotal, discount, shippingCost]);
+    // --- FIM DA CORREÇÃO ---
+
 
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
@@ -3951,17 +3964,17 @@ const CheckoutPage = ({ onNavigate }) => {
             const orderPayload = {
                 items: cart.map(item => ({
                     id: item.id,
-                    qty: item.qty,
-                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                    qty: safeNumber(item.qty, 1), // Garante número
+                    price: safeNumber(item.is_on_sale && item.sale_price ? item.sale_price : item.price), // Garante número
                     variation: item.variation
                 })),
-                total: total,
+                total: total, // Já é seguro pelo useMemo
                 shippingAddress: finalShippingAddress,
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
-                shipping_cost: shippingCost,
+                shipping_cost: shippingCost, // Já é seguro pelo useMemo
                 coupon_code: appliedCoupon ? appliedCoupon.code : null,
-                discount_amount: discount,
+                discount_amount: discount, // Já é seguro pelo useMemo
                 pickup_details: isPickup ? JSON.stringify({
                     personName: isSomeoneElsePickingUp ? pickupPersonName : user.name,
                     personCpf: isSomeoneElsePickingUp ? pickupPersonCpf.replace(/\D/g, '') : user.cpf,
@@ -3988,7 +4001,6 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const getShippingName = (name) => {
-        // Simplificado para retornar o nome como está ou N/A
         return name || 'N/A';
     };
 
@@ -4003,7 +4015,6 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- NOVO: Componente interno para as etapas ---
     const CheckoutStep = ({ stepNumber, title, children, isCompleted = false }) => (
         <motion.div
             initial={{ opacity: 0, y: 15 }}
@@ -4020,7 +4031,6 @@ const CheckoutPage = ({ onNavigate }) => {
             {children}
         </motion.div>
     );
-    // --- FIM: Componente interno para as etapas ---
 
     return (
         <>
@@ -4031,14 +4041,12 @@ const CheckoutPage = ({ onNavigate }) => {
 
             <div className="bg-black text-white min-h-screen">
                 <div className="container mx-auto px-4 py-12">
-                     {/* --- NOVO: Botão Voltar --- */}
                      <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                         <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
                         Voltar para o Carrinho
                     </button>
                     <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Finalizar Compra</h1>
 
-                    {/* Verifica se há itens no carrinho */}
                     {cart.length === 0 ? (
                         <EmptyState
                             icon={<CartIcon className="h-12 w-12"/>}
@@ -4054,7 +4062,10 @@ const CheckoutPage = ({ onNavigate }) => {
                              {/* Etapa 1: Entrega */}
                              <CheckoutStep stepNumber={1} title="Forma de Entrega" isCompleted={!!autoCalculatedShipping}>
                                 <div className="space-y-3">
-                                    {shippingOptions.map(option => (
+                                    {shippingOptions.map(option => {
+                                        // --- CORREÇÃO ---
+                                        const optionPrice = safeNumber(option.price);
+                                        return (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer flex justify-between items-center ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50 shadow-inner' : 'border-gray-700 hover:bg-gray-800 hover:border-gray-600'}`}>
                                             <div className="flex items-center gap-3">
                                                 <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 cursor-pointer"/>
@@ -4063,9 +4074,10 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     <p className="text-xs text-gray-400">{option.isPickup ? `Disponível para retirada após confirmação.` : getDeliveryDateText(option.delivery_time)}</p>
                                                 </div>
                                             </div>
-                                            <span className="font-bold text-amber-400 text-lg">{option.price > 0 ? `R$&nbsp;${option.price.toFixed(2)}` : 'Grátis'}</span>
+                                            {/* --- CORREÇÃO --- */}
+                                            <span className="font-bold text-amber-400 text-lg">{optionPrice > 0 ? `R$&nbsp;${optionPrice.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                              </CheckoutStep>
 
@@ -4166,16 +4178,20 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <h2 className="text-2xl font-bold mb-6 text-center text-amber-400">Resumo Final</h2>
                                 {/* Itens do Carrinho */}
                                 <div className="space-y-3 max-h-60 overflow-y-auto mb-4 border-b border-gray-700 pb-4 pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
-                                    {cart.map(item => (
+                                    {cart.map(item => {
+                                        const itemPrice = safeNumber(item.is_on_sale && item.sale_price ? item.sale_price : item.price);
+                                        const itemQty = safeNumber(item.qty, 1);
+                                        const itemTotal = itemPrice * itemQty;
+                                        return (
                                         <div key={item.cartItemId} className="flex items-center gap-3 text-sm">
                                             <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded-md flex-shrink-0 p-1 border border-gray-700"/>
                                             <div className="flex-grow overflow-hidden">
                                                 <p className="text-gray-300 truncate font-semibold">{item.name} {item.variation ? `(${item.variation.size})` : ''}</p>
-                                                <p className="text-gray-400 text-xs">{item.qty} x R$&nbsp;{(item.is_on_sale && item.sale_price ? item.sale_price : item.price).toFixed(2)}</p>
+                                                <p className="text-gray-400 text-xs">{itemQty} x R$&nbsp;{itemPrice.toFixed(2)}</p>
                                             </div>
-                                            <span className="text-white font-semibold flex-shrink-0">R$&nbsp;{((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                            <span className="text-white font-semibold flex-shrink-0">R$&nbsp;{itemTotal.toFixed(2)}</span>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                                 {/* Totais */}
                                 <div className="space-y-2 mb-6">
