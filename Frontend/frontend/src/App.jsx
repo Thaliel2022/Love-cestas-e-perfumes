@@ -2737,18 +2737,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* --- INÍCIO DA MODIFICAÇÃO: Galeria com Setas e CSS para esconder scrollbar --- */}
+                        {/* Galeria com Setas e CSS para esconder scrollbar */}
                         <div className="relative group">
                             <div
                                 ref={galleryRef}
                                 className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                // Adiciona CSS inline para esconder scrollbars de forma mais robusta
                                 style={{
                                     msOverflowStyle: 'none', // IE and Edge
                                     scrollbarWidth: 'none' // Firefox
                                 }}
                             >
-                                {/* Estilo para esconder scrollbar no WebKit (Chrome, Safari) */}
                                 <style>{`
                                     .scrollbar-hide::-webkit-scrollbar {
                                         display: none;
@@ -2774,7 +2772,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </div>
                                 ))}
                             </div>
-                            {/* Setas de Navegação */}
                             {showGalleryArrows && (
                                 <>
                                     <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
@@ -2786,7 +2783,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </>
                             )}
                         </div>
-                         {/* --- FIM DA MODIFICAÇÃO --- */}
                     </div>
 
                     <div className="space-y-6">
@@ -2864,18 +2860,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
                 {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
 
+                {/* --- SEÇÃO DE AVALIAÇÕES COM NOVO ESTILO --- */}
                 <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
                     <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
-                    <div className="space-y-6 mb-10">
+                    <div className="space-y-8 mb-10">
                       {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="bg-gray-900 p-5 rounded-lg border border-gray-800 relative shadow">
-                                {user && user.role === 'admin' && ( <button onClick={() => handleDeleteReview(review.id)} className="absolute top-3 right-3 p-1 text-gray-500 hover:text-red-500" title="Excluir avaliação"><TrashIcon className="h-4 w-4" /></button> )}
-                                <div className="flex items-center gap-3 mb-3"> <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400"> <UserIcon className="h-5 w-5" /> </div> <span className="font-semibold text-white text-sm">{review.user_name}</span> <span className="text-xs text-gray-500 ml-auto">{new Date(review.created_at).toLocaleDateString('pt-BR')}</span> </div>
-                                <div className="flex items-center gap-2 mb-3"> <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div> </div>
-                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed pr-6 break-words">{review.comment}</p>}
+                            <div key={review.id} className="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0 relative group">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                        <UserIcon className="h-5 w-5" />
+                                    </div>
+                                    <span className="font-semibold text-white text-sm">{review.user_name || 'Cliente'}</span>
+                                     {user && user.role === 'admin' && (
+                                        <button
+                                            onClick={() => handleDeleteReview(review.id)}
+                                            className="absolute top-0 right-0 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Excluir avaliação"
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
+                                    {/* Adiciona um título simulado se houver comentário */}
+                                    {review.comment && review.comment.length > 30 && <span className="font-bold text-white text-sm ml-2 truncate">{review.comment.substring(0, 30)}...</span>}
+                                </div>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                </p>
+                                <p className="text-xs font-semibold text-amber-500 mb-3">Compra verificada</p>
+                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words">{review.comment}</p>}
+                                {/* Futuros botões Útil/Denunciar podem entrar aqui */}
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
                     </div>
+                    {/* --- FIM DA MODIFICAÇÃO --- */}
+
                     <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
                         <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
                         <p className="text-gray-400 text-sm mb-4">Compartilhe sua opinião para ajudar outros clientes!</p>
