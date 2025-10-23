@@ -3274,7 +3274,7 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 };
 
 const CartPage = ({ onNavigate }) => {
-    const { 
+    const {
         cart,
         updateQuantity,
         removeFromCart,
@@ -3304,18 +3304,26 @@ const CartPage = ({ onNavigate }) => {
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
+        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
+        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
+            return subtotal + shippingCost;
+        }
         return discountValue;
     }, [appliedCoupon, subtotal, shippingCost]);
 
-    
+
     const handleApplyCoupon = (e) => {
         e.preventDefault();
         if (couponCode.trim()) {
             applyCoupon(couponCode);
         }
     }
-    
-    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
+    const total = useMemo(() => {
+        const calculatedTotal = subtotal - discount + shippingCost;
+        return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
+    }, [subtotal, discount, shippingCost]);
+
 
     const handleUpdateQuantity = async (cartItemId, newQuantity) => {
         try {
@@ -3327,109 +3335,148 @@ const CartPage = ({ onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-8">
-                <h1 className="text-3xl md:text-4xl font-bold mb-8">Carrinho de Compras</h1>
+            <div className="container mx-auto px-4 py-12"> {/* Aumentado padding vertical */}
+                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> {/* Centralizado e margem aumentada */}
                 {cart.length === 0 ? (
-                    <div className="text-center py-16 bg-gray-900 rounded-lg border border-gray-800">
-                        <p className="text-gray-400 text-xl">Seu carrinho está vazio.</p>
-                        <button onClick={() => onNavigate('products')} className="mt-6 bg-amber-400 text-black px-6 py-2 rounded-md hover:bg-amber-300 font-bold">Ver produtos</button>
-                    </div>
+                    <EmptyState
+                        icon={<CartIcon className="h-12 w-12"/>}
+                        title="Seu carrinho está vazio"
+                        message="Explore nossos produtos e adicione seus favoritos!"
+                        buttonText="Ver Produtos"
+                        onButtonClick={() => onNavigate('products')}
+                    />
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-4 md:p-6 space-y-4">
-                                {cart.map(item => {
-                                    const isOnSale = item.is_on_sale && item.sale_price > 0;
-                                    const currentPrice = isOnSale ? item.sale_price : item.price;
-                                    return (
-                                    <div key={item.cartItemId} className="flex flex-col sm:flex-row items-center justify-between border-b border-gray-700 pb-4 last:border-b-0 gap-4">
-                                        <div className="flex items-center w-full sm:w-auto">
-                                            <div 
-                                                className="w-20 h-20 bg-white rounded-md flex-shrink-0 cursor-pointer"
-                                                onClick={() => onNavigate(`product/${item.id}`)}
-                                            >
-                                                <img src={getFirstImage(item.images, 'https://placehold.co/80x80/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> {/* Aumentado gap */}
+                        {/* Coluna de Itens e Frete */}
+                        <div className="lg:col-span-2 space-y-8"> {/* Aumentado space-y */}
+                            {/* Card de Itens */}
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
+                                <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
+                                <div className="divide-y divide-gray-700">
+                                    {cart.map(item => {
+                                        const isOnSale = item.is_on_sale && item.sale_price > 0;
+                                        const currentPrice = isOnSale ? item.sale_price : item.price;
+                                        const itemSubtotal = currentPrice * item.qty;
+                                        return (
+                                        <motion.div
+                                            key={item.cartItemId}
+                                            layout // Anima a remoção
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0, x: -50 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="flex flex-col md:flex-row items-start md:items-center justify-between p-5 gap-4"
+                                        >
+                                            <div className="flex items-center w-full md:w-auto flex-grow">
+                                                <div
+                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" // Aumentado tamanho
+                                                    onClick={() => onNavigate(`product/${item.id}`)}
+                                                >
+                                                    <img src={getFirstImage(item.images, 'https://placehold.co/96x96/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
+                                                </div>
+                                                <div className="flex-grow px-4">
+                                                    <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                    {item.variation && (
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            {item.variation.color} / {item.variation.size}
+                                                        </p>
+                                                    )}
+                                                    {isOnSale ? (
+                                                        <div className="flex items-baseline gap-2 mt-1">
+                                                            <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
+                                                            <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-base text-amber-400 mt-1">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="flex-grow px-4">
-                                                <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
-                                                {item.variation && (
-                                                    <p className="text-xs text-gray-400">
-                                                        {item.variation.color} / {item.variation.size}
-                                                    </p>
-                                                )}
-                                                {isOnSale ? (
-                                                    <div className="flex items-baseline gap-2">
-                                                        <p className="text-sm text-red-500 font-bold">R$ {Number(currentPrice).toFixed(2)}</p>
-                                                        <p className="text-xs text-gray-500 line-through">R$ {Number(item.price).toFixed(2)}</p>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-amber-400">R$ {Number(item.price).toFixed(2)}</p>
-                                                )}
+                                            <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6">
+                                                {/* Controle de Quantidade */}
+                                                <div className="flex items-center border border-gray-700 rounded-md overflow-hidden h-9">
+                                                    <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty - 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">-</button>
+                                                    <span className="w-10 text-center font-semibold text-sm border-x border-gray-700 h-full flex items-center justify-center">{item.qty}</span>
+                                                    <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 text-lg hover:bg-gray-700 transition-colors h-full flex items-center">+</button>
+                                                </div>
+                                                {/* Subtotal Item */}
+                                                <p className="font-bold text-base w-24 text-right">R$&nbsp;{itemSubtotal.toFixed(2)}</p>
+                                                {/* Remover Item */}
+                                                <button onClick={() => removeFromCart(item.cartItemId)} className="text-gray-500 hover:text-red-500 transition-colors" title="Remover item">
+                                                    <TrashIcon className="h-5 w-5"/>
+                                                </button>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center justify-between w-full sm:w-auto">
-                                            <div className="flex items-center space-x-2">
-                                                <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty - 1)} className="px-3 py-1 border border-gray-700 rounded">-</button>
-                                                <span className="w-8 text-center">{item.qty}</span>
-                                                <button onClick={() => handleUpdateQuantity(item.cartItemId, item.qty + 1)} className="px-3 py-1 border border-gray-700 rounded">+</button>
-                                            </div>
-                                            <p className="font-bold w-28 text-right">R$ {(currentPrice * item.qty).toFixed(2)}</p>
-                                            <button onClick={() => removeFromCart(item.cartItemId)} className="ml-4 text-gray-500 hover:text-red-500"><TrashIcon className="h-5 w-5"/></button>
-                                        </div>
-                                    </div>
-                                    )
-                                })}
+                                        </motion.div>
+                                        )
+                                    })}
+                                </div>
+                                <div className="p-5 border-t border-gray-700 text-right">
+                                     <button onClick={() => onNavigate('products')} className="text-amber-400 hover:underline text-sm font-semibold flex items-center gap-1.5 ml-auto w-fit">
+                                        <PlusIcon className="h-4 w-4"/> Continuar Comprando
+                                    </button>
+                                </div>
                             </div>
+                            {/* Calculadora de Frete (mantém componente externo) */}
                             <ShippingCalculator items={cart} />
                         </div>
 
-                        <div className="lg:col-span-1 bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit lg:sticky lg:top-28">
-                            <h2 className="text-2xl font-bold mb-4">Resumo</h2>
-                            <div className="space-y-2 mb-4">
-                                <div className="flex justify-between text-gray-300"><span>Subtotal</span><span>R$ {subtotal.toFixed(2)}</span></div>
-                                
-                                <div className="flex justify-between text-gray-300">
-                                    <span>Frete (PAC)</span>
-                                    {isLoadingShipping ? (
-                                        <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                    ) : autoCalculatedShipping ? (
-                                        <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
-                                    ) : (
-                                        <span className="text-xs text-gray-500">Informe o CEP</span>
+                        {/* Coluna de Resumo */}
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 shadow-lg h-fit lg:sticky lg:top-28">
+                                <h2 className="text-2xl font-bold mb-6 text-center text-amber-400">Resumo do Pedido</h2>
+                                <div className="space-y-3 mb-5 border-b border-gray-700 pb-5">
+                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal Produtos</span><span>R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    <div className="flex justify-between text-gray-300 text-sm">
+                                        <span>Frete</span>
+                                        {isLoadingShipping ? (
+                                            <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                        ) : autoCalculatedShipping ? (
+                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                        ) : (
+                                            <span className="text-xs text-gray-500">Selecione o CEP</span>
+                                        )}
+                                    </div>
+                                    {shippingError && <p className="text-red-400 text-xs text-right -mt-2">{shippingError}</p>}
+                                    {appliedCoupon && (
+                                        <div className="flex justify-between text-green-400 text-sm">
+                                            <span>Desconto ({appliedCoupon.code})</span>
+                                            <span>- R$&nbsp;{discount.toFixed(2)}</span>
+                                        </div>
                                     )}
                                 </div>
-                                
-                                {shippingError && <p className="text-red-400 text-sm text-right">{shippingError}</p>}
-
-                                {appliedCoupon && (
-                                    <div className="flex justify-between text-green-400">
-                                        <span>Desconto ({appliedCoupon.code})</span>
-                                        <span>- R$ {discount.toFixed(2)}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between font-bold text-xl mb-6">
-                                <span>Total</span>
-                                <span className="text-amber-400">R$ {total.toFixed(2)}</span>
-                            </div>
-                            
-                            {!appliedCoupon ? (
-                                <>
-                                <form onSubmit={handleApplyCoupon} className="flex space-x-2">
-                                    <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Cupom de Desconto" className="w-full p-2 bg-gray-800 border border-gray-700 rounded" />
-                                    <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded hover:bg-amber-300">Aplicar</button>
-                                </form>
-                                {couponMessage && <p className={`text-sm mt-2 ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
-                                </>
-                            ) : (
-                                <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md">
-                                    <p className="text-sm text-green-400 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/>{couponMessage}</p>
-                                    <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline">Remover</button>
+                                <div className="flex justify-between font-bold text-xl mb-6">
+                                    <span>Total</span>
+                                    <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
                                 </div>
-                            )}
-                            
-                            <button onClick={() => onNavigate('checkout')} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!autoCalculatedShipping || cart.length === 0}>Ir para o Checkout</button>
-                            {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-gray-400 mt-2">É necessário um endereço de entrega para continuar.</p>}
+
+                                {/* Seção do Cupom */}
+                                <div className="mb-6">
+                                    {!appliedCoupon ? (
+                                        <>
+                                        <form onSubmit={handleApplyCoupon} className="flex space-x-2">
+                                            <input value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())} type="text" placeholder="Código do Cupom" className="w-full p-2 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm" />
+                                            <button type="submit" className="px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 text-sm transition-colors">Aplicar</button>
+                                        </form>
+                                        {couponMessage && <p className={`text-xs mt-2 text-center ${couponMessage.includes('aplicado') ? 'text-green-400' : 'text-red-400'}`}>{couponMessage}</p>}
+                                        </>
+                                    ) : (
+                                        <div className="flex justify-between items-center bg-green-900/50 p-3 rounded-md border border-green-700">
+                                            <p className="text-sm text-green-300 flex items-center gap-2"><CheckCircleIcon className="h-5 w-5"/> Cupom <strong>{appliedCoupon.code}</strong> aplicado!</p>
+                                            <button onClick={removeCoupon} className="text-xs text-red-400 hover:underline flex-shrink-0">Remover</button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Botão Checkout */}
+                                <button
+                                    onClick={() => onNavigate('checkout')}
+                                    className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3.5 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
+                                    disabled={!autoCalculatedShipping || cart.length === 0}
+                                >
+                                    <CheckBadgeIcon className="h-5 w-5" />
+                                    Finalizar Compra
+                                </button>
+                                {!autoCalculatedShipping && cart.length > 0 && <p className="text-center text-xs text-red-400 mt-3">Calcule o frete para continuar.</p>}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -3738,7 +3785,7 @@ const CheckoutPage = ({ onNavigate }) => {
         clearOrderState,
         addresses,
         fetchAddresses,
-        shippingLocation, // <-- Usar shippingLocation do contexto
+        shippingLocation,
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
@@ -3746,7 +3793,6 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
-    // Estado local para o endereço exibido, inicializado com o do contexto
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
@@ -3758,14 +3804,11 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // Ajuste no useEffect inicial
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
-            // Prioriza o shippingLocation atual do contexto
             if (shippingLocation && shippingLocation.cep) {
-                // Tenta encontrar um endereço salvo que corresponda ao CEP e alias (se não for genérico)
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
                     (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
@@ -3773,26 +3816,19 @@ const CheckoutPage = ({ onNavigate }) => {
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
-                    // Se não encontrar correspondência salva (ex: CEP manual), usa os dados do contexto
                     addressToSet = {
                         cep: shippingLocation.cep,
                         localidade: shippingLocation.city,
                         uf: shippingLocation.state,
                         alias: shippingLocation.alias,
-                        // Adiciona campos vazios para consistência da estrutura, mas eles não serão usados para envio
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
                     };
                 }
             }
-
-            // Se ainda não encontrou um endereço, usa o padrão ou o primeiro da lista
             if (!addressToSet) {
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
-
-            setDisplayAddress(addressToSet); // Define o endereço a ser exibido
-
-            // Sincroniza o shippingLocation global se o endereço encontrado for diferente do atual no contexto
+            setDisplayAddress(addressToSet);
             if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
                  setShippingLocation({
                     cep: addressToSet.cep,
@@ -3801,11 +3837,10 @@ const CheckoutPage = ({ onNavigate }) => {
                     alias: addressToSet.alias
                  });
             }
-
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
+    }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
@@ -3820,15 +3855,13 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
-        // Se a opção selecionada for "Retirar na Loja", limpa o displayAddress para não mostrar endereço de entrega
         if(option.isPickup) {
             setDisplayAddress(null);
         } else if (!displayAddress && addresses.length > 0) {
-            // Se estava em Retirada e voltou para Envio, tenta restaurar o endereço padrão ou o primeiro
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
                 setDisplayAddress(defaultOrFirst);
-                setShippingLocation({ // Atualiza o global também
+                setShippingLocation({
                     cep: defaultOrFirst.cep,
                     city: defaultOrFirst.localidade,
                     state: defaultOrFirst.uf,
@@ -3839,8 +3872,7 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const handleAddressSelection = (address) => {
-        setDisplayAddress(address); // Atualiza o endereço exibido
-        // Atualiza também o shippingLocation global para recalcular frete
+        setDisplayAddress(address);
         setShippingLocation({
             cep: address.cep,
             city: address.localidade,
@@ -3859,10 +3891,10 @@ const CheckoutPage = ({ onNavigate }) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
-            const updatedAddresses = await fetchAddresses(); // Rebusca endereços atualizados
+            const updatedAddresses = await fetchAddresses();
             const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
-            setDisplayAddress(newAddress); // Define como endereço exibido
-             setShippingLocation({ // Atualiza o global
+            setDisplayAddress(newAddress);
+             setShippingLocation({
                 cep: newAddress.cep,
                 city: newAddress.localidade,
                 state: newAddress.uf,
@@ -3891,30 +3923,31 @@ const CheckoutPage = ({ onNavigate }) => {
         } else if (appliedCoupon.type === 'free_shipping') {
             discountValue = shippingCost;
         }
+        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
+        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
+            return subtotal + shippingCost;
+        }
         return discountValue;
     }, [appliedCoupon, subtotal, shippingCost]);
 
-    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+    const total = useMemo(() => {
+         const calculatedTotal = subtotal - discount + shippingCost;
+         return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
+    }, [subtotal, discount, shippingCost]);
 
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
-        // Validação usa displayAddress agora
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
+            notification.show("Por favor, revise os dados de entrega e pagamento.", 'error');
             return;
         }
-
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
             notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
             return;
         }
-
         setIsLoading(true);
-
         try {
-            // Garante que apenas endereços salvos (com ID) sejam enviados
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-
             const orderPayload = {
                 items: cart.map(item => ({
                     id: item.id,
@@ -3923,7 +3956,7 @@ const CheckoutPage = ({ onNavigate }) => {
                     variation: item.variation
                 })),
                 total: total,
-                shippingAddress: finalShippingAddress, // Envia o endereço selecionado (se não for pickup)
+                shippingAddress: finalShippingAddress,
                 paymentMethod: paymentMethod,
                 shipping_method: autoCalculatedShipping.name,
                 shipping_cost: shippingCost,
@@ -3943,14 +3976,11 @@ const CheckoutPage = ({ onNavigate }) => {
                 const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
                 if (paymentResult && paymentResult.init_point) {
                     window.location.href = paymentResult.init_point;
-                } else {
-                    throw new Error("Não foi possível obter o link de pagamento.");
-                }
+                } else { throw new Error("Não foi possível obter o link de pagamento."); }
             } else {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
-
         } catch (error) {
             notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
             setIsLoading(false);
@@ -3958,166 +3988,235 @@ const CheckoutPage = ({ onNavigate }) => {
     };
 
     const getShippingName = (name) => {
-        if (name) {
-            const lowerCaseName = name.toLowerCase();
-            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
-                return 'PAC';
-            }
-        }
+        // Simplificado para retornar o nome como está ou N/A
         return name || 'N/A';
     };
 
-    // --- FUNÇÃO AUXILIAR PARA CALCULAR DATA (REINTRODUZIDA) ---
     const getDeliveryDateText = (deliveryTime) => {
         if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
             date.setDate(date.getDate() + 1);
-            // Pula Sábados (6) e Domingos (0)
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedDays++;
-            }
+            if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
         }
-        // Formata a data para "dia de mês" (ex: "28 de outubro")
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
-    // --- FIM DA FUNÇÃO AUXILIAR ---
+
+    // --- NOVO: Componente interno para as etapas ---
+    const CheckoutStep = ({ stepNumber, title, children, isCompleted = false }) => (
+        <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: stepNumber * 0.1 }}
+            className="bg-gray-900 p-6 rounded-lg border border-gray-800 shadow-md relative overflow-hidden"
+        >
+            <div className="flex items-center gap-4 mb-5 pb-4 border-b border-gray-700">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg ${isCompleted ? 'bg-amber-400 text-black' : 'bg-gray-700 text-amber-300'}`}>
+                    {isCompleted ? <CheckIcon className="h-5 w-5"/> : stepNumber}
+                </div>
+                <h2 className="text-xl font-bold text-amber-400">{title}</h2>
+            </div>
+            {children}
+        </motion.div>
+    );
+    // --- FIM: Componente interno para as etapas ---
 
     return (
         <>
-            <AddressSelectionModal
-                isOpen={isAddressModalOpen}
-                onClose={() => setIsAddressModalOpen(false)}
-                addresses={addresses}
-                onSelectAddress={handleAddressSelection}
-                onAddNewAddress={handleAddNewAddress}
-            />
+            <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço">
                 <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
             </Modal>
 
             <div className="bg-black text-white min-h-screen">
-                <div className="container mx-auto px-4 py-8">
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                        <div className="lg:col-span-1 space-y-8">
+                <div className="container mx-auto px-4 py-12">
+                     {/* --- NOVO: Botão Voltar --- */}
+                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
+                        <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/>
+                        Voltar para o Carrinho
+                    </button>
+                    <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Finalizar Compra</h1>
 
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
+                    {/* Verifica se há itens no carrinho */}
+                    {cart.length === 0 ? (
+                        <EmptyState
+                            icon={<CartIcon className="h-12 w-12"/>}
+                            title="Seu carrinho está vazio"
+                            message="Adicione itens para poder finalizar a compra."
+                            buttonText="Ver Produtos"
+                            onButtonClick={() => onNavigate('products')}
+                        />
+                    ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                        {/* Coluna Principal (Etapas) */}
+                        <div className="lg:col-span-2 space-y-8">
+                             {/* Etapa 1: Entrega */}
+                             <CheckoutStep stepNumber={1} title="Forma de Entrega" isCompleted={!!autoCalculatedShipping}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-3">
-                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
-                                                    <span className="font-bold">{option.name}</span>
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer flex justify-between items-center ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50 shadow-inner' : 'border-gray-700 hover:bg-gray-800 hover:border-gray-600'}`}>
+                                            <div className="flex items-center gap-3">
+                                                <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 cursor-pointer"/>
+                                                <div>
+                                                    <span className="font-bold text-white">{option.name}</span>
+                                                    <p className="text-xs text-gray-400">{option.isPickup ? `Disponível para retirada após confirmação.` : getDeliveryDateText(option.delivery_time)}</p>
                                                 </div>
-                                                <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                            {/* LINHA ALTERADA ABAIXO */}
-                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
+                                            <span className="font-bold text-amber-400 text-lg">{option.price > 0 ? `R$&nbsp;${option.price.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                             </CheckoutStep>
 
-                            {/* ... Restante do JSX da seção de entrega (Retirada ou Endereço) ... */}
-                            {autoCalculatedShipping?.isPickup ? (
-                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
-                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
-                                        <p className="font-bold">Endereço para Retirada:</p>
-                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
-                                        <p className="font-bold mt-2">Horário:</p>
-                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
-                                        <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
-                                    </div>
-                                    <div className="mt-4 space-y-3">
-                                        <div className="flex items-center">
-                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
-                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
-                                        </div>
-                                        {isSomeoneElsePickingUp && (
-                                            <div className="space-y-2 overflow-hidden">
-                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
-                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                            {/* Etapa 2: Detalhes (Endereço ou Retirada) */}
+                            {autoCalculatedShipping && (
+                                <CheckoutStep stepNumber={2} title={autoCalculatedShipping.isPickup ? "Detalhes da Retirada" : "Endereço de Entrega"} isCompleted={autoCalculatedShipping.isPickup || !!displayAddress}>
+                                    {autoCalculatedShipping.isPickup ? (
+                                        <div className="space-y-4">
+                                            <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
+                                                <p className="font-bold text-gray-300">Endereço para Retirada:</p>
+                                                <p className="text-gray-400">R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                                <p className="font-bold text-gray-300 mt-2">Horário:</p>
+                                                <p className="text-gray-400">Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                                <p className="text-amber-300 text-xs mt-2 font-semibold"><ClockIcon className="h-4 w-4 inline mr-1"/> Aguarde a notificação "Pronto para Retirada".</p>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
-                                    {isAddressLoading ? (
-                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
-                                    ) : displayAddress ? ( // Usa displayAddress aqui
-                                        <div className="p-4 bg-gray-800 rounded-md">
-                                            <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
-                                            <div className="space-y-1 text-gray-300 text-sm">
-                                                {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
-                                                {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
-                                                {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
-                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
-                                                <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
+                                            <div className="mt-4 space-y-3">
+                                                <div className="flex items-center">
+                                                    <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
+                                                    <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
+                                                </div>
+                                                {isSomeoneElsePickingUp && (
+                                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="space-y-2 overflow-hidden bg-gray-800 p-4 rounded-md border border-gray-700">
+                                                        <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-amber-400 focus:border-amber-400"/>
+                                                        <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-amber-400 focus:border-amber-400"/>
+                                                    </motion.div>
+                                                )}
                                             </div>
-                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
-                                                Alterar Endereço
-                                            </button>
                                         </div>
-                                    ) : (
-                                        <div className="text-center p-4 bg-gray-800 rounded-md">
-                                            <p className="text-gray-400 mb-3">Nenhum endereço selecionado ou cadastrado.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                                Adicionar Endereço
-                                            </button>
+                                    ) : ( // Se for entrega
+                                        <div>
+                                            {isAddressLoading ? (
+                                                <div className="p-4 bg-gray-800 rounded-md animate-pulse h-32 border border-gray-700"></div>
+                                            ) : displayAddress ? (
+                                                <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
+                                                    <p className="font-bold text-lg mb-2 text-gray-100">{displayAddress.alias}</p>
+                                                    <div className="space-y-1 text-gray-300 text-sm">
+                                                        {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
+                                                        {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
+                                                        {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
+                                                        <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                        <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
+                                                    </div>
+                                                    <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
+                                                        Alterar ou escolher outro
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
+                                                    <p className="text-gray-400 mb-4">Nenhum endereço selecionado.</p>
+                                                    <button onClick={() => setIsAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm">
+                                                        Selecionar ou Adicionar Endereço
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
+                                </CheckoutStep>
                             )}
 
-                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
-                                <div className="space-y-3">
-                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
-                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
-                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
-                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
-                                {cart.map(item => (
-                                    <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1">
-                                        <span className="truncate pr-2">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
-                                        <span>R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
-                                    </div>
-                                ))}
-                                <div className="border-t border-gray-700 mt-4 pt-4">
-                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
-                                    {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-300 py-1">
-                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)}):</span>
-                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                             {/* Etapa 3: Pagamento */}
+                             {autoCalculatedShipping && (autoCalculatedShipping.isPickup || displayAddress) && (
+                                <CheckoutStep stepNumber={3} title="Forma de Pagamento" isCompleted={!!paymentMethod}>
+                                    <div className="space-y-3">
+                                        {/* Opção Mercado Pago */}
+                                        <div onClick={() => setPaymentMethod('mercadopago')} className={`p-4 rounded-lg border-2 transition cursor-pointer flex justify-between items-center ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50 shadow-inner' : 'border-gray-700 hover:bg-gray-800 hover:border-gray-600'}`}>
+                                            <div className="flex items-center gap-4">
+                                                <input type="radio" readOnly checked={paymentMethod === 'mercadopago'} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2 cursor-pointer"/>
+                                                <div className="flex items-center gap-3">
+                                                     <img src="https://logospng.org/download/mercado-pago/logo-mercado-pago-icone-1024.png" alt="Mercado Pago" className="h-8 w-8 object-contain bg-white p-1 rounded-sm"/>
+                                                    <div>
+                                                        <span className="font-bold text-white">Mercado Pago</span>
+                                                        <p className="text-xs text-gray-400">Cartão de Crédito, Pix ou Boleto em ambiente seguro.</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Ícones das bandeiras */}
+                                             <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0 ml-4">
+                                                <VisaIcon className="h-5"/>
+                                                <MastercardIcon className="h-5"/>
+                                                <EloIcon className="h-5"/>
+                                                <PixIcon className="h-5"/>
+                                                <BoletoIcon className="h-5 text-gray-400"/>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o método de entrega.</div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
-                                </div>
+                                        {/* Adicionar outras opções de pagamento aqui se necessário */}
+                                    </div>
+                                    <div className="mt-6 flex items-center justify-center gap-2 text-sm text-green-400 bg-green-900/30 p-3 rounded-md border border-green-700">
+                                         <ShieldCheckIcon className="h-5 w-5 flex-shrink-0"/>
+                                        <span>Ambiente seguro. Seus dados estão protegidos.</span>
+                                    </div>
+                                </CheckoutStep>
+                             )}
+                        </div>
 
-                                <button onClick={handlePlaceOrderAndPay} disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                        {/* Coluna de Resumo */}
+                        <div className="lg:col-span-1">
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 shadow-lg h-fit md:sticky md:top-28">
+                                <h2 className="text-2xl font-bold mb-6 text-center text-amber-400">Resumo Final</h2>
+                                {/* Itens do Carrinho */}
+                                <div className="space-y-3 max-h-60 overflow-y-auto mb-4 border-b border-gray-700 pb-4 pr-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-800">
+                                    {cart.map(item => (
+                                        <div key={item.cartItemId} className="flex items-center gap-3 text-sm">
+                                            <img src={getFirstImage(item.images)} alt={item.name} className="w-12 h-12 object-contain bg-white rounded-md flex-shrink-0 p-1 border border-gray-700"/>
+                                            <div className="flex-grow overflow-hidden">
+                                                <p className="text-gray-300 truncate font-semibold">{item.name} {item.variation ? `(${item.variation.size})` : ''}</p>
+                                                <p className="text-gray-400 text-xs">{item.qty} x R$&nbsp;{(item.is_on_sale && item.sale_price ? item.sale_price : item.price).toFixed(2)}</p>
+                                            </div>
+                                            <span className="text-white font-semibold flex-shrink-0">R$&nbsp;{((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                {/* Totais */}
+                                <div className="space-y-2 mb-6">
+                                    <div className="flex justify-between text-gray-300 text-sm"><span>Subtotal</span><span>R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                                    {autoCalculatedShipping && (
+                                        <div className="flex justify-between text-gray-300 text-sm">
+                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span>{shippingCost > 0 ? `R$&nbsp;${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                        </div>
+                                    )}
+                                    {appliedCoupon && (
+                                        <div className="flex justify-between text-green-400 text-sm">
+                                            <span>Desconto ({appliedCoupon.code})</span>
+                                            <span>- R$&nbsp;{discount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between font-bold text-xl border-t border-gray-700 pt-3 mt-3">
+                                        <span>Total</span>
+                                        <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                {/* Botão Finalizar */}
+                                <button
+                                    onClick={handlePlaceOrderAndPay}
+                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading || cart.length === 0}
+                                    className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3.5 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
+                                >
                                     {isLoading ? (
-                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
+                                        <SpinnerIcon className="h-6 w-6 border-black border-t-transparent"/>
                                     ) : (
-                                        'Finalizar e Pagar'
+                                        <> <CreditCardIcon className="h-6 w-6" /> Finalizar Pagamento </>
                                     )}
                                 </button>
+                                {/* Mensagem de erro/aviso */}
+                                {(!autoCalculatedShipping || (!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod) && cart.length > 0 &&
+                                    <p className="text-center text-xs text-red-400 mt-3">Complete todas as etapas para finalizar.</p>
+                                }
                             </div>
                         </div>
                     </div>
+                    )} {/* Fim da verificação do carrinho vazio */}
                 </div>
             </div>
         </>
