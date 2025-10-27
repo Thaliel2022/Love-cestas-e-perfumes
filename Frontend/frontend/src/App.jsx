@@ -3818,8 +3818,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
+// Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
+
 const CheckoutPage = ({ onNavigate }) => {
-    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log opcional
+    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log mantido para depuração
     const { user } = useAuth();
     const {
         cart,
@@ -3844,11 +3846,15 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
 
-    // Estados para Nome e CPF (ambos controlados)
+    // Estados que armazenam o valor FINAL (atualizado no onBlur)
     const [pickupPersonName, setPickupPersonName] = useState('');
-    const [pickupPersonCpf, setPickupPersonCpf] = useState(''); // Estado único para CPF (controlado)
+    const [pickupPersonCpf, setPickupPersonCpf] = useState('');
+
+    // --- NOVO: Estado local para o valor VISUAL do input de CPF (com máscara) ---
+    const [displayPickupCpf, setDisplayPickupCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
+    // (Lógica mantida como antes)
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3882,14 +3888,17 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito SIMPLES para preencher/limpar dados de retirada ---
+    // --- Efeito para definir os VALORES INICIAIS (defaultValue) e limpar estados ---
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
-            setPickupPersonCpf(maskCPF(user.cpf || '')); // Aplica máscara ao preencher
-        } else if (isSomeoneElsePickingUp) {
+            setPickupPersonCpf(user.cpf || '');
+            setDisplayPickupCpf(maskCPF(user.cpf || '')); // Define o valor visual inicial
+        } else {
+            // Limpa ambos os estados (final e visual)
             setPickupPersonName('');
             setPickupPersonCpf('');
+            setDisplayPickupCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
@@ -3900,12 +3909,15 @@ const CheckoutPage = ({ onNavigate }) => {
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
+            // Redefine valores iniciais ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
                 setPickupPersonName(user.name || '');
-                setPickupPersonCpf(maskCPF(user.cpf || '')); // Aplica máscara
+                setPickupPersonCpf(user.cpf || '');
+                setDisplayPickupCpf(maskCPF(user.cpf || ''));
             } else {
                  setPickupPersonName('');
                  setPickupPersonCpf('');
+                 setDisplayPickupCpf('');
             }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
@@ -3915,7 +3927,8 @@ const CheckoutPage = ({ onNavigate }) => {
              }
         }
     };
-    const handleAddressSelection = (address) => {
+    // ... (outros handlers handleAddressSelection, handleAddNewAddress, handleSaveNewAddress mantidos) ...
+     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
@@ -3957,10 +3970,10 @@ const CheckoutPage = ({ onNavigate }) => {
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-
+        // Validação USA OS ESTADOS pickupPersonName e pickupPersonCpf (atualizados no onBlur)
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf; // Usa o estado principal para validação
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) { // validateCPF usa o estado principal
             if(!isSomeoneElsePickingUp && !user) {
                  notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
             } else {
@@ -3972,6 +3985,7 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+             // Usa os estados principais para enviar para a API
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
@@ -4022,12 +4036,20 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers simples inline para os inputs CONTROLADOS ---
-    const handlePickupNameChange = (e) => {
-        setPickupPersonName(e.target.value);
+    // --- Handlers para os inputs de retirada (onBlur e onChange específico para CPF) ---
+    const handlePickupNameBlur = (e) => {
+        setPickupPersonName(e.target.value); // Atualiza o estado principal no blur
     };
+
     const handlePickupCpfChange = (e) => {
-        setPickupPersonCpf(maskCPF(e.target.value)); // Aplica máscara e atualiza estado
+        setDisplayPickupCpf(maskCPF(e.target.value)); // Atualiza apenas o estado visual/mascarado no change
+    };
+
+    const handlePickupCpfBlur = (e) => {
+        // No blur do CPF, atualiza ambos os estados: visual e principal (que será validado)
+        const maskedValue = maskCPF(e.target.value);
+        setDisplayPickupCpf(maskedValue);
+        setPickupPersonCpf(maskedValue); // Atualiza o estado principal
     };
 
 
@@ -4052,6 +4074,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         <div className="lg:col-span-2 space-y-8">
                             {/* Seção Forma de Entrega */}
                             <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
+                                {/* ... (código mantido) ... */}
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
@@ -4074,6 +4097,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
+                                     {/* ... (informações de endereço e horário mantidas) ... */}
                                      <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
                                         <p className="font-bold">Endereço:</p>
                                         <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
@@ -4086,24 +4110,28 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO FINAL FINAL: Sintaxe JSX e Inputs Controlados --- */}
+                                        {/* --- CORREÇÃO FINAL: Inputs não controlados com onBlur --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                {/* Input de Nome CONTROLADO */}
+                                            <div
+                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} // Chave para forçar remonte com defaultValue correto
+                                                className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
+                                            >
                                                 <input
                                                     type="text"
-                                                    value={pickupPersonName}
-                                                    onChange={handlePickupNameChange}
+                                                    // Sem value={pickupPersonName}
+                                                    defaultValue={pickupPersonName} // Define valor inicial
+                                                    onBlur={handlePickupNameBlur} // Atualiza estado principal no blur
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                                {/* Input de CPF CONTROLADO */}
                                                 <input
                                                     type="text"
-                                                    value={pickupPersonCpf}
-                                                    onChange={handlePickupCpfChange}
+                                                    // Sem value={pickupPersonCpf}
+                                                    value={displayPickupCpf} // Usa estado VISUAL para máscara
+                                                    defaultValue={displayPickupCpf} // Define valor inicial visual
+                                                    onChange={handlePickupCpfChange} // Atualiza estado VISUAL e aplica máscara
+                                                    onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
                                                     placeholder="CPF de quem vai retirar"
-                                                    maxLength="14"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
@@ -4113,8 +4141,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
-                                     {/* --- CORREÇÃO DE SINTAXE: Removido comentário que quebrava JSX --- */}
-                                     {isAddressLoading ? (
+                                     {/* ... (código do endereço mantido) ... */}
+                                      {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
                                     ) : displayAddress ? (
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
@@ -4147,11 +4175,11 @@ const CheckoutPage = ({ onNavigate }) => {
 
                             {/* Seção Forma de Pagamento */}
                             <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
-                                 {/* --- CORREÇÃO DE SINTAXE: Removido comentário que quebrava JSX --- */}
+                                {/* ... (código mantido) ... */}
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                        <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
+                                         <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                             <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
                                                 {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
                                             </div>
@@ -4163,14 +4191,13 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                 </div>
                             </CheckoutSection>
-                        </div> {/* Fim da Coluna Esquerda */}
+                        </div>
 
                         {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
-                             {/* --- CORREÇÃO DE SINTAXE: Removido comentário que quebrava JSX --- */}
+                             {/* ... (código do resumo mantido) ... */}
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                 {/* --- CORREÇÃO DE SINTAXE: Removido comentário que quebrava JSX --- */}
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
                                         <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
@@ -4213,10 +4240,10 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {isLoading ? 'Processando...' : 'Finalizar e Pagar'}
                                 </button>
                             </div>
-                        </div> {/* Fim da Coluna Direita */}
-                    </div> {/* Fim do Grid Principal */}
-                </div> {/* Fim do Container */}
-            </div> {/* Fim da Div Background */}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </>
     );
 };
