@@ -4082,7 +4082,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             </CheckoutSection>
 
                             {/* --- Seção Endereço ou Detalhes de Retirada --- */}
-                            {autoCalculatedShipping?.isPickup ? (
+                           {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
                                         <p className="font-bold">Endereço:</p>
@@ -4093,30 +4093,32 @@ const CheckoutPage = ({ onNavigate }) => {
                                     </div>
                                     <div className="mt-5 space-y-3">
                                         <div className="flex items-center">
-                                            {/* MODIFICAÇÃO: Usando a nova função handleCheckboxChange */}
-                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={handleCheckboxChange} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
+                                        {/* --- CORREÇÃO: Inputs renderizados condicionalmente --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input
                                                     type="text"
                                                     value={pickupPersonName}
-                                                    onChange={handlePickupNameChange} // Handler estabilizado
+                                                    onChange={handlePickupNameChange} // <- Usando handler local
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={pickupPersonCpf}
-                                                    onChange={handlePickupCpfChange} // Handler estabilizado
+                                                    onChange={handlePickupCpfChange} // <- Usando handler local
                                                     placeholder="CPF de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
                                         )}
+                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
+                            
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                     {isAddressLoading ? (
