@@ -4061,12 +4061,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
+                                        {/* --- CORREÇÃO: motion.div removida --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
                                                 <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                            </motion.div>
+                                            </div>
                                         )}
+                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
