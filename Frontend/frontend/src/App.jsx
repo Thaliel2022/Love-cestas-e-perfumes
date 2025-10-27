@@ -3881,19 +3881,21 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
     // --- Efeito para preencher dados de retirada ---
-    useEffect(() => {
-        if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name);
-            setPickupPersonCpf(user.cpf);
-        } else {
-             // Só limpa se a intenção for realmente limpar (outra pessoa vai retirar)
-             // Se o user deslogar, por exemplo, não limpa automaticamente
-            if (isSomeoneElsePickingUp) {
-                setPickupPersonName('');
-                setPickupPersonCpf('');
-            }
-        }
-    }, [user, isSomeoneElsePickingUp]); // Roda quando user ou checkbox mudam
+   // --- CORREÇÃO DEFINITIVA: Efeito que preenche/limpa dados da retirada ---
+useEffect(() => {
+    if (isSomeoneElsePickingUp) {
+        // Quando o checkbox está marcado, limpa os campos só uma vez
+        setPickupPersonName('');
+        setPickupPersonCpf('');
+    } else if (user) {
+        // Quando o checkbox é desmarcado, restaura os dados do usuário
+        setPickupPersonName(user.name || '');
+        setPickupPersonCpf(user.cpf || '');
+    }
+    // Executa apenas quando muda o checkbox ou o user
+}, [isSomeoneElsePickingUp, user]);
+
+    
 
     // --- Seleção de Frete ---
     const handleSelectShipping = (option) => {
