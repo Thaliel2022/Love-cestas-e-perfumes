@@ -3840,6 +3840,28 @@ const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
     );
 });
 
+// Componente isolado para os inputs de retirada por terceiros
+const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
+    return (
+        <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+            <input
+                type="text"
+                value={name}
+                onChange={onNameChange} // Usa a função passada por prop
+                placeholder="Nome completo de quem vai retirar"
+                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+            />
+            <input
+                type="text"
+                value={cpf}
+                onChange={onCpfChange} // Usa a função passada por prop
+                placeholder="CPF de quem vai retirar"
+                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+            />
+        </div>
+    );
+});
+
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
@@ -3907,14 +3929,13 @@ const CheckoutPage = ({ onNavigate }) => {
             setPickupPersonName(user.name);
             setPickupPersonCpf(user.cpf);
         } else {
-             // Só limpa se a intenção for realmente limpar (outra pessoa vai retirar)
-             // Se o user deslogar, por exemplo, não limpa automaticamente
+            // Só limpa se a intenção for realmente limpar (outra pessoa vai retirar)
             if (isSomeoneElsePickingUp) {
                 setPickupPersonName('');
                 setPickupPersonCpf('');
             }
         }
-    }, [user, isSomeoneElsePickingUp]); // Roda quando user ou checkbox mudam
+    }, [user, isSomeoneElsePickingUp]);
 
     // --- Seleção de Frete ---
     const handleSelectShipping = (option) => {
@@ -3978,6 +3999,7 @@ const CheckoutPage = ({ onNavigate }) => {
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
+        // Validação agora usa o estado local diretamente
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
             notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
         }
@@ -3990,6 +4012,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 total, shippingAddress: finalShippingAddress, paymentMethod,
                 shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount,
+                 // Usa o estado local para os detalhes de retirada
                 pickup_details: isPickup ? JSON.stringify({ personName: isSomeoneElsePickingUp ? pickupPersonName : user.name, personCpf: (isSomeoneElsePickingUp ? pickupPersonCpf : user.cpf).replace(/\D/g, '') }) : null,
             };
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
@@ -4032,6 +4055,14 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
+    // --- Handlers para o componente PickupPersonForm ---
+    const handlePickupNameChange = (e) => {
+        setPickupPersonName(e.target.value);
+    };
+    const handlePickupCpfChange = (e) => {
+        setPickupPersonCpf(maskCPF(e.target.value));
+    };
+
     return (
         <>
             {/* Modais (mantidos como antes) */}
@@ -4041,8 +4072,10 @@ const CheckoutPage = ({ onNavigate }) => {
             {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* Botão Voltar (Opcional, se quiser adicionar) */}
-                    {/* <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar ao Carrinho </button> */}
+                    {/* --- BOTÃO VOLTAR ADICIONADO --- */}
+                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
+                        <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
+                    </button>
 
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
@@ -4055,7 +4088,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
                                              className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                            {/* Bolinha de seleção customizada */}
                                             <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                                 <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
                                                     {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -4086,25 +4118,18 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- Seção de inputs de retirada --- */}
-                                        <div className={`space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700 transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 p-0 border-0'}`}>
-                                            <input
-                                                type="text"
-                                                value={pickupPersonName}
-                                                onChange={(e) => setPickupPersonName(e.target.value)}
-                                                placeholder="Nome completo de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`}
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1}
-                                            />
-                                            <input
-                                                type="text"
-                                                value={pickupPersonCpf}
-                                                onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
-                                                placeholder="CPF de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`}
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1}
-                                            />
+                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm --- */}
+                                        <div className={`transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
+                                            {isSomeoneElsePickingUp && (
+                                                <PickupPersonForm
+                                                    name={pickupPersonName}
+                                                    cpf={pickupPersonCpf}
+                                                    onNameChange={handlePickupNameChange}
+                                                    onCpfChange={handlePickupCpfChange}
+                                                />
+                                            )}
                                         </div>
+                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
@@ -4143,10 +4168,8 @@ const CheckoutPage = ({ onNavigate }) => {
                             {/* --- Seção Forma de Pagamento --- */}
                             <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
                                 <div className="space-y-3">
-                                    {/* Opção Mercado Pago */}
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                        {/* Bolinha customizada */}
                                          <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                             <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
                                                 {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -4155,13 +4178,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="pl-8 flex-grow">
                                             <span className="font-bold text-base text-white">Mercado Pago</span>
                                             <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                            {/* --- REMOÇÃO DOS ÍCONES DE BANDEIRAS E IMAGEM MERCADO PAGO --- */}
-                                            {/* O bloco flex items-center gap-2 mt-2 contendo os ícones foi removido. */}
-                                            {/* A imagem do Mercado Pago foi removida. */}
-                                            {/* --- FIM DA REMOÇÃO --- */}
                                         </div>
                                     </div>
-                                    {/* Adicionar outras formas de pagamento aqui se necessário */}
                                 </div>
                             </CheckoutSection>
                         </div>
