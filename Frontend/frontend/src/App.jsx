@@ -3073,7 +3073,7 @@ const RegisterPage = ({ onNavigate }) => {
 
     const containerVariants = {
         hidden: { opacity: 0 },
-        visible: { 
+        visible: {
             opacity: 1,
             transition: { staggerChildren: 0.1 }
         }
@@ -3083,7 +3083,7 @@ const RegisterPage = ({ onNavigate }) => {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0 }
     };
-    
+
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');
@@ -3095,7 +3095,7 @@ const RegisterPage = ({ onNavigate }) => {
             setError("O CPF informado é inválido.");
             return;
         }
-        
+
         setIsLoading(true);
         try {
             await register(name, email, password, cpf);
@@ -3114,45 +3114,51 @@ const RegisterPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
-            <motion.div 
+        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+            <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+                 // --- MODIFICAÇÃO: Estilo do card de registro, cores e responsividade ---
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
-                    <h2 className="text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
-                    <p className="text-gray-400 mt-2">É rápido e fácil.</p>
+                    {/* --- MODIFICAÇÃO: Tamanho do título --- */}
+                    <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
+                    <p className="text-gray-400 mt-2 text-sm sm:text-base">É rápido e fácil.</p>
                 </motion.div>
 
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
-                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
-                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
-                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all" />
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4"> {/* Reduzido space-y */}
+                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
+                    <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
+                    <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
+                    <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <div className="relative">
-                        <input 
-                            type={isPasswordVisible ? 'text' : 'password'} 
-                            placeholder="Senha (mín. 6 caracteres)" 
-                            value={password} 
-                            onChange={e => setPassword(e.target.value)} 
-                            required 
-                            className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all pr-10" 
+                        <input
+                            type={isPasswordVisible ? 'text' : 'password'}
+                            placeholder="Senha (mín. 6 caracteres)"
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            required
+                            className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all pr-10 text-sm sm:text-base"
                         />
-                        <button 
-                            type="button" 
-                            onClick={() => setIsPasswordVisible(!isPasswordVisible)} 
+                        <button
+                            type="button"
+                            onClick={() => setIsPasswordVisible(!isPasswordVisible)}
                             className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
                         >
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
-                    <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                     {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                    <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
                 </motion.form>
-                 <motion.div variants={itemVariants} className="text-center mt-6 text-sm">
+                {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
+                 <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
                      <p className="text-gray-400">
                         Já tem uma conta?{' '}
                         <a href="#login" onClick={(e) => {e.preventDefault(); onNavigate('login')}} className="font-semibold text-amber-400 hover:underline">Faça o login</a>
