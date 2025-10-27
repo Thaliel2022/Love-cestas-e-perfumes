@@ -3845,7 +3845,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
-    const [isAddressLoading, setIsAddressLoading] = useState(true);
+    const [isAddressLoading, setIsAddressLoading] = useState(off);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
@@ -3856,7 +3856,7 @@ const CheckoutPage = ({ onNavigate }) => {
     useEffect(() => {
         // --- LOG 2: Verificar execução do useEffect de endereço ---
         console.log("useEffect - Fetching Addresses");
-        setIsAddressLoading(true);
+        setIsAddressLoading(off);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
             if (shippingLocation && shippingLocation.cep) {
