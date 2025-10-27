@@ -3817,10 +3817,23 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
         </Modal>
     );
 };
-// Componente PickupPersonForm continua REMOVIDO.
+// Componente Input ultra simplificado (DEFINIDO FORA DA CHECKOUTPAGE)
+const SimpleInput = ({ value, onChange, placeholder, type = 'text' }) => {
+    // console.log(`Rendering SimpleInput for placeholder: ${placeholder}`); // Log opcional
+    return (
+        <input
+            type={type}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+        />
+    );
+};
+
 
 const CheckoutPage = ({ onNavigate }) => {
-    const { user } = useAuth(); // Mantemos para outras partes, mas não para preencher inputs de retirada
+    const { user } = useAuth();
     const {
         cart,
         autoCalculatedShipping,
@@ -3881,11 +3894,18 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- REMOÇÃO DO useEffect que preenchia/limpava os campos de retirada ---
-    // useEffect(() => {
-    //     ... lógica removida ...
-    // }, [user, isSomeoneElsePickingUp]);
-    // --- FIM DA REMOÇÃO ---
+    // --- Efeito para preencher/limpar dados de retirada (REVERTIDO À VERSÃO ANTERIOR SIMPLES) ---
+    useEffect(() => {
+        if (user && !isSomeoneElsePickingUp) {
+            setPickupPersonName(user.name || '');
+            setPickupPersonCpf(user.cpf || '');
+        } else if (isSomeoneElsePickingUp) {
+             // Limpa apenas se o checkbox estiver marcado
+            setPickupPersonName('');
+            setPickupPersonCpf('');
+        }
+        // Depende apenas de user e isSomeoneElsePickingUp
+    }, [user, isSomeoneElsePickingUp]);
 
 
     // --- Funções de seleção de frete/endereço (mantidas) ---
@@ -3894,12 +3914,12 @@ const CheckoutPage = ({ onNavigate }) => {
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
-            // --- CORREÇÃO: Limpar campos ao selecionar Retirada se o checkbox estiver desmarcado ---
-            if (!isSomeoneElsePickingUp) {
-                setPickupPersonName(user?.name || ''); // Tenta preencher com user logado
-                setPickupPersonCpf(user?.cpf || '');
+             // Preenche/limpa campos ao selecionar Retirada
+            if (!isSomeoneElsePickingUp && user) {
+                setPickupPersonName(user.name || '');
+                setPickupPersonCpf(user.cpf || '');
             } else {
-                 setPickupPersonName(''); // Limpa se for outra pessoa
+                 setPickupPersonName('');
                  setPickupPersonCpf('');
             }
         } else if (!displayAddress && addresses.length > 0) {
@@ -3952,14 +3972,11 @@ const CheckoutPage = ({ onNavigate }) => {
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-        // Validação agora usa o estado local diretamente
-        // E verifica se user existe caso !isSomeoneElsePickingUp
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
             notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
         }
-
 
         setIsLoading(true);
         try {
@@ -4078,22 +4095,18 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Inputs diretos renderizados condicionalmente --- */}
+                                        {/* --- CORREÇÃO FINAL: Usando SimpleInput --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input
-                                                    type="text"
+                                                <SimpleInput
                                                     value={pickupPersonName}
                                                     onChange={handlePickupNameChange} // Handler SIMPLES
                                                     placeholder="Nome completo de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                                <input
-                                                    type="text"
+                                                <SimpleInput
                                                     value={pickupPersonCpf}
                                                     onChange={handlePickupCpfChange} // Handler SIMPLES
                                                     placeholder="CPF de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
                                         )}
