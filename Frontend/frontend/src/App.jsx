@@ -4100,7 +4100,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                      {/* ... (informações de endereço e horário mantidas) ... */}
                                      <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
                                         <p className="font-bold">Endereço:</p>
-                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p>Rua: Rua Leopoldo Pereira Lima
+Nº: 378
+Bairro: Mangabeira VIII
+Cidade: João Pessoa
+Estado: PB
+CEP: 58059-123</p>
                                         <p className="font-bold mt-2">Horário:</p>
                                         <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
                                         <p className="text-amber-300 text-xs mt-2 font-semibold">Aguarde a notificação "Pronto para Retirada".</p>
