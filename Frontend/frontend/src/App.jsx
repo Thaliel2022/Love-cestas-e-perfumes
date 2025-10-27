@@ -333,10 +333,10 @@ const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-
+    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-
+    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -349,26 +349,24 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- CORREÇÃO: Envolver fetchPersistentCart com useCallback ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
         } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
-    }, [isAuthenticated]); // Depende de isAuthenticated
+    }, [isAuthenticated]);
 
-    // --- CORREÇÃO: Envolver fetchAddresses com useCallback ---
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
+            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
         } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
-    }, [isAuthenticated]); // Depende de isAuthenticated
+    }, [isAuthenticated]);
 
-    // --- CORREÇÃO: Envolver updateDefaultShippingLocation com useCallback ---
     const updateDefaultShippingLocation = useCallback((addrs) => {
         const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
         if (defaultAddr) {
@@ -376,17 +374,13 @@ const ShopProvider = ({ children }) => {
             return true;
         }
         return false;
-    }, []); // setShippingLocation é estável
+    }, []);
 
-    // --- CORREÇÃO: Envolver determineShippingLocation com useCallback ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
         if (isAuthenticated) {
-            // fetchAddresses já é memoizado, não precisa ser dependência direta aqui
-            // mas chamá-lo dentro de outro useCallback é ok.
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) {
-                // updateDefaultShippingLocation já é memoizado
                 locationDetermined = updateDefaultShippingLocation(userAddresses);
             }
         }
@@ -400,23 +394,19 @@ const ShopProvider = ({ children }) => {
                         const data = await response.json();
                         if (data.address && data.address.postcode) {
                             const cep = data.address.postcode.replace(/\D/g, '');
-                            // setShippingLocation é estável
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
-                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); }
-                    finally { setIsGeolocating(false); } // setIsGeolocating é estável
-                },
-                (error) => {
+                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    finally { setIsGeolocating(false); }
+                }, 
+                (error) => { 
                     console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false); // setIsGeolocating é estável
+                    setIsGeolocating(false);
                 },
                 { timeout: 10000 }
             );
-        } else {
-             // Garante que isGeolocating seja false se não usar geolocalização
-             setIsGeolocating(false);
         }
-    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]); // Depende das funções memoizadas
+    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -430,18 +420,15 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
-
+    
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
-
-        const controller = new AbortController(); // Adiciona AbortController
-        const signal = controller.signal;
 
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
-
+                
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = itemsToCalculate.map(item => ({
@@ -449,213 +436,144 @@ const ShopProvider = ({ children }) => {
                             price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
-
-                        // Passa o signal para a chamada API
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
-
+                        
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                        
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
 
                         const shippingApiOptions = [];
                         if (pacOptionRaw) {
                             shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        } else if (sedexOption) { // Usa sedex se PAC não existir
-                             shippingApiOptions.push(sedexOption);
+                        } else if (sedexOption) {
+                            shippingApiOptions.push(sedexOption);
                         }
 
-
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-
+                        
                         const finalOptions = [...shippingApiOptions, pickupOption];
                         setShippingOptions(finalOptions);
-
+                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        const primaryShippingOption = shippingApiOptions[0]; // PAC ou SEDEX
-
+                        const primaryShippingOption = shippingApiOptions[0];
+                        
                         setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
 
                     } catch (error) {
-                         if (error.name !== 'AbortError') { // Só trata o erro se não for um abortamento
-                            setShippingError(error.message || 'Não foi possível calcular o frete.');
-                            const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                            setShippingOptions([pickupOption]);
-                            const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
-                            setAutoCalculatedShipping(desiredOption || pickupOption);
-                         }
+                        setShippingError(error.message || 'Não foi possível calcular o frete.');
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        setShippingOptions([pickupOption]);
+                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
+                        setAutoCalculatedShipping(desiredOption || pickupOption);
                     } finally {
-                        // Só atualiza o loading se a requisição não foi abortada
-                        if (!signal.aborted) {
-                           setIsLoadingShipping(false);
-                        }
+                        setIsLoadingShipping(false);
                     }
                 };
                 calculateShipping();
             } else {
                 setShippingOptions([]);
                 setAutoCalculatedShipping(null);
-                // Garante que o loading pare se não houver CEP ou itens
-                setIsLoadingShipping(false);
             }
         }, 500);
-        return () => {
-            clearTimeout(debounceTimer);
-            controller.abort(); // Aborta a requisição fetch se o componente desmontar ou as dependências mudarem
-        };
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]); // Dependências corretas
+        return () => clearTimeout(debounceTimer);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
-
-    // --- CORREÇÃO: Envolver addToCart com useCallback ---
+    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-
+        
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
-        let updatedCart;
-        if (existing) {
-            updatedCart = cart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-        } else {
-            updatedCart = [...cart, { ...productToAdd, qty, variation, cartItemId }];
-        }
-        setCart(updatedCart); // Atualiza o estado local primeiro
+        setCart(currentCart => {
+            let updatedCart;
+            if (existing) {
+                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            } else {
+                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
+            }
 
-        if (isAuthenticated) {
-            // Atualiza o backend em segundo plano, sem await para não bloquear a UI
-            apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
-        }
-
-    }, [cart, isAuthenticated]); // Depende de cart e isAuthenticated
-
-    // --- CORREÇÃO: Envolver removeFromCart com useCallback ---
+            if (isAuthenticated) {
+                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
+            }
+            return updatedCart;
+        });
+    }, [cart, isAuthenticated]);
+    
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
         const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
-        setCart(updatedCart); // Atualiza estado local
+        setCart(updatedCart);
+        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+    }, [cart, isAuthenticated]);
 
-        if (isAuthenticated) {
-            // Usa variationId se for roupa
-            const payload = itemToRemove.variation ? { variationId: itemToRemove.variation.id } : {};
-            // Atualiza backend
-            apiService(`/cart/${itemToRemove.id}`, 'DELETE', payload).catch(console.error);
-        }
-    }, [cart, isAuthenticated]); // Depende de cart e isAuthenticated
-
-    // --- CORREÇÃO: Envolver updateQuantity com useCallback ---
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
-        if (newQuantity < 1) {
-            removeFromCart(cartItemId); // removeFromCart já é memoizada
-            return;
-        }
+        if (newQuantity < 1) { removeFromCart(cartItemId); return; }
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
         const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
-        setCart(updatedCart); // Atualiza estado local
+        setCart(updatedCart);
+        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+    }, [cart, isAuthenticated, removeFromCart]);
+    
+    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
 
-        if (isAuthenticated) {
-            // Atualiza backend
-            apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id }).catch(console.error);
-        }
-    }, [cart, isAuthenticated, removeFromCart]); // Depende de cart, isAuthenticated e removeFromCart
-
-    // --- CORREÇÃO: Envolver clearCart com useCallback ---
-    const clearCart = useCallback(async () => {
-        setCart([]); // Atualiza estado local
-        if (isAuthenticated) {
-             // Atualiza backend
-            apiService('/cart', 'DELETE').catch(console.error);
-        }
-    }, [isAuthenticated]); // Depende de isAuthenticated
-
-    // --- CORREÇÃO: Envolver addToWishlist com useCallback ---
     const addToWishlist = useCallback(async (productToAdd) => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated) return; 
         if (wishlist.some(p => p.id === productToAdd.id)) return;
         try {
             const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
-            setWishlist(current => [...current, addedProduct]); // setWishlist é estável
+            setWishlist(current => [...current, addedProduct]);
             return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
         } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
-    }, [isAuthenticated, wishlist]); // Depende de isAuthenticated e wishlist
+    }, [isAuthenticated, wishlist]);
 
-    // --- CORREÇÃO: Envolver removeFromWishlist com useCallback ---
     const removeFromWishlist = useCallback(async (productId) => {
         if (!isAuthenticated) return;
         try {
             await apiService(`/wishlist/${productId}`, 'DELETE');
-            setWishlist(current => current.filter(p => p.id !== productId)); // setWishlist é estável
+            setWishlist(current => current.filter(p => p.id !== productId));
         } catch (error) { console.error(error); }
-    }, [isAuthenticated]); // Depende de isAuthenticated
+    }, [isAuthenticated]);
+    
+    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
 
-    // --- CORREÇÃO: Envolver removeCoupon com useCallback ---
-    const removeCoupon = useCallback(() => {
-        setAppliedCoupon(null);
-        setCouponCode('');
-        setCouponMessage('');
-        // setAppliedCoupon, setCouponCode, setCouponMessage são estáveis
-    }, []); // Array vazio
-
-    // --- CORREÇÃO: Envolver applyCoupon com useCallback ---
     const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code); // setCouponCode é estável
+        setCouponCode(code);
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
-            setAppliedCoupon(response.coupon); // setAppliedCoupon é estável
-            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`); // setCouponMessage é estável
-        } catch (error) {
-            removeCoupon(); // removeCoupon já é memoizada
-            setCouponMessage(error.message || "Não foi possível aplicar o cupom."); // setCouponMessage é estável
-        }
-    }, [removeCoupon]); // Depende de removeCoupon
-
-    // --- CORREÇÃO: Envolver clearOrderState com useCallback ---
-    const clearOrderState = useCallback(() => {
-        clearCart(); // memoizada
-        removeCoupon(); // memoizada
-        // determineShippingLocation é chamada, mas não precisa ser dependência direta
-        // pois seu resultado afeta `shippingLocation`, que já está no objeto de valor
-        determineShippingLocation();
-    }, [clearCart, removeCoupon, determineShippingLocation]); // Depende das funções memoizadas
-
-    // --- CORREÇÃO: Memoizar o objeto de valor do ShopContext ---
-    const shopContextValue = useMemo(() => ({
-        cart, setCart, // Passa setCart diretamente (estável)
-        wishlist,
-        addToCart,
-        addToWishlist,
-        removeFromWishlist,
-        updateQuantity,
-        removeFromCart,
-        clearCart, // Adicionado clearCart memoizado
-        userName: user?.name,
-        addresses, fetchAddresses, // fetchAddresses memoizado
-        shippingLocation, setShippingLocation, // setShippingLocation estável
-        autoCalculatedShipping, setAutoCalculatedShipping, // setAutoCalculatedShipping estável
-        shippingOptions, isLoadingShipping, shippingError,
-        updateDefaultShippingLocation, // memoizado
-        determineShippingLocation, // memoizado
-        setPreviewShippingItem, // estável
-        setSelectedShippingName, // estável
-        isGeolocating,
-        couponCode, setCouponCode, // setCouponCode estável
-        couponMessage, applyCoupon, appliedCoupon, removeCoupon, // applyCoupon e removeCoupon memoizados
-        clearOrderState // clearOrderState memoizado
-    }), [
-        cart, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, clearCart,
-        user?.name, addresses, fetchAddresses, shippingLocation, autoCalculatedShipping, shippingOptions,
-        isLoadingShipping, shippingError, updateDefaultShippingLocation, determineShippingLocation,
-        isGeolocating, couponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, clearOrderState
-        // Incluir todas as variáveis e funções memoizadas que são expostas
-    ]);
+            setAppliedCoupon(response.coupon);
+            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
+        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
+    }, [removeCoupon]);
+    
+    const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
-        <ShopContext.Provider value={shopContextValue}>
+        <ShopContext.Provider value={{
+            cart, setCart, clearOrderState,
+            wishlist, addToCart, 
+            addToWishlist, removeFromWishlist,
+            updateQuantity, removeFromCart,
+            userName: user?.name,
+            addresses, fetchAddresses,
+            shippingLocation, setShippingLocation,
+            autoCalculatedShipping, setAutoCalculatedShipping,
+            shippingOptions, isLoadingShipping, shippingError,
+            updateDefaultShippingLocation, determineShippingLocation,
+            setPreviewShippingItem, 
+            setSelectedShippingName,
+            isGeolocating,
+            couponCode, setCouponCode,
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon
+        }}>
             {children}
         </ShopContext.Provider>
     );
@@ -3902,12 +3820,7 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 
 // Componente PickupPersonForm foi REMOVIDO na tentativa anterior e continua removido.
 
-// Componente PickupPersonForm continua REMOVIDO.
-
 const CheckoutPage = ({ onNavigate }) => {
-    // --- LOG 1: Verificar renderização do componente ---
-    console.log("--- Rendering CheckoutPage ---");
-
     const { user } = useAuth();
     const {
         cart,
@@ -3916,7 +3829,7 @@ const CheckoutPage = ({ onNavigate }) => {
         clearOrderState,
         addresses,
         fetchAddresses,
-        shippingLocation,
+        shippingLocation, // <-- Usar shippingLocation do contexto
         setShippingLocation,
         shippingOptions,
         setAutoCalculatedShipping,
@@ -3924,24 +3837,26 @@ const CheckoutPage = ({ onNavigate }) => {
     } = useShop();
     const notification = useNotification();
 
+    // Estado local para o endereço exibido, inicializado com o do contexto
     const [displayAddress, setDisplayAddress] = useState(null);
     const [paymentMethod, setPaymentMethod] = useState('mercadopago');
     const [isLoading, setIsLoading] = useState(false);
     const [isAddressLoading, setIsAddressLoading] = useState(true);
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
+
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // --- Efeito para buscar e definir endereço inicial ---
+    // Ajuste no useEffect inicial
     useEffect(() => {
-        // --- LOG 2: Verificar execução do useEffect de endereço ---
-        console.log("useEffect - Fetching Addresses");
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
+            // Prioriza o shippingLocation atual do contexto
             if (shippingLocation && shippingLocation.cep) {
+                // Tenta encontrar um endereço salvo que corresponda ao CEP e alias (se não for genérico)
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
                     (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
@@ -3949,346 +3864,347 @@ const CheckoutPage = ({ onNavigate }) => {
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
+                    // Se não encontrar correspondência salva (ex: CEP manual), usa os dados do contexto
                     addressToSet = {
-                        cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: shippingLocation.alias,
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
+                        cep: shippingLocation.cep,
+                        localidade: shippingLocation.city,
+                        uf: shippingLocation.state,
+                        alias: shippingLocation.alias,
+                        // Adiciona campos vazios para consistência da estrutura, mas eles não serão usados para envio
+                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now() // ID temporário
                     };
                 }
             }
+
+            // Se ainda não encontrou um endereço, usa o padrão ou o primeiro da lista
             if (!addressToSet) {
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
-            setDisplayAddress(addressToSet);
 
+            setDisplayAddress(addressToSet); // Define o endereço a ser exibido
+
+            // Sincroniza o shippingLocation global se o endereço encontrado for diferente do atual no contexto
             if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
                  setShippingLocation({
-                    cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias
+                    cep: addressToSet.cep,
+                    city: addressToSet.localidade,
+                    state: addressToSet.uf,
+                    alias: addressToSet.alias
                  });
             }
+
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Dependências corretas
+    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Adiciona shippingLocation e setShippingLocation como dependências
 
-    // --- Efeito para preencher dados de retirada ---
     useEffect(() => {
-         // --- LOG 3: Verificar execução do useEffect de dados de retirada ---
-         console.log("useEffect - Setting Pickup Person Data (isSomeoneElse:", isSomeoneElsePickingUp, "User:", !!user, ")");
         if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name || '');
-            setPickupPersonCpf(user.cpf || '');
+            setPickupPersonName(user.name);
+            setPickupPersonCpf(user.cpf);
         } else {
-             if (isSomeoneElsePickingUp) {
-                // Limpa apenas se o checkbox estiver marcado
-                // Adiciona verificação para evitar limpar se já estiver vazio
-                if (pickupPersonName !== '' || pickupPersonCpf !== '') {
-                    console.log("useEffect - Clearing pickup fields because checkbox is checked");
-                    setPickupPersonName('');
-                    setPickupPersonCpf('');
-                }
-            }
-             // Não faz nada se o checkbox não estiver marcado e não houver usuário
-             // (mantém os campos como estão se o usuário deslogar, por exemplo)
+            setPickupPersonName('');
+            setPickupPersonCpf('');
         }
-    }, [user, isSomeoneElsePickingUp]); // Removido user.name e user.cpf para simplificar, user já cobre isso
+    }, [user, isSomeoneElsePickingUp]);
 
-    // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
+        // Se a opção selecionada for "Retirar na Loja", limpa o displayAddress para não mostrar endereço de entrega
         if(option.isPickup) {
             setDisplayAddress(null);
         } else if (!displayAddress && addresses.length > 0) {
+            // Se estava em Retirada e voltou para Envio, tenta restaurar o endereço padrão ou o primeiro
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
                 setDisplayAddress(defaultOrFirst);
-                setShippingLocation({ cep: defaultOrFirst.cep, city: defaultOrFirst.localidade, state: defaultOrFirst.uf, alias: defaultOrFirst.alias });
+                setShippingLocation({ // Atualiza o global também
+                    cep: defaultOrFirst.cep,
+                    city: defaultOrFirst.localidade,
+                    state: defaultOrFirst.uf,
+                    alias: defaultOrFirst.alias
+                 });
              }
         }
     };
+
     const handleAddressSelection = (address) => {
-        setDisplayAddress(address);
-        setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
+        setDisplayAddress(address); // Atualiza o endereço exibido
+        // Atualiza também o shippingLocation global para recalcular frete
+        setShippingLocation({
+            cep: address.cep,
+            city: address.localidade,
+            state: address.uf,
+            alias: address.alias
+         });
         setIsAddressModalOpen(false);
     };
+
     const handleAddNewAddress = () => {
         setIsAddressModalOpen(false);
         setIsNewAddressModalOpen(true);
     };
+
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
             notification.show('Endereço salvo com sucesso!');
-            const updatedAddresses = await fetchAddresses();
+            const updatedAddresses = await fetchAddresses(); // Rebusca endereços atualizados
             const newAddress = updatedAddresses.find(a => a.id === savedAddress.id) || savedAddress;
-            setDisplayAddress(newAddress);
-            setShippingLocation({ cep: newAddress.cep, city: newAddress.localidade, state: newAddress.uf, alias: newAddress.alias });
+            setDisplayAddress(newAddress); // Define como endereço exibido
+             setShippingLocation({ // Atualiza o global
+                cep: newAddress.cep,
+                city: newAddress.localidade,
+                state: newAddress.uf,
+                alias: newAddress.alias
+             });
             setIsNewAddressModalOpen(false);
         } catch (error) {
             notification.show(`Erro ao salvar endereço: ${error.message}`, 'error');
         }
     };
 
-    // --- Cálculos de Valores (mantidos) ---
-    const subtotal = useMemo(() => cart.reduce((sum, item) => (item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty + sum, 0), [cart]);
-    const shippingCost = useMemo(() => autoCalculatedShipping?.price || 0, [autoCalculatedShipping]);
+    const subtotal = useMemo(() => cart.reduce((sum, item) => {
+        const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
+        return sum + price * item.qty;
+    }, 0), [cart]);
+
+    const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
+
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-        let val = 0;
-        if (appliedCoupon.type === 'percentage') val = subtotal * (parseFloat(appliedCoupon.value) / 100);
-        else if (appliedCoupon.type === 'fixed') val = parseFloat(appliedCoupon.value);
-        else if (appliedCoupon.type === 'free_shipping') val = shippingCost;
-        return (appliedCoupon.type !== 'free_shipping' && val > (subtotal + shippingCost)) ? (subtotal + shippingCost) : val;
+        let discountValue = 0;
+        if (appliedCoupon.type === 'percentage') {
+            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            discountValue = parseFloat(appliedCoupon.value);
+        } else if (appliedCoupon.type === 'free_shipping') {
+            discountValue = shippingCost;
+        }
+        return discountValue;
     }, [appliedCoupon, subtotal, shippingCost]);
-    const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido (mantido) ---
+    const total = useMemo(() => subtotal - discount + shippingCost, [subtotal, discount, shippingCost]);
+
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
+        // Validação usa displayAddress agora
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
+            notification.show("Por favor, selecione um endereço e método de entrega.", 'error');
+            return;
         }
+
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
-            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
+            notification.show("Por favor, preencha o nome e um CPF válido para quem vai retirar.", 'error');
+            return;
         }
 
         setIsLoading(true);
+
         try {
+            // Garante que apenas endereços salvos (com ID) sejam enviados
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
-            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
             const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod,
-                shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                items: cart.map(item => ({
+                    id: item.id,
+                    qty: item.qty,
+                    price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                    variation: item.variation
+                })),
+                total: total,
+                shippingAddress: finalShippingAddress, // Envia o endereço selecionado (se não for pickup)
+                paymentMethod: paymentMethod,
+                shipping_method: autoCalculatedShipping.name,
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon ? appliedCoupon.code : null,
+                discount_amount: discount,
+                pickup_details: isPickup ? JSON.stringify({
+                    personName: isSomeoneElsePickingUp ? pickupPersonName : user.name,
+                    personCpf: isSomeoneElsePickingUp ? pickupPersonCpf.replace(/\D/g, '') : user.cpf,
+                }) : null,
             };
-            const { orderId } = await apiService('/orders', 'POST', orderPayload);
+            const orderResult = await apiService('/orders', 'POST', orderPayload);
+            const { orderId } = orderResult;
 
             if (paymentMethod === 'mercadopago') {
                 sessionStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.href = init_point;
-                else throw new Error("Link de pagamento não obtido.");
+                const mpPayload = { orderId };
+                const paymentResult = await apiService('/create-mercadopago-payment', 'POST', mpPayload);
+                if (paymentResult && paymentResult.init_point) {
+                    window.location.href = paymentResult.init_point;
+                } else {
+                    throw new Error("Não foi possível obter o link de pagamento.");
+                }
             } else {
                 clearOrderState();
                 onNavigate(`order-success/${orderId}`);
             }
+
         } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
+            notification.show(`Erro ao processar pedido: ${error.message}`, 'error');
             setIsLoading(false);
         }
     };
 
-    // --- Funções Auxiliares (mantidas) ---
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
+    const getShippingName = (name) => {
+        if (name) {
+            const lowerCaseName = name.toLowerCase();
+            if (lowerCaseName.includes('pac') || lowerCaseName.includes('package')) {
+                return 'PAC';
+            }
+        }
+        return name || 'N/A';
+    };
+
+    // --- FUNÇÃO AUXILIAR PARA CALCULAR DATA (REINTRODUZIDA) ---
     const getDeliveryDateText = (deliveryTime) => {
         if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
         const date = new Date();
         let addedDays = 0;
-        while (addedDays < deliveryTime) { date.setDate(date.getDate() + 1); if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++; }
-        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
+        while (addedDays < deliveryTime) {
+            date.setDate(date.getDate() + 1);
+            // Pula Sábados (6) e Domingos (0)
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                addedDays++;
+            }
+        }
+        // Formata a data para "dia de mês" (ex: "28 de outubro")
+        return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
-
-    // --- Componente de Seção (mantido) ---
-    const CheckoutSection = ({ title, step, children, icon: Icon }) => (
-        <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
-            <div className="flex items-center gap-3 p-4 border-b border-gray-700">
-                {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
-                <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
-            </div>
-            <div className="p-5">
-                {children}
-            </div>
-        </div>
-    );
-
-    // --- Handlers dos inputs de retirada inline (mantidos da última tentativa) ---
-    // Não usamos mais useCallback aqui para simplificar ao máximo
+    // --- FIM DA FUNÇÃO AUXILIAR ---
 
     return (
         <>
-            {/* Modais (mantidos como antes) */}
-            <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
-            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
+            <AddressSelectionModal
+                isOpen={isAddressModalOpen}
+                onClose={() => setIsAddressModalOpen(false)}
+                addresses={addresses}
+                onSelectAddress={handleAddressSelection}
+                onAddNewAddress={handleAddNewAddress}
+            />
+            <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço">
+                <AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} />
+            </Modal>
 
-            {/* Conteúdo da Página */}
-            <div className="bg-black text-white min-h-screen py-8 sm:py-12">
-                <div className="container mx-auto px-4">
-                    {/* --- BOTÃO VOLTAR --- */}
-                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
-                        <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
-                    </button>
+            <div className="bg-black text-white min-h-screen">
+                <div className="container mx-auto px-4 py-8">
+                    <h1 className="text-3xl md:text-4xl font-bold mb-8">Finalizar Pedido</h1>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                        <div className="lg:col-span-1 space-y-8">
 
-                    <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
-
-                        {/* Coluna Esquerda: Entrega e Pagamento */}
-                        <div className="lg:col-span-2 space-y-8">
-                            {/* --- Seção Forma de Entrega --- */}
-                            <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold text-amber-400 mb-4">1. Forma de Entrega</h2>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
-                                        <div key={option.name} onClick={() => handleSelectShipping(option)}
-                                             className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                            <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                                <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                    {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
+                                        <div key={option.name} onClick={() => handleSelectShipping(option)} className={`p-4 rounded-lg border-2 transition cursor-pointer ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-3">
+                                                    <input type="radio" readOnly checked={autoCalculatedShipping?.name === option.name} className="w-4 h-4 text-amber-500 bg-gray-700 border-gray-600 focus:ring-amber-600 ring-offset-gray-800 focus:ring-2"/>
+                                                    <span className="font-bold">{option.name}</span>
                                                 </div>
+                                                <span className="font-bold text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
                                             </div>
-                                            <div className="pl-8 flex-grow">
-                                                <span className="font-bold text-base">{option.name}</span>
-                                                <p className="text-xs text-gray-400 mt-0.5">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
-                                            </div>
-                                            <span className="font-bold text-amber-400 text-lg flex-shrink-0">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</span>
+                                            {/* LINHA ALTERADA ABAIXO */}
+                                            <p className="text-sm text-gray-400 pl-7">{option.isPickup ? `Retire em nosso endereço físico.` : getDeliveryDateText(option.delivery_time)}</p>
                                         </div>
                                     ))}
                                 </div>
-                            </CheckoutSection>
+                            </div>
 
-                            {/* --- Seção Endereço ou Detalhes de Retirada --- */}
+                            {/* ... Restante do JSX da seção de entrega (Retirada ou Endereço) ... */}
                             {autoCalculatedShipping?.isPickup ? (
-                                <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
-                                        <p className="font-bold">Endereço:</p>
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                     <h2 className="text-2xl font-bold text-amber-400 mb-4">Detalhes da Retirada</h2>
+                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2">
+                                        <p className="font-bold">Endereço para Retirada:</p>
                                         <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
                                         <p className="font-bold mt-2">Horário:</p>
                                         <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
-                                        <p className="text-amber-300 text-xs mt-2 font-semibold">Aguarde a notificação "Pronto para Retirada".</p>
+                                        <p className="text-amber-300 text-xs mt-2">Aguarde a notificação de "Pronto para Retirada" antes de vir à loja.</p>
                                     </div>
-                                    <div className="mt-5 space-y-3">
+                                    <div className="mt-4 space-y-3">
                                         <div className="flex items-center">
-                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
-                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600"/>
+                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- Inputs diretos com handlers inline --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input
-                                                    type="text"
-                                                    value={pickupPersonName}
-                                                    // Handler inline direto
-                                                    onChange={(e) => {
-                                                        console.log("Typing name:", e.target.value); // LOG ADICIONAL
-                                                        setPickupPersonName(e.target.value);
-                                                    }}
-                                                    placeholder="Nome completo de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
-                                                <input
-                                                    type="text"
-                                                    value={pickupPersonCpf}
-                                                     // Handler inline direto com máscara
-                                                    onChange={(e) => {
-                                                        console.log("Typing CPF:", e.target.value); // LOG ADICIONAL
-                                                        setPickupPersonCpf(maskCPF(e.target.value));
-                                                    }}
-                                                    placeholder="CPF de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
+                                            <div className="space-y-2 overflow-hidden">
+                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
+                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-800 border border-gray-700 rounded"/>
                                             </div>
                                         )}
-                                        {/* --- Fim da correção --- */}
                                     </div>
-                                </CheckoutSection>
+                                </div>
                             ) : (
-                                <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
+                                <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                    <h2 className="text-2xl font-bold text-amber-400 mb-4">Endereço de Entrega</h2>
                                     {isAddressLoading ? (
-                                        <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
-                                    ) : displayAddress ? (
-                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
-                                            <div className="flex justify-between items-start">
-                                                <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
-                                            </div>
+                                        <div className="p-4 bg-gray-800 rounded-md animate-pulse h-24"></div>
+                                    ) : displayAddress ? ( // Usa displayAddress aqui
+                                        <div className="p-4 bg-gray-800 rounded-md">
+                                            <p className="font-bold text-lg mb-2">{displayAddress.alias}</p>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero || 'N/A'} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade || 'N/A'} - {displayAddress.uf || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep || 'N/A'}</p>
+                                                {displayAddress.logradouro && <p><span className="font-semibold text-gray-400">Rua:</span> {displayAddress.logradouro}</p>}
+                                                {displayAddress.numero && <p><span className="font-semibold text-gray-400">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>}
+                                                {displayAddress.bairro && <p><span className="font-semibold text-gray-400">Bairro:</span> {displayAddress.bairro}</p>}
+                                                <p><span className="font-semibold text-gray-400">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-400">CEP:</span> {displayAddress.cep}</p>
                                             </div>
-                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
-                                                <EditIcon className="h-4 w-4"/> Alterar Endereço
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:underline mt-4 font-semibold text-sm">
+                                                Alterar Endereço
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
-                                            <MapPinIcon className="h-10 w-10 mx-auto text-gray-500 mb-3"/>
-                                            <p className="text-gray-400 mb-4 text-sm">Nenhum endereço selecionado ou cadastrado.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto">
-                                                <PlusIcon className="h-4 w-4"/> Adicionar Endereço
+                                        <div className="text-center p-4 bg-gray-800 rounded-md">
+                                            <p className="text-gray-400 mb-3">Nenhum endereço selecionado ou cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                                Adicionar Endereço
                                             </button>
                                         </div>
                                     )}
-                                </CheckoutSection>
+                                </div>
                             )}
 
-                            {/* --- Seção Forma de Pagamento --- */}
-                            <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
+                            <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+                                <h2 className="text-2xl font-bold mb-4 text-amber-400">2. Forma de Pagamento</h2>
                                 <div className="space-y-3">
-                                    <div onClick={() => setPaymentMethod('mercadopago')}
-                                         className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                         <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
-                                            <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
-                                                {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
-                                            </div>
-                                        </div>
-                                        <div className="pl-8 flex-grow">
-                                            <span className="font-bold text-base text-white">Mercado Pago</span>
-                                            <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                        </div>
-                                    </div>
+                                    <button onClick={() => setPaymentMethod('mercadopago')} className={`w-full flex items-center space-x-3 p-4 rounded-lg border-2 transition ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-amber-900/50' : 'border-gray-700 hover:border-gray-600'}`}>
+                                        <CreditCardIcon className="h-6 w-6 text-amber-400"/>
+                                        <span className="font-bold">Cartão, Pix e Boleto via Mercado Pago</span>
+                                    </button>
                                 </div>
-                            </CheckoutSection>
+                            </div>
                         </div>
-
-                        {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
-                                <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
-                                    {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                 <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
-                                            </div>
-                                            <span className="font-medium flex-shrink-0">R$&nbsp;{((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$&nbsp;{subtotal.toFixed(2)}</span></div>
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-6 h-fit md:sticky md:top-28">
+                                <h2 className="text-2xl font-bold mb-4">Resumo do Pedido</h2>
+                                {cart.map(item => (
+                                    <div key={item.cartItemId} className="flex justify-between text-gray-300 py-1">
+                                        <span className="truncate pr-2">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                        <span>R$ {((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                                <div className="border-t border-gray-700 mt-4 pt-4">
+                                    {appliedCoupon && <div className="flex justify-between text-green-400 py-1"><span>Desconto ({appliedCoupon.code})</span><span>- R$ {discount.toFixed(2)}</span></div>}
                                     {autoCalculatedShipping ? (
-                                        <div className="flex justify-between text-gray-400">
-                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
-                                            <span className="font-medium text-gray-300">{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                        <div className="flex justify-between text-gray-300 py-1">
+                                            <span>Entrega ({getShippingName(autoCalculatedShipping.name)}):</span>
+                                            <span>{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
                                         </div>
                                     ) : (
-                                        <div className="text-gray-500 text-center py-1">Calcule o frete</div>
+                                        <div className="text-gray-400 text-sm text-center py-1">Selecione o método de entrega.</div>
                                     )}
-                                    {appliedCoupon && (
-                                        <div className="flex justify-between text-green-400">
-                                            <span>Desconto ({appliedCoupon.code})</span>
-                                            <span className="font-medium">- R$&nbsp;{discount.toFixed(2)}</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
-                                        <span>Total</span>
-                                        <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
-                                    </div>
+                                    <div className="flex justify-between font-bold text-xl mt-2"><span>Total:</span><span className="text-amber-400">R$ {total.toFixed(2)}</span></div>
                                 </div>
 
-                                <button
-                                    onClick={handlePlaceOrderAndPay}
-                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className="w-full mt-6 bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
-                                >
-                                    {isLoading ? <SpinnerIcon className="h-6 w-6"/> : <CheckBadgeIcon className="h-6 w-6"/>}
-                                    {isLoading ? 'Processando...' : 'Finalizar e Pagar'}
+                                <button onClick={handlePlaceOrderAndPay} disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading} className="w-full mt-6 bg-amber-400 text-black py-3 rounded-md hover:bg-amber-300 font-bold text-lg disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center justify-center">
+                                    {isLoading ? (
+                                        <div className="w-6 h-6 border-4 border-t-transparent border-black rounded-full animate-spin"></div>
+                                    ) : (
+                                        'Finalizar e Pagar'
+                                    )}
                                 </button>
                             </div>
                         </div>
