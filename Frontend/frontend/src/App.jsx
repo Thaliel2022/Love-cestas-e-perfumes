@@ -4129,17 +4129,16 @@ CEP: 58059-123</p>
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                               <input
-    type="text"
-    value={displayPickupCpf}  // Campo controlado
-    onChange={(e) => {
-        const masked = maskCPF(e.target.value);
-        setDisplayPickupCpf(masked);
-        setPickupPersonCpf(masked); // Atualiza o estado principal junto
-    }}
-    placeholder="CPF de quem vai retirar"
-    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-/>
+                                                <input
+                                                    type="text"
+                                                    // Sem value={pickupPersonCpf}
+                                                    value={displayPickupCpf} // Usa estado VISUAL para máscara
+                                                    defaultValue={displayPickupCpf} // Define valor inicial visual
+                                                   
+                                                   onBlur={handlePickupNameBlur} // Atualiza estado principal no blur
+                                                    placeholder="CPF de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
                                             </div>
                                         )}
                                         {/* --- FIM DA CORREÇÃO --- */}
