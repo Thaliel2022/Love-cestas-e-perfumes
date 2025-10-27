@@ -3818,10 +3818,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-const CheckoutPage = ({ onNavigate }) => {
-    // --- LOG 1: Início da Renderização ---
-    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log pode ser mantido ou removido
+// Componente PickupPersonForm continua REMOVIDO.
 
+const CheckoutPage = ({ onNavigate }) => {
+    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log mantido para depuração
     const { user } = useAuth();
     const {
         cart,
@@ -3850,7 +3850,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     // --- Efeito para buscar e definir endereço inicial ---
     // (Lógica mantida como antes)
-     useEffect(() => {
+    useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
@@ -3883,21 +3883,18 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito para preencher dados de retirada ---
+    // --- Efeito SIMPLES para preencher/limpar dados de retirada ---
+    // (Versão que não deveria apagar ao digitar)
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
-            // Garante que só preenche se o user existir
             setPickupPersonName(user.name || '');
             setPickupPersonCpf(user.cpf || '');
-        } else {
-            // Limpa apenas se a intenção for limpar (checkbox marcado)
-             if (isSomeoneElsePickingUp) {
-                setPickupPersonName('');
-                setPickupPersonCpf('');
-            }
+        } else if (isSomeoneElsePickingUp) {
+            setPickupPersonName('');
+            setPickupPersonCpf('');
         }
-        // Inclui user.name e user.cpf nas dependências para garantir atualização se o usuário mudar
-    }, [user, user?.name, user?.cpf, isSomeoneElsePickingUp]);
+    }, [user, isSomeoneElsePickingUp]);
+
 
     // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
@@ -3905,7 +3902,6 @@ const CheckoutPage = ({ onNavigate }) => {
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
-            // Preenche/limpa campos ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
                 setPickupPersonName(user.name || '');
                 setPickupPersonCpf(user.cpf || '');
@@ -3922,7 +3918,7 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
     // ... (outros handlers handleAddressSelection, handleAddNewAddress, handleSaveNewAddress mantidos) ...
-    const handleAddressSelection = (address) => {
+     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
@@ -4028,15 +4024,12 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers simples inline ---
+    // --- Handlers simples inline (mantidos) ---
     const handlePickupNameChange = (e) => {
-        // console.log(`%c[onChange Name] Before: "${pickupPersonName}", New: "${e.target.value}"`, 'color: cyan'); // Log Opcional
         setPickupPersonName(e.target.value);
     };
     const handlePickupCpfChange = (e) => {
-        const maskedValue = maskCPF(e.target.value);
-        // console.log(`%c[onChange CPF] Before: "${pickupPersonCpf}", New (Raw): "${e.target.value}", New (Masked): "${maskedValue}"`, 'color: lightblue'); // Log Opcional
-        setPickupPersonCpf(maskedValue);
+        setPickupPersonCpf(maskCPF(e.target.value));
     };
 
 
@@ -4061,6 +4054,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         <div className="lg:col-span-2 space-y-8">
                             {/* Seção Forma de Entrega */}
                             <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
+                                {/* ... (código mantido) ... */}
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
@@ -4083,7 +4077,8 @@ const CheckoutPage = ({ onNavigate }) => {
                             {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
-                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
+                                    {/* ... (código mantido) ... */}
+                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
                                         <p className="font-bold">Endereço:</p>
                                         <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
                                         <p className="font-bold mt-2">Horário:</p>
@@ -4095,20 +4090,23 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- Inputs NATIVOS diretos com handlers SIMPLES --- */}
+                                        {/* --- CORREÇÃO: Adicionando key estática --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                            <div
+                                                key="pickup-details-form" // Key estática para estabilizar
+                                                className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
+                                            >
                                                 <input
                                                     type="text"
                                                     value={pickupPersonName}
-                                                    onChange={handlePickupNameChange} // Handler SIMPLES
+                                                    onChange={handlePickupNameChange}
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={pickupPersonCpf}
-                                                    onChange={handlePickupCpfChange} // Handler SIMPLES
+                                                    onChange={handlePickupCpfChange}
                                                     placeholder="CPF de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
@@ -4120,7 +4118,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {/* ... (código do endereço mantido) ... */}
-                                     {isAddressLoading ? (
+                                      {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
                                     ) : displayAddress ? (
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
@@ -4153,6 +4151,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
                             {/* Seção Forma de Pagamento */}
                             <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
+                                {/* ... (código mantido) ... */}
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
@@ -4173,7 +4172,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
                              {/* ... (código do resumo mantido) ... */}
-                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
+                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
