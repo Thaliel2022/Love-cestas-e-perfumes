@@ -3955,51 +3955,41 @@ const CheckoutPage = ({ onNavigate }) => {
     const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
     // --- Finalizar Pedido (mantido) ---
-    const handlePlaceOrderAndPay = async () => {
-        const isPickup = autoCalculatedShipping?.isPickup;
-        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
-        }
-        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
-            if(!isSomeoneElsePickingUp && !user) {
-                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
-            } else {
-                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
-            }
-            return;
-        }
-
-        setIsLoading(true);
-        try {
-            const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
-            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-
-            const orderPayload = {
-                items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod,
-                shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
-            };
-            const { orderId } = await apiService('/orders', 'POST', orderPayload);
-
-            if (paymentMethod === 'mercadopago') {
-                sessionStorage.setItem('pendingOrderId', orderId);
-                const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.href = init_point;
-                else throw new Error("Link de pagamento não obtido.");
-            } else {
-                clearOrderState();
-                onNavigate(`order-success/${orderId}`);
-            }
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-            setIsLoading(false);
-        }
-    };
+    <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
+                                    <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
+                                        <p className="font-bold">Endereço:</p>
+                                        <p>R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123</p>
+                                        <p className="font-bold mt-2">Horário:</p>
+                                        <p>Seg a Sáb: 09h-11h30 e 15h-17h30 (exceto feriados)</p>
+                                        <p className="text-amber-300 text-xs mt-2 font-semibold">Aguarde a notificação "Pronto para Retirada".</p>
+                                    </div>
+                                    <div className="mt-5 space-y-3">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
+                                            <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
+                                        </div>
+                                        {/* --- CORREÇÃO: Inputs renderizados condicionalmente --- */}
+                                        {isSomeoneElsePickingUp && (
+                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonName}
+                                                    onChange={handlePickupNameChange} // <- Usando handler local
+                                                    placeholder="Nome completo de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonCpf}
+                                                    onChange={handlePickupCpfChange} // <- Usando handler local
+                                                    placeholder="CPF de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                            </div>
+                                        )}
+                                        {/* --- FIM DA CORREÇÃO --- */}
+                                    </div>
+                                </CheckoutSection>
 
     // --- Funções Auxiliares (mantidas) ---
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
