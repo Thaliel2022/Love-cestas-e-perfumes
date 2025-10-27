@@ -3818,8 +3818,11 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
+
+// Componente isolado para os inputs de retirada por terceiros
 const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
-    // Componente isolado para os inputs de nome e CPF
+    // Adicionando console.log para depuração do componente filho
+    // console.log("Rendering PickupPersonForm");
     return (
         <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
             <input
@@ -3866,6 +3869,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
+
+     // Adicionando console.log para depuração do componente pai
+     // console.log("Rendering CheckoutPage");
 
     // --- Efeito para buscar e definir endereço inicial ---
     useEffect(() => {
@@ -4033,13 +4039,14 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers para o componente PickupPersonForm ---
-    const handlePickupNameChange = (e) => {
+    // --- Handlers para o componente PickupPersonForm ENVOLVIDOS COM useCallback ---
+    const handlePickupNameChange = useCallback((e) => {
         setPickupPersonName(e.target.value);
-    };
-    const handlePickupCpfChange = (e) => {
+    }, []); // Sem dependências, pois só usa setPickupPersonName
+
+    const handlePickupCpfChange = useCallback((e) => {
         setPickupPersonCpf(maskCPF(e.target.value));
-    };
+    }, []); // Sem dependências, pois só usa setPickupPersonCpf e maskCPF (função pura)
 
     return (
         <>
@@ -4096,14 +4103,14 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm --- */}
+                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm e useCallback nos handlers --- */}
                                         <div className={`transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
                                             {isSomeoneElsePickingUp && (
                                                 <PickupPersonForm
                                                     name={pickupPersonName}
                                                     cpf={pickupPersonCpf}
-                                                    onNameChange={handlePickupNameChange}
-                                                    onCpfChange={handlePickupCpfChange}
+                                                    onNameChange={handlePickupNameChange} // <- Passando a função memoizada
+                                                    onCpfChange={handlePickupCpfChange}   // <- Passando a função memoizada
                                                 />
                                             )}
                                         </div>
@@ -4215,7 +4222,6 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
-
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
