@@ -3886,10 +3886,14 @@ const CheckoutPage = ({ onNavigate }) => {
             setPickupPersonName(user.name);
             setPickupPersonCpf(user.cpf);
         } else {
-            setPickupPersonName('');
-            setPickupPersonCpf('');
+             // Só limpa se a intenção for realmente limpar (outra pessoa vai retirar)
+             // Se o user deslogar, por exemplo, não limpa automaticamente
+            if (isSomeoneElsePickingUp) {
+                setPickupPersonName('');
+                setPickupPersonCpf('');
+            }
         }
-    }, [user, isSomeoneElsePickingUp]);
+    }, [user, isSomeoneElsePickingUp]); // Roda quando user ou checkbox mudam
 
     // --- Seleção de Frete ---
     const handleSelectShipping = (option) => {
@@ -4061,13 +4065,25 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: motion.div removida --- */}
-                                        {isSomeoneElsePickingUp && (
-                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-                                                <input type="text" value={pickupPersonName} onChange={(e) => setPickupPersonName(e.target.value)} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                                <input type="text" value={pickupPersonCpf} onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))} placeholder="CPF de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
-                                            </div>
-                                        )}
+                                        {/* --- CORREÇÃO: Usando classes CSS para ocultar/mostrar --- */}
+                                        <div className={`space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700 transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 p-0 border-0'}`}>
+                                            <input
+                                                type="text"
+                                                value={pickupPersonName}
+                                                onChange={(e) => setPickupPersonName(e.target.value)}
+                                                placeholder="Nome completo de quem vai retirar"
+                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
+                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
+                                            />
+                                            <input
+                                                type="text"
+                                                value={pickupPersonCpf}
+                                                onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
+                                                placeholder="CPF de quem vai retirar"
+                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
+                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
+                                            />
+                                        </div>
                                         {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
@@ -4136,7 +4152,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
                         {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24"> {/* Aumentado padding e top sticky */}
+                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
@@ -4187,6 +4203,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
