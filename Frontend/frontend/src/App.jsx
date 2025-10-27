@@ -330,14 +330,13 @@ const AuthProvider = ({ children }) => {
 };
 
 const ShopProvider = ({ children }) => {
-    // --- LOG: Provider Render ---
-    console.log("%c[ShopProvider] Rendering Provider", "color: orange");
-
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
+    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
+    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -345,25 +344,69 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
+
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- Funções memoizadas (mantidas da correção anterior) ---
-    const fetchPersistentCart = useCallback(async () => { /* ...código... */ }, [isAuthenticated]);
-    const fetchAddresses = useCallback(async () => { /* ...código... */ }, [isAuthenticated]);
-    const updateDefaultShippingLocation = useCallback((addrs) => { /* ...código... */ }, []);
-    const determineShippingLocation = useCallback(async () => { /* ...código... */ }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
-    const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => { /* ...código... */ }, [cart, isAuthenticated]);
-    const removeFromCart = useCallback(async (cartItemId) => { /* ...código... */ }, [cart, isAuthenticated]);
-    const updateQuantity = useCallback(async (cartItemId, newQuantity) => { /* ...código... */ }, [cart, isAuthenticated, removeFromCart]);
-    const clearCart = useCallback(async () => { /* ...código... */ }, [isAuthenticated]);
-    const addToWishlist = useCallback(async (productToAdd) => { /* ...código... */ }, [isAuthenticated, wishlist]);
-    const removeFromWishlist = useCallback(async (productId) => { /* ...código... */ }, [isAuthenticated]);
-    const removeCoupon = useCallback(() => { /* ...código... */ }, []);
-    const applyCoupon = useCallback(async (code) => { /* ...código... */ }, [removeCoupon]);
-    const clearOrderState = useCallback(() => { /* ...código... */ }, [clearCart, removeCoupon, determineShippingLocation]);
-    // --- Fim das Funções memoizadas ---
+    const fetchPersistentCart = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const dbCart = await apiService('/cart');
+            setCart(dbCart || []);
+        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
+    }, [isAuthenticated]);
+
+    const fetchAddresses = useCallback(async () => {
+        if (!isAuthenticated) return [];
+        try {
+            // A chamada correta é apenas '/addresses'
+            const userAddresses = await apiService('/addresses');
+            setAddresses(userAddresses || []);
+            return userAddresses || [];
+        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
+    }, [isAuthenticated]);
+
+    const updateDefaultShippingLocation = useCallback((addrs) => {
+        const defaultAddr = addrs.find(addr => addr.is_default) || addrs[0];
+        if (defaultAddr) {
+            setShippingLocation({ cep: defaultAddr.cep, city: defaultAddr.localidade, state: defaultAddr.uf, alias: defaultAddr.alias });
+            return true;
+        }
+        return false;
+    }, []);
+
+    const determineShippingLocation = useCallback(async () => {
+        let locationDetermined = false;
+        if (isAuthenticated) {
+            const userAddresses = await fetchAddresses();
+            if (userAddresses && userAddresses.length > 0) {
+                locationDetermined = updateDefaultShippingLocation(userAddresses);
+            }
+        }
+        if (!locationDetermined && navigator.geolocation) {
+            setIsGeolocating(true);
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const data = await response.json();
+                        if (data.address && data.address.postcode) {
+                            const cep = data.address.postcode.replace(/\D/g, '');
+                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+                        }
+                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    finally { setIsGeolocating(false); }
+                }, 
+                (error) => { 
+                    console.warn("Geolocalização negada ou indisponível.", error.message);
+                    setIsGeolocating(false);
+                },
+                { timeout: 10000 }
+            );
+        }
+    }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
     useEffect(() => {
         if (isAuthLoading) return;
@@ -377,113 +420,160 @@ const ShopProvider = ({ children }) => {
             determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
-
+    
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
-        const controller = new AbortController();
-        const signal = controller.signal;
 
         const debounceTimer = setTimeout(() => {
-            // --- LOG: Cálculo de Frete ---
-            console.log("%c[ShopProvider] useEffect - Calculating Shipping...", "color: skyblue", { hasItems: !!itemsToCalculate, cep: shippingLocation.cep });
-
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
+                
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
-
-                        // --- LOG: Opções Recebidas ---
-                        // console.log("[ShopProvider] Shipping options received:", apiOptions); // Log opcional detalhado
-
+                        const productsPayload = itemsToCalculate.map(item => ({
+                            id: String(item.id),
+                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                            quantity: item.qty || 1,
+                        }));
+                        
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                        
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+
                         const shippingApiOptions = [];
-                        if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        else if (sedexOption) shippingApiOptions.push(sedexOption);
+                        if (pacOptionRaw) {
+                            shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                        } else if (sedexOption) {
+                            shippingApiOptions.push(sedexOption);
+                        }
 
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        
                         const finalOptions = [...shippingApiOptions, pickupOption];
-
-                        // --- LOG: Antes de Setar Opções/Auto ---
-                        // console.log("[ShopProvider] Setting final options:", finalOptions); // Log opcional detalhado
-
                         setShippingOptions(finalOptions);
-
+                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         const primaryShippingOption = shippingApiOptions[0];
+                        
                         setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
 
                     } catch (error) {
-                         if (error.name !== 'AbortError') {
-                            console.error("[ShopProvider] Error calculating shipping:", error); // Log do erro
-                            setShippingError(error.message || 'Não foi possível calcular o frete.');
-                            const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                            setShippingOptions([pickupOption]);
-                            const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
-                            setAutoCalculatedShipping(desiredOption || pickupOption);
-                         } else {
-                             console.log("[ShopProvider] Shipping calculation aborted."); // Log de abortamento
-                         }
+                        setShippingError(error.message || 'Não foi possível calcular o frete.');
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        setShippingOptions([pickupOption]);
+                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
+                        setAutoCalculatedShipping(desiredOption || pickupOption);
                     } finally {
-                        if (!signal.aborted) {
-                           setIsLoadingShipping(false);
-                        }
+                        setIsLoadingShipping(false);
                     }
                 };
                 calculateShipping();
             } else {
                 setShippingOptions([]);
                 setAutoCalculatedShipping(null);
-                setIsLoadingShipping(false);
             }
         }, 500);
-        return () => {
-            clearTimeout(debounceTimer);
-            controller.abort();
-        };
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]); // Dependências corretas
+        return () => clearTimeout(debounceTimer);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
+    
+    const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
+        setPreviewShippingItem(null);
+        const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
+        const existing = cart.find(item => item.cartItemId === cartItemId);
+        const availableStock = variation ? variation.stock : productToAdd.stock;
+        const currentQtyInCart = existing ? existing.qty : 0;
+        
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
 
-    // --- CORREÇÃO: Memoizar o objeto de valor do ShopContext ---
-    const shopContextValue = useMemo(() => {
-         // --- LOG: Recalculando Valor do Contexto ---
-         console.log("%c[ShopProvider] Recalculating shopContextValue", "color: lightgreen");
-         return {
-            cart, setCart, // Passa setCart diretamente (estável)
-            wishlist,
-            addToCart,
-            addToWishlist,
-            removeFromWishlist,
-            updateQuantity,
-            removeFromCart,
-            clearCart, // Adicionado clearCart memoizado
-            userName: user?.name,
-            addresses, fetchAddresses, // fetchAddresses memoizado
-            shippingLocation, setShippingLocation, // setShippingLocation estável
-            autoCalculatedShipping, setAutoCalculatedShipping, // setAutoCalculatedShipping estável
-            shippingOptions, isLoadingShipping, shippingError,
-            updateDefaultShippingLocation, // memoizado
-            determineShippingLocation, // memoizado
-            setPreviewShippingItem, // estável
-            setSelectedShippingName, // estável
-            isGeolocating,
-            couponCode, setCouponCode, // setCouponCode estável
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon, // applyCoupon e removeCoupon memoizados
-            clearOrderState // clearOrderState memoizado
-        };
-    }, [
-        cart, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, clearCart,
-        user?.name, addresses, fetchAddresses, shippingLocation, autoCalculatedShipping, shippingOptions,
-        isLoadingShipping, shippingError, updateDefaultShippingLocation, determineShippingLocation,
-        isGeolocating, couponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, clearOrderState
-        // Incluir todas as variáveis e funções memoizadas que são expostas
-    ]);
+        setCart(currentCart => {
+            let updatedCart;
+            if (existing) {
+                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            } else {
+                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
+            }
+
+            if (isAuthenticated) {
+                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
+            }
+            return updatedCart;
+        });
+    }, [cart, isAuthenticated]);
+    
+    const removeFromCart = useCallback(async (cartItemId) => {
+        const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
+        if (!itemToRemove) return;
+        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
+        setCart(updatedCart);
+        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+    }, [cart, isAuthenticated]);
+
+    const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
+        if (newQuantity < 1) { removeFromCart(cartItemId); return; }
+        const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
+        if (!itemToUpdate) return;
+        const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+
+        const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
+        setCart(updatedCart);
+        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+    }, [cart, isAuthenticated, removeFromCart]);
+    
+    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
+
+    const addToWishlist = useCallback(async (productToAdd) => {
+        if (!isAuthenticated) return; 
+        if (wishlist.some(p => p.id === productToAdd.id)) return;
+        try {
+            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
+            setWishlist(current => [...current, addedProduct]);
+            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
+        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
+    }, [isAuthenticated, wishlist]);
+
+    const removeFromWishlist = useCallback(async (productId) => {
+        if (!isAuthenticated) return;
+        try {
+            await apiService(`/wishlist/${productId}`, 'DELETE');
+            setWishlist(current => current.filter(p => p.id !== productId));
+        } catch (error) { console.error(error); }
+    }, [isAuthenticated]);
+    
+    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
+
+    const applyCoupon = useCallback(async (code) => {
+        setCouponCode(code);
+        try {
+            const response = await apiService('/coupons/validate', 'POST', { code });
+            setAppliedCoupon(response.coupon);
+            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
+        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
+    }, [removeCoupon]);
+    
+    const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
-        <ShopContext.Provider value={shopContextValue}>
+        <ShopContext.Provider value={{
+            cart, setCart, clearOrderState,
+            wishlist, addToCart, 
+            addToWishlist, removeFromWishlist,
+            updateQuantity, removeFromCart,
+            userName: user?.name,
+            addresses, fetchAddresses,
+            shippingLocation, setShippingLocation,
+            autoCalculatedShipping, setAutoCalculatedShipping,
+            shippingOptions, isLoadingShipping, shippingError,
+            updateDefaultShippingLocation, determineShippingLocation,
+            setPreviewShippingItem, 
+            setSelectedShippingName,
+            isGeolocating,
+            couponCode, setCouponCode,
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon
+        }}>
             {children}
         </ShopContext.Provider>
     );
