@@ -4065,26 +4065,25 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando classes CSS para ocultar/mostrar --- */}
+                                        {/* --- Seção de inputs de retirada --- */}
                                         <div className={`space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700 transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 p-0 border-0'}`}>
                                             <input
                                                 type="text"
                                                 value={pickupPersonName}
                                                 onChange={(e) => setPickupPersonName(e.target.value)}
                                                 placeholder="Nome completo de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
+                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`}
+                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1}
                                             />
                                             <input
                                                 type="text"
                                                 value={pickupPersonCpf}
                                                 onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
                                                 placeholder="CPF de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
+                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`}
+                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1}
                                             />
                                         </div>
-                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
@@ -4135,15 +4134,11 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="pl-8 flex-grow">
                                             <span className="font-bold text-base text-white">Mercado Pago</span>
                                             <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <VisaIcon className="h-5"/>
-                                                <MastercardIcon className="h-5"/>
-                                                <EloIcon className="h-5"/>
-                                                <PixIcon className="h-5"/>
-                                                <BoletoIcon className="h-4 text-gray-400"/>
-                                            </div>
+                                            {/* --- REMOÇÃO DOS ÍCONES DE BANDEIRAS E IMAGEM MERCADO PAGO --- */}
+                                            {/* O bloco flex items-center gap-2 mt-2 contendo os ícones foi removido. */}
+                                            {/* A imagem do Mercado Pago foi removida. */}
+                                            {/* --- FIM DA REMOÇÃO --- */}
                                         </div>
-                                        <img src="https://img.mlstatic.com/org-img/MP3/API/logos/mercadopago.png" alt="Mercado Pago" className="h-6 flex-shrink-0"/>
                                     </div>
                                     {/* Adicionar outras formas de pagamento aqui se necessário */}
                                 </div>
