@@ -3818,6 +3818,8 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
+// Componente PickupPersonForm foi REMOVIDO na tentativa anterior e continua removido.
+
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
@@ -3846,6 +3848,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
+    // (Lógica mantida como antes)
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3880,22 +3883,20 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
     // --- Efeito para preencher dados de retirada ---
+    // (Lógica mantida como antes)
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
-            // Garante que só preenche se o user existir
             setPickupPersonName(user.name || '');
             setPickupPersonCpf(user.cpf || '');
         } else {
-            // Limpa apenas se a intenção for limpar (checkbox marcado)
              if (isSomeoneElsePickingUp) {
                 setPickupPersonName('');
                 setPickupPersonCpf('');
             }
         }
-        // Inclui user.name e user.cpf nas dependências para garantir atualização se o usuário mudar
-    }, [user, user?.name, user?.cpf, isSomeoneElsePickingUp]);
+    }, [user, isSomeoneElsePickingUp]);
 
-    // --- Seleção de Frete ---
+    // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
@@ -3909,21 +3910,15 @@ const CheckoutPage = ({ onNavigate }) => {
              }
         }
     };
-
-    // --- Seleção de Endereço ---
     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
     };
-
-    // --- Adicionar Novo Endereço ---
     const handleAddNewAddress = () => {
         setIsAddressModalOpen(false);
         setIsNewAddressModalOpen(true);
     };
-
-    // --- Salvar Novo Endereço ---
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
@@ -3938,7 +3933,7 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- Cálculos de Valores ---
+    // --- Cálculos de Valores (mantidos) ---
     const subtotal = useMemo(() => cart.reduce((sum, item) => (item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty + sum, 0), [cart]);
     const shippingCost = useMemo(() => autoCalculatedShipping?.price || 0, [autoCalculatedShipping]);
     const discount = useMemo(() => {
@@ -3947,12 +3942,11 @@ const CheckoutPage = ({ onNavigate }) => {
         if (appliedCoupon.type === 'percentage') val = subtotal * (parseFloat(appliedCoupon.value) / 100);
         else if (appliedCoupon.type === 'fixed') val = parseFloat(appliedCoupon.value);
         else if (appliedCoupon.type === 'free_shipping') val = shippingCost;
-        // Garante que o desconto não exceda o valor (subtotal + frete) a menos que seja frete grátis
         return (appliedCoupon.type !== 'free_shipping' && val > (subtotal + shippingCost)) ? (subtotal + shippingCost) : val;
     }, [appliedCoupon, subtotal, shippingCost]);
     const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido ---
+    // --- Finalizar Pedido (mantido) ---
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
@@ -3965,7 +3959,6 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            // Garante que cpf seja enviado apenas com números
             const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
@@ -3993,7 +3986,7 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- Funções Auxiliares ---
+    // --- Funções Auxiliares (mantidas) ---
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     const getDeliveryDateText = (deliveryTime) => {
         if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
@@ -4003,7 +3996,7 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- Componente de Seção ---
+    // --- Componente de Seção (mantido) ---
     const CheckoutSection = ({ title, step, children, icon: Icon }) => (
         <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
             <div className="flex items-center gap-3 p-4 border-b border-gray-700">
@@ -4016,24 +4009,19 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers para os inputs de retirada (usando useCallback) ---
-    const handlePickupNameChange = useCallback((e) => {
-        setPickupPersonName(e.target.value);
-    }, []); // Sem dependências, a função nunca muda de referência
-
-    const handlePickupCpfChange = useCallback((e) => {
-        setPickupPersonCpf(maskCPF(e.target.value));
-    }, []); // Sem dependências, a função nunca muda de referência
+    // --- Handlers dos inputs de retirada DEFINIDOS DIRETAMENTE no onChange ---
+    // Removido o useCallback aqui para simplificar ao máximo
 
     return (
         <>
-            {/* Modais */}
+            {/* Modais (mantidos como antes) */}
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
             {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
+                    {/* --- BOTÃO VOLTAR --- */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -4079,24 +4067,28 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
+                                        {/* --- CORREÇÃO FINAL SIMPLIFICADA --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input
                                                     type="text"
                                                     value={pickupPersonName}
-                                                    onChange={handlePickupNameChange} // <- Handler estabilizado
+                                                    // Handler inline direto
+                                                    onChange={(e) => setPickupPersonName(e.target.value)}
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={pickupPersonCpf}
-                                                    onChange={handlePickupCpfChange} // <- Handler estabilizado
+                                                     // Handler inline direto com máscara
+                                                    onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
                                                     placeholder="CPF de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
                                         )}
+                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
