@@ -4016,24 +4016,24 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers agora locais para os inputs ---
-    const handlePickupNameChange = (e) => {
+    // --- Handlers para os inputs de retirada (usando useCallback) ---
+    const handlePickupNameChange = useCallback((e) => {
         setPickupPersonName(e.target.value);
-    };
-    const handlePickupCpfChange = (e) => {
+    }, []); // Sem dependências, a função nunca muda de referência
+
+    const handlePickupCpfChange = useCallback((e) => {
         setPickupPersonCpf(maskCPF(e.target.value));
-    };
+    }, []); // Sem dependências, a função nunca muda de referência
 
     return (
         <>
-            {/* Modais (mantidos como antes) */}
+            {/* Modais */}
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
             {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* --- BOTÃO VOLTAR ADICIONADO E DESCOMENTADO --- */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -4079,26 +4079,24 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Inputs renderizados condicionalmente --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input
                                                     type="text"
                                                     value={pickupPersonName}
-                                                    onChange={handlePickupNameChange} // <- Usando handler local
+                                                    onChange={handlePickupNameChange} // <- Handler estabilizado
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                                 <input
                                                     type="text"
                                                     value={pickupPersonCpf}
-                                                    onChange={handlePickupCpfChange} // <- Usando handler local
+                                                    onChange={handlePickupCpfChange} // <- Handler estabilizado
                                                     placeholder="CPF de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
                                         )}
-                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
