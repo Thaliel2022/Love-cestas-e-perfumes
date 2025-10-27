@@ -3817,8 +3817,6 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
         </Modal>
     );
 };
-// Componente PickupPersonForm continua REMOVIDO.
-
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
