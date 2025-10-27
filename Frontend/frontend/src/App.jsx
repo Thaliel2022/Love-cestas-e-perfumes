@@ -3820,7 +3820,12 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 
 // Componente PickupPersonForm foi REMOVIDO na tentativa anterior e continua removido.
 
+// Componente PickupPersonForm continua REMOVIDO.
+
 const CheckoutPage = ({ onNavigate }) => {
+    // --- LOG 1: Verificar renderização do componente ---
+    console.log("--- Rendering CheckoutPage ---");
+
     const { user } = useAuth();
     const {
         cart,
@@ -3848,8 +3853,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
-    // (Lógica mantida como antes)
     useEffect(() => {
+        // --- LOG 2: Verificar execução do useEffect de endereço ---
+        console.log("useEffect - Fetching Addresses");
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
@@ -3880,21 +3886,29 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]);
+    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Dependências corretas
 
     // --- Efeito para preencher dados de retirada ---
-    // (Lógica mantida como antes)
     useEffect(() => {
+         // --- LOG 3: Verificar execução do useEffect de dados de retirada ---
+         console.log("useEffect - Setting Pickup Person Data (isSomeoneElse:", isSomeoneElsePickingUp, "User:", !!user, ")");
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
             setPickupPersonCpf(user.cpf || '');
         } else {
              if (isSomeoneElsePickingUp) {
-                setPickupPersonName('');
-                setPickupPersonCpf('');
+                // Limpa apenas se o checkbox estiver marcado
+                // Adiciona verificação para evitar limpar se já estiver vazio
+                if (pickupPersonName !== '' || pickupPersonCpf !== '') {
+                    console.log("useEffect - Clearing pickup fields because checkbox is checked");
+                    setPickupPersonName('');
+                    setPickupPersonCpf('');
+                }
             }
+             // Não faz nada se o checkbox não estiver marcado e não houver usuário
+             // (mantém os campos como estão se o usuário deslogar, por exemplo)
         }
-    }, [user, isSomeoneElsePickingUp]);
+    }, [user, isSomeoneElsePickingUp]); // Removido user.name e user.cpf para simplificar, user já cobre isso
 
     // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
@@ -4009,8 +4023,8 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers dos inputs de retirada DEFINIDOS DIRETAMENTE no onChange ---
-    // Removido o useCallback aqui para simplificar ao máximo
+    // --- Handlers dos inputs de retirada inline (mantidos da última tentativa) ---
+    // Não usamos mais useCallback aqui para simplificar ao máximo
 
     return (
         <>
@@ -4067,14 +4081,17 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO FINAL SIMPLIFICADA --- */}
+                                        {/* --- Inputs diretos com handlers inline --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input
                                                     type="text"
                                                     value={pickupPersonName}
                                                     // Handler inline direto
-                                                    onChange={(e) => setPickupPersonName(e.target.value)}
+                                                    onChange={(e) => {
+                                                        console.log("Typing name:", e.target.value); // LOG ADICIONAL
+                                                        setPickupPersonName(e.target.value);
+                                                    }}
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
@@ -4082,13 +4099,16 @@ const CheckoutPage = ({ onNavigate }) => {
                                                     type="text"
                                                     value={pickupPersonCpf}
                                                      // Handler inline direto com máscara
-                                                    onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
+                                                    onChange={(e) => {
+                                                        console.log("Typing CPF:", e.target.value); // LOG ADICIONAL
+                                                        setPickupPersonCpf(maskCPF(e.target.value));
+                                                    }}
                                                     placeholder="CPF de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
                                         )}
-                                        {/* --- FIM DA CORREÇÃO --- */}
+                                        {/* --- Fim da correção --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
@@ -4196,6 +4216,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
