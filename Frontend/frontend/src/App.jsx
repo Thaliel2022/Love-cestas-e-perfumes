@@ -3818,8 +3818,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-
 const CheckoutPage = ({ onNavigate }) => {
+    // --- LOG 1: Início da Renderização ---
+    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log pode ser mantido ou removido
+
     const { user } = useAuth();
     const {
         cart,
@@ -3847,6 +3849,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
+    // (Lógica mantida como antes)
     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
@@ -3880,27 +3883,35 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito para preencher dados de retirada ---
-   // --- CORREÇÃO DEFINITIVA: Efeito que preenche/limpa dados da retirada ---
-useEffect(() => {
-    if (isSomeoneElsePickingUp) {
-        setPickupPersonName('');
-        setPickupPersonCpf('');
-    } else if (user) {
-        setPickupPersonName(user.name || '');
-        setPickupPersonCpf(user.cpf || '');
-    }
-}, [isSomeoneElsePickingUp, user]);
+    // --- Efeito SIMPLES para preencher/limpar dados de retirada ---
+    // (Versão que não deveria apagar ao digitar)
+    useEffect(() => {
+        if (user && !isSomeoneElsePickingUp) {
+            setPickupPersonName(user.name || '');
+            setPickupPersonCpf(user.cpf || '');
+        } else if (isSomeoneElsePickingUp) {
+            // Limpa apenas se o checkbox estiver marcado
+            setPickupPersonName('');
+            setPickupPersonCpf('');
+        }
+        // Depende apenas de user e isSomeoneElsePickingUp
+    }, [user, isSomeoneElsePickingUp]);
 
 
-    
-
-    // --- Seleção de Frete ---
+    // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
+            // Preenche/limpa campos ao selecionar Retirada
+            if (!isSomeoneElsePickingUp && user) {
+                setPickupPersonName(user.name || '');
+                setPickupPersonCpf(user.cpf || '');
+            } else {
+                 setPickupPersonName('');
+                 setPickupPersonCpf('');
+            }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
@@ -3909,21 +3920,16 @@ useEffect(() => {
              }
         }
     };
-
-    // --- Seleção de Endereço ---
+    // ... (outros handlers handleAddressSelection, handleAddNewAddress, handleSaveNewAddress mantidos) ...
     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
     };
-
-    // --- Adicionar Novo Endereço ---
     const handleAddNewAddress = () => {
         setIsAddressModalOpen(false);
         setIsNewAddressModalOpen(true);
     };
-
-    // --- Salvar Novo Endereço ---
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
@@ -3938,7 +3944,7 @@ useEffect(() => {
         }
     };
 
-    // --- Cálculos de Valores ---
+    // --- Cálculos de Valores (mantidos) ---
     const subtotal = useMemo(() => cart.reduce((sum, item) => (item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty + sum, 0), [cart]);
     const shippingCost = useMemo(() => autoCalculatedShipping?.price || 0, [autoCalculatedShipping]);
     const discount = useMemo(() => {
@@ -3947,29 +3953,39 @@ useEffect(() => {
         if (appliedCoupon.type === 'percentage') val = subtotal * (parseFloat(appliedCoupon.value) / 100);
         else if (appliedCoupon.type === 'fixed') val = parseFloat(appliedCoupon.value);
         else if (appliedCoupon.type === 'free_shipping') val = shippingCost;
-        return val;
+        return (appliedCoupon.type !== 'free_shipping' && val > (subtotal + shippingCost)) ? (subtotal + shippingCost) : val;
     }, [appliedCoupon, subtotal, shippingCost]);
     const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido ---
+    // --- Finalizar Pedido (mantido) ---
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-        if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
-            notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
+        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
+            if(!isSomeoneElsePickingUp && !user) {
+                 notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
+            } else {
+                notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error');
+            }
+            return;
         }
 
         setIsLoading(true);
         try {
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
+            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
                 total, shippingAddress: finalShippingAddress, paymentMethod,
                 shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: isSomeoneElsePickingUp ? pickupPersonName : user.name, personCpf: (isSomeoneElsePickingUp ? pickupPersonCpf : user.cpf).replace(/\D/g, '') }) : null,
+                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
             };
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
@@ -3988,7 +4004,7 @@ useEffect(() => {
         }
     };
 
-    // --- Funções Auxiliares ---
+    // --- Funções Auxiliares (mantidas) ---
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     const getDeliveryDateText = (deliveryTime) => {
         if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
@@ -3998,7 +4014,7 @@ useEffect(() => {
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- Componente de Seção ---
+    // --- Componente de Seção (mantido) ---
     const CheckoutSection = ({ title, step, children, icon: Icon }) => (
         <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
             <div className="flex items-center gap-3 p-4 border-b border-gray-700">
@@ -4011,30 +4027,43 @@ useEffect(() => {
         </div>
     );
 
+    // --- Handlers simples inline ---
+    const handlePickupNameChange = (e) => {
+        // console.log(`%c[onChange Name] Before: "${pickupPersonName}", New: "${e.target.value}"`, 'color: cyan'); // Log Opcional
+        setPickupPersonName(e.target.value);
+    };
+    const handlePickupCpfChange = (e) => {
+        const maskedValue = maskCPF(e.target.value);
+        // console.log(`%c[onChange CPF] Before: "${pickupPersonCpf}", New (Raw): "${e.target.value}", New (Masked): "${maskedValue}"`, 'color: lightblue'); // Log Opcional
+        setPickupPersonCpf(maskedValue);
+    };
+
+
     return (
         <>
-            {/* Modais (mantidos como antes) */}
+            {/* Modais */}
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
             {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* Botão Voltar (Opcional, se quiser adicionar) */}
-                    {/* <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar ao Carrinho </button> */}
+                    {/* Botão Voltar */}
+                    <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
+                        <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
+                    </button>
 
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
-                        {/* Coluna Esquerda: Entrega e Pagamento */}
+                        {/* Coluna Esquerda */}
                         <div className="lg:col-span-2 space-y-8">
-                            {/* --- Seção Forma de Entrega --- */}
+                            {/* Seção Forma de Entrega */}
                             <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
                                              className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                            {/* Bolinha de seleção customizada */}
                                             <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                                 <div className={`w-4 h-4 rounded-full border-2 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400' : 'border-gray-500'}`}>
                                                     {autoCalculatedShipping?.name === option.name && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -4050,7 +4079,7 @@ useEffect(() => {
                                 </div>
                             </CheckoutSection>
 
-                            {/* --- Seção Endereço ou Detalhes de Retirada --- */}
+                            {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
                                     <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
@@ -4065,31 +4094,32 @@ useEffect(() => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando classes CSS para ocultar/mostrar --- */}
-                                        <div className={`space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700 transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 p-0 border-0'}`}>
-                                            <input
-                                                type="text"
-                                                value={pickupPersonName}
-                                                onChange={(e) => setPickupPersonName(e.target.value)}
-                                                placeholder="Nome completo de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
-                                            />
-                                            <input
-                                                type="text"
-                                                value={pickupPersonCpf}
-                                                onChange={(e) => setPickupPersonCpf(maskCPF(e.target.value))}
-                                                placeholder="CPF de quem vai retirar"
-                                                className={`w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm ${!isSomeoneElsePickingUp ? 'pointer-events-none' : ''}`} // Desabilita eventos se oculto
-                                                tabIndex={isSomeoneElsePickingUp ? 0 : -1} // Remove do tab order se oculto
-                                            />
-                                        </div>
+                                        {/* --- Inputs NATIVOS diretos com handlers SIMPLES --- */}
+                                        {isSomeoneElsePickingUp && (
+                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonName}
+                                                    onChange={handlePickupNameChange} // Handler SIMPLES
+                                                    placeholder="Nome completo de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonCpf}
+                                                    onChange={handlePickupCpfChange} // Handler SIMPLES
+                                                    placeholder="CPF de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                            </div>
+                                        )}
                                         {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
-                                    {isAddressLoading ? (
+                                     {/* ... (código do endereço mantido) ... */}
+                                     {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
                                     ) : displayAddress ? (
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
@@ -4120,13 +4150,11 @@ useEffect(() => {
                                 </CheckoutSection>
                             )}
 
-                            {/* --- Seção Forma de Pagamento --- */}
+                            {/* Seção Forma de Pagamento */}
                             <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
                                 <div className="space-y-3">
-                                    {/* Opção Mercado Pago */}
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                        {/* Bolinha customizada */}
                                          <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                             <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
                                                 {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
@@ -4135,24 +4163,16 @@ useEffect(() => {
                                         <div className="pl-8 flex-grow">
                                             <span className="font-bold text-base text-white">Mercado Pago</span>
                                             <p className="text-xs text-gray-400 mt-0.5">Cartão de Crédito, Pix ou Boleto.</p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <VisaIcon className="h-5"/>
-                                                <MastercardIcon className="h-5"/>
-                                                <EloIcon className="h-5"/>
-                                                <PixIcon className="h-5"/>
-                                                <BoletoIcon className="h-4 text-gray-400"/>
-                                            </div>
                                         </div>
-                                        <img src="https://img.mlstatic.com/org-img/MP3/API/logos/mercadopago.png" alt="Mercado Pago" className="h-6 flex-shrink-0"/>
                                     </div>
-                                    {/* Adicionar outras formas de pagamento aqui se necessário */}
                                 </div>
                             </CheckoutSection>
                         </div>
 
                         {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
-                            <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
+                             {/* ... (código do resumo mantido) ... */}
+                             <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
@@ -4203,7 +4223,6 @@ useEffect(() => {
         </>
     );
 };
-
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
