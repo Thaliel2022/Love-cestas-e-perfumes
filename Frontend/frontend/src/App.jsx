@@ -3850,7 +3850,7 @@ const CheckoutPage = ({ onNavigate }) => {
 
     // --- Efeito para buscar e definir endereço inicial ---
     // (Lógica mantida como antes)
-    useEffect(() => {
+     useEffect(() => {
         setIsAddressLoading(true);
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
@@ -3883,20 +3883,21 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito SIMPLES para preencher/limpar dados de retirada ---
-    // (Versão que não deveria apagar ao digitar)
+    // --- Efeito para preencher dados de retirada ---
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
+            // Garante que só preenche se o user existir
             setPickupPersonName(user.name || '');
             setPickupPersonCpf(user.cpf || '');
-        } else if (isSomeoneElsePickingUp) {
-            // Limpa apenas se o checkbox estiver marcado
-            setPickupPersonName('');
-            setPickupPersonCpf('');
+        } else {
+            // Limpa apenas se a intenção for limpar (checkbox marcado)
+             if (isSomeoneElsePickingUp) {
+                setPickupPersonName('');
+                setPickupPersonCpf('');
+            }
         }
-        // Depende apenas de user e isSomeoneElsePickingUp
-    }, [user, isSomeoneElsePickingUp]);
-
+        // Inclui user.name e user.cpf nas dependências para garantir atualização se o usuário mudar
+    }, [user, user?.name, user?.cpf, isSomeoneElsePickingUp]);
 
     // --- Funções de seleção de frete/endereço (mantidas) ---
     const handleSelectShipping = (option) => {
