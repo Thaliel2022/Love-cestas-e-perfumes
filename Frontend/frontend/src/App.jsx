@@ -3817,8 +3817,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
         </Modal>
     );
 };
+// Componente PickupPersonForm continua REMOVIDO.
+
 const CheckoutPage = ({ onNavigate }) => {
-    const { user } = useAuth();
+    const { user } = useAuth(); // Mantemos para outras partes, mas não para preencher inputs de retirada
     const {
         cart,
         autoCalculatedShipping,
@@ -3877,26 +3879,13 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]); // Dependências corretas
+    }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito CORRIGIDO para preencher/limpar dados de retirada ---
-    useEffect(() => {
-        // Verifica se o usuário está logado antes de acessar user.name/user.cpf
-        if (user && !isSomeoneElsePickingUp) {
-            // Define os valores do usuário logado
-            setPickupPersonName(user.name || '');
-            setPickupPersonCpf(user.cpf || '');
-        } else if (isSomeoneElsePickingUp) {
-             // Limpa os campos se o checkbox estiver marcado (outra pessoa)
-            setPickupPersonName('');
-            setPickupPersonCpf('');
-        }
-        // NÃO limpa se não houver usuário E o checkbox não estiver marcado
-        // (mantém o que foi digitado se o usuário deslogar, por exemplo)
-
-    // --- CORREÇÃO: Removido pickupPersonName e pickupPersonCpf das dependências ---
-    }, [user, isSomeoneElsePickingUp]);
-    // --- FIM DA CORREÇÃO ---
+    // --- REMOÇÃO DO useEffect que preenchia/limpava os campos de retirada ---
+    // useEffect(() => {
+    //     ... lógica removida ...
+    // }, [user, isSomeoneElsePickingUp]);
+    // --- FIM DA REMOÇÃO ---
 
 
     // --- Funções de seleção de frete/endereço (mantidas) ---
@@ -3905,6 +3894,14 @@ const CheckoutPage = ({ onNavigate }) => {
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
+            // --- CORREÇÃO: Limpar campos ao selecionar Retirada se o checkbox estiver desmarcado ---
+            if (!isSomeoneElsePickingUp) {
+                setPickupPersonName(user?.name || ''); // Tenta preencher com user logado
+                setPickupPersonCpf(user?.cpf || '');
+            } else {
+                 setPickupPersonName(''); // Limpa se for outra pessoa
+                 setPickupPersonCpf('');
+            }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
              if (defaultOrFirst) {
@@ -3955,9 +3952,14 @@ const CheckoutPage = ({ onNavigate }) => {
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-        if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
+        // Validação agora usa o estado local diretamente
+        // E verifica se user existe caso !isSomeoneElsePickingUp
+        const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
             notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
         }
+
 
         setIsLoading(true);
         try {
@@ -4012,8 +4014,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers dos inputs inline SIMPLES ---
-    // (mantidos da última tentativa)
+    // --- Handlers simples inline (mantidos) ---
     const handlePickupNameChange = (e) => {
         setPickupPersonName(e.target.value);
     };
@@ -4077,7 +4078,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- Inputs diretos com handlers inline SIMPLES --- */}
+                                        {/* --- CORREÇÃO: Inputs diretos renderizados condicionalmente --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
                                                 <input
