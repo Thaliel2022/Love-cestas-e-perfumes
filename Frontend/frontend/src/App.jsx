@@ -2976,58 +2976,64 @@ const LoginPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
+        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+                // --- MODIFICAÇÃO: Estilo do card de login, cores e responsividade ---
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
             >
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
 
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
-                                {/* Ajustes no contêiner e na imagem */}
-                                <div className="mx-auto mb-4 inline-block w-20 h-20 flex items-center justify-center"> {/* Remove rounded-full, border, p, bg-gray-800 */}
-                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" /> {/* w-full h-full para preencher */}
+                                {/* --- MODIFICAÇÃO: Tamanho da imagem e margem --- */}
+                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> {/* Tamanho menor no mobile */}
+                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" />
                                 </div>
-                                <h2 className="text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
+                                {/* --- MODIFICAÇÃO: Tamanho do título --- */}
+                                <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
-                            <form onSubmit={handleLogin} className="space-y-6">
+                            <form onSubmit={handleLogin} className="space-y-5"> {/* Espaçamento ligeiramente menor */}
                                 <div>
-                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Email</label>
-                                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                                    <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Email</label>
+                                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
+                                    <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Senha</label>
+                                    <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Senha</label>
                                     <div className="relative">
-                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" />
+                                        <input type={isPasswordVisible ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base" />
                                        <button type="button" onClick={() => setIsPasswordVisible(v => !v)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                                         </button>
                                     </div>
                                 </div>
-                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Entrar'}
                                 </button>
                             </form>
-                             <div className="text-center mt-6 text-sm">
+                             {/* --- MODIFICAÇÃO: Tamanho de texto dos links --- */}
+                             <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
                                 <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
                             </div>
                         </motion.div>
-                    ) : (
+                    ) : ( // Formulário 2FA (estilos mantidos, pois já eram adequados)
                         <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
-                                <h2 className="text-3xl font-bold text-amber-400">Verificação de Dois Fatores</h2>
-                                <p className="text-gray-400 mt-2">Insira o código do seu aplicativo autenticador.</p>
+                                <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Verificação de Dois Fatores</h2>
+                                <p className="text-gray-400 mt-2 text-sm sm:text-base">Insira o código do seu aplicativo autenticador.</p>
                             </div>
                             <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
                                 <div>
-                                    <label className="text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
+                                    <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Código de 6 dígitos</label>
                                     <input
                                         type="text"
                                         inputMode="numeric"
@@ -3037,13 +3043,13 @@ const LoginPage = ({ onNavigate }) => {
                                         value={twoFactorCode}
                                         onChange={e => setTwoFactorCode(e.target.value)}
                                         required
-                                        className="w-full text-center tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-2xl font-mono" />
+                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" /> {/* Ajuste no tracking para mobile */}
                                 </div>
-                                <button type="submit" disabled={isLoading} className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-lg">
+                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Verificar'}
                                 </button>
                             </form>
-                             <div className="text-center mt-6 text-sm">
+                             <div className="text-center mt-6 text-xs sm:text-sm">
                                 <button onClick={() => { setIsTwoFactorStep(false); setError(''); }} className="text-gray-500 hover:underline">Voltar</button>
                             </div>
                         </motion.div>
