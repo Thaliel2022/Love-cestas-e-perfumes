@@ -4118,20 +4118,19 @@ const CheckoutPage = ({ onNavigate }) => {
                                             >
                                                 <input
                                                     type="text"
-                                                    // Sem value={pickupPersonName}
-                                                    defaultValue={pickupPersonName} // Define valor inicial
-                                                    onBlur={handlePickupNameBlur} // Atualiza estado principal no blur
+                                                    defaultValue={pickupPersonName}
+                                                    onBlur={handlePickupNameBlur}
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
+                                                {/* Input de CPF NÃO CONTROLADO */}
                                                 <input
                                                     type="text"
-                                                    // Sem value={pickupPersonCpf}
-                                                    value={displayPickupCpf} // Usa estado VISUAL para máscara
-                                                    defaultValue={displayPickupCpf} // Define valor inicial visual
-                                                    onChange={handlePickupCpfChange} // Atualiza estado VISUAL e aplica máscara
+                                                    defaultValue={pickupPersonCpf}
+                                                    onInput={handleCpfInputChangeMask} // Aplica máscara VISUALMENTE
                                                     onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
                                                     placeholder="CPF de quem vai retirar"
+                                                    maxLength="14"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
