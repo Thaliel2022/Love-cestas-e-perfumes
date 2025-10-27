@@ -3884,16 +3884,14 @@ const CheckoutPage = ({ onNavigate }) => {
    // --- CORREÇÃO DEFINITIVA: Efeito que preenche/limpa dados da retirada ---
 useEffect(() => {
     if (isSomeoneElsePickingUp) {
-        // Quando o checkbox está marcado, limpa os campos só uma vez
         setPickupPersonName('');
         setPickupPersonCpf('');
     } else if (user) {
-        // Quando o checkbox é desmarcado, restaura os dados do usuário
         setPickupPersonName(user.name || '');
         setPickupPersonCpf(user.cpf || '');
     }
-    // Executa apenas quando muda o checkbox ou o user
 }, [isSomeoneElsePickingUp, user]);
+
 
     
 
