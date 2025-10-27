@@ -3818,12 +3818,10 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-// Componente PickupPersonForm continua REMOVIDO.
-
 // Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
 
 const CheckoutPage = ({ onNavigate }) => {
-    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;');
+    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log mantido para depuração
     const { user } = useAuth();
     const {
         cart,
@@ -3848,13 +3846,12 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
 
-    // Estado do Nome (ainda controlado, pois parece funcionar)
+    // Estados que armazenam o valor FINAL (atualizado no onBlur)
     const [pickupPersonName, setPickupPersonName] = useState('');
-    // Estado do CPF (será atualizado via ref apenas no envio)
-    const [pickupPersonCpfForSubmit, setPickupPersonCpfForSubmit] = useState(''); // Renomeado para clareza
+    const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // --- NOVO: Ref para o input de CPF ---
-    const cpfInputRef = useRef(null);
+    // --- NOVO: Estado local para o valor VISUAL do input de CPF (com máscara) ---
+    const [displayPickupCpf, setDisplayPickupCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
     // (Lógica mantida como antes)
@@ -3891,24 +3888,17 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation]);
 
-    // --- Efeito para preencher/limpar dados de retirada (adaptado para ref) ---
+    // --- Efeito para definir os VALORES INICIAIS (defaultValue) e limpar estados ---
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
-            // Define o valor inicial no estado de envio e no input via ref
-            const initialCpf = user.cpf || '';
-            const maskedInitialCpf = maskCPF(initialCpf);
-            setPickupPersonCpfForSubmit(maskedInitialCpf);
-            if (cpfInputRef.current) {
-                cpfInputRef.current.value = maskedInitialCpf; // Define valor inicial diretamente no DOM
-            }
+            setPickupPersonCpf(user.cpf || '');
+            setDisplayPickupCpf(maskCPF(user.cpf || '')); // Define o valor visual inicial
         } else {
-            // Limpa o estado de envio e o input via ref
+            // Limpa ambos os estados (final e visual)
             setPickupPersonName('');
-            setPickupPersonCpfForSubmit('');
-            if (cpfInputRef.current) {
-                cpfInputRef.current.value = ''; // Limpa valor diretamente no DOM
-            }
+            setPickupPersonCpf('');
+            setDisplayPickupCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
@@ -3922,14 +3912,12 @@ const CheckoutPage = ({ onNavigate }) => {
             // Redefine valores iniciais ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
                 setPickupPersonName(user.name || '');
-                const initialCpf = user.cpf || '';
-                const maskedInitialCpf = maskCPF(initialCpf);
-                setPickupPersonCpfForSubmit(maskedInitialCpf);
-                if (cpfInputRef.current) cpfInputRef.current.value = maskedInitialCpf;
+                setPickupPersonCpf(user.cpf || '');
+                setDisplayPickupCpf(maskCPF(user.cpf || ''));
             } else {
                  setPickupPersonName('');
-                 setPickupPersonCpfForSubmit('');
-                 if (cpfInputRef.current) cpfInputRef.current.value = '';
+                 setPickupPersonCpf('');
+                 setDisplayPickupCpf('');
             }
         } else if (!displayAddress && addresses.length > 0) {
              const defaultOrFirst = addresses.find(addr => addr.is_default) || addresses[0];
@@ -3976,34 +3964,16 @@ const CheckoutPage = ({ onNavigate }) => {
     }, [appliedCoupon, subtotal, shippingCost]);
     const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido (adaptado para ler CPF da ref) ---
+    // --- Finalizar Pedido (mantido) ---
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-
-        // --- CORREÇÃO: Lê o valor do CPF da ref e atualiza o estado ANTES da validação/envio ---
-        let currentCpfValue = '';
-        if (isPickup) {
-            if (isSomeoneElsePickingUp && cpfInputRef.current) {
-                currentCpfValue = maskCPF(cpfInputRef.current.value); // Pega valor atual da ref e mascara
-                setPickupPersonCpfForSubmit(currentCpfValue); // Atualiza estado que será usado na validação/envio
-            } else if (user) {
-                currentCpfValue = maskCPF(user.cpf || '');
-                setPickupPersonCpfForSubmit(currentCpfValue);
-            } else {
-                 setPickupPersonCpfForSubmit(''); // Limpa se não for outra pessoa e não houver user
-            }
-        }
-        // --- FIM DA CORREÇÃO ---
-
-
-        // Validação usa estado 'pickupPersonName' e 'currentCpfValue' lido da ref/user
+        // Validação USA OS ESTADOS pickupPersonName e pickupPersonCpf (atualizados no onBlur)
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
-        const cpfToCheckForValidation = currentCpfValue; // Usa o valor lido/atualizado
-
-        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheckForValidation))) { // Valida com o valor atualizado
+        const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf; // Usa o estado principal para validação
+        if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) { // validateCPF usa o estado principal
             if(!isSomeoneElsePickingUp && !user) {
                  notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
             } else {
@@ -4012,12 +3982,11 @@ const CheckoutPage = ({ onNavigate }) => {
             return;
         }
 
-
         setIsLoading(true);
         try {
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
-            // Usa os estados para enviar para a API (CPF já foi atualizado acima)
-            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpfForSubmit : user?.cpf)?.replace(/\D/g, '') || '';
+             // Usa os estados principais para enviar para a API
+            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
             const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
 
             const orderPayload = {
@@ -4046,28 +4015,48 @@ const CheckoutPage = ({ onNavigate }) => {
 
     // --- Funções Auxiliares (mantidas) ---
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    const getDeliveryDateText = (deliveryTime) => { /* ... */ };
-
-    // --- Componente de Seção (mantido) ---
-    const CheckoutSection = ({ title, step, children, icon: Icon }) => { /* ... */ };
-
-    // --- Handler APENAS para o input de NOME (controlado) ---
-    const handlePickupNameChange = (e) => {
-        setPickupPersonName(e.target.value);
+    const getDeliveryDateText = (deliveryTime) => {
+        if (!deliveryTime || isNaN(deliveryTime) || deliveryTime <= 0) return 'Prazo indisponível';
+        const date = new Date();
+        let addedDays = 0;
+        while (addedDays < deliveryTime) { date.setDate(date.getDate() + 1); if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++; }
+        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- Handler para MÁSCARA VISUAL do CPF (manipula DOM diretamente) ---
-    const handleCpfInputChangeMask = (e) => {
-        // Aplica a máscara diretamente no valor do input
-        e.target.value = maskCPF(e.target.value);
+    // --- Componente de Seção (mantido) ---
+    const CheckoutSection = ({ title, step, children, icon: Icon }) => (
+        <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
+            <div className="flex items-center gap-3 p-4 border-b border-gray-700">
+                {Icon && <Icon className="h-6 w-6 text-amber-400 flex-shrink-0"/>}
+                <h2 className="text-xl font-bold text-amber-400 tracking-wide">{step ? `${step}. ` : ''}{title}</h2>
+            </div>
+            <div className="p-5">
+                {children}
+            </div>
+        </div>
+    );
+
+    // --- Handlers para os inputs de retirada (onBlur e onChange específico para CPF) ---
+    const handlePickupNameBlur = (e) => {
+        setPickupPersonName(e.target.value); // Atualiza o estado principal no blur
+    };
+
+    const handlePickupCpfChange = (e) => {
+        setDisplayPickupCpf(maskCPF(e.target.value)); // Atualiza apenas o estado visual/mascarado no change
+    };
+
+    const handlePickupCpfBlur = (e) => {
+        // No blur do CPF, atualiza ambos os estados: visual e principal (que será validado)
+        const maskedValue = maskCPF(e.target.value);
+        setDisplayPickupCpf(maskedValue);
+        setPickupPersonCpf(maskedValue); // Atualiza o estado principal
     };
 
 
     return (
         <>
             {/* Modais */}
-            {/* ... (código dos modais mantido) ... */}
-             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
+            <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
             {/* Conteúdo da Página */}
@@ -4086,7 +4075,7 @@ const CheckoutPage = ({ onNavigate }) => {
                             {/* Seção Forma de Entrega */}
                             <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
                                 {/* ... (código mantido) ... */}
-                                 <div className="space-y-3">
+                                <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
                                              className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center justify-between gap-4 ${autoCalculatedShipping?.name === option.name ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
@@ -4121,30 +4110,28 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO FINAL: Inputs não controlados --- */}
+                                        {/* --- CORREÇÃO FINAL: Inputs não controlados com onBlur --- */}
                                         {isSomeoneElsePickingUp && (
                                             <div
-                                                // Key para forçar remonte com defaultValue correto ao mudar checkbox
-                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"}
+                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} // Chave para forçar remonte com defaultValue correto
                                                 className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
                                             >
-                                                {/* Input de Nome ainda CONTROLADO (pois estava funcionando) */}
                                                 <input
                                                     type="text"
-                                                    value={pickupPersonName} // Controlado
-                                                    onChange={handlePickupNameChange} // Atualiza estado
+                                                    // Sem value={pickupPersonName}
+                                                    defaultValue={pickupPersonName} // Define valor inicial
+                                                    onBlur={handlePickupNameBlur} // Atualiza estado principal no blur
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                                {/* Input de CPF NÃO CONTROLADO com MÁSCARA onChange */}
                                                 <input
-                                                    ref={cpfInputRef} // Adiciona a ref
                                                     type="text"
-                                                    // defaultValue={pickupPersonCpfForSubmit} // Define valor inicial via ref no useEffect
-                                                    onInput={handleCpfInputChangeMask} // Aplica máscara visual no input
-                                                    // onBlur não atualiza mais o estado principal aqui
+                                                    // Sem value={pickupPersonCpf}
+                                                    value={displayPickupCpf} // Usa estado VISUAL para máscara
+                                                    defaultValue={displayPickupCpf} // Define valor inicial visual
+                                                    onChange={handlePickupCpfChange} // Atualiza estado VISUAL e aplica máscara
+                                                    onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
                                                     placeholder="CPF de quem vai retirar"
-                                                    maxLength="14" // Limite visual da máscara
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
                                             </div>
@@ -4155,7 +4142,34 @@ const CheckoutPage = ({ onNavigate }) => {
                             ) : (
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {/* ... (código do endereço mantido) ... */}
-                                     {isAddressLoading ? ( <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div> ) : displayAddress ? ( /* ... */ ) : ( /* ... */ )}
+                                      {isAddressLoading ? (
+                                        <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
+                                    ) : displayAddress ? (
+                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
+                                            <div className="flex justify-between items-start">
+                                                <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
+                                                {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
+                                            </div>
+                                            <div className="space-y-1 text-gray-300 text-sm">
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero || 'N/A'} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade || 'N/A'} - {displayAddress.uf || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep || 'N/A'}</p>
+                                            </div>
+                                            <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
+                                                <EditIcon className="h-4 w-4"/> Alterar Endereço
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
+                                            <MapPinIcon className="h-10 w-10 mx-auto text-gray-500 mb-3"/>
+                                            <p className="text-gray-400 mb-4 text-sm">Nenhum endereço selecionado ou cadastrado.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto">
+                                                <PlusIcon className="h-4 w-4"/> Adicionar Endereço
+                                            </button>
+                                        </div>
+                                    )}
                                 </CheckoutSection>
                             )}
 
@@ -4165,8 +4179,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
-                                         {/* ... (código interno mantido) ... */}
-                                          <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
+                                         <div className="absolute top-3 left-3 w-5 h-5 flex items-center justify-center">
                                             <div className={`w-4 h-4 rounded-full border-2 ${paymentMethod === 'mercadopago' ? 'border-amber-400' : 'border-gray-500'}`}>
                                                 {paymentMethod === 'mercadopago' && <div className="w-full h-full p-0.5"><div className="w-full h-full rounded-full bg-amber-400"></div></div>}
                                             </div>
@@ -4185,16 +4198,37 @@ const CheckoutPage = ({ onNavigate }) => {
                              {/* ... (código do resumo mantido) ... */}
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
-                                {/* ... (itens e totais) ... */}
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
-                                    {cart.map(item => ( <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2"> {/* ... */} </div> ))}
+                                    {cart.map(item => (
+                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
+                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                 <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
+                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                            </div>
+                                            <span className="font-medium flex-shrink-0">R$&nbsp;{((item.is_on_sale && item.sale_price ? item.sale_price : item.price) * item.qty).toFixed(2)}</span>
+                                        </div>
+                                    ))}
                                 </div>
                                 <div className="border-t border-gray-700 pt-4 space-y-2 text-sm">
-                                   {/* ... (linhas de subtotal, frete, desconto, total) ... */}
                                     <div className="flex justify-between text-gray-400"><span>Subtotal</span><span className="font-medium text-gray-300">R$&nbsp;{subtotal.toFixed(2)}</span></div>
-                                    {autoCalculatedShipping ? ( <div className="flex justify-between text-gray-400"> {/* ... */} </div> ) : ( <div className="text-gray-500 text-center py-1">Calcule o frete</div> )}
-                                    {appliedCoupon && ( <div className="flex justify-between text-green-400"> {/* ... */} </div> )}
-                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3"> {/* ... */} </div>
+                                    {autoCalculatedShipping ? (
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>Frete ({getShippingName(autoCalculatedShipping.name)})</span>
+                                            <span className="font-medium text-gray-300">{shippingCost > 0 ? `R$ ${shippingCost.toFixed(2)}` : 'Grátis'}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-500 text-center py-1">Calcule o frete</div>
+                                    )}
+                                    {appliedCoupon && (
+                                        <div className="flex justify-between text-green-400">
+                                            <span>Desconto ({appliedCoupon.code})</span>
+                                            <span className="font-medium">- R$&nbsp;{discount.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between font-bold text-lg text-white border-t border-gray-700 pt-3 mt-3">
+                                        <span>Total</span>
+                                        <span className="text-amber-400">R$&nbsp;{total.toFixed(2)}</span>
+                                    </div>
                                 </div>
 
                                 <button
@@ -4213,6 +4247,7 @@ const CheckoutPage = ({ onNavigate }) => {
         </>
     );
 };
+
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
     const [pageStatus, setPageStatus] = useState('processing');
