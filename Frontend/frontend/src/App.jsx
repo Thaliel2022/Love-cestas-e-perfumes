@@ -4118,12 +4118,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                             >
                                                 <input
                                                     type="text"
-                                                    defaultValue={pickupPersonName}
-                                                    onBlur={handlePickupNameBlur}
+                                                    // Sem value={pickupPersonName}
+                                                    defaultValue={pickupPersonName} // Define valor inicial
+                                                    onBlur={handlePickupNameBlur} // Atualiza estado principal no blur
                                                     placeholder="Nome completo de quem vai retirar"
                                                     className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                                {/* Input de CPF NÃO CONTROLADO */}
                                                 <input
                                                     type="text"
                                                     defaultValue={pickupPersonCpf}
