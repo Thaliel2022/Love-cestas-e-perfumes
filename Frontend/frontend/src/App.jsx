@@ -3818,11 +3818,9 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-
-// Componente isolado para os inputs de retirada por terceiros
+// --- Componente PickupPersonForm DEFINIDO FORA ---
 const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
-    // Adicionando console.log para depuração do componente filho
-    // console.log("Rendering PickupPersonForm");
+    // console.log("Rendering PickupPersonForm"); // Log para depuração (pode remover depois)
     return (
         <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
             <input
@@ -3842,6 +3840,7 @@ const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
         </div>
     );
 });
+// --- Fim da definição do PickupPersonForm ---
 
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -3869,9 +3868,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
-
-     // Adicionando console.log para depuração do componente pai
-     // console.log("Rendering CheckoutPage");
 
     // --- Efeito para buscar e definir endereço inicial ---
     useEffect(() => {
@@ -3983,7 +3979,6 @@ const CheckoutPage = ({ onNavigate }) => {
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
-        // Validação agora usa o estado local diretamente
         if (isPickup && isSomeoneElsePickingUp && (!pickupPersonName || !validateCPF(pickupPersonCpf))) {
             notification.show("Preencha nome e CPF válidos para quem vai retirar.", 'error'); return;
         }
@@ -3996,7 +3991,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 total, shippingAddress: finalShippingAddress, paymentMethod,
                 shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                 // Usa o estado local para os detalhes de retirada
                 pickup_details: isPickup ? JSON.stringify({ personName: isSomeoneElsePickingUp ? pickupPersonName : user.name, personCpf: (isSomeoneElsePickingUp ? pickupPersonCpf : user.cpf).replace(/\D/g, '') }) : null,
             };
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
@@ -4057,7 +4051,7 @@ const CheckoutPage = ({ onNavigate }) => {
             {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* --- BOTÃO VOLTAR ADICIONADO --- */}
+                    {/* --- BOTÃO VOLTAR ADICIONADO E DESCOMENTADO --- */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -4103,8 +4097,9 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm e useCallback nos handlers --- */}
+                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm com handlers memoizados --- */}
                                         <div className={`transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
+                                            {/* Renderiza o componente condicionalmente, mas a visibilidade é controlada por CSS */}
                                             {isSomeoneElsePickingUp && (
                                                 <PickupPersonForm
                                                     name={pickupPersonName}
