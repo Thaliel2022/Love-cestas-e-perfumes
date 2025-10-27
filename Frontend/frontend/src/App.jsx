@@ -3818,6 +3818,27 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
+const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
+    // Componente isolado para os inputs de nome e CPF
+    return (
+        <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+            <input
+                type="text"
+                value={name}
+                onChange={onNameChange} // Usa a função passada por prop
+                placeholder="Nome completo de quem vai retirar"
+                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+            />
+            <input
+                type="text"
+                value={cpf}
+                onChange={onCpfChange} // Usa a função passada por prop
+                placeholder="CPF de quem vai retirar"
+                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+            />
+        </div>
+    );
+});
 
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
