@@ -3179,10 +3179,10 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     const [step, setStep] = useState(1);
     const [isNewPasswordVisible, setIsNewPasswordVisible] = useState(false);
     const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
-    
+
     const containerVariants = {
         hidden: { opacity: 0 },
-        visible: { 
+        visible: {
             opacity: 1,
             transition: { staggerChildren: 0.1 }
         }
@@ -3233,73 +3233,83 @@ const ForgotPasswordPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-black to-gray-900 p-4">
-            <motion.div 
+         // --- MODIFICAÇÃO: Estilo do container principal e padding ---
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+            <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="w-full max-w-md bg-gray-900/50 backdrop-blur-sm text-white p-8 rounded-2xl shadow-lg border border-gray-800 shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+                // --- MODIFICAÇÃO: Estilo do card, cores e responsividade ---
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
-                    <h2 className="text-3xl font-bold text-amber-400">Recuperar Senha</h2>
+                     {/* --- MODIFICAÇÃO: Tamanho do título --- */}
+                    <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Recuperar Senha</h2>
                 </motion.div>
 
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md">{error}</p>}
-                
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+
                 <AnimatePresence mode="wait">
                     {step === 1 ? (
-                        <motion.form 
+                        <motion.form
                             key="step1"
                             initial={{ opacity: 0, x: -50 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
-                            onSubmit={handleValidation} className="space-y-4">
-                            <p className="text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
-                            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400" />
-                            <button type="submit" className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Verificar</button>
+                            onSubmit={handleValidation} className="space-y-4"> {/* Reduzido space-y */}
+                             {/* --- MODIFICAÇÃO: Tamanho de texto da descrição --- */}
+                            <p className="text-xs sm:text-sm text-gray-400 text-center">Para começar, por favor, insira seu e-mail e CPF cadastrados.</p>
+                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
+                            <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
+                            <input type="text" placeholder="CPF" value={cpf} onChange={e => setCpf(maskCPF(e.target.value))} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
+                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                            <button type="submit" className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition text-base sm:text-lg">Verificar</button>
                         </motion.form>
                     ) : (
-                        <motion.form 
+                        <motion.form
                             key="step2"
                             initial={{ opacity: 0, x: -50 }}
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, x: 50 }}
-                            onSubmit={handlePasswordReset} className="space-y-4">
-                            <p className="text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
+                            onSubmit={handlePasswordReset} className="space-y-4"> {/* Reduzido space-y */}
+                            {/* --- MODIFICAÇÃO: Tamanho de texto da descrição --- */}
+                            <p className="text-xs sm:text-sm text-gray-400 text-center">Usuário validado! Agora, crie sua nova senha.</p>
+                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs de senha --- */}
                             <div className="relative">
-                                <input 
-                                    type={isNewPasswordVisible ? 'text' : 'password'} 
-                                    placeholder="Nova Senha" 
-                                    value={newPassword} 
-                                    onChange={e => setNewPassword(e.target.value)} 
-                                    required 
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" 
+                                <input
+                                    type={isNewPasswordVisible ? 'text' : 'password'}
+                                    placeholder="Nova Senha"
+                                    value={newPassword}
+                                    onChange={e => setNewPassword(e.target.value)}
+                                    required
+                                    className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base"
                                 />
                                 <button type="button" onClick={() => setIsNewPasswordVisible(!isNewPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                     {isNewPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                                 </button>
                             </div>
                             <div className="relative">
-                                <input 
-                                    type={isConfirmPasswordVisible ? 'text' : 'password'} 
-                                    placeholder="Confirmar Nova Senha" 
-                                    value={confirmPassword} 
-                                    onChange={e => setConfirmPassword(e.target.value)} 
-                                    required 
-                                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 pr-10" 
+                                <input
+                                    type={isConfirmPasswordVisible ? 'text' : 'password'}
+                                    placeholder="Confirmar Nova Senha"
+                                    value={confirmPassword}
+                                    onChange={e => setConfirmPassword(e.target.value)}
+                                    required
+                                    className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 pr-10 text-sm sm:text-base"
                                 />
                                 <button type="button" onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400">
                                     {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                                 </button>
                             </div>
-                            <button type="submit" className="w-full py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition">Redefinir Senha</button>
+                            {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                            <button type="submit" className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition text-base sm:text-lg">Redefinir Senha</button>
                         </motion.form>
                     )}
                 </AnimatePresence>
 
-                <motion.div variants={itemVariants} className="text-center mt-6">
-                    <a href="#login" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-sm text-gray-400 hover:underline">Voltar para o Login</a>
+                 {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
+                <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
+                    <a href="#login" onClick={(e) => { e.preventDefault(); onNavigate('login'); }} className="text-gray-400 hover:underline">Voltar para o Login</a>
                 </motion.div>
             </motion.div>
         </div>
