@@ -3818,29 +3818,8 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-// --- Componente PickupPersonForm DEFINIDO FORA ---
-const PickupPersonForm = memo(({ name, cpf, onNameChange, onCpfChange }) => {
-    // console.log("Rendering PickupPersonForm"); // Log para depuração (pode remover depois)
-    return (
-        <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
-            <input
-                type="text"
-                value={name}
-                onChange={onNameChange} // Usa a função passada por prop
-                placeholder="Nome completo de quem vai retirar"
-                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-            />
-            <input
-                type="text"
-                value={cpf}
-                onChange={onCpfChange} // Usa a função passada por prop
-                placeholder="CPF de quem vai retirar"
-                className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-            />
-        </div>
-    );
-});
-// --- Fim da definição do PickupPersonForm ---
+// --- Componente PickupPersonForm REMOVIDO ---
+// A lógica será reintegrada diretamente na CheckoutPage
 
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -3866,7 +3845,7 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
-    const [pickupPersonName, setPickupPersonName] = useState('');
+     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
     // --- Efeito para buscar e definir endereço inicial ---
@@ -3906,16 +3885,18 @@ const CheckoutPage = ({ onNavigate }) => {
     // --- Efeito para preencher dados de retirada ---
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
-            setPickupPersonName(user.name);
-            setPickupPersonCpf(user.cpf);
+            // Garante que só preenche se o user existir
+            setPickupPersonName(user.name || '');
+            setPickupPersonCpf(user.cpf || '');
         } else {
-            // Só limpa se a intenção for realmente limpar (outra pessoa vai retirar)
-            if (isSomeoneElsePickingUp) {
+            // Limpa apenas se a intenção for limpar (checkbox marcado)
+             if (isSomeoneElsePickingUp) {
                 setPickupPersonName('');
                 setPickupPersonCpf('');
             }
         }
-    }, [user, isSomeoneElsePickingUp]);
+        // Inclui user.name e user.cpf nas dependências para garantir atualização se o usuário mudar
+    }, [user, user?.name, user?.cpf, isSomeoneElsePickingUp]);
 
     // --- Seleção de Frete ---
     const handleSelectShipping = (option) => {
@@ -3969,7 +3950,8 @@ const CheckoutPage = ({ onNavigate }) => {
         if (appliedCoupon.type === 'percentage') val = subtotal * (parseFloat(appliedCoupon.value) / 100);
         else if (appliedCoupon.type === 'fixed') val = parseFloat(appliedCoupon.value);
         else if (appliedCoupon.type === 'free_shipping') val = shippingCost;
-        return val;
+        // Garante que o desconto não exceda o valor (subtotal + frete) a menos que seja frete grátis
+        return (appliedCoupon.type !== 'free_shipping' && val > (subtotal + shippingCost)) ? (subtotal + shippingCost) : val;
     }, [appliedCoupon, subtotal, shippingCost]);
     const total = useMemo(() => Math.max(0, subtotal - discount + shippingCost), [subtotal, discount, shippingCost]);
 
@@ -3986,12 +3968,16 @@ const CheckoutPage = ({ onNavigate }) => {
         setIsLoading(true);
         try {
             const finalShippingAddress = (isPickup || !displayAddress || !displayAddress.id) ? null : displayAddress;
+            // Garante que cpf seja enviado apenas com números
+            const cpfToSend = (isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf)?.replace(/\D/g, '') || '';
+            const nameToSend = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
+
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
                 total, shippingAddress: finalShippingAddress, paymentMethod,
                 shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
                 coupon_code: appliedCoupon?.code || null, discount_amount: discount,
-                pickup_details: isPickup ? JSON.stringify({ personName: isSomeoneElsePickingUp ? pickupPersonName : user.name, personCpf: (isSomeoneElsePickingUp ? pickupPersonCpf : user.cpf).replace(/\D/g, '') }) : null,
+                pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
             };
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
@@ -4033,14 +4019,13 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers para o componente PickupPersonForm ENVOLVIDOS COM useCallback ---
-    const handlePickupNameChange = useCallback((e) => {
+    // --- Handlers agora locais para os inputs ---
+    const handlePickupNameChange = (e) => {
         setPickupPersonName(e.target.value);
-    }, []); // Sem dependências, pois só usa setPickupPersonName
-
-    const handlePickupCpfChange = useCallback((e) => {
+    };
+    const handlePickupCpfChange = (e) => {
         setPickupPersonCpf(maskCPF(e.target.value));
-    }, []); // Sem dependências, pois só usa setPickupPersonCpf e maskCPF (função pura)
+    };
 
     return (
         <>
@@ -4097,18 +4082,25 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando o componente PickupPersonForm com handlers memoizados --- */}
-                                        <div className={`transition-all duration-300 ease-in-out ${isSomeoneElsePickingUp ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 invisible'}`}>
-                                            {/* Renderiza o componente condicionalmente, mas a visibilidade é controlada por CSS */}
-                                            {isSomeoneElsePickingUp && (
-                                                <PickupPersonForm
-                                                    name={pickupPersonName}
-                                                    cpf={pickupPersonCpf}
-                                                    onNameChange={handlePickupNameChange} // <- Passando a função memoizada
-                                                    onCpfChange={handlePickupCpfChange}   // <- Passando a função memoizada
+                                        {/* --- CORREÇÃO: Inputs renderizados condicionalmente --- */}
+                                        {isSomeoneElsePickingUp && (
+                                            <div className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonName}
+                                                    onChange={handlePickupNameChange} // <- Usando handler local
+                                                    placeholder="Nome completo de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
                                                 />
-                                            )}
-                                        </div>
+                                                <input
+                                                    type="text"
+                                                    value={pickupPersonCpf}
+                                                    onChange={handlePickupCpfChange} // <- Usando handler local
+                                                    placeholder="CPF de quem vai retirar"
+                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
+                                                />
+                                            </div>
+                                        )}
                                         {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
