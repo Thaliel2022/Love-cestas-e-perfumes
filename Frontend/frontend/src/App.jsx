@@ -975,27 +975,31 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); // Removido 'cart' se não for usado aqui
+    const { addToCart, shippingLocation } = useShop(); 
     const notification = useNotification();
-    const { user } = useAuth(); // Para lógica de isAdmin
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); // Adicionado para WishlistButton interno
-    const { isAuthenticated } = useAuth(); // Adicionado para WishlistButton interno
+    const { user } = useAuth(); 
+    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
+    const { isAuthenticated } = useAuth(); 
 
-    const [isAddingToCart, setIsAddingToCart] = useState(false); // Renomeado de isAdding
-    const [isBuyingNow, setIsBuyingNow] = useState(false); // Adicionado estado para 'Comprar'
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); // Adicionado estado de frete
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); // Adicionado estado de loading frete
+    const [isAddingToCart, setIsAddingToCart] = useState(false); 
+    const [isBuyingNow, setIsBuyingNow] = useState(false); 
+    const [cardShippingInfo, setCardShippingInfo] = useState(null); 
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
 
-    // CORREÇÃO IMAGEM: Simplifica a obtenção da imagem inicial diretamente
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
     const isOnSale = product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product.price;
 
     const discountPercent = useMemo(() => {
-        if (isOnSale && product.price > 0) { // Adicionado verificação product.price > 0
+        if (isOnSale && product.price > 0) { 
             return Math.round(((product.price - product.sale_price) / product.price) * 100);
         }
+        return 0;
+    }, [isOnSale, product]);
+
+    const savingsAmount = useMemo(() => {
+        if (isOnSale) return (product.price - product.sale_price);
         return 0;
     }, [isOnSale, product]);
 
@@ -1005,21 +1009,19 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
 
-    // CORREÇÃO RATING: Usa product.avg_rating e product.review_count se disponíveis
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
     const reviewCount = product.review_count || 0;
 
-    // Lógica de estoque (mantida da versão anterior corrigida)
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     const isProductOutOfStock = product.stock <= 0;
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete (Mantido da versão anterior) ---
+    // --- Efeito de Frete ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
-        // ... (lógica completa de cálculo de frete como na resposta anterior) ...
+        
          const debounceTimer = setTimeout(() => {
             if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
@@ -1059,8 +1061,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 };
                 calculateShipping();
             } else {
-                setCardShippingInfo(null); // Limpa se não tiver CEP
-                 setIsCardShippingLoading(false); // Garante que loading pare se não houver CEP
+                setCardShippingInfo(null); 
+                 setIsCardShippingLoading(false); 
             }
         }, 500);
 
@@ -1068,9 +1070,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice]); // Dependências corretas
+    }, [product, shippingLocation.cep, currentPrice]);
 
-    // --- Cálculo de parcelas (Mantido da versão anterior) ---
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -1079,8 +1080,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    // --- Handlers de Ação (Adaptados da versão anterior) ---
-    const handleAddToCartInternal = async (e) => { // Renomeado para evitar conflito
+    const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
             notification.show("Escolha cor e tamanho na página do produto.", "error");
@@ -1098,7 +1098,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    const handleBuyNowInternal = async (e) => { // Renomeado para evitar conflito
+    const handleBuyNowInternal = async (e) => { 
         e.stopPropagation();
          if (product.product_type === 'clothing') {
             onNavigate(`product/${product.id}`);
@@ -1115,11 +1115,10 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    // --- WishlistButton Interno (Adaptado da versão anterior) ---
     const WishlistButton = ({ product }) => {
         const isWishlisted = wishlist.some(item => item.id === product.id);
         const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); // Impede a navegação ao clicar no coração
+            e.stopPropagation(); 
             if (!isAuthenticated) {
                 notification.show("Faça login para adicionar à lista de desejos", "error");
                 return;
@@ -1143,7 +1142,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         );
     };
 
-    // --- Card Animation ---
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
@@ -1151,48 +1149,45 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     return (
         <motion.div
-            layout // Adicionado para animar a remoção/adição
+            layout 
             variants={cardVariants}
-            initial="hidden" // Define estado inicial
-            animate="visible" // Anima para o estado visível
-            exit="hidden" // Define estado de saída (se usado com AnimatePresence)
+            initial="hidden" 
+            animate="visible" 
+            exit="hidden" 
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} // Grayscale adicionado
-            onClick={() => onNavigate(`product/${product.id}`)} // Navegação no card todo
+            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            onClick={() => onNavigate(`product/${product.id}`)} 
         >
-            {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img
-                    src={imageUrl} // Usa a URL calculada no useMemo
+                    src={imageUrl} 
                     alt={product.name}
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                    // Removido onMouseEnter/Leave para simplificar, a imagem principal é definida uma vez
                 />
-                <WishlistButton product={product} /> {/* Usa o componente interno */}
+                <WishlistButton product={product} /> 
 
-                {/* --- Badges/Selos --- */}
+                {/* --- Badges/Selos Avançados --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
-                            <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span>
+                        <div className="animate-pulse shadow-lg bg-gradient-to-r from-rose-600 via-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-lg rounded-tl-lg flex items-center gap-1 border border-white/20">
+                            <SaleIcon className="h-3.5 w-3.5"/>
+                            <span>-{discountPercent}% OFF</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
+                        <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
                  {product.product_type === 'clothing' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo Original */}
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
-                {/* Botão de Edição Admin - Posição ajustada */}
                  {user && user.role === 'admin' && (
-                    <div className="absolute top-2 right-10 z-10"> {/* Alterado de right-12 para right-10 */}
+                    <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" // Aumentado padding para toque mais fácil
+                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -1200,11 +1195,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 )}
             </div>
 
-            {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
-                {/* --- Marca e Nome --- */}
                 <div>
-                    {/* COR CORRIGIDA ABAIXO */}
                     <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
                     <h4
                         className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
@@ -1218,21 +1210,23 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
 
-                {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
                     {isOnSale ? (
                          <div className="flex flex-col">
-                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="bg-red-900/40 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-900/50 font-medium">
+                                    ECONOMIZE R$ {savingsAmount.toFixed(2).replace('.', ',')}
+                                </span>
+                            </div>
                             <div className="flex items-baseline gap-2">
+                                <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                                 <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
-                                <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span>
                             </div>
                         </div>
                     ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
 
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
 
-                    {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
                         <div className="mt-3">
                             <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
@@ -1259,7 +1253,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
             </div>
 
-            {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
                     {isCardShippingLoading ? (
@@ -1274,7 +1267,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </span>
                 </div>
             )}
-            {/* Botão de Edição Admin (Removido daqui pois foi movido para dentro da seção da imagem) */}
         </motion.div>
     );
 });
@@ -2465,12 +2457,55 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
+    // Componente Interno: Cronômetro de Oferta
+    const PromotionTimer = ({ endDate }) => {
+        const [timeLeft, setTimeLeft] = useState('');
+
+        useEffect(() => {
+            if (!endDate) return;
+            const calculateTimeLeft = () => {
+                const difference = new Date(endDate) - new Date();
+                if (difference > 0) {
+                    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                    const minutes = Math.floor((difference / 1000 / 60) % 60);
+                    const seconds = Math.floor((difference / 1000) % 60);
+                    return { days, hours, minutes, seconds };
+                }
+                return null;
+            };
+
+            const timer = setInterval(() => {
+                const tl = calculateTimeLeft();
+                if (tl) {
+                    let timeString = '';
+                    if (tl.days > 0) timeString += `${tl.days}d `;
+                    timeString += `${String(tl.hours).padStart(2,'0')}:${String(tl.minutes).padStart(2,'0')}:${String(tl.seconds).padStart(2,'0')}`;
+                    setTimeLeft(timeString);
+                } else {
+                    setTimeLeft('Expirado');
+                    clearInterval(timer);
+                }
+            }, 1000);
+
+            return () => clearInterval(timer);
+        }, [endDate]);
+
+        if (!endDate || timeLeft === 'Expirado' || !timeLeft) return null;
+
+        return (
+            <div className="flex items-center gap-2 text-sm font-mono text-red-300 bg-red-900/30 px-3 py-1 rounded border border-red-800 w-fit mt-2">
+                <ClockIcon className="h-4 w-4 animate-pulse" />
+                <span>Termina em: {timeLeft}</span>
+            </div>
+        );
+    };
+
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
-
 
     const avgRating = useMemo(() => {
         return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
@@ -2591,7 +2626,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         });
     };
 
-
     const handleAction = async (action) => {
         if (!product) return;
         if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
@@ -2654,7 +2688,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, currentPrice]);
 
-    // Efeito e Funções para Galeria
     const checkScrollButtons = useCallback(() => {
         const gallery = galleryRef.current;
         if (gallery) {
@@ -2730,28 +2763,32 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+                    {/* --- Galeria de Imagens --- */}
                     <div className="lg:sticky lg:top-24 self-start">
                         <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isOnSale ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                             {!productOrVariationOutOfStock && ( 
+                                 <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> 
+                                    {isOnSale ? ( 
+                                        <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-pulse"> 
+                                            <SaleIcon className="h-4 w-4"/> 
+                                            <span>OFERTA {discountPercent}%</span> 
+                                        </div> 
+                                    ) : isNew ? ( 
+                                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                    ) : null} 
+                                </div> 
+                             )}
                              {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* Galeria com Setas e CSS para esconder scrollbar */}
                         <div className="relative group">
                             <div
                                 ref={galleryRef}
                                 className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                style={{
-                                    msOverflowStyle: 'none', // IE and Edge
-                                    scrollbarWidth: 'none' // Firefox
-                                }}
+                                style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
                             >
-                                <style>{`
-                                    .scrollbar-hide::-webkit-scrollbar {
-                                        display: none;
-                                    }
-                                `}</style>
+                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
 
                                {product.video_url && (
                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
@@ -2785,6 +2822,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                     </div>
 
+                    {/* --- Detalhes do Produto e Preço --- */}
                     <div className="space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
@@ -2800,18 +2838,32 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        <div className="border-t border-b border-gray-800 py-4">
+                        <div className="border-t border-b border-gray-800 py-6">
                             {isOnSale ? (
-                                <div className="flex items-center gap-3">
-                                    <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
-                                    <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2 bg-gradient-to-r from-red-900/40 to-transparent p-2 rounded border-l-4 border-red-500">
+                                        <SaleIcon className="h-5 w-5 text-red-400"/>
+                                        <span className="text-sm font-bold text-red-100 uppercase tracking-wide">Oferta por Tempo Limitado</span>
+                                    </div>
+                                    
+                                    <div>
+                                        <p className="text-sm text-gray-400">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.',',')}</span></p>
+                                        <div className="flex items-end gap-3 mt-1">
+                                            <p className="text-4xl font-extrabold text-red-500 leading-none">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
+                                            <div className="flex flex-col justify-end pb-1">
+                                                <span className="text-xs font-bold text-green-400 bg-green-900/30 px-2 py-0.5 rounded uppercase mb-0.5">Economize {discountPercent}%</span>
+                                                <span className="text-xs text-gray-400">(R$ {(product.price - product.sale_price).toFixed(2).replace('.', ',')})</span>
+                                            </div>
+                                        </div>
+                                        <PromotionTimer endDate={product.sale_end_date} />
+                                    </div>
                                 </div>
                              ) : ( <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
-                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
+                            
+                            <div className="mt-4 flex items-center gap-2 text-sm text-gray-300">
                                 <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
                                 <span>{getInstallmentSummary()}</span>
-                                {!isLoadingInstallments && installments && installments.length > 0 && ( <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver mais)</button> )}
+                                {!isLoadingInstallments && installments && installments.length > 0 && ( <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver parcelas)</button> )}
                             </div>
                         </div>
 
@@ -2838,6 +2890,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
 
+                {/* --- Abas de Descrição --- */}
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
@@ -2860,7 +2913,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
                 {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
 
-                {/* --- SEÇÃO DE AVALIAÇÕES COM NOVO ESTILO --- */}
                 <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
                     <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-8 mb-10">
@@ -2872,18 +2924,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </div>
                                     <span className="font-semibold text-white text-sm">{review.user_name || 'Cliente'}</span>
                                      {user && user.role === 'admin' && (
-                                        <button
-                                            onClick={() => handleDeleteReview(review.id)}
-                                            className="absolute top-0 right-0 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="Excluir avaliação"
-                                        >
+                                        <button onClick={() => handleDeleteReview(review.id)} className="absolute top-0 right-0 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Excluir avaliação">
                                             <TrashIcon className="h-4 w-4" />
                                         </button>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    {/* Adiciona um título simulado se houver comentário */}
                                     {review.comment && review.comment.length > 30 && <span className="font-bold text-white text-sm ml-2 truncate">{review.comment.substring(0, 30)}...</span>}
                                 </div>
                                 <p className="text-xs text-gray-500 mb-2">
@@ -2891,11 +2938,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </p>
                                 <p className="text-xs font-semibold text-amber-500 mb-3">Compra verificada</p>
                                 {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words">{review.comment}</p>}
-                                {/* Futuros botões Útil/Denunciar podem entrar aqui */}
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
                     </div>
-                    {/* --- FIM DA MODIFICAÇÃO --- */}
 
                     <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
                         <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
@@ -6775,6 +6820,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
         { name: 'sale_price', label: 'Preço Promocional (Opcional)', type: 'number', step: '0.01' },
+        { name: 'sale_end_date', label: 'Data/Hora Fim da Promoção', type: 'datetime-local' },
         { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
@@ -7036,11 +7082,14 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     }
                     
                     const isNameField = field.name === 'name';
-                    const isPriceField = field.name === 'price' || field.name === 'sale_price';
-                    const showSalePrice = isPriceField && formData['is_on_sale'];
+                    const isPriceField = field.name === 'price' || field.name === 'sale_price' || field.name === 'sale_end_date';
+                    const showSaleOptions = isPriceField && formData['is_on_sale'];
                     
+                    // Lógica para esconder campos de promoção se não estiver em promoção
+                    if ((field.name === 'sale_price' || field.name === 'sale_end_date') && !showSaleOptions) return null;
+
                     return (
-                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''} ${!showSalePrice && field.name === 'sale_price' ? 'hidden' : ''}`}>
+                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                             <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
                         </div>
