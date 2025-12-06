@@ -6835,12 +6835,27 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
     const allFields = [...commonFields, ...perfumeFields, ...clothingFields];
 
+    // Função auxiliar para formatar a data para o input datetime-local
+    const formatForInput = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        // Ajusta o fuso horário para exibir corretamente no input local
+        const offset = date.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+        return localISOTime;
+    };
+
     useEffect(() => {
         const initialData = {};
         allFields.forEach(field => {
             const value = item?.[field.name];
             if (value !== undefined && value !== null) {
-                initialData[field.name] = value;
+                // Se for o campo de data, aplica a formatação especial
+                if (field.name === 'sale_end_date') {
+                    initialData[field.name] = formatForInput(value);
+                } else {
+                    initialData[field.name] = value;
+                }
             } else {
                 if (field.type === 'checkbox') {
                     initialData[field.name] = (field.name === 'is_active'); // Ativo por padrão
@@ -7091,7 +7106,15 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     return (
                         <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
+                            <input 
+                                type={field.type} 
+                                name={field.name} 
+                                value={formData[field.name] || ''} 
+                                onChange={handleChange} 
+                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
+                                required={field.required} 
+                                step={field.step} 
+                            />
                         </div>
                     );
                 })}
