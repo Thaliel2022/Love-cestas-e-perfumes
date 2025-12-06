@@ -1135,7 +1135,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             )}
                         </>
                     ) : isNew && (
-                        <div className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow">NOVO</div>
+                        <div className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow">NOVO</div>
                     )}
                 </div>
                 
@@ -2376,14 +2376,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isOnSale, product]);
 
-    // Componente Interno: Cronômetro de Oferta
+    // --- CRONÔMETRO DE OFERTA (CORRIGIDO PARA EVITAR CRASH) ---
     const PromotionTimer = ({ endDate }) => {
-        const [timeLeft, setTimeLeft] = useState('');
+        const [timeLeft, setTimeLeft] = useState(null);
 
         useEffect(() => {
             if (!endDate) return;
+            
+            const targetDate = new Date(endDate);
+            if (isNaN(targetDate.getTime())) return; // Proteção contra datas inválidas
+
             const calculateTimeLeft = () => {
-                const difference = new Date(endDate) - new Date();
+                const now = new Date();
+                const difference = targetDate - now;
+
                 if (difference > 0) {
                     const days = Math.floor(difference / (1000 * 60 * 60 * 24));
                     const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
@@ -2407,14 +2413,23 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 }
             }, 1000);
 
+            // Chamada inicial para evitar delay de 1s
+            const initialTl = calculateTimeLeft();
+            if (initialTl) {
+                 let timeString = '';
+                 if (initialTl.days > 0) timeString += `${initialTl.days}d `;
+                 timeString += `${String(initialTl.hours).padStart(2,'0')}:${String(initialTl.minutes).padStart(2,'0')}:${String(initialTl.seconds).padStart(2,'0')}`;
+                 setTimeLeft(timeString);
+            }
+
             return () => clearInterval(timer);
         }, [endDate]);
 
-        if (!endDate || timeLeft === 'Expirado' || !timeLeft) return null;
+        if (!timeLeft || timeLeft === 'Expirado') return null;
 
         return (
-            <div className="flex items-center gap-2 text-sm font-mono text-red-300 bg-red-900/30 px-3 py-1 rounded border border-red-800 w-fit mt-2">
-                <ClockIcon className="h-4 w-4 animate-pulse" />
+            <div className="flex items-center gap-2 text-sm font-mono text-red-300 bg-red-900/30 px-3 py-1 rounded border border-red-800 w-fit mt-2 animate-pulse">
+                <ClockIcon className="h-4 w-4" />
                 <span>Termina em: {timeLeft}</span>
             </div>
         );
@@ -2774,6 +2789,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                                 <span className="text-xs text-gray-400">(R$ {(product.price - product.sale_price).toFixed(2).replace('.', ',')})</span>
                                             </div>
                                         </div>
+                                        {/* Componente Timer Atualizado com proteção */}
                                         <PromotionTimer endDate={product.sale_end_date} />
                                     </div>
                                 </div>
@@ -6710,16 +6726,18 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [allCollectionCategories, setAllCollectionCategories] = useState([]);
 
     useEffect(() => {
-        apiService('/collections/admin').then(data => setAllCollectionCategories(data.filter(c => c.is_active))).catch(console.error);
+        apiService('/collections/admin')
+            .then(data => setAllCollectionCategories(data.filter(c => c.is_active)))
+            .catch(console.error);
     }, []);
-    
-    // --- FUNÇÃO DE FORMATAÇÃO DE DATA (CRÍTICA) ---
-    // Converte a data ISO do banco (2025-10-20T15:30:00.000Z) para o formato do input (2025-10-20T15:30)
+
+    // --- FUNÇÃO DE CORREÇÃO DE DATA (CRÍTICA) ---
     const formatForInput = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
-        // Ajusta fuso horário local para exibir corretamente
+        if (isNaN(date.getTime())) return ''; // Se a data for inválida, retorna vazio para não quebrar
+        
+        // Ajusta o fuso horário para exibir corretamente no input local
         const offset = date.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
         return localISOTime;
@@ -6728,11 +6746,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     useEffect(() => {
         const initialData = { ...item };
         
-        // Aplica a formatação correta se houver uma data salva
-        if (initialData.sale_end_date) {
-            initialData.sale_end_date = formatForInput(initialData.sale_end_date);
-        }
-
         if (!item) { // Novo produto
             setProductType('perfume');
             initialData.images = [];
@@ -6767,6 +6780,10 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const data = { ...formData, product_type: productType };
         data.images = JSON.stringify(data.images || []);
         data.variations = JSON.stringify(data.variations || []);
+        
+        // Garante que a data seja enviada corretamente ou como null se estiver vazia
+        if (!data.sale_end_date) data.sale_end_date = null;
+        
         delete data.images_upload;
         onSave(data);
     };
@@ -6802,7 +6819,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
                 <div><label className="block text-sm font-bold">Preço Original</label><input type="number" step="0.01" name="price" value={formData.price || ''} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
                 
-                {/* --- SEÇÃO DE PROMOÇÃO --- */}
+                {/* --- SEÇÃO DE PROMOÇÃO CORRIGIDA --- */}
                 <div className="md:col-span-2 bg-yellow-50 p-4 rounded border border-yellow-200">
                     <div className="flex items-center gap-2 mb-4">
                         <input type="checkbox" id="is_on_sale" name="is_on_sale" checked={!!formData.is_on_sale} onChange={handleChange} className="w-5 h-5 text-amber-500" />
@@ -6819,7 +6836,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                 <input 
                                     type="datetime-local" 
                                     name="sale_end_date" 
-                                    value={formData.sale_end_date || ''} // Agora usa o valor formatado
+                                    // AQUI ESTÁ A CORREÇÃO: Usamos a função auxiliar para formatar o valor
+                                    value={formatForInput(formData.sale_end_date)} 
                                     onChange={handleChange} 
                                     className="w-full p-2 border rounded" 
                                 />
@@ -6838,7 +6856,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                      </>
                 )}
                 
-                {/* Campos técnicos obrigatórios para frete */}
                 <div className="md:col-span-2 grid grid-cols-4 gap-2">
                     <div><label className="text-xs">Peso (kg)</label><input type="number" step="0.01" name="weight" value={formData.weight || 0.3} onChange={handleChange} className="w-full p-1 border rounded" /></div>
                     <div><label className="text-xs">Largura</label><input type="number" name="width" value={formData.width || 11} onChange={handleChange} className="w-full p-1 border rounded" /></div>
