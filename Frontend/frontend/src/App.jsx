@@ -975,25 +975,58 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); // Removido 'cart' se não for usado aqui
+    const { addToCart, shippingLocation } = useShop(); 
     const notification = useNotification();
-    const { user } = useAuth(); // Para lógica de isAdmin
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); // Adicionado para WishlistButton interno
-    const { isAuthenticated } = useAuth(); // Adicionado para WishlistButton interno
+    const { user } = useAuth();
+    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
+    const { isAuthenticated } = useAuth();
 
-    const [isAddingToCart, setIsAddingToCart] = useState(false); // Renomeado de isAdding
-    const [isBuyingNow, setIsBuyingNow] = useState(false); // Adicionado estado para 'Comprar'
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); // Adicionado estado de frete
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); // Adicionado estado de loading frete
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [isBuyingNow, setIsBuyingNow] = useState(false); 
+    const [cardShippingInfo, setCardShippingInfo] = useState(null); 
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
+    
+    // Novo estado para o tempo restante da promoção
+    const [timeLeft, setTimeLeft] = useState('');
 
-    // CORREÇÃO IMAGEM: Simplifica a obtenção da imagem inicial diretamente
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
     const isOnSale = product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product.price;
 
+    // --- LÓGICA DO CONTADOR REGRESSIVO ---
+    useEffect(() => {
+        if (!isOnSale || !product.sale_end_date) {
+            setTimeLeft('');
+            return;
+        }
+
+        const calculateTimeLeft = () => {
+            const difference = new Date(product.sale_end_date) - new Date();
+            
+            if (difference > 0) {
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+
+                let timeString = '';
+                if (days > 0) timeString += `${days}d `;
+                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                setTimeLeft(timeString);
+            } else {
+                setTimeLeft('Expirada');
+            }
+        };
+
+        calculateTimeLeft(); // Executa imediatamente
+        const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
+
+        return () => clearInterval(timer);
+    }, [isOnSale, product.sale_end_date]);
+
     const discountPercent = useMemo(() => {
-        if (isOnSale && product.price > 0) { // Adicionado verificação product.price > 0
+        if (isOnSale && product.price > 0) { 
             return Math.round(((product.price - product.sale_price) / product.price) * 100);
         }
         return 0;
@@ -1005,21 +1038,18 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
 
-    // CORREÇÃO RATING: Usa product.avg_rating e product.review_count se disponíveis
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
     const reviewCount = product.review_count || 0;
 
-    // Lógica de estoque (mantida da versão anterior corrigida)
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
     const isProductOutOfStock = product.stock <= 0;
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete (Mantido da versão anterior) ---
+    // --- Efeito de Frete ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
-        // ... (lógica completa de cálculo de frete como na resposta anterior) ...
          const debounceTimer = setTimeout(() => {
             if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
@@ -1059,8 +1089,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 };
                 calculateShipping();
             } else {
-                setCardShippingInfo(null); // Limpa se não tiver CEP
-                 setIsCardShippingLoading(false); // Garante que loading pare se não houver CEP
+                setCardShippingInfo(null); 
+                 setIsCardShippingLoading(false); 
             }
         }, 500);
 
@@ -1068,9 +1098,8 @@ const ProductCard = memo(({ product, onNavigate }) => {
             clearTimeout(debounceTimer);
             controller.abort();
         };
-    }, [product, shippingLocation.cep, currentPrice]); // Dependências corretas
+    }, [product, shippingLocation.cep, currentPrice]); 
 
-    // --- Cálculo de parcelas (Mantido da versão anterior) ---
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
             const installmentValue = currentPrice / 4;
@@ -1079,8 +1108,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    // --- Handlers de Ação (Adaptados da versão anterior) ---
-    const handleAddToCartInternal = async (e) => { // Renomeado para evitar conflito
+    const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
             notification.show("Escolha cor e tamanho na página do produto.", "error");
@@ -1098,7 +1126,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    const handleBuyNowInternal = async (e) => { // Renomeado para evitar conflito
+    const handleBuyNowInternal = async (e) => { 
         e.stopPropagation();
          if (product.product_type === 'clothing') {
             onNavigate(`product/${product.id}`);
@@ -1115,11 +1143,10 @@ const ProductCard = memo(({ product, onNavigate }) => {
         }
     };
 
-    // --- WishlistButton Interno (Adaptado da versão anterior) ---
     const WishlistButton = ({ product }) => {
         const isWishlisted = wishlist.some(item => item.id === product.id);
         const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); // Impede a navegação ao clicar no coração
+            e.stopPropagation(); 
             if (!isAuthenticated) {
                 notification.show("Faça login para adicionar à lista de desejos", "error");
                 return;
@@ -1143,7 +1170,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
         );
     };
 
-    // --- Card Animation ---
     const cardVariants = {
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
@@ -1151,48 +1177,55 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
     return (
         <motion.div
-            layout // Adicionado para animar a remoção/adição
+            layout 
             variants={cardVariants}
-            initial="hidden" // Define estado inicial
-            animate="visible" // Anima para o estado visível
-            exit="hidden" // Define estado de saída (se usado com AnimatePresence)
+            initial="hidden" 
+            animate="visible" 
+            exit="hidden" 
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} // Grayscale adicionado
-            onClick={() => onNavigate(`product/${product.id}`)} // Navegação no card todo
+            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            onClick={() => onNavigate(`product/${product.id}`)} 
         >
             {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img
-                    src={imageUrl} // Usa a URL calculada no useMemo
+                    src={imageUrl} 
                     alt={product.name}
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                    // Removido onMouseEnter/Leave para simplificar, a imagem principal é definida uma vez
                 />
-                <WishlistButton product={product} /> {/* Usa o componente interno */}
+                <WishlistButton product={product} /> 
 
                 {/* --- Badges/Selos --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> {/* Estilo Original */}
+                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
                     ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> // Estilo Original
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
                     ) : null}
                 </div>
-                 {product.product_type === 'clothing' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> {/* Estilo Original */}
+
+                {/* --- NOVO: CONTADOR REGRESSIVO VISUAL --- */}
+                {isOnSale && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 z-20 backdrop-blur-sm border border-red-400">
+                        <ClockIcon className="h-3 w-3"/>
+                        <span>Termina em: {timeLeft}</span>
+                    </div>
+                )}
+
+                 {product.product_type === 'clothing' && !isOutOfStock && !timeLeft && (
+                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
                  )}
-                {/* Botão de Edição Admin - Posição ajustada */}
                  {user && user.role === 'admin' && (
-                    <div className="absolute top-2 right-10 z-10"> {/* Alterado de right-12 para right-10 */}
+                    <div className="absolute top-2 right-10 z-10"> 
                         <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" // Aumentado padding para toque mais fácil
+                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
                                 title="Editar Produto">
                             <EditIcon className="h-4 w-4" />
                         </button>
@@ -1202,9 +1235,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
             {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
-                {/* --- Marca e Nome --- */}
                 <div>
-                    {/* COR CORRIGIDA ABAIXO */}
                     <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
                     <h4
                         className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
@@ -1274,7 +1305,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </span>
                 </div>
             )}
-            {/* Botão de Edição Admin (Removido daqui pois foi movido para dentro da seção da imagem) */}
         </motion.div>
     );
 });
@@ -6747,7 +6777,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [allCollectionCategories, setAllCollectionCategories] = useState([]);
 
     useEffect(() => {
-        // Busca todas as categorias de coleção para preencher o dropdown
         apiService('/collections/admin')
             .then(data => setAllCollectionCategories(data.filter(c => c.is_active)))
             .catch(err => console.error("Falha ao buscar categorias de coleção", err));
@@ -6774,7 +6803,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'sale_price', label: 'Preço Promocional (Opcional)', type: 'number', step: '0.01' },
+        // Campo sale_price removido daqui para ser exibido na área destacada
         { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
@@ -6784,7 +6813,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
         { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
         { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
-        { name: 'is_on_sale', label: 'Em Promoção', type: 'checkbox' },
     ];
 
     const allFields = [...commonFields, ...perfumeFields, ...clothingFields];
@@ -6797,7 +6825,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 initialData[field.name] = value;
             } else {
                 if (field.type === 'checkbox') {
-                    initialData[field.name] = (field.name === 'is_active'); // Ativo por padrão
+                    initialData[field.name] = (field.name === 'is_active'); 
                 } else if (field.type === 'number') {
                     initialData[field.name] = 0; 
                 } else if (field.name === 'images' || field.name === 'variations') {
@@ -6812,8 +6840,26 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setProductType(item.product_type || 'perfume');
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
+            
+            // Dados de Promoção
+            initialData.is_on_sale = !!item.is_on_sale;
+            initialData.sale_price = item.sale_price || '';
+            
+            // Formatar data vinda do DB para o input datetime-local (YYYY-MM-DDTHH:MM)
+            if (item.sale_end_date) {
+                const date = new Date(item.sale_end_date);
+                // Ajuste para fuso horário local para exibir corretamente no input
+                const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                initialData.sale_end_date = localISOTime;
+            } else {
+                initialData.sale_end_date = '';
+            }
+
         } else {
             setProductType('perfume');
+            initialData.is_on_sale = false;
+            initialData.sale_price = '';
+            initialData.sale_end_date = '';
         }
 
         setFormData(initialData);
@@ -6835,6 +6881,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             setFormData(prev => ({ ...prev, volume: formattedValue }));
         }
     };
+    
     const handleImageArrayChange = (index, value) => {
         const newImages = [...(formData.images || [])];
         newImages[index] = value;
@@ -7036,25 +7083,70 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     }
                     
                     const isNameField = field.name === 'name';
-                    const isPriceField = field.name === 'price' || field.name === 'sale_price';
-                    const showSalePrice = isPriceField && formData['is_on_sale'];
+                    // Ocultamos o sale_price daqui para usar na caixa especial
+                    if (field.name === 'sale_price') return null;
                     
                     return (
-                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''} ${!showSalePrice && field.name === 'sale_price' ? 'hidden' : ''}`}>
+                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
                             <label className="block text-sm font-medium text-gray-700">{field.label}</label>
                             <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
                         </div>
                     );
                 })}
 
-                <div className="lg:col-span-3 grid grid-cols-2 gap-4">
-                    <div className="flex items-center pt-6">
+                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO (REQUISIÇÃO ESPECÍFICA) --- */}
+                <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
+                    <div className="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            name="is_on_sale" 
+                            id="is_on_sale_checkbox" 
+                            checked={!!formData['is_on_sale']} 
+                            onChange={handleChange} 
+                            className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
+                        />
+                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
+                    </div>
+                    
+                    {formData['is_on_sale'] && (
+                        <motion.div 
+                            initial={{ opacity: 0, height: 0 }} 
+                            animate={{ opacity: 1, height: 'auto' }} 
+                            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        >
+                            <div>
+                                <label className="block text-sm font-bold text-gray-800 mb-1">Preço Promocional</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2 text-gray-500">R$</span>
+                                    <input 
+                                        type="number" 
+                                        name="sale_price" 
+                                        value={formData.sale_price || ''} 
+                                        onChange={handleChange} 
+                                        className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" 
+                                        step="0.01" 
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim da Promoção</label>
+                                <input 
+                                    type="datetime-local" 
+                                    name="sale_end_date" 
+                                    value={formData.sale_end_date || ''} 
+                                    onChange={handleChange} 
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" 
+                                />
+                                <p className="text-xs text-gray-500 mt-1">O preço voltará ao normal automaticamente após esta data.</p>
+                            </div>
+                        </motion.div>
+                    )}
+                </div>
+
+                <div className="lg:col-span-3 grid grid-cols-1 gap-4">
+                    <div className="flex items-center pt-2">
                         <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
                         <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
-                    </div>
-                     <div className="flex items-center pt-6">
-                        <input type="checkbox" name="is_on_sale" id="is_on_sale_checkbox" checked={!!formData['is_on_sale']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-sm font-medium text-gray-700">Em Promoção</label>
                     </div>
                 </div>
 
