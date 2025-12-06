@@ -1493,39 +1493,37 @@ app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) =>
 });
 
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
-    const { product_type = 'perfume', ...productData } = req.body;
-    
-    // [ATUALIZAÇÃO]: Adicionado 'sale_end_date' na lista de campos
+    const { product_type = 'perfume', ...productData } = req.body;
+    
     const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'sale_end_date', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    // [ATUALIZAÇÃO]: Adicionado o valor correspondente (tratando null se não vier)
-    const values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0, productData.sale_end_date || null,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
-    ];
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    const values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
+    ];
 
-    if (product_type === 'perfume') {
-        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
+    if (product_type === 'perfume') {
+        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
 
-    try {
-        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
-        const [result] = await db.query(sql, values);
-        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
-        res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
-    } catch (err) {
-        console.error("Erro ao criar produto:", err);
-        res.status(500).json({ message: "Erro interno ao criar produto." });
-    }
+    try {
+        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+        const [result] = await db.query(sql, values);
+        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
+        res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
+    } catch (err) {
+        console.error("Erro ao criar produto:", err);
+        res.status(500).json({ message: "Erro interno ao criar produto." });
+    }
 });
 
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
@@ -1615,43 +1613,41 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
 });
 
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { product_type = 'perfume', ...productData } = req.body;
+    const { id } = req.params;
+    const { product_type = 'perfume', ...productData } = req.body;
 
-    // [ATUALIZAÇÃO]: Adicionado 'sale_end_date' na lista de campos para atualização
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'sale_end_date', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    // [ATUALIZAÇÃO]: Adicionado o valor correspondente
-    let values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale, productData.sale_end_date || null,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
-    ];
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    let values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
+    ];
 
-    if (product_type === 'perfume') {
-        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
-    
-    values.push(id);
+    if (product_type === 'perfume') {
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+    
+    values.push(id);
 
-    try {
-        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
-        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
-        await db.query(sql, values);
-        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
-        res.json({ message: "Produto atualizado com sucesso!" });
-    } catch (err) {
-        console.error("Erro ao atualizar produto:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar produto." });
-    }
+    try {
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
+        await db.query(sql, values);
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
+        res.json({ message: "Produto atualizado com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    }
 });
 
 
@@ -1703,96 +1699,83 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
-    }
+    if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
+    }
 
-    const products = [];
-    const connection = await db.getConnection();
+    const products = [];
+    const connection = await db.getConnection();
 
-    try {
-        await new Promise((resolve, reject) => {
-            const bufferStream = new stream.PassThrough();
-            bufferStream.end(req.file.buffer);
+    try {
+        await new Promise((resolve, reject) => {
+            const bufferStream = new stream.PassThrough();
+            bufferStream.end(req.file.buffer);
 
-            bufferStream
-                .pipe(csv())
-                .on('data', (row) => {
-                    if (!row.name || !row.price || !row.product_type) return;
+            bufferStream
+                .pipe(csv())
+                .on('data', (row) => {
+                    if (!row.name || !row.price || !row.product_type) return;
 
-                    let values;
-                    const isActive = row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0;
-                    const isOnSale = row.is_on_sale === '1' || String(row.is_on_sale).toLowerCase() === 'true' ? 1 : 0;
+                    let values;
+                    const isActive = row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0;
+                    const isOnSale = row.is_on_sale === '1' || String(row.is_on_sale).toLowerCase() === 'true' ? 1 : 0;
 
-                    // [ATUALIZAÇÃO]: Tratamento da data de término no CSV
-                    let saleEndDate = null;
-                    if (row.sale_end_date && row.sale_end_date.trim() !== '') {
-                        // Tenta converter para formato SQL 'YYYY-MM-DD HH:MM:SS'
-                        try {
-                             saleEndDate = new Date(row.sale_end_date).toISOString().slice(0, 19).replace('T', ' ');
-                        } catch (e) {
-                             saleEndDate = null; // Data inválida, ignora
-                        }
-                    }
+                    if (row.product_type === 'perfume') {
+                        values = {
+                            product_type: 'perfume',
+                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
+                            sale_price: parseFloat(row.sale_price) || null,
+                            stock: parseInt(row.stock) || 0, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
+                            description: row.description || '', notes: row.notes || '', how_to_use: row.how_to_use || '',
+                            ideal_for: row.ideal_for || '', volume: row.volume || '',
+                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
+                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
+                            is_active: isActive,
+                            is_on_sale: isOnSale
+                        };
+                    } else if (row.product_type === 'clothing') {
+                        const variations = JSON.parse(row.variations || '[]');
+                        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+                        values = {
+                            product_type: 'clothing',
+                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
+                            sale_price: parseFloat(row.sale_price) || null,
+                            stock: totalStock, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
+                            description: row.description || '', variations: row.variations || '[]',
+                            size_guide: row.size_guide || '', care_instructions: row.care_instructions || '',
+                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
+                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
+                            is_active: isActive,
+                            is_on_sale: isOnSale
+                        };
+                    }
+                    if (values) products.push(values);
+                })
+                .on('end', resolve)
+                .on('error', reject);
+        });
 
-                    if (row.product_type === 'perfume') {
-                        values = {
-                            product_type: 'perfume',
-                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: parseFloat(row.sale_price) || null,
-                            sale_end_date: saleEndDate, // Novo campo
-                            stock: parseInt(row.stock) || 0, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
-                            description: row.description || '', notes: row.notes || '', how_to_use: row.how_to_use || '',
-                            ideal_for: row.ideal_for || '', volume: row.volume || '',
-                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
-                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
-                            is_active: isActive,
-                            is_on_sale: isOnSale
-                        };
-                    } else if (row.product_type === 'clothing') {
-                        const variations = JSON.parse(row.variations || '[]');
-                        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-                        values = {
-                            product_type: 'clothing',
-                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: parseFloat(row.sale_price) || null,
-                            sale_end_date: saleEndDate, // Novo campo
-                            stock: totalStock, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
-                            description: row.description || '', variations: row.variations || '[]',
-                            size_guide: row.size_guide || '', care_instructions: row.care_instructions || '',
-                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
-                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
-                            is_active: isActive,
-                            is_on_sale: isOnSale
-                        };
-                    }
-                    if (values) products.push(values);
-                })
-                .on('end', resolve)
-                .on('error', reject);
-        });
-
-        if (products.length > 0) {
-            await connection.beginTransaction();
-            for (const product of products) {
-                const fields = Object.keys(product);
-                const values = Object.values(product);
-                const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
-                await connection.query(sql, values);
-            }
-            await connection.commit();
-            logAdminAction(req.user, 'IMPORTOU PRODUTOS', `Total: ${products.length} via CSV.`);
-            res.status(201).json({ message: `${products.length} produtos importados com sucesso!` });
-        } else {
-            res.status(400).json({ message: 'Nenhum produto válido foi encontrado no arquivo CSV.' });
-        }
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro durante a importação de CSV:", err);
-        res.status(500).json({ message: "Erro ao processar o arquivo. Verifique o formato e os dados." });
-    } finally {
-        connection.release();
-    }
+        if (products.length > 0) {
+            await connection.beginTransaction();
+            for (const product of products) {
+                const fields = Object.keys(product);
+                const values = Object.values(product);
+                const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+                await connection.query(sql, values);
+            }
+            await connection.commit();
+            logAdminAction(req.user, 'IMPORTOU PRODUTOS', `Total: ${products.length} via CSV.`);
+            res.status(201).json({ message: `${products.length} produtos importados com sucesso!` });
+        } else {
+            res.status(400).json({ message: 'Nenhum produto válido foi encontrado no arquivo CSV.' });
+        }
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro durante a importação de CSV:", err);
+        res.status(500).json({ message: "Erro ao processar o arquivo. Verifique o formato e os dados." });
+    } finally {
+        connection.release();
+    }
 });
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
