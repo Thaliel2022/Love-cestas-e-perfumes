@@ -2477,6 +2477,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
+    
+    // Estado para o contador da promoção
+    const [timeLeft, setTimeLeft] = useState('');
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -2487,6 +2490,34 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
+
+    // --- Lógica do Contador Regressivo ---
+    useEffect(() => {
+        if (!isOnSale || !product?.sale_end_date) {
+            setTimeLeft('');
+            return;
+        }
+
+        const calculateTimeLeft = () => {
+            const difference = new Date(product.sale_end_date) - new Date();
+            
+            if (difference > 0) {
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+
+                setTimeLeft({ days, hours, minutes, seconds });
+            } else {
+                setTimeLeft('Expirada');
+            }
+        };
+
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
+
+        return () => clearInterval(timer);
+    }, [isOnSale, product?.sale_end_date]);
 
     const discountPercent = useMemo(() => {
         if (isOnSale && product) {
@@ -2767,21 +2798,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* Galeria com Setas e CSS para esconder scrollbar */}
+                        {/* Galeria com Setas */}
                         <div className="relative group">
                             <div
                                 ref={galleryRef}
                                 className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
                                 style={{
-                                    msOverflowStyle: 'none', // IE and Edge
-                                    scrollbarWidth: 'none' // Firefox
+                                    msOverflowStyle: 'none', 
+                                    scrollbarWidth: 'none' 
                                 }}
                             >
-                                <style>{`
-                                    .scrollbar-hide::-webkit-scrollbar {
-                                        display: none;
-                                    }
-                                `}</style>
+                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
 
                                {product.video_url && (
                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
@@ -2830,12 +2857,51 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (NOVA) --- */}
+                        {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
+                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-2 opacity-10">
+                                    <ClockIcon className="h-24 w-24 text-red-500" />
+                                </div>
+                                <div className="flex items-center gap-2 mb-2 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
+                                    <SparklesIcon className="h-4 w-4 animate-pulse" />
+                                    Oferta por Tempo Limitado
+                                </div>
+                                <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
+                                    <div className="text-white font-mono text-xl sm:text-2xl font-bold flex gap-2">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                            <span>{String(timeLeft.days).padStart(2, '0')}</span>
+                                            <span className="text-[10px] font-sans font-normal text-gray-400">DIAS</span>
+                                        </div>
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                            <span>{String(timeLeft.hours).padStart(2, '0')}</span>
+                                            <span className="text-[10px] font-sans font-normal text-gray-400">HORAS</span>
+                                        </div>
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                            <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
+                                            <span className="text-[10px] font-sans font-normal text-gray-400">MIN</span>
+                                        </div>
+                                        <span className="self-center text-red-500">:</span>
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                            <span className="text-[10px] font-sans font-normal text-gray-400">SEG</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-gray-400 text-xs line-through">De: R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                                        <p className="text-red-500 font-bold text-lg">Economize {discountPercent}%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="border-t border-b border-gray-800 py-4">
                             {isOnSale ? (
                                 <div className="flex items-center gap-3">
-                                    <p className="text-3xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    <p className="text-lg font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.',',')}</p>
-                                    <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>
+                                    <p className="text-4xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
+                                    {!timeLeft && <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>}
                                 </div>
                              ) : ( <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
                             <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
@@ -2890,7 +2956,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
                 {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
 
-                {/* --- SEÇÃO DE AVALIAÇÕES COM NOVO ESTILO --- */}
                 <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
                     <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
                     <div className="space-y-8 mb-10">
@@ -2913,7 +2978,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    {/* Adiciona um título simulado se houver comentário */}
                                     {review.comment && review.comment.length > 30 && <span className="font-bold text-white text-sm ml-2 truncate">{review.comment.substring(0, 30)}...</span>}
                                 </div>
                                 <p className="text-xs text-gray-500 mb-2">
@@ -2921,11 +2985,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </p>
                                 <p className="text-xs font-semibold text-amber-500 mb-3">Compra verificada</p>
                                 {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words">{review.comment}</p>}
-                                {/* Futuros botões Útil/Denunciar podem entrar aqui */}
                             </div>
                         )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
                     </div>
-                    {/* --- FIM DA MODIFICAÇÃO --- */}
 
                     <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
                         <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
