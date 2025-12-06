@@ -2862,18 +2862,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (ATUALIZADA) --- */}
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (ATUALIZADA PARA MOBILE) --- */}
                         {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-10">
+                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <ClockIcon className="h-24 w-24 text-red-500" />
                                 </div>
-                                <div className="flex items-center gap-2 mb-2 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
+                                <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
                                     <SparklesIcon className="h-4 w-4 animate-pulse" />
                                     Oferta por Tempo Limitado
                                 </div>
-                                <div className="flex items-center justify-between flex-wrap gap-4 relative z-10">
-                                    <div className="text-white font-mono text-xl sm:text-2xl font-bold flex gap-2">
+                                
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+                                    {/* Contador - Centralizado no mobile */}
+                                    <div className="text-white font-mono text-xl sm:text-2xl font-bold flex gap-2 justify-center w-full sm:w-auto">
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
                                             <span className="text-[10px] font-sans font-normal text-gray-400">DIAS</span>
@@ -2894,10 +2896,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             <span className="text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
-                                    <div className="text-right">
+
+                                    {/* Preços - Centralizado no mobile, alinhado à direita no desktop */}
+                                    <div className="text-center sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
-                                        <p className="text-xs text-green-400 font-semibold mt-1">({discountPercent}% OFF)</p>
+                                        <div className="flex items-center justify-center sm:justify-end gap-2">
+                                            <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
+                                        </div>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-2 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
