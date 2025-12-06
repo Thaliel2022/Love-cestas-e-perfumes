@@ -1080,7 +1080,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         }
                     } catch (error) {
                         if (error.name !== 'AbortError') {
-                            console.error(`Erro ao calcular frete para o produto ${product.id}:`, error);
                             setCardShippingInfo('Erro ao calcular frete.');
                         }
                     } finally {
@@ -1183,7 +1182,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             animate="visible" 
             exit="hidden" 
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            className={`bg-black border ${isOnSale && timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30 ring-1 ring-red-500' : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
             {/* --- Seção da Imagem --- */}
@@ -1211,9 +1210,15 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
                 {/* --- NOVO: CONTADOR REGRESSIVO VISUAL --- */}
                 {isOnSale && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-red-600/90 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg flex items-center gap-1 z-20 backdrop-blur-sm border border-red-400">
-                        <ClockIcon className="h-3 w-3"/>
-                        <span>Termina em: {timeLeft}</span>
+                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
+                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                            <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
+                            <span>Oferta Relâmpago</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
+                            <ClockIcon className="h-3 w-3 text-white"/>
+                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
+                        </div>
                     </div>
                 )}
 
@@ -2857,7 +2862,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (NOVA) --- */}
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (ATUALIZADA) --- */}
                         {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10">
@@ -2890,8 +2895,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-gray-400 text-xs line-through">De: R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                                        <p className="text-red-500 font-bold text-lg">Economize {discountPercent}%</p>
+                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
+                                        <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1">({discountPercent}% OFF)</p>
                                     </div>
                                 </div>
                             </div>
