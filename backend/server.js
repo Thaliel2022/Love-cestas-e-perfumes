@@ -1492,40 +1492,140 @@ app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) =>
     }
 });
 
+// --- TAREFA AUTOMÁTICA (CRON JOB) ---
+// Adicione este bloco no seu server.js (antes das rotas) para verificar promoções expiradas a cada minuto
+setInterval(async () => {
+    try {
+        const connection = await db.getConnection();
+        // Define is_on_sale = 0, zera sale_price e limpa a data onde a data atual é maior que sale_end_date
+        const [result] = await connection.query(`
+            UPDATE products 
+            SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL 
+            WHERE is_on_sale = 1 AND sale_end_date IS NOT NULL AND sale_end_date < NOW()
+        `);
+        
+        if (result.affectedRows > 0) {
+            console.log(`[AUTO-PROMO] ${result.affectedRows} promoções expiradas foram encerradas e preços revertidos.`);
+        }
+        connection.release();
+    } catch (err) {
+        console.error("[AUTO-PROMO] Erro ao verificar promoções expiradas:", err);
+    }
+}, 60000);
+
+
+// --- ROTA DE CRIAÇÃO DE PRODUTOS (POST) ---
+// Substitua sua rota app.post('/api/products'...) atual por esta versão completa:
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
-    const { product_type = 'perfume', ...productData } = req.body;
-    
+    const { product_type = 'perfume', ...productData } = req.body;
+    
+    // Lista de campos base, agora incluindo sale_end_date
     const fields = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    const values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale ? 1 : 0,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null
-    ];
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    
+    // Tratamento da data: converte string vazia para NULL se necessário
+    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
 
-    if (product_type === 'perfume') {
-        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
+    const values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, // Novo campo de data inserido
+        productData.is_on_sale ? 1 : 0,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active ? 1 : 0, 
+        product_type, 
+        productData.video_url || null
+    ];
 
-    try {
-        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
-        const [result] = await db.query(sql, values);
-        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
-        res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
-    } catch (err) {
-        console.error("Erro ao criar produto:", err);
-        res.status(500).json({ message: "Erro interno ao criar produto." });
-    }
+    if (product_type === 'perfume') {
+        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+
+    try {
+        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+        const [result] = await db.query(sql, values);
+        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
+        res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
+    } catch (err) {
+        console.error("Erro ao criar produto:", err);
+        res.status(500).json({ message: "Erro interno ao criar produto." });
+    }
 });
 
+
+// --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
+// Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
+app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { product_type = 'perfume', ...productData } = req.body;
+
+    // Campos a atualizar, incluindo sale_end_date
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+
+    // Tratamento da data
+    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
+
+    let values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, // Novo valor
+        productData.is_on_sale,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active, 
+        product_type, 
+        productData.video_url || null
+    ];
+
+    if (product_type === 'perfume') {
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+    
+    values.push(id);
+
+    try {
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
+        await db.query(sql, values);
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
+        res.json({ message: "Produto atualizado com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    }
+});
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
     const { productId, newStock, variation } = req.body; // variation object is passed for clothing
 
