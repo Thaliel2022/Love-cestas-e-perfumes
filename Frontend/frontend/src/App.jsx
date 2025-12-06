@@ -975,296 +975,215 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); 
+    const { addToCart, shippingLocation, wishlist, addToWishlist, removeFromWishlist } = useShop();
     const notification = useNotification();
-    const { user } = useAuth(); 
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
-    const { isAuthenticated } = useAuth(); 
+    const { user, isAuthenticated } = useAuth();
 
-    const [isAddingToCart, setIsAddingToCart] = useState(false); 
-    const [isBuyingNow, setIsBuyingNow] = useState(false); 
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); 
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
+    const [isAddingToCart, setIsAddingToCart] = useState(false);
+    const [isBuyingNow, setIsBuyingNow] = useState(false);
+    const [cardShippingInfo, setCardShippingInfo] = useState(null);
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
+    const [timeLeft, setTimeLeft] = useState(null); // Estado para o contador
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
-    const isOnSale = product.is_on_sale && product.sale_price > 0;
+    // Lógica inteligente: Se a data passou, desativa a promoção visualmente na hora
+    const isExpired = useMemo(() => {
+        if (!product.sale_end_date) return false;
+        return new Date(product.sale_end_date) < new Date();
+    }, [product.sale_end_date]);
+
+    const isOnSale = product.is_on_sale && product.sale_price > 0 && !isExpired;
     const currentPrice = isOnSale ? product.sale_price : product.price;
 
     const discountPercent = useMemo(() => {
-        if (isOnSale && product.price > 0) { 
+        if (isOnSale && product.price > 0) {
             return Math.round(((product.price - product.sale_price) / product.price) * 100);
         }
         return 0;
     }, [isOnSale, product]);
 
-    const savingsAmount = useMemo(() => {
-        if (isOnSale) return (product.price - product.sale_price);
-        return 0;
-    }, [isOnSale, product]);
-
-    const isNew = useMemo(() => {
-        if (!product || !product.created_at) return false;
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product]);
-
     const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
     const reviewCount = product.review_count || 0;
+    const isOutOfStock = product.stock <= 0;
 
-    const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-    const isProductOutOfStock = product.stock <= 0;
-    const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
-    const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
+    // --- Lógica do Contador Regressivo ---
+    useEffect(() => {
+        if (!isOnSale || !product.sale_end_date) {
+            setTimeLeft(null);
+            return;
+        }
+
+        const calculateTime = () => {
+            const difference = new Date(product.sale_end_date) - new Date();
+            if (difference > 0) {
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+                
+                if (days > 0) return `${days}d ${hours}h restantes`;
+                return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+            }
+            return "Expirado";
+        };
+
+        setTimeLeft(calculateTime()); // Calcula imediatamente
+        const timer = setInterval(() => {
+            const tl = calculateTime();
+            if (tl === "Expirado") {
+                // Se expirou, força uma atualização simples (na prática, o usuário verá o preço mudar no próximo refresh ou clique)
+                setTimeLeft(null); 
+                clearInterval(timer);
+            } else {
+                setTimeLeft(tl);
+            }
+        }, 1000);
+
+        return () => clearInterval(timer);
+    }, [isOnSale, product.sale_end_date]);
+
 
     // --- Efeito de Frete ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
-        
          const debounceTimer = setTimeout(() => {
             if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
-
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
                         const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
-
-                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        if (!shippingOption) {
-                            shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                        }
-
+                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac')) || apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
                         if (shippingOption) {
-                            const date = new Date();
-                            let deliveryTime = shippingOption.delivery_time;
-                            let addedDays = 0;
-                            while (addedDays < deliveryTime) {
-                                date.setDate(date.getDate() + 1);
-                                if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
-                            }
-                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
+                             // Lógica de data estimada simplificada para visualização
+                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')}`);
                         } else {
-                            setCardShippingInfo('Entrega indisponível para este CEP.');
+                            setCardShippingInfo('Indisponível');
                         }
-                    } catch (error) {
-                        if (error.name !== 'AbortError') {
-                            console.error(`Erro ao calcular frete para o produto ${product.id}:`, error);
-                            setCardShippingInfo('Erro ao calcular frete.');
-                        }
-                    } finally {
-                        if (!signal.aborted) { setIsCardShippingLoading(false); }
-                    }
+                    } catch (error) { if (error.name !== 'AbortError') setCardShippingInfo('Erro no frete'); } 
+                    finally { if (!signal.aborted) setIsCardShippingLoading(false); }
                 };
                 calculateShipping();
-            } else {
-                setCardShippingInfo(null); 
-                 setIsCardShippingLoading(false); 
-            }
+            } else { setCardShippingInfo(null); setIsCardShippingLoading(false); }
         }, 500);
-
-        return () => {
-            clearTimeout(debounceTimer);
-            controller.abort();
-        };
+        return () => { clearTimeout(debounceTimer); controller.abort(); };
     }, [product, shippingLocation.cep, currentPrice]);
 
     const installmentInfo = useMemo(() => {
         if (currentPrice >= 100) {
-            const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
+            return `4x de R$ ${(currentPrice / 4).toFixed(2).replace('.', ',')} s/ juros`;
         }
         return null;
     }, [currentPrice]);
 
-    const handleAddToCartInternal = async (e) => { 
+    const handleAction = async (e, type) => {
         e.stopPropagation();
         if (product.product_type === 'clothing') {
-            notification.show("Escolha cor e tamanho na página do produto.", "error");
-            onNavigate(`product/${product.id}`);
-            return;
+            onNavigate(`product/${product.id}`); return;
         }
-        setIsAddingToCart(true);
+        if (type === 'buy') setIsBuyingNow(true); else setIsAddingToCart(true);
         try {
             await addToCart(product, 1);
-            notification.show(`${product.name} adicionado ao carrinho!`);
-        } catch (error) {
-            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
-        } finally {
-            setIsAddingToCart(false);
-        }
+            if (type === 'buy') onNavigate('cart');
+            else notification.show(`${product.name} adicionado!`);
+        } catch (error) { notification.show(error.message, "error"); } 
+        finally { setIsBuyingNow(false); setIsAddingToCart(false); }
     };
 
-    const handleBuyNowInternal = async (e) => { 
-        e.stopPropagation();
-         if (product.product_type === 'clothing') {
-            onNavigate(`product/${product.id}`);
-            return;
-        }
-        setIsBuyingNow(true);
-        try {
-            await addToCart(product, 1);
-            onNavigate('cart');
-        } catch (error) {
-            notification.show(error.message || "Erro ao iniciar compra", "error");
-        } finally {
-            setIsBuyingNow(false);
-        }
-    };
-
-    const WishlistButton = ({ product }) => {
+    const WishlistButton = () => {
         const isWishlisted = wishlist.some(item => item.id === product.id);
         const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); 
-            if (!isAuthenticated) {
-                notification.show("Faça login para adicionar à lista de desejos", "error");
-                return;
-            }
-            if (isWishlisted) {
-                await removeFromWishlist(product.id);
-                notification.show(`${product.name} removido da lista de desejos.`, 'error');
-            } else {
-                const result = await addToWishlist(product);
-                notification.show(result.message, result.success ? 'success' : 'error');
-            }
+            e.stopPropagation();
+            if (!isAuthenticated) return notification.show("Faça login para salvar.", "error");
+            if (isWishlisted) await removeFromWishlist(product.id);
+            else { await addToWishlist(product); notification.show("Adicionado à lista!", "success"); }
         };
         return (
-            <button
-                onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
-                aria-label="Adicionar à Lista de Desejos"
-            >
+            <button onClick={handleWishlistToggle} className={`absolute top-2 right-2 p-1.5 rounded-full z-10 transition-colors ${isWishlisted ? 'text-amber-400 bg-black/60' : 'text-gray-600 bg-gray-100/80 hover:text-amber-500'}`}>
                 <HeartIcon className="h-5 w-5" filled={isWishlisted} />
             </button>
         );
     };
 
-    const cardVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-    };
-
     return (
         <motion.div
-            layout 
-            variants={cardVariants}
-            initial="hidden" 
-            animate="visible" 
-            exit="hidden" 
-            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border border-gray-800 rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
-            onClick={() => onNavigate(`product/${product.id}`)} 
+            layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+            className={`bg-white border border-gray-100 rounded-xl overflow-hidden flex flex-col h-full shadow-sm hover:shadow-xl transition-all duration-300 group ${isOutOfStock ? 'opacity-70 grayscale' : ''}`}
+            onClick={() => onNavigate(`product/${product.id}`)}
         >
-            <div className="relative h-64 bg-white overflow-hidden group">
-                <img
-                    src={imageUrl} 
-                    alt={product.name}
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                />
-                <WishlistButton product={product} /> 
+            <div className="relative h-64 overflow-hidden bg-gray-50">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105 mix-blend-multiply" />
+                <WishlistButton />
 
-                {/* --- Badges/Selos Avançados --- */}
-                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+                {/* --- SEÇÃO DE TAGS E CONTADOR --- */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10 items-start">
                     {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                        <div className="bg-gray-800 text-white text-[10px] font-bold px-2.5 py-1 rounded">ESGOTADO</div>
                     ) : isOnSale ? (
-                        <div className="animate-pulse shadow-lg bg-gradient-to-r from-rose-600 via-red-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-br-lg rounded-tl-lg flex items-center gap-1 border border-white/20">
-                            <SaleIcon className="h-3.5 w-3.5"/>
-                            <span>-{discountPercent}% OFF</span>
-                        </div>
-                    ) : isNew ? (
-                        <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                    ) : null}
+                        <>
+                            <div className="bg-red-600 text-white text-[11px] font-extrabold px-3 py-1 rounded-r-full shadow-md flex items-center gap-1">
+                                <SaleIcon className="h-3 w-3"/> -{discountPercent}%
+                            </div>
+                            {/* --- CONTADOR VISUAL NO CARD --- */}
+                            {timeLeft && (
+                                <div className="bg-amber-400 text-black text-[10px] font-bold px-2 py-0.5 rounded-md shadow flex items-center gap-1 animate-pulse border border-black/10">
+                                    <ClockIcon className="h-3 w-3"/> {timeLeft}
+                                </div>
+                            )}
+                        </>
+                    ) : isNew && (
+                        <div className="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow">NOVO</div>
+                    )}
                 </div>
-                 {product.product_type === 'clothing' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
-                        Ver Cores e Tamanhos
-                    </div>
-                 )}
+                
                  {user && user.role === 'admin' && (
-                    <div className="absolute top-2 right-10 z-10"> 
-                        <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
-                                title="Editar Produto">
-                            <EditIcon className="h-4 w-4" />
-                        </button>
+                    <div className="absolute bottom-2 right-2 z-10">
+                        <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }} className="bg-black/70 text-white p-1.5 rounded-full hover:bg-black"><EditIcon className="h-4 w-4" /></button>
                     </div>
                 )}
             </div>
 
             <div className="p-4 flex flex-col flex-grow">
-                <div>
-                    <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
-                    <h4
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
-                        title={product.name}
-                    >
-                        {product.name}
-                    </h4>
-                    <div className="flex items-center mt-1.5 h-4 gap-1">
-                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
-                        {reviewCount > 0 && ( <span className="text-[10px] text-gray-500">({reviewCount})</span> )}
-                    </div>
+                <div className="mb-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{product.brand}</p>
+                    <h4 className="text-sm font-medium text-gray-800 line-clamp-2 h-10 leading-snug group-hover:text-amber-600 transition-colors" title={product.name}>{product.name}</h4>
                 </div>
 
-                <div className="mt-auto pt-3">
+                <div className="mt-auto">
+                    <div className="flex items-center gap-1 mb-2">
+                         {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-3 w-3 ${i < avgRating ? 'text-amber-400' : 'text-gray-300'}`} isFilled={i < avgRating} /> ))}
+                         {reviewCount > 0 && <span className="text-[10px] text-gray-400">({reviewCount})</span>}
+                    </div>
+
                     {isOnSale ? (
                          <div className="flex flex-col">
-                            <div className="flex items-center gap-2 mb-1">
-                                <span className="bg-red-900/40 text-red-400 text-[10px] px-1.5 py-0.5 rounded border border-red-900/50 font-medium">
-                                    ECONOMIZE R$ {savingsAmount.toFixed(2).replace('.', ',')}
-                                </span>
-                            </div>
-                            <div className="flex items-baseline gap-2">
-                                <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
+                            <p className="text-xs text-gray-400 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <div className="flex items-baseline gap-1.5">
+                                <p className="text-lg font-bold text-red-600">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
                             </div>
                         </div>
-                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
+                    ) : ( <p className="text-lg font-bold text-gray-900">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
 
-                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
+                    {installmentInfo && ( <p className="text-[10px] text-green-600 font-medium">{installmentInfo}</p> )}
 
-                    {isOutOfStock ? (
-                        <div className="mt-3">
-                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
-                        </div>
-                    ) : (
-                        <div className="mt-3 flex items-stretch space-x-2">
-                            <button
-                                onClick={handleBuyNowInternal}
-                                disabled={isBuyingNow || isAddingToCart}
-                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'}
-                            </button>
-                            <button
-                                onClick={handleAddToCartInternal}
-                                disabled={isAddingToCart || isBuyingNow}
-                                title="Adicionar ao Carrinho"
-                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
+                    {/* Botão de Compra Rápida (só aparece no hover em desktop ou sempre em mobile) */}
+                    {!isOutOfStock && (
+                        <button 
+                            onClick={(e) => handleAction(e, 'add')} 
+                            disabled={isAddingToCart}
+                            className="w-full mt-3 bg-gray-900 text-white py-2 rounded text-xs font-bold uppercase tracking-wide hover:bg-amber-500 hover:text-black transition-all transform md:translate-y-4 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
+                        >
+                            {isAddingToCart ? 'Adicionando...' : 'Adicionar'}
+                        </button>
                     )}
                 </div>
             </div>
-
-            {(isCardShippingLoading || cardShippingInfo) && (
-                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
-                    {isCardShippingLoading ? (
-                        <SpinnerIcon className="h-3 w-3 text-gray-500" />
-                    ) : cardShippingInfo.includes('Erro') ? (
-                         <ExclamationCircleIcon className="h-3 w-3 text-red-500" />
-                    ) : (
-                        <TruckIcon className="h-3 w-3 text-green-500"/>
-                    )}
-                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
-                        {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
-                    </span>
+             {cardShippingInfo && (
+                <div className="px-4 py-1.5 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-500 flex items-center justify-center gap-1">
+                    {isCardShippingLoading ? <SpinnerIcon className="h-3 w-3"/> : <TruckIcon className="h-3 w-3"/>} {cardShippingInfo}
                 </div>
             )}
         </motion.div>
@@ -6786,442 +6705,165 @@ const AdminCrudForm = ({ item, onSave, onCancel, fieldsConfig }) => {
 const ProductForm = ({ item, onSave, onCancel, productType, setProductType, brands = [], categories = [] }) => {
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
-    const [uploadingStatus, setUploadingStatus] = useState({});
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
     const [allCollectionCategories, setAllCollectionCategories] = useState([]);
 
     useEffect(() => {
-        // Busca todas as categorias de coleção para preencher o dropdown
-        apiService('/collections/admin')
-            .then(data => setAllCollectionCategories(data.filter(c => c.is_active)))
-            .catch(err => console.error("Falha ao buscar categorias de coleção", err));
+        apiService('/collections/admin').then(data => setAllCollectionCategories(data.filter(c => c.is_active))).catch(console.error);
     }, []);
     
-    const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
-
-    const perfumeFields = [
-        { name: 'stock', label: 'Estoque', type: 'number', required: true },
-        { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
-        { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
-        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
-        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
-    ];
-    
-    const clothingFields = [
-        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque, Imagens)', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML permitido)', type: 'textarea' },
-        { name: 'care_instructions', label: 'Cuidados com a Peça (um por linha)', type: 'textarea' },
-    ];
-
-   const commonFields = [
-        { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
-        { name: 'brand', label: 'Marca', type: 'text', required: true },
-        { name: 'category', label: 'Categoria', type: 'text', required: true },
-        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'sale_price', label: 'Preço Promocional (Opcional)', type: 'number', step: '0.01' },
-        { name: 'sale_end_date', label: 'Data/Hora Fim da Promoção', type: 'datetime-local' },
-        { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
-        { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
-        { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
-        { name: 'description', label: 'Descrição', type: 'textarea' },
-        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
-        { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
-        { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
-        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
-        { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
-        { name: 'is_on_sale', label: 'Em Promoção', type: 'checkbox' },
-    ];
-
-    const allFields = [...commonFields, ...perfumeFields, ...clothingFields];
-
-    // Função auxiliar para formatar a data para o input datetime-local
+    // --- FUNÇÃO DE FORMATAÇÃO DE DATA (CRÍTICA) ---
+    // Converte a data ISO do banco (2025-10-20T15:30:00.000Z) para o formato do input (2025-10-20T15:30)
     const formatForInput = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        // Ajusta o fuso horário para exibir corretamente no input local
+        if (isNaN(date.getTime())) return '';
+        // Ajusta fuso horário local para exibir corretamente
         const offset = date.getTimezoneOffset() * 60000;
         const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
         return localISOTime;
     };
 
     useEffect(() => {
-        const initialData = {};
-        allFields.forEach(field => {
-            const value = item?.[field.name];
-            if (value !== undefined && value !== null) {
-                // Se for o campo de data, aplica a formatação especial
-                if (field.name === 'sale_end_date') {
-                    initialData[field.name] = formatForInput(value);
-                } else {
-                    initialData[field.name] = value;
-                }
-            } else {
-                if (field.type === 'checkbox') {
-                    initialData[field.name] = (field.name === 'is_active'); // Ativo por padrão
-                } else if (field.type === 'number') {
-                    initialData[field.name] = 0; 
-                } else if (field.name === 'images' || field.name === 'variations') {
-                    initialData[field.name] = [];
-                } else {
-                    initialData[field.name] = '';
-                }
-            }
-        });
+        const initialData = { ...item };
         
-        if (item) {
+        // Aplica a formatação correta se houver uma data salva
+        if (initialData.sale_end_date) {
+            initialData.sale_end_date = formatForInput(initialData.sale_end_date);
+        }
+
+        if (!item) { // Novo produto
+            setProductType('perfume');
+            initialData.images = [];
+            initialData.variations = [];
+            initialData.is_active = 1;
+        } else {
             setProductType(item.product_type || 'perfume');
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
-        } else {
-            setProductType('perfume');
         }
-
         setFormData(initialData);
     }, [item, setProductType]);
-
-    const availableProductCategories = useMemo(() => {
-        return allCollectionCategories.filter(c => c.product_type_association === productType);
-    }, [allCollectionCategories, productType]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
     };
 
-    const handleVolumeBlur = (e) => {
-        let { value } = e.target;
-        if (value && value.trim() !== '' && !isNaN(parseFloat(value)) && !/ml/i.test(value)) {
-            const formattedValue = `${parseFloat(value)}ml`;
-            setFormData(prev => ({ ...prev, volume: formattedValue }));
-        }
-    };
-    const handleImageArrayChange = (index, value) => {
-        const newImages = [...(formData.images || [])];
-        newImages[index] = value;
-        setFormData(prev => ({...prev, images: newImages}));
-    };
-    
-    const addImageField = () => {
-        setFormData(prev => ({...prev, images: [...(prev.images || []), '']}));
-    };
-
-    const removeImageField = (index) => {
-        const newImages = formData.images.filter((_, i) => i !== index);
-        setFormData(prev => ({...prev, images: newImages}));
-    };
-    
     const handleImageChange = async (e) => {
         const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        setUploadStatus(`Enviando ${files.length} imagem(ns)...`);
+        if (!files.length) return;
+        setUploadStatus(`Enviando ${files.length}...`);
         try {
-            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
-            const responses = await Promise.all(uploadPromises);
-            const newImageUrls = responses.map(res => res.imageUrl);
-            
-            setFormData(prev => ({...prev, images: [...(prev.images || []), ...newImageUrls]}));
-            setUploadStatus('Upload concluído com sucesso!');
-            e.target.value = ''; 
-            setTimeout(() => setUploadStatus(''), 3000);
-        } catch (error) {
-            setUploadStatus(`Erro no upload: ${error.message}`);
-        }
+            const responses = await Promise.all(files.map(f => apiImageUploadService('/upload/image', f)));
+            setFormData(prev => ({...prev, images: [...(prev.images || []), ...responses.map(r => r.imageUrl)]}));
+            setUploadStatus('Sucesso!');
+        } catch (error) { setUploadStatus('Erro no upload.'); }
     };
     
-    const handleVariationChange = (index, field, value) => {
-        const newVariations = [...formData.variations];
-        newVariations[index][field] = value;
-        setFormData(prev => ({ ...prev, variations: newVariations }));
-    };
-    
-    const handleVariationImageUpload = async (index, e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-
-        setUploadingStatus(prev => ({ ...prev, [index]: 'Enviando...' }));
-        try {
-            const uploadPromises = files.map(file => apiImageUploadService('/upload/image', file));
-            const responses = await Promise.all(uploadPromises);
-            const newImageUrls = responses.map(res => res.imageUrl);
-            
-            const newVariations = [...formData.variations];
-            const currentImages = newVariations[index].images || [];
-            newVariations[index].images = [...currentImages, ...newImageUrls];
-            setFormData(prev => ({ ...prev, variations: newVariations }));
-            
-            setUploadingStatus(prev => ({ ...prev, [index]: `${files.length} imagem(ns) enviada(s)!` }));
-            e.target.value = '';
-            setTimeout(() => setUploadingStatus(prev => ({ ...prev, [index]: '' })), 3000);
-        } catch (error) {
-            setUploadingStatus(prev => ({ ...prev, [index]: `Erro: ${error.message}` }));
-        }
-    };
-
-    const addVariation = () => {
-        setFormData(prev => ({
-            ...prev,
-            variations: [...(prev.variations || []), { color: '', size: '', stock: 0, images: [] }]
-        }));
-    };
-
-    const removeVariation = (index) => {
-        const newVariations = formData.variations.filter((_, i) => i !== index);
-        setFormData(prev => ({ ...prev, variations: newVariations }));
-    };
-
     const handleSubmit = (e) => {
         e.preventDefault();
-        const dataToSubmit = { ...formData };
-        dataToSubmit.product_type = productType;
-
-        if (productType === 'perfume') {
-            clothingFields.forEach(field => delete dataToSubmit[field.name]);
-            dataToSubmit.variations = '[]';
-            dataToSubmit.stock = parseInt(dataToSubmit.stock, 10) || 0;
-        } else if (productType === 'clothing') {
-            perfumeFields.forEach(field => delete dataToSubmit[field.name]);
-
-            const colorImageMap = new Map();
-            (dataToSubmit.variations || []).forEach(v => {
-                if (v.color && !colorImageMap.has(v.color)) {
-                    colorImageMap.set(v.color, v.images || []);
-                }
-            });
-
-            const syncedVariations = (dataToSubmit.variations || []).map(v => ({
-                ...v,
-                images: v.color ? colorImageMap.get(v.color) : []
-            }));
-
-            dataToSubmit.variations = syncedVariations;
-            
-            const totalStock = (dataToSubmit.variations || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
-            dataToSubmit.stock = totalStock;
-        }
-
-        dataToSubmit.images = JSON.stringify(dataToSubmit.images?.filter(img => img && img.trim() !== '') || []);
-        if (dataToSubmit.variations) {
-            dataToSubmit.variations = JSON.stringify(dataToSubmit.variations);
-        }
-        
-        delete dataToSubmit.images_upload; 
-
-        onSave(dataToSubmit);
+        const data = { ...formData, product_type: productType };
+        data.images = JSON.stringify(data.images || []);
+        data.variations = JSON.stringify(data.variations || []);
+        delete data.images_upload;
+        onSave(data);
     };
-    
-    const availableColors = useMemo(() => [...new Set(categories.filter(c => c.type === 'color').map(c => c.name))], [categories]);
-    const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
+
+    const availableProductCategories = allCollectionCategories.filter(c => c.product_type_association === productType);
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="p-4 bg-gray-100 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Produto</label>
-                <div className="flex gap-4">
-                    <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'perfume' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <SparklesIcon className="h-5 w-5" /> Perfume
-                    </button>
-                    <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'clothing' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <ShirtIcon className="h-5 w-5" /> Roupa
-                    </button>
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6 text-gray-800">
+            <div className="p-4 bg-gray-100 rounded-lg flex gap-4">
+                <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 p-3 rounded border font-bold ${productType === 'perfume' ? 'bg-amber-200 border-amber-500' : 'bg-white'}`}>Perfume</button>
+                <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 p-3 rounded border font-bold ${productType === 'clothing' ? 'bg-amber-200 border-amber-500' : 'bg-white'}`}>Roupa</button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {commonFields.map(field => {
-                    if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-sm font-bold">Nome</label><input name="name" value={formData.name || ''} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+                
+                {productType === 'perfume' && (
+                     <div><label className="block text-sm font-bold">Marca</label>
+                     <select name="brand" value={formData.brand || ''} onChange={handleChange} className="w-full p-2 border rounded bg-white">
+                        <option value="">Selecione...</option>
+                        {["O Boticário", "Avon", "Natura", "Eudora"].map(b => <option key={b} value={b}>{b}</option>)}
+                     </select></div>
+                )}
+                {productType === 'clothing' && (
+                     <div><label className="block text-sm font-bold">Marca</label><input name="brand" value={formData.brand || ''} onChange={handleChange} className="w-full p-2 border rounded" list="brands"/></div>
+                )}
+                
+                <div><label className="block text-sm font-bold">Categoria</label>
+                <select name="category" value={formData.category || ''} onChange={handleChange} className="w-full p-2 border rounded bg-white" required>
+                    <option value="">Selecione...</option>
+                    {availableProductCategories.map(c => <option key={c.id} value={c.filter}>{c.name}</option>)}
+                </select></div>
 
-                    if (field.name === 'category') {
-                         return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <select 
-                                    name="category" 
-                                    value={formData.category || ''} 
+                <div><label className="block text-sm font-bold">Preço Original</label><input type="number" step="0.01" name="price" value={formData.price || ''} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+                
+                {/* --- SEÇÃO DE PROMOÇÃO --- */}
+                <div className="md:col-span-2 bg-yellow-50 p-4 rounded border border-yellow-200">
+                    <div className="flex items-center gap-2 mb-4">
+                        <input type="checkbox" id="is_on_sale" name="is_on_sale" checked={!!formData.is_on_sale} onChange={handleChange} className="w-5 h-5 text-amber-500" />
+                        <label htmlFor="is_on_sale" className="font-bold text-gray-700">Produto em Promoção?</label>
+                    </div>
+                    {formData.is_on_sale && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold">Preço Promocional</label>
+                                <input type="number" step="0.01" name="sale_price" value={formData.sale_price || ''} onChange={handleChange} className="w-full p-2 border rounded" required={formData.is_on_sale} />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-red-600">Data/Hora Fim da Promoção</label>
+                                <input 
+                                    type="datetime-local" 
+                                    name="sale_end_date" 
+                                    value={formData.sale_end_date || ''} // Agora usa o valor formatado
                                     onChange={handleChange} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                    required={field.required}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
-                                </select>
+                                    className="w-full p-2 border rounded" 
+                                />
+                                <p className="text-xs text-gray-500 mt-1">O preço voltará ao normal automaticamente após esta data.</p>
                             </div>
-                        );
-                    }
-                    if (field.name === 'brand') {
-                        if (productType === 'perfume') {
-                            return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <select
-                                        name="brand"
-                                        value={formData.brand || ''}
-                                        onChange={handleChange}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
-                                        required={field.required}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                </div>
-                            )
-                        } else {
-                             return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <input
-                                        type="text"
-                                        name={field.name}
-                                        value={formData[field.name] || ''}
-                                        onChange={handleChange}
-                                        list="brand-datalist"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                        required={field.required}
-                                    />
-                                    <datalist id="brand-datalist">
-                                        {brands.map(opt => <option key={opt} value={opt} />)}
-                                    </datalist>
-                                </div>
-                            );
-                        }
-                    }
-                   
-                    if (field.type === 'textarea') {
-                         return (
-                            <div key={field.name} className="lg:col-span-3">
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                         )
-                    }
-                    
-                    const isNameField = field.name === 'name';
-                    const isPriceField = field.name === 'price' || field.name === 'sale_price' || field.name === 'sale_end_date';
-                    const showSaleOptions = isPriceField && formData['is_on_sale'];
-                    
-                    // Lógica para esconder campos de promoção se não estiver em promoção
-                    if ((field.name === 'sale_price' || field.name === 'sale_end_date') && !showSaleOptions) return null;
-
-                    return (
-                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            <input 
-                                type={field.type} 
-                                name={field.name} 
-                                value={formData[field.name] || ''} 
-                                onChange={handleChange} 
-                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" 
-                                required={field.required} 
-                                step={field.step} 
-                            />
                         </div>
-                    );
-                })}
-
-                <div className="lg:col-span-3 grid grid-cols-2 gap-4">
-                    <div className="flex items-center pt-6">
-                        <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                        <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
-                    </div>
-                     <div className="flex items-center pt-6">
-                        <input type="checkbox" name="is_on_sale" id="is_on_sale_checkbox" checked={!!formData['is_on_sale']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-sm font-medium text-gray-700">Em Promoção</label>
-                    </div>
+                    )}
                 </div>
 
-            </div>
-            
-            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
-                <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">Fazer Upload de Novas Imagens</label>
-                     <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
-                     <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
-                     <div className="flex gap-2">
-                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><UploadIcon className="h-5 w-5" /> Galeria</button>
-                        <button type="button" onClick={() => mainCameraInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" /> Câmera</button>
-                     </div>
-                     {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
+                <div className="md:col-span-2"><label className="block text-sm font-bold">Descrição</label><textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full p-2 border rounded h-24" /></div>
+                
+                {productType === 'perfume' && (
+                     <>
+                        <div><label className="block text-sm font-bold">Estoque</label><input type="number" name="stock" value={formData.stock || 0} onChange={handleChange} className="w-full p-2 border rounded" /></div>
+                        <div><label className="block text-sm font-bold">Volume</label><input name="volume" value={formData.volume || ''} onChange={handleChange} className="w-full p-2 border rounded" /></div>
+                     </>
+                )}
+                
+                {/* Campos técnicos obrigatórios para frete */}
+                <div className="md:col-span-2 grid grid-cols-4 gap-2">
+                    <div><label className="text-xs">Peso (kg)</label><input type="number" step="0.01" name="weight" value={formData.weight || 0.3} onChange={handleChange} className="w-full p-1 border rounded" /></div>
+                    <div><label className="text-xs">Largura</label><input type="number" name="width" value={formData.width || 11} onChange={handleChange} className="w-full p-1 border rounded" /></div>
+                    <div><label className="text-xs">Altura</label><input type="number" name="height" value={formData.height || 11} onChange={handleChange} className="w-full p-1 border rounded" /></div>
+                    <div><label className="text-xs">Comp.</label><input type="number" name="length" value={formData.length || 16} onChange={handleChange} className="w-full p-1 border rounded" /></div>
                 </div>
-                 <div>
-                     <label className="block text-sm font-medium text-gray-700 mt-4">URLs das Imagens</label>
-                     {(formData.images || []).map((img, index) => (
-                        <div key={index} className="flex items-center space-x-2 mt-2">
-                            <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumbnail" className="w-10 h-10 object-cover rounded-md border" />
-                            <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder={`URL da Imagem ${index + 1}`} />
-                            <button type="button" onClick={() => removeImageField(index)} className="p-2 bg-red-100 text-red-600 rounded-md flex-shrink-0 hover:bg-red-200"><TrashIcon className="h-4 w-4"/></button>
-                        </div>
-                     ))}
-                     <button type="button" onClick={addImageField} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Adicionar URL manualmente</button>
+
+                <div className="md:col-span-2 border p-4 rounded bg-white">
+                    <label className="block text-sm font-bold mb-2">Imagens</label>
+                    <div className="flex gap-2 mb-2">
+                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="bg-gray-200 px-3 py-1 rounded text-sm font-bold hover:bg-gray-300">Upload Imagens</button>
+                        <span className="text-xs text-gray-500 self-center">{uploadStatus}</span>
+                    </div>
+                    <input type="file" multiple ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" accept="image/*" />
+                    <div className="flex flex-wrap gap-2">
+                        {(formData.images || []).map((img, idx) => (
+                            <img key={idx} src={img} className="w-16 h-16 object-cover rounded border" alt="" />
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={productType}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                >
-                    {productType === 'perfume' && perfumeFields.map(field => (
-                        <div key={field.name}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            {field.type === 'textarea' ? (
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            ) : (
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} onBlur={field.name === 'volume' ? handleVolumeBlur : null} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
-                            )}
-                        </div>
-                    ))}
-                    {productType === 'clothing' && clothingFields.map(field => {
-                        if (field.name === 'variations') {
-                             const seenColors = new Set();
-                            return (
-                                <div key={field.name} className="p-4 border rounded-lg bg-gray-50 space-y-3">
-                                    <h3 className="font-semibold text-gray-800">{field.label}</h3>
-                                    {(formData.variations || []).map((v, i) => {
-                                        let isFirst = false;
-                                        if (v.color && !seenColors.has(v.color)) {
-                                            seenColors.add(v.color);
-                                            isFirst = true;
-                                        }
-                                        return (
-                                            <VariationInputRow 
-                                                key={i} 
-                                                variation={v} 
-                                                index={i} 
-                                                onVariationChange={handleVariationChange}
-                                                onRemoveVariation={removeVariation}
-                                                availableColors={availableColors}
-                                                availableSizes={availableSizes}
-                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                                uploadStatus={uploadingStatus[i]}
-                                                isFirstOfColor={isFirst}
-                                            />
-                                        )
-                                    })}
-                                    <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
-                                        + Adicionar Variação
-                                    </button>
-                                </div>
-                            );
-                        }
-                        return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                        );
-                    })}
-                </motion.div>
-            </AnimatePresence>
-
-            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
-                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            <div className="flex justify-end gap-2 pt-4 border-t">
+                <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 font-bold">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">Salvar Produto</button>
             </div>
         </form>
     );
