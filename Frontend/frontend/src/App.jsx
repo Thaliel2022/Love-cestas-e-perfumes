@@ -7970,6 +7970,8 @@ const AdminProducts = ({ onNavigate }) => {
                         </button>
                     </>
                 )}
+                
+                {/* O botão "Encerrar Todas" foi removido daqui para atender ao seu pedido */}
 
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
@@ -8023,7 +8025,9 @@ const AdminProducts = ({ onNavigate }) => {
                                             <p className="text-xs text-gray-500">{p.brand}</p>
                                         </div>
                                     </td>
-                                    <td className="p-4 capitalize">{p.product_type}</td>
+                                    <td className="p-4 capitalize">
+                                        {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
+                                    </td>
                                     <td className="p-4">
                                         {p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
@@ -8092,10 +8096,10 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status Mobile */}
+                                    {/* Badge de Status Mobile - CORREÇÃO DO 0 */}
                                     <div className="flex flex-col items-end gap-1">
                                          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
-                                         {p.is_on_sale && (
+                                         {!!p.is_on_sale && (
                                              <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Promo</span>
                                          )}
                                     </div>
@@ -8104,7 +8108,7 @@ const AdminProducts = ({ onNavigate }) => {
                                 <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
-                                        {p.is_on_sale && p.sale_price > 0 ? (
+                                        {!!p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
                                                 <span className="text-red-600 font-bold text-lg">R$ {Number(p.sale_price).toFixed(2)}</span>
                                                 <span className="text-gray-400 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
