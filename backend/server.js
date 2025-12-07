@@ -1568,7 +1568,52 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// --- ROTA PARA APLICAR PROMOÇÃO EM MASSA (PUT) ---
+app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
 
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado." });
+    }
+    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
+        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Busca os preços originais dos produtos selecionados
+        const placeholders = productIds.map(() => '?').join(',');
+        const [products] = await connection.query(`SELECT id, price, name FROM products WHERE id IN (${placeholders})`, productIds);
+
+        // 2. Calcula e atualiza cada produto
+        for (const product of products) {
+            const originalPrice = parseFloat(product.price);
+            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
+            const salePrice = (originalPrice - discountValue).toFixed(2);
+            
+            // Define a data final (ou NULL se não for por tempo limitado)
+            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
+
+            await connection.query(
+                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
+                [salePrice, finalDate, product.id]
+            );
+        }
+
+        await connection.commit();
+        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`);
+        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro na promoção em massa:", err);
+        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
+    } finally {
+        connection.release();
+    }
+});
 // --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
 // Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
@@ -1710,53 +1755,6 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
             console.log('[STOCK_UPDATE] DB connection released for product:', productId);
         }
     }
-});
-
-// --- ROTA PARA APLICAR PROMOÇÃO EM MASSA (PUT) ---
-app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado." });
-    }
-    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
-        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        // 1. Busca os preços originais dos produtos selecionados
-        const placeholders = productIds.map(() => '?').join(',');
-        const [products] = await connection.query(`SELECT id, price, name FROM products WHERE id IN (${placeholders})`, productIds);
-
-        // 2. Calcula e atualiza cada produto
-        for (const product of products) {
-            const originalPrice = parseFloat(product.price);
-            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
-            const salePrice = (originalPrice - discountValue).toFixed(2);
-            
-            // Define a data final (ou NULL se não for por tempo limitado)
-            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
-
-            await connection.query(
-                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
-                [salePrice, finalDate, product.id]
-            );
-        }
-
-        await connection.commit();
-        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`);
-        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro na promoção em massa:", err);
-        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
-    } finally {
-        connection.release();
-    }
 });
 
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
