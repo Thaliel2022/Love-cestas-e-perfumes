@@ -1790,82 +1790,6 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
         connection.release();
     }
 });
-// --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
-// Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
-app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { product_type = 'perfume', ...productData } = req.body;
-
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-
-    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
-
-    let values = [
-        productData.name, 
-        productData.brand, 
-        productData.category, 
-        productData.price, 
-        productData.sale_price || null, 
-        saleEndDate, 
-        productData.is_on_sale,
-        productData.images, 
-        productData.description, 
-        productData.weight, 
-        productData.width,
-        productData.height, 
-        productData.length, 
-        productData.is_active, 
-        product_type, 
-        productData.video_url || null
-    ];
-
-    if (product_type === 'perfume') {
-        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
-    
-    values.push(id);
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        // 1. Verifica estado ANTERIOR
-        const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
-        const wasOnSale = current[0] ? current[0].is_on_sale : 0;
-
-        // 2. Atualiza
-        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
-        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
-        await connection.query(sql, values);
-
-        await connection.commit();
-        
-        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
-        res.json({ message: "Produto atualizado com sucesso!" });
-
-        // 3. Notifica se entrou em promoção (passando como array [id])
-        const isNowOnSale = productData.is_on_sale ? 1 : 0;
-        if (!wasOnSale && isNowOnSale) {
-            notifyWishlistUsers([id], db).catch(e => console.error("Erro background notify:", e));
-        }
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar produto:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar produto." });
-    } finally {
-        connection.release();
-    }
-});
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
     const { productId, newStock, variation } = req.body; // variation object is passed for clothing
 
@@ -1951,7 +1875,82 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
         }
     }
 });
+// --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
+// Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
+app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { product_type = 'perfume', ...productData } = req.body;
 
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+
+    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
+
+    let values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, 
+        productData.is_on_sale,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active, 
+        product_type, 
+        productData.video_url || null
+    ];
+
+    if (product_type === 'perfume') {
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+    
+    values.push(id);
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Verifica estado ANTERIOR
+        const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
+        const wasOnSale = current[0] ? current[0].is_on_sale : 0;
+
+        // 2. Atualiza
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
+        await connection.query(sql, values);
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
+        res.json({ message: "Produto atualizado com sucesso!" });
+
+        // 3. Notifica se entrou em promoção (passando como array [id])
+        const isNowOnSale = productData.is_on_sale ? 1 : 0;
+        if (!wasOnSale && isNowOnSale) {
+            notifyWishlistUsers([id], db).catch(e => console.error("Erro background notify:", e));
+        }
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    } finally {
+        connection.release();
+    }
+});
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
