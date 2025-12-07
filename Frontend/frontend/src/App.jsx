@@ -7676,6 +7676,10 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
+  // Verifica se existe algum produto em promoção atualmente
+  // Se products.some retornar false, o botão de encerrar será ocultado
+  const hasActivePromotions = useMemo(() => products.some(p => p.is_on_sale), [products]);
+
   const AdminCountdown = ({ endDate }) => {
       const [timeLeft, setTimeLeft] = useState('');
       
@@ -7954,16 +7958,18 @@ const AdminProducts = ({ onNavigate }) => {
                     </button>
                 )}
                 
-                {/* --- BOTÃO: ENCERRAR TODAS --- */}
-                <button 
-                    onClick={handleClearAllPromotions} 
-                    disabled={isClearingPromos}
-                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
-                    title="Remove a promoção de todos os produtos da loja"
-                >
-                    {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
-                    <span>Encerrar Todas Promoções</span>
-                </button>
+                {/* --- BOTÃO: ENCERRAR TODAS (SÓ APARECE SE TIVER PROMOÇÃO ATIVA) --- */}
+                {hasActivePromotions && (
+                    <button 
+                        onClick={handleClearAllPromotions} 
+                        disabled={isClearingPromos}
+                        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
+                        title="Remove a promoção de todos os produtos da loja"
+                    >
+                        {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
+                        <span>Encerrar Todas Promoções</span>
+                    </button>
+                )}
 
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
