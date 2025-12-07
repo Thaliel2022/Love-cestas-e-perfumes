@@ -7055,12 +7055,23 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         });
     };
 
+    // Handler atualizado para limpar dados e corrigir o bug visual
     const handlePromoToggle = (e) => {
         const isChecked = e.target.checked;
-        handleChange(e); 
+        
+        setFormData(prev => ({
+            ...prev,
+            is_on_sale: isChecked ? 1 : 0,
+            // Limpa os campos de promoção se desmarcar para evitar sujeira
+            sale_price: isChecked ? prev.sale_price : '',
+            sale_end_date: isChecked ? prev.sale_end_date : ''
+        }));
+        
         if (isChecked && productType === 'clothing') {
             const currentColors = [...new Set((formData.variations || []).filter(v => v.color).map(v => v.color))];
             setPromoSelectedColors(currentColors);
+        } else if (!isChecked) {
+            setPromoSelectedColors([]);
         }
     };
 
@@ -7082,7 +7093,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         }
     };
     
-    // --- LÓGICA DE UPLOAD DE IMAGEM CORRIGIDA ---
+    // --- LÓGICA DE UPLOAD DE IMAGEM ---
     const handleImageArrayChange = (index, value) => {
         const newImages = [...(formData.images || [])];
         newImages[index] = value;
@@ -7360,20 +7371,22 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     );
                 })}
 
+                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO --- */}
                 <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
                     <div className="flex items-center">
                         <input 
                             type="checkbox" 
                             name="is_on_sale" 
                             id="is_on_sale_checkbox" 
-                            checked={!!formData['is_on_sale']} 
+                            checked={!!formData['is_on_sale']} // CORREÇÃO: !! Garante booleano e evita o "0" na tela
                             onChange={handlePromoToggle} 
                             className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
                         />
                         <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
                     </div>
                     
-                    {formData['is_on_sale'] && (
+                    {/* CORREÇÃO: !! Garante que só renderiza se for true, evitando o "0" */}
+                    {!!formData['is_on_sale'] && (
                         <motion.div 
                             initial={{ opacity: 0, height: 0 }} 
                             animate={{ opacity: 1, height: 'auto' }} 
@@ -7444,6 +7457,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
             </div>
             
+            {/* ... restante do código mantido igual (uploads e variações) ... */}
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
                 <div>
