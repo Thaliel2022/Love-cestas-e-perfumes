@@ -2504,8 +2504,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     
     const [timeLeft, setTimeLeft] = useState('');
     
-    // Novo estado para controlar se a promoção está ativa visualmente
-    // Inicializa com o valor real do produto
+    // Estado para controlar se a promoção está ativa visualmente
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const galleryRef = useRef(null);
@@ -2515,12 +2514,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // Atualiza o estado da promoção quando o produto é carregado
+    // LÓGICA ATUALIZADA: Verifica se a promoção está ativa considerando a variação selecionada
     useEffect(() => {
         if (product) {
-            setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
+            let active = !!product.is_on_sale && product.sale_price > 0;
+
+            // Se for roupa e tiver uma variação selecionada, verifica a regra específica da variação
+            if (product.product_type === 'clothing' && selectedVariation) {
+                // Se is_promo for explicitamente false, a promoção não se aplica a esta cor
+                if (selectedVariation.is_promo === false) {
+                    active = false;
+                }
+            }
+
+            setIsPromoActive(active);
         }
-    }, [product]);
+    }, [product, selectedVariation]);
 
     // Usa o estado local isPromoActive para definir preço e desconto
     const currentPrice = isPromoActive ? product.sale_price : product?.price;
@@ -2534,14 +2543,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     // --- Lógica do Contador Regressivo e Expiração Automática ---
     useEffect(() => {
-        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal
+        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal (limpa o timer)
         if (!product?.sale_end_date) {
             setTimeLeft(null);
             return;
         }
         
-        // Se a promoção já foi desativada localmente, para
-        if (!isPromoActive) return;
+        // Se a promoção já foi desativada localmente (por ex: cor sem desconto), não roda o timer
+        if (!isPromoActive) {
+             setTimeLeft(null);
+             return;
+        }
 
         const calculateTimeLeft = () => {
             const now = new Date().getTime();
@@ -2558,7 +2570,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             } else {
                 // TEMPO ACABOU: Desativa a promoção localmente na hora!
                 setTimeLeft('Expirada');
-                setIsPromoActive(false); // <--- ISSO REVERTE O PREÇO AUTOMATICAMENTE
+                setIsPromoActive(false); 
             }
         };
 
