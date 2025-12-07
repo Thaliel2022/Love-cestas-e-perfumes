@@ -7676,10 +7676,6 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
-  // Verifica se existe algum produto em promoção atualmente
-  // Se products.some retornar false, o botão de encerrar será ocultado
-  const hasActivePromotions = useMemo(() => products.some(p => p.is_on_sale), [products]);
-
   const AdminCountdown = ({ endDate }) => {
       const [timeLeft, setTimeLeft] = useState('');
       
@@ -7846,16 +7842,19 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
-  // --- NOVA FUNÇÃO: ENCERRAR TODAS AS PROMOÇÕES ---
-  const handleClearAllPromotions = () => {
+  // --- NOVA LÓGICA: ENCERRAR PROMOÇÕES APENAS DOS SELECIONADOS ---
+  const handleClearSelectedPromotions = () => {
+      if (selectedProducts.length === 0) return;
+
       confirmation.show(
-          "Tem certeza que deseja ENCERRAR TODAS as promoções ativas da loja? Os preços voltarão ao valor original.",
+          `Tem certeza que deseja ENCERRAR a promoção de ${selectedProducts.length} produtos selecionados?`,
           async () => {
               setIsClearingPromos(true);
               try {
-                  const result = await apiService('/products/clear-promotions', 'POST');
+                  const result = await apiService('/products/bulk-clear-promo', 'PUT', { productIds: selectedProducts });
                   notification.show(result.message);
-                  setSearchTerm(''); // Limpa a busca para evitar que o navegador preencha com o email
+                  setSearchTerm(''); 
+                  setSelectedProducts([]); // Limpa a seleção
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
@@ -7863,7 +7862,7 @@ const AdminProducts = ({ onNavigate }) => {
                   setIsClearingPromos(false);
               }
           },
-          { requiresAuth: true, confirmText: 'Encerrar Tudo', confirmColor: 'bg-red-600 hover:bg-red-700' }
+          { requiresAuth: true, confirmText: 'Encerrar Promoções', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
   };
 
@@ -7952,23 +7951,24 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                {selectedProducts.length > 0 && (
-                    <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
-                        <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
-                    </button>
-                )}
                 
-                {/* --- BOTÃO: ENCERRAR TODAS (SÓ APARECE SE TIVER PROMOÇÃO ATIVA) --- */}
-                {hasActivePromotions && (
-                    <button 
-                        onClick={handleClearAllPromotions} 
-                        disabled={isClearingPromos}
-                        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
-                        title="Remove a promoção de todos os produtos da loja"
-                    >
-                        {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
-                        <span>Encerrar Todas Promoções</span>
-                    </button>
+                {/* --- BOTÃO DE AÇÃO EM MASSA (SÓ APARECE SE TIVER SELEÇÃO) --- */}
+                {selectedProducts.length > 0 && (
+                    <>
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
+                            <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
+                        </button>
+                        
+                        <button 
+                            onClick={handleClearSelectedPromotions} 
+                            disabled={isClearingPromos}
+                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
+                            title="Remove a promoção apenas dos produtos selecionados"
+                        >
+                            {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
+                            <span>Encerrar ({selectedProducts.length})</span>
+                        </button>
+                    </>
                 )}
 
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
@@ -7980,8 +7980,8 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="mb-6">
             <input 
                 type="text" 
-                name="search_products_admin_safe" // Alterado para evitar autofill
-                autoComplete="off" // Desativa autofill
+                name="search_products_admin_safe" 
+                autoComplete="off" 
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -7990,6 +7990,7 @@ const AdminProducts = ({ onNavigate }) => {
         </div>
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            {/* --- VERSÃO DESKTOP --- */}
             <div className="hidden md:block">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
@@ -8065,51 +8066,75 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* VERSÃO MOBILE DO ADMIN */}
-            <div className="md:hidden space-y-4 p-4">
-                {filteredProducts.map(p => {
-                    const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
-                    return (
-                        <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
-                            <div className="flex justify-between items-start">
-                                 <div className="flex items-center">
-                                    <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5"/>
-                                    <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
-                                    <div>
-                                        <p className="font-bold">{p.name}</p>
-                                        <p className="text-sm text-gray-500">{p.brand}</p>
+            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA) --- */}
+            <div className="md:hidden">
+                {/* Cabeçalho Mobile com Selecionar Todos */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                     <label className="flex items-center gap-3 font-bold text-gray-700">
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
+                        Selecionar Todos
+                     </label>
+                     <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
+                </div>
+
+                <div className="space-y-4 p-4">
+                    {filteredProducts.map(p => {
+                        const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
+                        return (
+                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
+                                <div className="flex justify-between items-start">
+                                    <div className="flex items-center">
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"/>
+                                        <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
+                                        <div>
+                                            <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
+                                            <p className="text-sm text-gray-500">{p.brand}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Badge de Status Mobile */}
+                                    <div className="flex flex-col items-end gap-1">
+                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                         {p.is_on_sale && (
+                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Promo</span>
+                                         )}
                                     </div>
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                                    <div>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
+                                        {p.is_on_sale && p.sale_price > 0 ? (
+                                            <div className="flex flex-col">
+                                                <span className="text-red-600 font-bold text-lg">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                <span className="text-gray-400 text-xs line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                                {isTimeLimited && (
+                                                    <div className="flex items-center gap-1 mt-1 bg-red-50 px-1.5 py-0.5 rounded w-fit">
+                                                        <ClockIcon className="h-3 w-3 text-red-500"/>
+                                                        <AdminCountdown endDate={p.sale_end_date} />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
+                                        <div className={`font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600 flex items-center gap-1' : 'text-gray-800'}`}>
+                                            {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4"/>}
+                                            {p.stock} un.
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                    <button onClick={() => handleOpenModal(p)} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 font-medium text-xs"><EditIcon className="h-4 w-4"/> Editar</button>
+                                    <button onClick={() => handleDelete(p.id)} className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 rounded hover:bg-red-100 font-medium text-xs"><TrashIcon className="h-4 w-4"/> Excluir</button>
+                                </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
-                                 <div>
-                                    <strong className="text-gray-500 block">Preço</strong> 
-                                    {p.is_on_sale && p.sale_price > 0 ? (
-                                        <>
-                                            <span className="text-red-600 font-bold block">R$ {Number(p.sale_price).toFixed(2)}</span>
-                                            {isTimeLimited && (
-                                                <div className="flex items-center gap-1 mt-1">
-                                                    <ClockIcon className="h-3 w-3 text-red-500"/>
-                                                    <AdminCountdown endDate={p.sale_end_date} />
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <span>R$ {Number(p.price).toFixed(2)}</span>
-                                    )}
-                                 </div>
-                                 <div className={`font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
-                                    <strong className="text-gray-500 block font-normal">Estoque</strong> 
-                                    {p.stock}
-                                 </div>
-                            </div>
-                             <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
-                                <button onClick={() => handleOpenModal(p)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDelete(p.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
-                            </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     </div>
