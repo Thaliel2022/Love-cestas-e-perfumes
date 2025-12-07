@@ -7667,6 +7667,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [isBulkLimitedTime, setIsBulkLimitedTime] = useState(false);
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
+  const [isClearingPromos, setIsClearingPromos] = useState(false); // Novo estado
 
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
@@ -7675,7 +7676,6 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
-  // Componente interno para o contador do admin
   const AdminCountdown = ({ endDate }) => {
       const [timeLeft, setTimeLeft] = useState('');
       
@@ -7791,7 +7791,6 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // --- LÓGICA DE PROMOÇÃO EM MASSA ---
   const handleSelectProduct = (productId) => {
     setSelectedProducts(prevSelected => {
         if (prevSelected.includes(productId)) {
@@ -7820,7 +7819,6 @@ const AdminProducts = ({ onNavigate }) => {
       
       setIsApplyingBulk(true);
       try {
-          // CORREÇÃO DE FUSO HORÁRIO: Envia a data em ISO UTC
           const formattedEndDate = isBulkLimitedTime ? new Date(bulkEndDate).toISOString() : null;
 
           const result = await apiService('/products/bulk-promo', 'PUT', {
@@ -7844,9 +7842,28 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
+  // --- NOVA FUNÇÃO: ENCERRAR TODAS AS PROMOÇÕES ---
+  const handleClearAllPromotions = () => {
+      confirmation.show(
+          "Tem certeza que deseja ENCERRAR TODAS as promoções ativas da loja? Os preços voltarão ao valor original.",
+          async () => {
+              setIsClearingPromos(true);
+              try {
+                  const result = await apiService('/products/clear-promotions', 'POST');
+                  notification.show(result.message);
+                  fetchProducts();
+              } catch (error) {
+                  notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
+              } finally {
+                  setIsClearingPromos(false);
+              }
+          },
+          { requiresAuth: true, confirmText: 'Encerrar Tudo', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
+  };
+
   return (
     <div>
-        {/* MODAL DE PROMOÇÃO EM MASSA */}
         <AnimatePresence>
             {isBulkPromoModalOpen && (
                 <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
@@ -7931,12 +7948,22 @@ const AdminProducts = ({ onNavigate }) => {
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
                 {selectedProducts.length > 0 && (
-                    <>
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
-                            <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
-                        </button>
-                    </>
+                    <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
+                        <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
+                    </button>
                 )}
+                
+                {/* --- BOTÃO NOVO: ENCERRAR TODAS --- */}
+                <button 
+                    onClick={handleClearAllPromotions} 
+                    disabled={isClearingPromos}
+                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
+                    title="Remove a promoção de todos os produtos da loja"
+                >
+                    {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
+                    <span>Encerrar Todas Promoções</span>
+                </button>
+
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
@@ -7972,7 +7999,6 @@ const AdminProducts = ({ onNavigate }) => {
                     </thead>
                     <tbody>
                         {filteredProducts.map(p => {
-                            // Correção na verificação de tempo limitado
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
