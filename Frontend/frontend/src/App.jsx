@@ -6907,6 +6907,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const [formData, setFormData] = useState({});
     const [uploadStatus, setUploadStatus] = useState('');
     const [uploadingStatus, setUploadingStatus] = useState({});
+    
+    // Novos estados para controlar o modo de promoção
+    const [promoMode, setPromoMode] = useState('fixed'); // 'fixed' ou 'percentage'
+    const [promoPercent, setPromoPercent] = useState('');
+
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
     const [allCollectionCategories, setAllCollectionCategories] = useState([]);
@@ -6986,6 +6991,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 initialData.sale_end_date = '';
             }
 
+            // Tenta calcular a porcentagem inicial se estiver em promoção
+            if (item.is_on_sale && item.price > 0 && item.sale_price > 0) {
+                const discount = 1 - (item.sale_price / item.price);
+                // Se for um valor arredondado (ex: 0.1, 0.25), assume que pode ter sido por porcentagem, mas mantém 'fixed' por segurança
+                // O usuário muda manualmente se quiser.
+            }
+
         } else {
             setProductType('perfume');
             initialData.is_on_sale = false;
@@ -7002,7 +7014,21 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? (checked ? 1 : 0) : value }));
+        const newValue = type === 'checkbox' ? (checked ? 1 : 0) : value;
+
+        setFormData(prev => {
+            const updated = { ...prev, [name]: newValue };
+            
+            // Recalcula o preço promocional se o preço original mudar e estiver no modo porcentagem
+            if (name === 'price' && promoMode === 'percentage' && promoPercent) {
+                const original = parseFloat(newValue);
+                if (!isNaN(original)) {
+                    const discount = original * (parseFloat(promoPercent) / 100);
+                    updated.sale_price = (original - discount).toFixed(2);
+                }
+            }
+            return updated;
+        });
     };
 
     const handleVolumeBlur = (e) => {
@@ -7010,6 +7036,39 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         if (value && value.trim() !== '' && !isNaN(parseFloat(value)) && !/ml/i.test(value)) {
             const formattedValue = `${parseFloat(value)}ml`;
             setFormData(prev => ({ ...prev, volume: formattedValue }));
+        }
+    };
+
+    // Lógica para alternar o modo de promoção
+    const handlePromoModeChange = (mode) => {
+        setPromoMode(mode);
+        if (mode === 'percentage') {
+            // Se mudar para porcentagem, tenta calcular a % atual baseada nos valores
+            if (formData.price && formData.sale_price) {
+                const original = parseFloat(formData.price);
+                const sale = parseFloat(formData.sale_price);
+                if (original > 0) {
+                    const percent = ((original - sale) / original) * 100;
+                    setPromoPercent(Math.round(percent)); // Arredonda para facilitar
+                }
+            }
+        } else {
+            setPromoPercent('');
+        }
+    };
+
+    // Lógica para alterar a porcentagem
+    const handlePercentChange = (e) => {
+        const percent = e.target.value;
+        setPromoPercent(percent);
+        
+        if (formData.price && percent !== '') {
+            const original = parseFloat(formData.price);
+            if (!isNaN(original)) {
+                const discount = original * (parseFloat(percent) / 100);
+                const newSalePrice = (original - discount).toFixed(2);
+                setFormData(prev => ({ ...prev, sale_price: newSalePrice }));
+            }
         }
     };
     
@@ -7093,12 +7152,10 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const dataToSubmit = { ...formData };
         dataToSubmit.product_type = productType;
 
-        // Correção de Fuso Horário: Converter a data local do input para ISO UTC antes de enviar
+        // Correção de Fuso Horário
         if (dataToSubmit.sale_end_date) {
             const localDate = new Date(dataToSubmit.sale_end_date);
-            if (!isNaN(localDate.getTime())) {
-                dataToSubmit.sale_end_date = localDate.toISOString();
-            }
+            dataToSubmit.sale_end_date = localDate.toISOString();
         }
 
         if (productType === 'perfume') {
@@ -7136,21 +7193,20 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         onSave(dataToSubmit);
     };
     
-    // --- LISTA PADRÃO DE CORES ---
+    const availableColors = useMemo(() => [...new Set(categories.filter(c => c.type === 'color').map(c => c.name))], [categories]);
+    const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
+
+    // Lista Padrão de Cores
     const PREDEFINED_COLORS = [
         "Amarelo", "Azul", "Azul Marinho", "Bege", "Branco", "Cinza", 
         "Dourado", "Jeans", "Laranja", "Marrom", "Multicolorido", "Nude", 
         "Off-White", "Prata", "Prateado", "Preto", "Rosa", "Roxo", "Verde", "Vermelho", "Vinho"
     ];
 
-    const availableColors = useMemo(() => {
+    const allColors = useMemo(() => {
         const dbColors = categories.filter(c => c.type === 'color').map(c => c.name);
-        // Une as cores do banco com as cores padrão, remove duplicatas e ordena
         return [...new Set([...PREDEFINED_COLORS, ...dbColors])].sort();
     }, [categories]);
-
-    // Lógica para tamanhos baseada nos dados existentes (pode ser expandida se necessário)
-    const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -7245,6 +7301,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     );
                 })}
 
+                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO --- */}
                 <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
                     <div className="flex items-center">
                         <input 
@@ -7262,33 +7319,85 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         <motion.div 
                             initial={{ opacity: 0, height: 0 }} 
                             animate={{ opacity: 1, height: 'auto' }} 
-                            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                            className="space-y-4"
                         >
-                            <div>
-                                <label className="block text-sm font-bold text-gray-800 mb-1">Preço Promocional</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2 text-gray-500">R$</span>
+                            {/* Seletor de Modo: Valor Fixo ou Porcentagem */}
+                            <div className="flex gap-4 border-b border-yellow-200 pb-3">
+                                <label className="flex items-center cursor-pointer">
                                     <input 
-                                        type="number" 
-                                        name="sale_price" 
-                                        value={formData.sale_price || ''} 
+                                        type="radio" 
+                                        name="promoMode" 
+                                        value="fixed" 
+                                        checked={promoMode === 'fixed'} 
+                                        onChange={() => handlePromoModeChange('fixed')}
+                                        className="h-4 w-4 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span className="ml-2 text-sm font-medium text-gray-800">Definir Preço Fixo (R$)</span>
+                                </label>
+                                <label className="flex items-center cursor-pointer">
+                                    <input 
+                                        type="radio" 
+                                        name="promoMode" 
+                                        value="percentage" 
+                                        checked={promoMode === 'percentage'} 
+                                        onChange={() => handlePromoModeChange('percentage')}
+                                        className="h-4 w-4 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span className="ml-2 text-sm font-medium text-gray-800">Definir Porcentagem (%)</span>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Campo de Porcentagem (Só ativo se o modo for 'percentage') */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-1">Desconto (%)</label>
+                                    <div className="relative">
+                                        <input 
+                                            type="number" 
+                                            value={promoPercent} 
+                                            onChange={handlePercentChange}
+                                            disabled={promoMode !== 'percentage'}
+                                            className={`block w-full pr-8 pl-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'percentage' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`}
+                                            min="0"
+                                            max="100"
+                                        />
+                                        <span className="absolute right-3 top-2 text-gray-500">%</span>
+                                    </div>
+                                </div>
+
+                                {/* Campo de Preço Promocional (Só editável se o modo for 'fixed') */}
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-800 mb-1">Preço Final (R$)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-2 text-gray-500">R$</span>
+                                        <input 
+                                            type="number" 
+                                            name="sale_price" 
+                                            value={formData.sale_price || ''} 
+                                            onChange={handleChange} 
+                                            disabled={promoMode !== 'fixed'}
+                                            className={`block w-full pl-8 pr-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'fixed' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`}
+                                            step="0.01" 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim (Opcional)</label>
+                                    <input 
+                                        type="datetime-local" 
+                                        name="sale_end_date" 
+                                        value={formData.sale_end_date || ''} 
                                         onChange={handleChange} 
-                                        className="block w-full pl-8 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" 
-                                        step="0.01" 
+                                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" 
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim da Promoção</label>
-                                <input 
-                                    type="datetime-local" 
-                                    name="sale_end_date" 
-                                    value={formData.sale_end_date || ''} 
-                                    onChange={handleChange} 
-                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" 
-                                />
-                                <p className="text-xs text-gray-500 mt-1">O preço voltará ao normal automaticamente após esta data.</p>
-                            </div>
+                            <p className="text-xs text-gray-500">
+                                {promoMode === 'percentage' 
+                                    ? "O preço final é calculado automaticamente com base na porcentagem." 
+                                    : "Digite o valor final da promoção manualmente."}
+                            </p>
                         </motion.div>
                     )}
                 </div>
@@ -7365,7 +7474,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                                 index={i} 
                                                 onVariationChange={handleVariationChange}
                                                 onRemoveVariation={removeVariation}
-                                                availableColors={availableColors}
+                                                availableColors={allColors} // Usa a lista completa de cores padrão
                                                 availableSizes={availableSizes}
                                                 onImageUpload={(e) => handleVariationImageUpload(i, e)}
                                                 uploadStatus={uploadingStatus[i]}
