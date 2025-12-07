@@ -6911,6 +6911,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     // Novos estados para controlar o modo de promoção
     const [promoMode, setPromoMode] = useState('fixed'); // 'fixed' ou 'percentage'
     const [promoPercent, setPromoPercent] = useState('');
+    
+    // Estado para controlar quais cores estão na promoção (apenas para roupas)
+    const [promoSelectedColors, setPromoSelectedColors] = useState([]);
 
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
@@ -6994,8 +6997,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             // Tenta calcular a porcentagem inicial se estiver em promoção
             if (item.is_on_sale && item.price > 0 && item.sale_price > 0) {
                 const discount = 1 - (item.sale_price / item.price);
-                // Se for um valor arredondado (ex: 0.1, 0.25), assume que pode ter sido por porcentagem, mas mantém 'fixed' por segurança
-                // O usuário muda manualmente se quiser.
+                // Lógica de detecção de porcentagem poderia ir aqui
+            }
+            
+            // Inicializa cores selecionadas para promoção (Roupas)
+            if (item.product_type === 'clothing' && item.is_on_sale) {
+                const vars = parseJsonString(item.variations, []);
+                // Se a variação tem is_promo marcado como true ou undefined (legado), considera selecionado
+                const activePromoColors = vars
+                    .filter(v => v.color && v.is_promo !== false)
+                    .map(v => v.color);
+                setPromoSelectedColors([...new Set(activePromoColors)]);
             }
 
         } else {
@@ -7028,6 +7040,29 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 }
             }
             return updated;
+        });
+    };
+
+    // Handler específico para o checkbox de Promoção para ativar a seleção padrão de cores
+    const handlePromoToggle = (e) => {
+        const isChecked = e.target.checked;
+        handleChange(e); // Chama o handler genérico para atualizar o formData
+        
+        if (isChecked && productType === 'clothing') {
+            // Seleciona todas as cores disponíveis por padrão
+            const currentColors = [...new Set((formData.variations || []).filter(v => v.color).map(v => v.color))];
+            setPromoSelectedColors(currentColors);
+        }
+    };
+
+    // Handler para alternar cores na promoção
+    const togglePromoColor = (color) => {
+        setPromoSelectedColors(prev => {
+            if (prev.includes(color)) {
+                return prev.filter(c => c !== color);
+            } else {
+                return [...prev, color];
+            }
         });
     };
 
@@ -7172,9 +7207,12 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                 }
             });
 
+            // Sincroniza imagens e aplica a flag de promoção por cor
             const syncedVariations = (dataToSubmit.variations || []).map(v => ({
                 ...v,
-                images: v.color ? colorImageMap.get(v.color) : []
+                images: v.color ? colorImageMap.get(v.color) : [],
+                // Salva se esta variação específica está em promoção com base na seleção do admin
+                is_promo: formData.is_on_sale && promoSelectedColors.includes(v.color)
             }));
 
             dataToSubmit.variations = syncedVariations;
@@ -7207,6 +7245,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const dbColors = categories.filter(c => c.type === 'color').map(c => c.name);
         return [...new Set([...PREDEFINED_COLORS, ...dbColors])].sort();
     }, [categories]);
+    
+    // Cores presentes nas variações atuais do produto
+    const currentVariationColors = useMemo(() => {
+        return [...new Set((formData.variations || []).filter(v => v.color).map(v => v.color))].sort();
+    }, [formData.variations]);
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -7309,7 +7352,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                             name="is_on_sale" 
                             id="is_on_sale_checkbox" 
                             checked={!!formData['is_on_sale']} 
-                            onChange={handleChange} 
+                            onChange={handlePromoToggle} 
                             className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
                         />
                         <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
@@ -7393,11 +7436,28 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                                     />
                                 </div>
                             </div>
-                            <p className="text-xs text-gray-500">
-                                {promoMode === 'percentage' 
-                                    ? "O preço final é calculado automaticamente com base na porcentagem." 
-                                    : "Digite o valor final da promoção manualmente."}
-                            </p>
+
+                            {/* --- SELEÇÃO DE CORES PARA ROUPAS --- */}
+                            {productType === 'clothing' && currentVariationColors.length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-yellow-200">
+                                    <label className="block text-sm font-bold text-gray-800 mb-2">Aplicar Desconto nas Cores:</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {currentVariationColors.map(color => (
+                                            <label key={color} className={`flex items-center space-x-2 px-3 py-1.5 rounded-md border cursor-pointer select-none transition-colors ${promoSelectedColors.includes(color) ? 'bg-amber-100 border-amber-400 text-amber-900' : 'bg-white border-gray-300 text-gray-600'}`}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={promoSelectedColors.includes(color)}
+                                                    onChange={() => togglePromoColor(color)}
+                                                    className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                                />
+                                                <span className="text-sm">{color}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-2">Por padrão, todas as cores são selecionadas. Desmarque as que não devem receber o desconto.</p>
+                                </div>
+                            )}
+
                         </motion.div>
                     )}
                 </div>
@@ -7411,6 +7471,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
             </div>
             
+            {/* ... restante do código (Upload de Imagens, Variações, Botões) ... */}
             <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
                 <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
                 <div>
