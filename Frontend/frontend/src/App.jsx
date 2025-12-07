@@ -2490,6 +2490,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
+    
+    // Novo estado para controlar se a promoção está ativa visualmente
+    // Inicializa com o valor real do produto
+    const [isPromoActive, setIsPromoActive] = useState(false);
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -2498,27 +2502,50 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
-    const currentPrice = isOnSale ? product.sale_price : product?.price;
-
+    // Atualiza o estado da promoção quando o produto é carregado
     useEffect(() => {
-        if (!isOnSale || !product?.sale_end_date) {
-            setTimeLeft('');
+        if (product) {
+            setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
+        }
+    }, [product]);
+
+    // Usa o estado local isPromoActive para definir preço e desconto
+    const currentPrice = isPromoActive ? product.sale_price : product?.price;
+
+    const discountPercent = useMemo(() => {
+        if (isPromoActive && product) {
+            return Math.round(((product.price - product.sale_price) / product.price) * 100);
+        }
+        return 0;
+    }, [isPromoActive, product]);
+
+    // --- Lógica do Contador Regressivo e Expiração Automática ---
+    useEffect(() => {
+        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal
+        if (!product?.sale_end_date) {
+            setTimeLeft(null);
             return;
         }
+        
+        // Se a promoção já foi desativada localmente, para
+        if (!isPromoActive) return;
 
         const calculateTimeLeft = () => {
-            const difference = new Date(product.sale_end_date) - new Date();
+            const now = new Date().getTime();
+            const endDate = new Date(product.sale_end_date).getTime();
+            const difference = endDate - now;
             
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((difference / 1000 / 60) % 60);
-                const seconds = Math.floor((difference / 1000) % 60);
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
+                // TEMPO ACABOU: Desativa a promoção localmente na hora!
                 setTimeLeft('Expirada');
+                setIsPromoActive(false); // <--- ISSO REVERTE O PREÇO AUTOMATICAMENTE
             }
         };
 
@@ -2526,14 +2553,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const timer = setInterval(calculateTimeLeft, 1000);
 
         return () => clearInterval(timer);
-    }, [isOnSale, product?.sale_end_date]);
-
-    const discountPercent = useMemo(() => {
-        if (isOnSale && product) {
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
-        return 0;
-    }, [isOnSale, product]);
+    }, [isPromoActive, product?.sale_end_date]);
 
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
@@ -2802,7 +2822,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     <div className="lg:sticky lg:top-24 self-start">
                         <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isOnSale ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
                              {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
@@ -2867,7 +2887,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
 
                         {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
-                        {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
+                        {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <ClockIcon className="h-24 w-24 text-red-500" />
@@ -2877,44 +2897,44 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     Oferta por Tempo Limitado
                                 </div>
                                 
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
-                                    {/* Contador - Centralizado no mobile */}
-                                    <div className="text-white font-mono text-xl sm:text-2xl font-bold flex gap-2 justify-center w-full sm:w-auto">
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                                    {/* Contador - Centralizado e Responsivo */}
+                                    <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">DIAS</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">HORAS</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">MIN</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">SEG</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
 
-                                    {/* Preços - Centralizado no mobile, alinhado à direita no desktop */}
-                                    <div className="text-center sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
+                                    {/* Preços - Empilhados e centralizados no mobile */}
+                                    <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
                                         <div className="flex items-center justify-center sm:justify-end gap-2">
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-2 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* --- NOVO: ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
-                        {isOnSale && (!timeLeft || timeLeft === 'Expirada') && (
+                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
+                        {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <TagIcon className="h-24 w-24 text-green-500" />
@@ -2938,7 +2958,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         )}
 
                         <div className="border-t border-b border-gray-800 py-4">
-                            {isOnSale ? (
+                            {isPromoActive ? (
                                 <div className="flex items-center gap-3">
                                     <p className="text-4xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
                                     {!timeLeft && <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>}
