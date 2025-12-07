@@ -1758,30 +1758,33 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
     }
 });
 
-// --- ROTA PARA ENCERRAR TODAS AS PROMOÇÕES (POST) ---
-app.post('/api/products/clear-promotions', verifyToken, verifyAdmin, async (req, res) => {
+// --- ROTA PARA ENCERRAR PROMOÇÕES SELECIONADAS (PUT) ---
+app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
+    }
+
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
         
-        // Atualiza todos os produtos que estão em promoção (is_on_sale = 1)
+        // Atualiza apenas os produtos selecionados (IN (?))
         // Define is_on_sale = 0, zera o preço promocional e a data
-        const [result] = await connection.query(`
-            UPDATE products 
-            SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL 
-            WHERE is_on_sale = 1
-        `);
+        const placeholders = productIds.map(() => '?').join(',');
+        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
+        
+        const [result] = await connection.query(sql, productIds);
 
         await connection.commit();
         
-        const count = result.changedRows;
-        logAdminAction(req.user, 'ENCERROU TODAS PROMOÇÕES', `Afetou ${count} produtos.`);
-        
-        res.json({ message: count > 0 ? `Promoção encerrada em ${count} produtos com sucesso!` : "Não havia produtos em promoção." });
+        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`);
+        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
 
     } catch (err) {
         await connection.rollback();
-        console.error("Erro ao encerrar todas as promoções:", err);
+        console.error("Erro ao encerrar promoções selecionadas:", err);
         res.status(500).json({ message: "Erro interno ao encerrar promoções." });
     } finally {
         connection.release();
