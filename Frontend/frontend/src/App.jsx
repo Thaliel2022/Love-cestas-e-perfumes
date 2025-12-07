@@ -7060,6 +7060,14 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         const dataToSubmit = { ...formData };
         dataToSubmit.product_type = productType;
 
+        // Correção de Fuso Horário: Converter a data local do input para ISO UTC antes de enviar
+        if (dataToSubmit.sale_end_date) {
+            const localDate = new Date(dataToSubmit.sale_end_date);
+            if (!isNaN(localDate.getTime())) {
+                dataToSubmit.sale_end_date = localDate.toISOString();
+            }
+        }
+
         if (productType === 'perfume') {
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
             dataToSubmit.variations = '[]';
