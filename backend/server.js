@@ -2865,114 +2865,102 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
 
 
 const processPaymentWebhook = async (paymentId) => {
-    try {
-        if (!paymentId || paymentId === 123456 || paymentId === '123456') {
-            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
-            return;
-        }
+    try {
+        if (!paymentId || paymentId === 123456 || paymentId === '123456') return;
 
-        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
-        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-        });
+        console.log(`[Webhook] Consultando pagamento ${paymentId}...`);
+        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        });
 
-        if (!paymentResponse.ok) {
-            const errorText = await paymentResponse.text();
-            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
-            return;
-        }
-        
-        const payment = await paymentResponse.json();
-        const orderId = payment.external_reference;
-        const paymentStatus = payment.status;
+        if (!paymentResponse.ok) return;
+        
+        const payment = await paymentResponse.json();
+        const orderId = payment.external_reference;
+        const paymentStatus = payment.status;
 
-        if (!orderId) {
-            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
-            return;
-        }
+        if (!orderId) return;
 
-        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
-        
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+        console.log(`[Webhook] Pedido ${orderId} - Status MP: ${paymentStatus}`);
+        
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
-            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [orderId]);
-            if (currentOrderResult.length === 0) {
-                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
-                await connection.commit();
-                return;
-            }
-            const currentDBStatus = currentOrderResult[0].status;
-            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
+            const [currentOrderResult] = await connection.query("SELECT status, user_id, total FROM orders WHERE id = ? FOR UPDATE", [orderId]);
+            if (currentOrderResult.length === 0) { await connection.commit(); return; }
+            
+            const currentOrder = currentOrderResult[0];
+            const currentDBStatus = currentOrder.status;
 
-            let paymentDetailsPayload = null;
-            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
-                paymentDetailsPayload = {
-                    method: 'credit_card',
-                    card_brand: payment.payment_method_id,
-                    card_last_four: payment.card.last_four_digits,
-                    installments: payment.installments
-                };
-            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
-                paymentDetailsPayload = { method: 'pix' };
-            } else if (payment.payment_type_id === 'ticket') {
-                paymentDetailsPayload = { method: 'boleto' };
-            }
-            
-            await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
-                [
-                    paymentStatus, 
-                    payment.id, 
-                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
-                    orderId
-                ]
-            );
-            
-            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
-                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
-                
-                const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
-                if (itemsToReturn.length > 0) {
-                    for (const item of itemsToReturn) {
-                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                        const product = productResult[0];
-                        if (product.product_type === 'clothing' && item.variation_details) {
-                            const variation = JSON.parse(item.variation_details);
-                            let variations = JSON.parse(product.variations || '[]');
-                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                            if (variationIndex !== -1) {
-                                variations[variationIndex].stock += item.quantity;
-                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                            }
-                        } else {
-                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                        }
-                    }
-                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
-                }
-            } else {
-                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
-            }
-            
-            await connection.commit();
-            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
+            // Atualiza status do pagamento no DB
+            await connection.query("UPDATE orders SET payment_status = ?, payment_gateway_id = ? WHERE id = ?", [paymentStatus, payment.id, orderId]);
+            
+            // Lógica de Aprovação
+            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+                
+                // --- NOVO: NOTIFICAÇÃO PARA O ADMIN ---
+                // Busca dados do cliente e itens para o e-mail
+                const [userRes] = await connection.query("SELECT name, email FROM users WHERE id = ?", [currentOrder.user_id]);
+                const [itemsRes] = await connection.query("SELECT p.name, oi.quantity, oi.price, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [orderId]);
+                
+                if (userRes.length > 0) {
+                    const customer = userRes[0];
+                    const items = itemsRes.map(i => ({
+                        ...i, 
+                        variation: i.variation_details ? JSON.parse(i.variation_details) : null
+                    }));
 
-        } catch(dbError) {
-            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
-            if (connection) await connection.rollback();
-        } finally {
-            if (connection) connection.release();
-        }
+                    // Envia e-mail para o Admin
+                    const adminHtml = createAdminNewOrderEmail(orderId, customer.name, currentOrder.total, items);
+                    await sendEmailAsync({
+                        from: FROM_EMAIL,
+                        to: ADMIN_EMAIL,
+                        subject: `💰 Nova Venda Aprovada! Pedido #${orderId}`,
+                        html: adminHtml
+                    });
+                    console.log(`[Webhook] E-mail de nova venda enviado para o admin (${ADMIN_EMAIL}).`);
+                }
+                // -------------------------------------
 
-    } catch (error) {
-        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
-    }
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
+                 await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
+                 await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
+                 // ... (Lógica de reverter estoque mantida) ...
+                 const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
+                 if (itemsToReturn.length > 0) {
+                    for (const item of itemsToReturn) {
+                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                        const product = productResult[0];
+                        if (product.product_type === 'clothing' && item.variation_details) {
+                            const variation = JSON.parse(item.variation_details);
+                            let variations = JSON.parse(product.variations || '[]');
+                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                            if (variationIndex !== -1) {
+                                variations[variationIndex].stock += item.quantity;
+                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                            }
+                        } else {
+                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                        }
+                    }
+                 }
+            }
+            
+            await connection.commit();
+
+        } catch(dbError) {
+            console.error(`[Webhook] Erro DB:`, dbError);
+            if (connection) await connection.rollback();
+        } finally {
+            if (connection) connection.release();
+        }
+
+    } catch (error) {
+        console.error('Erro no webhook:', error);
+    }
 };
 
 
