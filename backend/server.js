@@ -1514,129 +1514,61 @@ setInterval(async () => {
 }, 60000);
 
 
-// --- ROTAS DE PRODUTOS (SUBSTITUA TODA ESTA SEÇÃO) ---
+// --- ROTA DE CRIAÇÃO DE PRODUTOS (POST) ---
+// Substitua sua rota app.post('/api/products'...) atual por esta versão completa:
+app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
+    const { product_type = 'perfume', ...productData } = req.body;
+    
+    // Lista de campos base, agora incluindo sale_end_date
+    const fields = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    
+    // Tratamento da data: converte string vazia para NULL se necessário
+    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
 
-// 1. Rotas GET (Leitura)
-app.get('/api/products', checkMaintenanceMode, async (req, res) => {
+    const values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, // Novo campo de data inserido
+        productData.is_on_sale ? 1 : 0,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active ? 1 : 0, 
+        product_type, 
+        productData.video_url || null
+    ];
+
+    if (product_type === 'perfume') {
+        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+
     try {
-        const sql = `
-            SELECT p.*, r_agg.avg_rating, COALESCE(r_agg.review_count, 0) as review_count
-            FROM products p
-            LEFT JOIN (SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count FROM reviews GROUP BY product_id) AS r_agg ON p.id = r_agg.product_id
-            WHERE p.is_active = 1
-            ORDER BY p.created_at DESC;
-        `;
-        const [products] = await db.query(sql);
-        res.json(products);
+        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+        const [result] = await db.query(sql, values);
+        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
+        res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
     } catch (err) {
-        console.error("Erro ao buscar produtos:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos." });
+        console.error("Erro ao criar produto:", err);
+        res.status(500).json({ message: "Erro interno ao criar produto." });
     }
 });
 
-app.get('/api/products/all', verifyToken, verifyAdmin, async (req, res) => {
-    const { search } = req.query;
-    try {
-        let sql = `
-            SELECT p.*, r_agg.avg_rating, COALESCE(r_agg.review_count, 0) as review_count
-            FROM products p
-            LEFT JOIN (SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count FROM reviews GROUP BY product_id) AS r_agg ON p.id = r_agg.product_id
-        `;
-        const params = [];
-        if (search) {
-            sql += " WHERE p.name LIKE ? OR p.brand LIKE ? OR p.category LIKE ?";
-            const searchTerm = `%${search}%`;
-            params.push(searchTerm, searchTerm, searchTerm);
-        }
-        sql += " ORDER BY p.id DESC";
-        const [products] = await db.query(sql, params);
-        res.json(products);
-    } catch (err) {
-        console.error("Erro ao buscar todos os produtos:", err);
-        res.status(500).json({ message: "Erro ao buscar todos os produtos." });
-    }
-});
-
-app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, res) => {
-    const { q } = req.query;
-    if (!q || q.length < 1) return res.json([]);
-    try {
-        const searchTerm = `%${q}%`;
-        const sql = "SELECT id, name, images, price, sale_price, is_on_sale FROM products WHERE is_active = 1 AND (name LIKE ? OR brand LIKE ?) LIMIT 5";
-        const [suggestions] = await db.query(sql, [searchTerm, searchTerm]);
-        res.json(suggestions);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar sugestões." }); }
-});
-
-app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
-    const LOW_STOCK_THRESHOLD = 5;
-    try {
-        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
-        const lowStockItems = [];
-        for (const product of allProducts) {
-            if (product.product_type === 'clothing') {
-                try {
-                    const variations = JSON.parse(product.variations || '[]');
-                    for (const v of variations) {
-                        if (v.stock < LOW_STOCK_THRESHOLD) {
-                            lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: v.images,
-                                product_type: 'clothing',
-                                variation: v
-                            });
-                        }
-                    }
-                } catch (e) { console.error(`Erro variações produto ${product.id}:`, e); }
-            } else {
-                if (product.stock < LOW_STOCK_THRESHOLD) {
-                    lowStockItems.push({ id: product.id, name: product.name, stock: product.stock, images: product.images, product_type: 'perfume', variation: null });
-                }
-            }
-        }
-        res.json(lowStockItems);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar estoque baixo." }); }
-});
-
-// 2. Rotas Específicas de Escrita (DEVEM VIR ANTES DE /:id)
-
-// Rota de Atualização de Estoque
-app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
-    const { productId, newStock, variation } = req.body;
-    if (!productId || newStock === undefined || newStock < 0) return res.status(400).json({ message: "Dados inválidos." });
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
-        if (products.length === 0) throw new Error("Produto não encontrado.");
-        const product = products[0];
-
-        if (product.product_type === 'clothing') {
-            let variations = JSON.parse(product.variations || '[]');
-            const variationIndex = variations.findIndex(v => (variation.id && v.id === variation.id) || (v.color === variation.color && v.size === variation.size));
-            if (variationIndex === -1) throw new Error("Variação não encontrada.");
-            
-            variations[variationIndex].stock = parseInt(newStock, 10);
-            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
-            logAdminAction(req.user, 'ATUALIZOU ESTOQUE', `ID: ${productId}, Variação`);
-        } else {
-            await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
-            logAdminAction(req.user, 'ATUALIZOU ESTOQUE', `ID: ${productId}`);
-        }
-        await connection.commit();
-        res.json({ message: "Estoque atualizado!" });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro stock-update:", err);
-        res.status(500).json({ message: err.message || "Erro ao atualizar estoque." });
-    } finally { connection.release(); }
-});
-
-// Rota de Promoção em Massa (AQUI É ONDE OCORRIA O ERRO, AGORA ESTÁ NA ORDEM CERTA)
+// --- ROTA PARA APLICAR PROMOÇÃO EM MASSA (PUT) ---
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
     const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
     if (!productIds || !productIds.length) return res.status(400).json({ message: "Nenhum produto selecionado." });
@@ -1665,113 +1597,313 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         res.status(500).json({ message: "Erro ao aplicar promoção." });
     } finally { connection.release(); }
 });
-
-// Rota de Importação
-app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req, res) => {
-    // ... (Mantenha sua lógica de CSV aqui, ela não interfere no erro)
-    if (!req.file) return res.status(400).json({ message: 'Sem arquivo.' });
-    // ... (Lógica de processamento CSV existente) ...
-    res.status(200).json({ message: "Importação processada." }); 
-});
-
-// Rota Criar Produto
-app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
-    const { product_type = 'perfume', ...productData } = req.body;
-    const fields = ['name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description', 'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'];
-    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
-    const values = [productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, saleEndDate, productData.is_on_sale ? 1 : 0, productData.images, productData.description, productData.weight, productData.width, productData.height, productData.length, productData.is_active ? 1 : 0, product_type, productData.video_url || null];
-
-    if (product_type === 'perfume') {
-        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else {
-        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const vars = JSON.parse(productData.variations || '[]');
-        const totalStock = vars.reduce((s, v) => s + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
-
-    try {
-        const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
-        const [result] = await db.query(sql, values);
-        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}`);
-        res.status(201).json({ message: "Criado com sucesso!", productId: result.insertId });
-    } catch (err) { res.status(500).json({ message: "Erro ao criar." }); }
-});
-
-// 3. Rotas Genéricas com ID (DEVEM VIR POR ÚLTIMO)
-
-app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
-    try {
-        const sql = `SELECT p.*, r.avg_rating, COALESCE(r.review_count, 0) as review_count FROM products p LEFT JOIN (SELECT product_id, AVG(rating) as avg_rating, COUNT(id) as review_count FROM reviews GROUP BY product_id) r ON p.id = r.product_id WHERE p.id = ?`;
-        const [products] = await db.query(sql, [req.params.id]);
-        if (!products.length) return res.status(404).json({ message: "Não encontrado." });
-        res.json(products[0]);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar." }); }
-});
-
-app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [orders] = await db.query(`SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`, [id]);
-        if (!orders.length) return res.json([]);
-        const orderIds = orders.map(o => o.order_id);
-        const [related] = await db.query(`SELECT p.*, COUNT(oi.product_id) as freq FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id IN (?) AND oi.product_id != ? AND p.is_active = 1 GROUP BY oi.product_id ORDER BY freq DESC LIMIT 8`, [orderIds, id]);
-        res.json(related);
-    } catch (err) { res.status(500).json({ message: "Erro ao buscar relacionados." }); }
-});
-
+// --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
+// Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
-    let fields = ['name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description', 'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'];
+
+    // Campos a atualizar, incluindo sale_end_date
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+
+    // Tratamento da data
     const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
-    let values = [productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, saleEndDate, productData.is_on_sale, productData.images, productData.description, productData.weight, productData.width, productData.height, productData.length, productData.is_active, product_type, productData.video_url || null];
+
+    let values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, // Novo valor
+        productData.is_on_sale,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active, 
+        product_type, 
+        productData.video_url || null
+    ];
 
     if (product_type === 'perfume') {
-        fields.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
         values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else {
-        fields.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const vars = JSON.parse(productData.variations || '[]');
-        const total = vars.reduce((s, v) => s + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, total);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
     }
+    
     values.push(id);
 
     try {
-        const sql = `UPDATE products SET ${fields.map(f => `\`${f}\` = ?`).join(', ')} WHERE id = ?`;
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
         await db.query(sql, values);
-        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}`);
-        res.json({ message: "Atualizado!" });
-    } catch (err) { 
-        console.error("Erro PUT /:id", err);
-        res.status(500).json({ message: "Erro interno ao atualizar produto." }); 
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
+        res.json({ message: "Produto atualizado com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
     }
 });
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body; // variation object is passed for clothing
+
+    // Add initial log
+    console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
+    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
+
+    if (!productId || newStock === undefined || newStock < 0) {
+        console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
+        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        console.log('[STOCK_UPDATE] Transaction started for product:', productId);
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            console.error('[STOCK_UPDATE] Product not found:', productId);
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+        console.log('[STOCK_UPDATE] Product found:', { id: product.id, type: product.product_type });
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                 console.error('[STOCK_UPDATE] Missing variation details for clothing:', { productId, variation });
+                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+            console.log('[STOCK_UPDATE] Processing clothing variation update. Target variation:', variation);
+
+            let variations;
+            try {
+                variations = JSON.parse(product.variations || '[]');
+                console.log('[STOCK_UPDATE] Variations parsed from DB:', variations);
+            } catch (parseError) {
+                console.error('[STOCK_UPDATE] Failed to parse variations JSON from DB:', product.variations, parseError);
+                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
+            }
+
+            // More robust findIndex: Check for ID if available, otherwise color/size
+            const variationIndex = variations.findIndex(v =>
+                (variation.id && v.id === variation.id) || // Prefer ID if present
+                (v.color === variation.color && v.size === variation.size) // Fallback to color/size
+            );
+
+            if (variationIndex === -1) {
+                console.error(`[STOCK_UPDATE] Variation not found in DB variations array. Target: ${JSON.stringify(variation)}, DB Variations: ${JSON.stringify(variations)}`);
+                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
+            }
+            console.log(`[STOCK_UPDATE] Variation found at index ${variationIndex}. Updating stock to ${newStock}.`);
+
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            // Use the corrected reduce from the previous step
+            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+            console.log(`[STOCK_UPDATE] New total stock calculated: ${totalStock}`);
+
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            console.log('[STOCK_UPDATE] Clothing product stock updated in DB.');
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
+
+        } else { // Perfume or other type
+             console.log(`[STOCK_UPDATE] Processing simple stock update for product type: ${product.product_type}`);
+             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+             console.log('[STOCK_UPDATE] Simple product stock updated in DB.');
+             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
+        }
+
+        await connection.commit();
+        console.log('[STOCK_UPDATE] Transaction committed successfully for product:', productId);
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        console.error("[STOCK_UPDATE] Error during stock update, rolling back transaction:", err); // Log the actual error
+        await connection.rollback();
+        // Send back a more specific error if available
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        if (connection) {
+            connection.release();
+            console.log('[STOCK_UPDATE] DB connection released for product:', productId);
+        }
+    }
+});
+
+app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { product_type = 'perfume', ...productData } = req.body;
+
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+    let values = [
+        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
+        productData.images, productData.description, productData.weight, productData.width,
+        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
+    ];
+
+    if (product_type === 'perfume') {
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+    
+    values.push(id);
+
+    try {
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
+        await db.query(sql, values);
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
+        res.json({ message: "Produto atualizado com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    }
+});
+
 
 app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
-        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`);
-        res.json({ message: "Deletado." });
-    } catch (err) { res.status(500).json({ message: "Erro ao deletar." }); }
+    try {
+        await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`);
+        res.json({ message: "Produto deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar produto:", err);
+        res.status(500).json({ message: "Erro interno ao deletar produto." });
+    }
 });
 
 app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
-     const { ids } = req.body;
-     if(!ids) return res.status(400).json({message: "Sem IDs"});
-     const connection = await db.getConnection();
-     try {
-        await connection.beginTransaction();
-        const sql = `DELETE FROM products WHERE id IN (?)`;
-        const [result] = await connection.query(sql, [ids]);
-        await connection.commit();
-        res.json({ message: `${result.affectedRows} produtos deletados.` });
-     } catch (err) {
-         await connection.rollback();
-         res.status(500).json({ message: "Erro ao deletar." });
-     } finally { connection.release(); }
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs de produtos." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const CHUNK_SIZE = 100;
+        let totalAffectedRows = 0;
+
+        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            const chunk = ids.slice(i, i + CHUNK_SIZE);
+            const placeholders = chunk.map(() => '?').join(',');
+            const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
+            const [result] = await connection.query(sql, chunk);
+            totalAffectedRows += result.affectedRows;
+        }
+        
+        await connection.commit();
+        logAdminAction(req.user, 'DELETOU PRODUTOS EM MASSA', `Total: ${totalAffectedRows}, IDs: ${ids.join(', ')}`);
+        res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
+    } catch (err) {
+        await connection.rollback();
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+            console.error("Tentativa de deletar produto referenciado em pedidos:", err);
+            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes. Considere desativá-los em vez de excluir." });
+        }
+        console.error("Erro ao deletar múltiplos produtos:", err);
+        res.status(500).json({ message: "Erro interno ao deletar produtos." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
+    }
+
+    const products = [];
+    const connection = await db.getConnection();
+
+    try {
+        await new Promise((resolve, reject) => {
+            const bufferStream = new stream.PassThrough();
+            bufferStream.end(req.file.buffer);
+
+            bufferStream
+                .pipe(csv())
+                .on('data', (row) => {
+                    if (!row.name || !row.price || !row.product_type) return;
+
+                    let values;
+                    const isActive = row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0;
+                    const isOnSale = row.is_on_sale === '1' || String(row.is_on_sale).toLowerCase() === 'true' ? 1 : 0;
+
+                    if (row.product_type === 'perfume') {
+                        values = {
+                            product_type: 'perfume',
+                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
+                            sale_price: parseFloat(row.sale_price) || null,
+                            stock: parseInt(row.stock) || 0, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
+                            description: row.description || '', notes: row.notes || '', how_to_use: row.how_to_use || '',
+                            ideal_for: row.ideal_for || '', volume: row.volume || '',
+                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
+                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
+                            is_active: isActive,
+                            is_on_sale: isOnSale
+                        };
+                    } else if (row.product_type === 'clothing') {
+                        const variations = JSON.parse(row.variations || '[]');
+                        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+                        values = {
+                            product_type: 'clothing',
+                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
+                            sale_price: parseFloat(row.sale_price) || null,
+                            stock: totalStock, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
+                            description: row.description || '', variations: row.variations || '[]',
+                            size_guide: row.size_guide || '', care_instructions: row.care_instructions || '',
+                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
+                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
+                            is_active: isActive,
+                            is_on_sale: isOnSale
+                        };
+                    }
+                    if (values) products.push(values);
+                })
+                .on('end', resolve)
+                .on('error', reject);
+        });
+
+        if (products.length > 0) {
+            await connection.beginTransaction();
+            for (const product of products) {
+                const fields = Object.keys(product);
+                const values = Object.values(product);
+                const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
+                await connection.query(sql, values);
+            }
+            await connection.commit();
+            logAdminAction(req.user, 'IMPORTOU PRODUTOS', `Total: ${products.length} via CSV.`);
+            res.status(201).json({ message: `${products.length} produtos importados com sucesso!` });
+        } else {
+            res.status(400).json({ message: 'Nenhum produto válido foi encontrado no arquivo CSV.' });
+        }
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro durante a importação de CSV:", err);
+        res.status(500).json({ message: "Erro ao processar o arquivo. Verifique o formato e os dados." });
+    } finally {
+        connection.release();
+    }
 });
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
