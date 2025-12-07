@@ -1757,6 +1757,36 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         connection.release();
     }
 });
+
+// --- ROTA PARA ENCERRAR TODAS AS PROMOÇÕES (POST) ---
+app.post('/api/products/clear-promotions', verifyToken, verifyAdmin, async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // Atualiza todos os produtos que estão em promoção (is_on_sale = 1)
+        // Define is_on_sale = 0, zera o preço promocional e a data
+        const [result] = await connection.query(`
+            UPDATE products 
+            SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL 
+            WHERE is_on_sale = 1
+        `);
+
+        await connection.commit();
+        
+        const count = result.changedRows;
+        logAdminAction(req.user, 'ENCERROU TODAS PROMOÇÕES', `Afetou ${count} produtos.`);
+        
+        res.json({ message: count > 0 ? `Promoção encerrada em ${count} produtos com sucesso!` : "Não havia produtos em promoção." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao encerrar todas as promoções:", err);
+        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
+    } finally {
+        connection.release();
+    }
+});
 // --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
 // Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
 app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
