@@ -1182,7 +1182,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             animate="visible" 
             exit="hidden" 
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border ${isOnSale && timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30 ring-1 ring-red-500' : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            className={`bg-black border ${isOnSale ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
             {/* --- Seção da Imagem --- */}
@@ -1199,7 +1199,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
                     ) : isOnSale ? (
-                         <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
                         </div>
@@ -1208,7 +1208,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : null}
                 </div>
 
-                {/* --- NOVO: CONTADOR REGRESSIVO VISUAL --- */}
+                {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
                 {isOnSale && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1222,7 +1222,20 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
 
-                 {product.product_type === 'clothing' && !isOutOfStock && !timeLeft && (
+                {/* --- NOVO: BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
+                {isOnSale && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
+                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
+                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
+                            <TagIcon className="h-3 w-3 text-white fill-white"/>
+                            <span>Preço Especial</span>
+                        </div>
+                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
+                            <span className="text-white font-bold text-[9px]">Aproveite</span>
+                        </div>
+                    </div>
+                )}
+
+                 {product.product_type === 'clothing' && !isOnSale && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
@@ -1261,7 +1274,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                             <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <div className="flex items-baseline gap-2">
                                 <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
-                                <span className="text-xs font-bold text-green-500">{discountPercent}% OFF</span>
+                                <span className={`text-xs font-bold ${timeLeft && timeLeft !== 'Expirada' ? 'text-red-500' : 'text-green-500'}`}>{discountPercent}% OFF</span>
                             </div>
                         </div>
                     ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
@@ -2483,7 +2496,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
-    // Estado para o contador da promoção
     const [timeLeft, setTimeLeft] = useState('');
 
     const galleryRef = useRef(null);
@@ -2496,24 +2508,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
-    // --- Lógica do Contador Regressivo (CORRIGIDA) ---
     useEffect(() => {
-        // Verifica se está em promoção E se tem uma data válida definida
         if (!isOnSale || !product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
 
         const calculateTimeLeft = () => {
-            const now = new Date().getTime();
-            const endTime = new Date(product.sale_end_date).getTime();
-            const difference = endTime - now;
+            const difference = new Date(product.sale_end_date) - new Date();
             
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
 
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
@@ -2907,6 +2915,30 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
                                         <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-2 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- NOVO: ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
+                        {isOnSale && (!timeLeft || timeLeft === 'Expirada') && (
+                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                    <TagIcon className="h-24 w-24 text-green-500" />
+                                </div>
+                                <div className="flex items-center gap-2 mb-2 text-green-400 font-bold uppercase tracking-wide text-sm">
+                                    <SaleIcon className="h-5 w-5" />
+                                    Preço Especial
+                                </div>
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div>
+                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white font-bold text-2xl">Por: <span className="text-green-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-green-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
+                                        -{discountPercent}%
                                     </div>
                                 </div>
                             </div>
