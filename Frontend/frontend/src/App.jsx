@@ -989,18 +989,36 @@ const ProductCard = memo(({ product, onNavigate }) => {
     
     // Novo estado para o tempo restante da promoção
     const [timeLeft, setTimeLeft] = useState('');
+    
+    // NOVO: Estado para controle local da promoção
+    const [isPromoActive, setIsPromoActive] = useState(false);
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
-    const isOnSale = product.is_on_sale && product.sale_price > 0;
-    const currentPrice = isOnSale ? product.sale_price : product.price;
-
-    // --- LÓGICA DO CONTADOR REGRESSIVO ---
+    // Atualiza estado local quando product muda
     useEffect(() => {
-        if (!isOnSale || !product.sale_end_date) {
+        setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
+    }, [product]);
+
+    // Lógica baseada no estado local
+    const currentPrice = isPromoActive ? product.sale_price : product.price;
+
+    const discountPercent = useMemo(() => {
+        if (isPromoActive && product.price > 0) { 
+            return Math.round(((product.price - product.sale_price) / product.price) * 100);
+        }
+        return 0;
+    }, [isPromoActive, product]);
+
+    // --- LÓGICA DO CONTADOR REGRESSIVO COM EXPIRAÇÃO AUTOMÁTICA ---
+    useEffect(() => {
+        if (!product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
+
+        // Se a promoção já foi desativada localmente, não roda o timer
+        if (!isPromoActive) return;
 
         const calculateTimeLeft = () => {
             const difference = new Date(product.sale_end_date) - new Date();
@@ -1016,7 +1034,9 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 setTimeLeft(timeString);
             } else {
+                // TEMPO ACABOU: Desativa promoção localmente
                 setTimeLeft('Expirada');
+                setIsPromoActive(false);
             }
         };
 
@@ -1024,14 +1044,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
         const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
 
         return () => clearInterval(timer);
-    }, [isOnSale, product.sale_end_date]);
-
-    const discountPercent = useMemo(() => {
-        if (isOnSale && product.price > 0) { 
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
-        return 0;
-    }, [isOnSale, product]);
+    }, [isPromoActive, product.sale_end_date]);
 
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
@@ -1173,7 +1186,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
             animate="visible" 
             exit="hidden" 
             whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border ${isOnSale ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
             {/* --- Seção da Imagem --- */}
@@ -1189,7 +1202,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
-                    ) : isOnSale ? (
+                    ) : isPromoActive ? (
                          <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
                             <SaleIcon className="h-4 w-4"/>
                             <span>PROMOÇÃO {discountPercent}%</span>
@@ -1200,7 +1213,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
 
                 {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
-                {isOnSale && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
+                {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
                             <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
@@ -1214,7 +1227,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 )}
 
                 {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
-                {isOnSale && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
+                {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
                             <TagIcon className="h-3 w-3 text-white fill-white"/>
@@ -1226,7 +1239,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
 
-                 {product.product_type === 'clothing' && !isOnSale && !isOutOfStock && (
+                 {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
                         Ver Cores e Tamanhos
                     </div>
@@ -1260,7 +1273,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
                 {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
-                    {isOnSale ? (
+                    {isPromoActive ? (
                          <div className="flex flex-col">
                             <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
                             <div className="flex items-baseline gap-2">
