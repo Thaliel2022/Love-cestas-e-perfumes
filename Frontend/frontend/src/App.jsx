@@ -2496,7 +2496,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
-    const [timeLeft, setTimeLeft] = useState('');
+    // Estado para o contador da promoção
+    const [timeLeft, setTimeLeft] = useState(null);
 
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -2508,20 +2509,23 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
+    // --- Lógica do Contador Regressivo (Corrigida) ---
     useEffect(() => {
         if (!isOnSale || !product?.sale_end_date) {
-            setTimeLeft('');
+            setTimeLeft(null);
             return;
         }
 
         const calculateTimeLeft = () => {
-            const difference = new Date(product.sale_end_date) - new Date();
+            const now = new Date().getTime();
+            const endDate = new Date(product.sale_end_date).getTime();
+            const difference = endDate - now;
             
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((difference / 1000 / 60) % 60);
-                const seconds = Math.floor((difference / 1000) % 60);
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
@@ -2873,7 +2877,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (LAYOUT MOBILE CORRIGIDO) --- */}
                         {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -2884,43 +2888,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     Oferta por Tempo Limitado
                                 </div>
                                 
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
-                                    {/* Contador - Centralizado no mobile */}
-                                    <div className="text-white font-mono text-xl sm:text-2xl font-bold flex gap-2 justify-center w-full sm:w-auto">
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
+                                    {/* Contador - Centralizado e Responsivo */}
+                                    <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">DIAS</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">HORAS</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">MIN</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
                                         <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[50px]">
+                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                            <span className="text-[10px] font-sans font-normal text-gray-400">SEG</span>
+                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
 
-                                    {/* Preços - Centralizado no mobile, alinhado à direita no desktop */}
-                                    <div className="text-center sm:text-right w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
+                                    {/* Preços - Empilhados e centralizados no mobile */}
+                                    <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <div className="flex items-center justify-center sm:justify-end gap-2">
-                                            <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white font-bold text-2xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-2 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* --- NOVO: ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
+                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
                         {isOnSale && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
