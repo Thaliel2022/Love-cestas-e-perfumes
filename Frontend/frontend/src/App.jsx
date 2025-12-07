@@ -7676,10 +7676,6 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
-  // Verifica se existe algum produto em promoção atualmente
-  // Se products.some retornar false, o botão de encerrar será ocultado
-  const hasActivePromotions = useMemo(() => products.some(p => p.is_on_sale), [products]);
-
   const AdminCountdown = ({ endDate }) => {
       const [timeLeft, setTimeLeft] = useState('');
       
@@ -7846,27 +7842,6 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
-  // --- NOVA FUNÇÃO: ENCERRAR TODAS AS PROMOÇÕES ---
-  const handleClearAllPromotions = () => {
-      confirmation.show(
-          "Tem certeza que deseja ENCERRAR TODAS as promoções ativas da loja? Os preços voltarão ao valor original.",
-          async () => {
-              setIsClearingPromos(true);
-              try {
-                  const result = await apiService('/products/clear-promotions', 'POST');
-                  notification.show(result.message);
-                  setSearchTerm(''); // Limpa a busca para evitar que o navegador preencha com o email
-                  fetchProducts();
-              } catch (error) {
-                  notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
-              } finally {
-                  setIsClearingPromos(false);
-              }
-          },
-          { requiresAuth: true, confirmText: 'Encerrar Tudo', confirmColor: 'bg-red-600 hover:bg-red-700' }
-      );
-  };
-
   // --- NOVA LÓGICA: ENCERRAR PROMOÇÕES APENAS DOS SELECIONADOS ---
   const handleClearSelectedPromotions = () => {
       if (selectedProducts.length === 0) return;
@@ -7995,19 +7970,6 @@ const AdminProducts = ({ onNavigate }) => {
                         </button>
                     </>
                 )}
-                
-                {/* --- BOTÃO: ENCERRAR TODAS (SÓ APARECE SE TIVER PROMOÇÃO ATIVA E NADA SELECIONADO) --- */}
-                {hasActivePromotions && selectedProducts.length === 0 && (
-                    <button 
-                        onClick={handleClearAllPromotions} 
-                        disabled={isClearingPromos}
-                        className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
-                        title="Remove a promoção de todos os produtos da loja"
-                    >
-                        {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
-                        <span>Encerrar Todas Promoções</span>
-                    </button>
-                )}
 
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
@@ -8061,9 +8023,7 @@ const AdminProducts = ({ onNavigate }) => {
                                             <p className="text-xs text-gray-500">{p.brand}</p>
                                         </div>
                                     </td>
-                                    <td className="p-4 capitalize">
-                                        {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
-                                    </td>
+                                    <td className="p-4 capitalize">{p.product_type}</td>
                                     <td className="p-4">
                                         {p.is_on_sale && p.sale_price > 0 ? (
                                             <div className="flex flex-col">
