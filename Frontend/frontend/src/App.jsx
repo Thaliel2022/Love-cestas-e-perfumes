@@ -7667,7 +7667,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [isBulkLimitedTime, setIsBulkLimitedTime] = useState(false);
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
-  const [isClearingPromos, setIsClearingPromos] = useState(false); // Novo estado
+  const [isClearingPromos, setIsClearingPromos] = useState(false); 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
@@ -7851,6 +7851,7 @@ const AdminProducts = ({ onNavigate }) => {
               try {
                   const result = await apiService('/products/clear-promotions', 'POST');
                   notification.show(result.message);
+                  setSearchTerm(''); // Limpa a busca para evitar que o navegador preencha com o email
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
@@ -7953,7 +7954,7 @@ const AdminProducts = ({ onNavigate }) => {
                     </button>
                 )}
                 
-                {/* --- BOTÃO NOVO: ENCERRAR TODAS --- */}
+                {/* --- BOTÃO: ENCERRAR TODAS --- */}
                 <button 
                     onClick={handleClearAllPromotions} 
                     disabled={isClearingPromos}
@@ -7973,6 +7974,8 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="mb-6">
             <input 
                 type="text" 
+                name="search_products_admin_safe" // Alterado para evitar autofill
+                autoComplete="off" // Desativa autofill
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
