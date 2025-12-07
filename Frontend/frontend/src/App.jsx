@@ -982,6 +982,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const { isAuthenticated } = useAuth();
 
     const [isAddingToCart, setIsAddingToCart] = useState(false);
+    // isBuyingNow não é mais necessário aqui, mas mantive para evitar quebras se usado em outro lugar
     const [isBuyingNow, setIsBuyingNow] = useState(false); 
     const [cardShippingInfo, setCardShippingInfo] = useState(null); 
     const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
@@ -1107,6 +1108,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
+    // Função para ver detalhes (substitui o Comprar direto)
+    const handleViewDetails = (e) => {
+        e.stopPropagation();
+        onNavigate(`product/${product.id}`);
+    };
+
+    // Função de Adicionar ao Carrinho (MANTIDA)
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1122,23 +1130,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
             notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
         } finally {
             setIsAddingToCart(false);
-        }
-    };
-
-    const handleBuyNowInternal = async (e) => { 
-        e.stopPropagation();
-         if (product.product_type === 'clothing') {
-            onNavigate(`product/${product.id}`);
-            return;
-        }
-        setIsBuyingNow(true);
-        try {
-            await addToCart(product, 1);
-            onNavigate('cart');
-        } catch (error) {
-            notification.show(error.message || "Erro ao iniciar compra", "error");
-        } finally {
-            setIsBuyingNow(false);
         }
     };
 
@@ -1222,7 +1213,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
 
-                {/* --- NOVO: BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
+                {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
                 {isOnSale && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1288,16 +1279,18 @@ const ProductCard = memo(({ product, onNavigate }) => {
                         </div>
                     ) : (
                         <div className="mt-3 flex items-stretch space-x-2">
+                            {/* Botão Ver Detalhes (Substitui o Comprar Direto) */}
                             <button
-                                onClick={handleBuyNowInternal}
-                                disabled={isBuyingNow || isAddingToCart}
-                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center disabled:opacity-50"
+                                onClick={handleViewDetails}
+                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                             >
-                                {isBuyingNow ? <SpinnerIcon className="h-4 w-4"/> : 'Comprar'}
+                                <EyeIcon className="h-4 w-4"/>
+                                Ver Detalhes
                             </button>
+                            {/* Botão Adicionar ao Carrinho (Mantido) */}
                             <button
                                 onClick={handleAddToCartInternal}
-                                disabled={isAddingToCart || isBuyingNow}
+                                disabled={isAddingToCart}
                                 title="Adicionar ao Carrinho"
                                 className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
                             >
