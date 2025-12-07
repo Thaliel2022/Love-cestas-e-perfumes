@@ -1567,6 +1567,98 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao criar produto." });
     }
 });
+// --- TEMPLATE DE E-MAIL PARA LISTA DE DESEJOS ---
+const createWishlistPromoEmail = (customerName, product) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    // Calcula desconto para exibição
+    const originalPrice = parseFloat(product.price);
+    const salePrice = parseFloat(product.sale_price);
+    const discount = Math.round(((originalPrice - salePrice) / originalPrice) * 100);
+
+    const content = `
+        <div style="text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+            <div style="margin-bottom: 20px;">
+                <span style="background-color: #D4AF37; color: #000; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Alerta de Oferta</span>
+            </div>
+            <h1 style="color: #ffffff; font-size: 24px; margin-bottom: 10px; font-weight: 300;">Um favorito seu baixou de preço!</h1>
+            <p style="color: #9CA3AF; font-size: 16px; margin-bottom: 30px; line-height: 1.5;">Olá, ${customerName}. Você estava de olho, e a hora chegou. Aquele item especial da sua lista de desejos entrou em promoção.</p>
+            
+            <div style="background-color: #111827; padding: 0; border-radius: 12px; overflow: hidden; margin: 0 auto; max-width: 320px; border: 1px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.3);">
+                <div style="background-color: #fff; padding: 20px;">
+                     <img src="${getFirstImage(product.images)}" alt="${product.name}" style="width: 100%; height: 200px; object-fit: contain; display: block;">
+                </div>
+                <div style="padding: 20px; text-align: left;">
+                    <h2 style="color: #fff; font-size: 16px; margin: 0 0 5px 0; font-weight: 500; line-height: 1.4;">${product.name}</h2>
+                    <p style="color: #9CA3AF; font-size: 12px; margin: 0 0 15px 0;">${product.brand}</p>
+                    
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                        <tr>
+                            <td valign="bottom">
+                                <div style="text-decoration: line-through; color: #6B7280; font-size: 13px;">R$ ${originalPrice.toFixed(2).replace('.', ',')}</div>
+                                <div style="color: #D4AF37; font-size: 24px; font-weight: bold;">R$ ${salePrice.toFixed(2).replace('.', ',')}</div>
+                            </td>
+                            <td valign="bottom" align="right">
+                                <div style="background-color: #059669; color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold;">-${discount}% OFF</div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                <div style="padding: 0 20px 20px;">
+                    <a href="${appUrl}/#product/${product.id}" target="_blank" style="display: block; width: 100%; padding: 14px 0; background-color: #D4AF37; color: #000; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; text-align: center; transition: background 0.3s;">
+                        Comprar Agora
+                    </a>
+                </div>
+            </div>
+            
+            <p style="color: #6B7280; font-size: 12px; margin-top: 30px;">Esta oferta é por tempo limitado ou enquanto durarem os estoques.</p>
+        </div>
+    `;
+    return createEmailBase(content);
+};
+
+// --- FUNÇÃO PARA NOTIFICAR USUÁRIOS DA WISHLIST ---
+const notifyWishlistUsers = async (productId, connection) => {
+    try {
+        // 1. Buscar dados atualizados do produto
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ?", [productId]);
+        if (products.length === 0) return;
+        const product = products[0];
+
+        // Se por algum motivo não estiver em oferta ou preço zerado, aborta
+        if (!product.is_on_sale || product.sale_price <= 0) return;
+
+        // 2. Buscar usuários que têm este produto na wishlist
+        const [users] = await connection.query(`
+            SELECT u.email, u.name 
+            FROM users u 
+            JOIN wishlist w ON u.id = w.user_id 
+            WHERE w.product_id = ?
+        `, [productId]);
+
+        if (users.length === 0) return;
+
+        console.log(`[Wishlist Notify] Produto "${product.name}" entrou em promoção. Notificando ${users.length} usuários.`);
+
+        // 3. Enviar e-mails
+        // Usamos map para disparar todos, mas tratamos erros individualmente para não parar o processo
+        users.forEach(async (user) => {
+            try {
+                const html = createWishlistPromoEmail(user.name, product);
+                await sendEmailAsync({
+                    from: FROM_EMAIL,
+                    to: user.email,
+                    subject: `Oportunidade! ${product.name} baixou de preço ⚡`,
+                    html: html
+                });
+            } catch (emailErr) {
+                console.error(`Erro ao enviar notificação de wishlist para ${user.email}:`, emailErr);
+            }
+        });
+
+    } catch (err) {
+        console.error(`[Wishlist Notify] Erro crítico ao notificar usuários:`, err);
+    }
+};
 
 // --- ROTA PARA APLICAR PROMOÇÃO EM MASSA (PUT) ---
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
@@ -1579,18 +1671,32 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         const placeholders = productIds.map(() => '?').join(',');
         const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
 
+        const productsToNotify = []; // Lista para notificações
+
         for (const product of products) {
             const originalPrice = parseFloat(product.price);
             const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
             const salePrice = (originalPrice - discountValue).toFixed(2);
-            // Salva a data como UTC ou NULL
             const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
             
             await connection.query("UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?", [salePrice, finalDate, product.id]);
+            
+            // Adiciona ID para notificação posterior
+            productsToNotify.push(product.id);
         }
         await connection.commit();
+        
         logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `${products.length} produtos, ${discountPercentage}%`);
         res.json({ message: "Promoção aplicada com sucesso!" });
+
+        // Dispara notificações de wishlist em segundo plano
+        // Usamos um pequeno delay entre cada um para não sobrecarregar o servidor de e-mail se forem muitos produtos
+        productsToNotify.forEach((pid, index) => {
+            setTimeout(() => {
+                notifyWishlistUsers(pid, db).catch(e => console.error(e));
+            }, index * 2000); // 2 segundos de intervalo entre cada produto
+        });
+
     } catch (err) {
         await connection.rollback();
         console.error("Erro bulk-promo:", err);
@@ -1603,13 +1709,11 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
 
-    // Campos a atualizar, incluindo sale_end_date
     let fieldsToUpdate = [
         'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
 
-    // Tratamento da data
     const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
 
     let values = [
@@ -1618,7 +1722,7 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
         productData.category, 
         productData.price, 
         productData.sale_price || null, 
-        saleEndDate, // Novo valor
+        saleEndDate, 
         productData.is_on_sale,
         productData.images, 
         productData.description, 
@@ -1643,15 +1747,39 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     
     values.push(id);
 
+    // Conexão dedicada para transação segura e verificação de estado
+    const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
+        // 1. Verifica estado ANTERIOR do produto para saber se entrou em promoção agora
+        const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
+        const wasOnSale = current[0] ? current[0].is_on_sale : 0;
+
+        // 2. Atualiza o produto
         const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
         const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
-        await db.query(sql, values);
+        await connection.query(sql, values);
+
+        await connection.commit();
+        
+        // 3. Log e Resposta
         logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
         res.json({ message: "Produto atualizado com sucesso!" });
+
+        // 4. Dispara notificação de Wishlist SE entrou em promoção agora
+        const isNowOnSale = productData.is_on_sale ? 1 : 0;
+        if (!wasOnSale && isNowOnSale) {
+            // Executa em segundo plano, sem await, para não travar a resposta do admin
+            notifyWishlistUsers(id, db).catch(e => console.error("Erro background notify:", e));
+        }
+
     } catch (err) {
+        await connection.rollback();
         console.error("Erro ao atualizar produto:", err);
         res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    } finally {
+        connection.release();
     }
 });
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
