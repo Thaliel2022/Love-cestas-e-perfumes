@@ -2496,21 +2496,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isOnSale = product && !!product.is_on_sale && product.sale_price > 0;
     const currentPrice = isOnSale ? product.sale_price : product?.price;
 
-    // --- Lógica do Contador Regressivo ---
+    // --- Lógica do Contador Regressivo (CORRIGIDA) ---
     useEffect(() => {
+        // Verifica se está em promoção E se tem uma data válida definida
         if (!isOnSale || !product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
 
         const calculateTimeLeft = () => {
-            const difference = new Date(product.sale_end_date) - new Date();
+            const now = new Date().getTime();
+            const endTime = new Date(product.sale_end_date).getTime();
+            const difference = endTime - now;
             
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((difference / 1000 / 60) % 60);
-                const seconds = Math.floor((difference / 1000) % 60);
+                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
@@ -2862,7 +2865,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (ATUALIZADA PARA MOBILE) --- */}
+                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
                         {isOnSale && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -7496,6 +7499,28 @@ const AdminProducts = ({ onNavigate }) => {
   
   const LOW_STOCK_THRESHOLD = 5;
 
+  // Componente interno para o contador do admin
+  const AdminCountdown = ({ endDate }) => {
+      const [timeLeft, setTimeLeft] = useState('');
+      
+      useEffect(() => {
+          const calculate = () => {
+              const diff = new Date(endDate) - new Date();
+              if (diff <= 0) return setTimeLeft('Expirado');
+              const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+              const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+              const m = Math.floor((diff / 1000 / 60) % 60);
+              setTimeLeft(`${d}d ${h}h ${m}m`);
+          };
+          calculate();
+          const timer = setInterval(calculate, 60000); // Atualiza a cada minuto no admin
+          return () => clearInterval(timer);
+      }, [endDate]);
+
+      if (timeLeft === 'Expirado') return <span className="text-gray-500 text-[10px]">Expirado</span>;
+      return <span className="text-red-600 font-bold text-[10px]">{timeLeft}</span>;
+  };
+
   const fetchProducts = useCallback(() => {
     apiService(`/products/all`)
         .then(data => {
@@ -7785,9 +7810,9 @@ const AdminProducts = ({ onNavigate }) => {
                                             <div className="flex flex-col items-start gap-1">
                                                 <span className="bg-green-100 text-green-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Ativa</span>
                                                 {isTimeLimited ? (
-                                                    <div className="flex items-center text-red-600 text-[10px] font-semibold bg-red-50 px-2 py-0.5 rounded border border-red-200" title={`Expira em: ${new Date(p.sale_end_date).toLocaleString()}`}>
-                                                        <ClockIcon className="h-3 w-3 mr-1"/>
-                                                        Temp. Limitado
+                                                    <div className="flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                                                        <ClockIcon className="h-3 w-3 text-red-500"/>
+                                                        <AdminCountdown endDate={p.sale_end_date} />
                                                     </div>
                                                 ) : (
                                                     <span className="text-gray-400 text-[10px]">Sem data fim</span>
@@ -7834,7 +7859,12 @@ const AdminProducts = ({ onNavigate }) => {
                                     {p.is_on_sale && p.sale_price > 0 ? (
                                         <>
                                             <span className="text-red-600 font-bold block">R$ {Number(p.sale_price).toFixed(2)}</span>
-                                            {isTimeLimited && <span className="text-[10px] text-red-500 flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Expira em breve</span>}
+                                            {isTimeLimited && (
+                                                <div className="flex items-center gap-1 mt-1">
+                                                    <ClockIcon className="h-3 w-3 text-red-500"/>
+                                                    <AdminCountdown endDate={p.sale_end_date} />
+                                                </div>
+                                            )}
                                         </>
                                     ) : (
                                         <span>R$ {Number(p.price).toFixed(2)}</span>
