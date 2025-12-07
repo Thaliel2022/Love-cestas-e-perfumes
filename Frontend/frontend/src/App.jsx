@@ -7505,20 +7505,35 @@ const AdminProducts = ({ onNavigate }) => {
       
       useEffect(() => {
           const calculate = () => {
-              const diff = new Date(endDate) - new Date();
-              if (diff <= 0) return setTimeLeft('Expirado');
+              if (!endDate) {
+                  setTimeLeft('');
+                  return;
+              }
+              const diff = new Date(endDate).getTime() - new Date().getTime();
+              
+              if (diff <= 0) {
+                  setTimeLeft('Expirado');
+                  return;
+              }
+              
               const d = Math.floor(diff / (1000 * 60 * 60 * 24));
               const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
               const m = Math.floor((diff / 1000 / 60) % 60);
-              setTimeLeft(`${d}d ${h}h ${m}m`);
+              
+              if (d > 0) {
+                  setTimeLeft(`${d}d ${h}h`);
+              } else {
+                  setTimeLeft(`${h}h ${m}m`);
+              }
           };
           calculate();
-          const timer = setInterval(calculate, 60000); // Atualiza a cada minuto no admin
+          const timer = setInterval(calculate, 60000); 
           return () => clearInterval(timer);
       }, [endDate]);
 
-      if (timeLeft === 'Expirado') return <span className="text-gray-500 text-[10px]">Expirado</span>;
-      return <span className="text-red-600 font-bold text-[10px]">{timeLeft}</span>;
+      if (!timeLeft) return null;
+      if (timeLeft === 'Expirado') return <span className="text-gray-500 text-[10px] font-bold">Expirado</span>;
+      return <span className="text-red-600 font-bold text-[10px] animate-pulse">{timeLeft}</span>;
   };
 
   const fetchProducts = useCallback(() => {
@@ -7629,18 +7644,20 @@ const AdminProducts = ({ onNavigate }) => {
       
       setIsApplyingBulk(true);
       try {
+          // CORREÇÃO DE FUSO HORÁRIO: Envia a data em ISO UTC
+          const formattedEndDate = isBulkLimitedTime ? new Date(bulkEndDate).toISOString() : null;
+
           const result = await apiService('/products/bulk-promo', 'PUT', {
               productIds: selectedProducts,
               discountPercentage: bulkDiscount,
               isLimitedTime: isBulkLimitedTime,
-              saleEndDate: bulkEndDate
+              saleEndDate: formattedEndDate
           });
           
           notification.show(result.message);
           fetchProducts();
           setIsBulkPromoModalOpen(false);
-          setSelectedProducts([]); // Limpa seleção após sucesso
-          // Reseta form
+          setSelectedProducts([]); 
           setBulkDiscount(10);
           setBulkEndDate('');
           setIsBulkLimitedTime(false);
@@ -7742,7 +7759,6 @@ const AdminProducts = ({ onNavigate }) => {
                         <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
                             <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
                         </button>
-                        {/* Botão de deletar em massa (mantido se já existia, ou adicione lógica similar) */}
                     </>
                 )}
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
@@ -7772,7 +7788,7 @@ const AdminProducts = ({ onNavigate }) => {
                             <th className="p-4">Produto</th>
                             <th className="p-4">Tipo</th>
                             <th className="p-4">Preço</th>
-                            <th className="p-4">Promoção</th> {/* Nova Coluna */}
+                            <th className="p-4">Promoção</th>
                             <th className="p-4">Estoque</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
@@ -7780,7 +7796,9 @@ const AdminProducts = ({ onNavigate }) => {
                     </thead>
                     <tbody>
                         {filteredProducts.map(p => {
-                            const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date) > new Date();
+                            // Correção na verificação de tempo limitado
+                            const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
+                            
                             return (
                                 <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
                                     <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
@@ -7804,7 +7822,6 @@ const AdminProducts = ({ onNavigate }) => {
                                             <span>R$ {Number(p.price).toFixed(2)}</span>
                                         )}
                                     </td>
-                                    {/* Coluna Promoção com Indicador Visual */}
                                     <td className="p-4">
                                         {p.is_on_sale ? (
                                             <div className="flex flex-col items-start gap-1">
@@ -7840,7 +7857,7 @@ const AdminProducts = ({ onNavigate }) => {
             {/* VERSÃO MOBILE DO ADMIN */}
             <div className="md:hidden space-y-4 p-4">
                 {filteredProducts.map(p => {
-                    const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date) > new Date();
+                    const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                     return (
                         <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
                             <div className="flex justify-between items-start">
