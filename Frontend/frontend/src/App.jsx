@@ -6905,7 +6905,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'brand', label: 'Marca', type: 'text', required: true },
         { name: 'category', label: 'Categoria', type: 'text', required: true },
         { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        // Campo sale_price removido daqui para ser exibido na área destacada
         { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
@@ -6943,14 +6942,11 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
             
-            // Dados de Promoção
             initialData.is_on_sale = !!item.is_on_sale;
             initialData.sale_price = item.sale_price || '';
             
-            // Formatar data vinda do DB para o input datetime-local (YYYY-MM-DDTHH:MM)
             if (item.sale_end_date) {
                 const date = new Date(item.sale_end_date);
-                // Ajuste para fuso horário local para exibir corretamente no input
                 const localISOTime = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
                 initialData.sale_end_date = localISOTime;
             } else {
@@ -7099,7 +7095,20 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         onSave(dataToSubmit);
     };
     
-    const availableColors = useMemo(() => [...new Set(categories.filter(c => c.type === 'color').map(c => c.name))], [categories]);
+    // --- LISTA PADRÃO DE CORES ---
+    const PREDEFINED_COLORS = [
+        "Amarelo", "Azul", "Azul Marinho", "Bege", "Branco", "Cinza", 
+        "Dourado", "Jeans", "Laranja", "Marrom", "Multicolorido", "Nude", 
+        "Off-White", "Prata", "Prateado", "Preto", "Rosa", "Roxo", "Verde", "Vermelho", "Vinho"
+    ];
+
+    const availableColors = useMemo(() => {
+        const dbColors = categories.filter(c => c.type === 'color').map(c => c.name);
+        // Une as cores do banco com as cores padrão, remove duplicatas e ordena
+        return [...new Set([...PREDEFINED_COLORS, ...dbColors])].sort();
+    }, [categories]);
+
+    // Lógica para tamanhos baseada nos dados existentes (pode ser expandida se necessário)
     const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
 
     return (
@@ -7185,7 +7194,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     }
                     
                     const isNameField = field.name === 'name';
-                    // Ocultamos o sale_price daqui para usar na caixa especial
                     if (field.name === 'sale_price') return null;
                     
                     return (
@@ -7196,7 +7204,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     );
                 })}
 
-                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO (REQUISIÇÃO ESPECÍFICA) --- */}
                 <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
                     <div className="flex items-center">
                         <input 
