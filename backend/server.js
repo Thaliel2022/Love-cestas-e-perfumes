@@ -2682,135 +2682,199 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
 });
 
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status, tracking_code } = req.body;
+    const { id } = req.params;
+    const { status, tracking_code } = req.body;
 
-  // --- BLOQUEIO DE SEGURANÇA ---
+  // --- BLOQUEIO DE SEGURANÇA ---
     if (status === ORDER_STATUS.REFUNDED) {
         return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
     }
 
     const STATUS_PROGRESSION = [
-        ORDER_STATUS.PENDING,
-        ORDER_STATUS.PAYMENT_APPROVED,
-        ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP,
-        ORDER_STATUS.SHIPPED,
-        ORDER_STATUS.OUT_FOR_DELIVERY,
-        ORDER_STATUS.DELIVERED
-    ];
-    
-    const statusesThatTriggerEmail = [
-        ORDER_STATUS.PROCESSING,
-        ORDER_STATUS.READY_FOR_PICKUP,
-        ORDER_STATUS.SHIPPED,
-        ORDER_STATUS.OUT_FOR_DELIVERY,
-        ORDER_STATUS.DELIVERED,
-        ORDER_STATUS.CANCELLED,
-        // ORDER_STATUS.REFUNDED foi removido daqui
-    ];
+        ORDER_STATUS.PENDING,
+        ORDER_STATUS.PAYMENT_APPROVED,
+        ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.READY_FOR_PICKUP,
+        ORDER_STATUS.SHIPPED,
+        ORDER_STATUS.OUT_FOR_DELIVERY,
+        ORDER_STATUS.DELIVERED
+    ];
+    
+    const statusesThatTriggerEmail = [
+        ORDER_STATUS.PROCESSING,
+        ORDER_STATUS.READY_FOR_PICKUP,
+        ORDER_STATUS.SHIPPED,
+        ORDER_STATUS.OUT_FOR_DELIVERY,
+        ORDER_STATUS.DELIVERED,
+        ORDER_STATUS.CANCELLED,
+    ];
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
-        if (currentOrderResult.length === 0) {
-            throw new Error("Pedido não encontrado.");
-        }
-        const currentOrder = currentOrderResult[0];
-        const { status: currentStatus } = currentOrder;
+        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
+        if (currentOrderResult.length === 0) {
+            throw new Error("Pedido não encontrado.");
+        }
+        const currentOrder = currentOrderResult[0];
+        const { status: currentStatus } = currentOrder;
 
-        if (status && status !== currentStatus) {
-            const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
-            const newIndex = STATUS_PROGRESSION.indexOf(status);
+        if (status && status !== currentStatus) {
+            const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
+            const newIndex = STATUS_PROGRESSION.indexOf(status);
 
-            if (newIndex > currentIndex) {
-                const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
-                for (const intermediateStatus of statusesToInsert) {
-                    await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
-                }
-            } else {
-                await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
-            }
-            
-            // --- LÓGICA DE REEMBOLSO REMOVIDA DAQUI ---
-            
-            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
-            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
+            if (newIndex > currentIndex) {
+                const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
+                for (const intermediateStatus of statusesToInsert) {
+                    await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
+                }
+            } else {
+                await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
+            }
+            
+            const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
+            const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
 
-            if (isRevertingStock && !wasAlreadyReverted) {
-                const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
-                for (const item of itemsToAdjust) {
-                    const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                    const product = productResult[0];
-                    if (product.product_type === 'clothing' && item.variation_details) {
-                        const variation = JSON.parse(item.variation_details);
-                        let variations = JSON.parse(product.variations || '[]');
-                        const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                        if (variationIndex !== -1) {
-                            variations[variationIndex].stock += item.quantity;
-                            const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                            await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                        }
-                    } else {
-                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                    }
-                }
-                console.log(`Estoque e vendas do pedido #${id} revertidos.`);
-            }
-        }
-        
-        if (tracking_code !== undefined) {
-            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
-        }
+            if (isRevertingStock && !wasAlreadyReverted) {
+                const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
+                for (const item of itemsToAdjust) {
+                    const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                    const product = productResult[0];
+                    if (product.product_type === 'clothing' && item.variation_details) {
+                        const variation = JSON.parse(item.variation_details);
+                        let variations = JSON.parse(product.variations || '[]');
+                        const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                        if (variationIndex !== -1) {
+                            variations[variationIndex].stock += item.quantity;
+                            const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                            await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                        }
+                    } else {
+                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                    }
+                }
+                console.log(`Estoque e vendas do pedido #${id} revertidos.`);
+            }
+        }
+        
+        if (tracking_code !== undefined) {
+            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
+        }
 
-        await connection.commit();
-        
-        // Envio de email fora da transação
-        if (status && status !== currentStatus && statusesThatTriggerEmail.includes(status)) {
-            const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
-            if (userResult.length > 0) {
-                const customerEmail = userResult[0].email;
-                const customerName = userResult[0].name;
-                const finalTrackingCode = tracking_code || currentOrder.tracking_code;
-                const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
-                const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
+        await connection.commit();
+        
+        // --- ENVIO DE E-MAILS (FORA DA TRANSAÇÃO) ---
+        if (status && status !== currentStatus) {
+            
+            // 1. Notificação para o CLIENTE (Status Gerais)
+            if (statusesThatTriggerEmail.includes(status)) {
+                const [userResult] = await db.query("SELECT u.email, u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [id]);
+                if (userResult.length > 0) {
+                    const customerEmail = userResult[0].email;
+                    const customerName = userResult[0].name;
+                    const finalTrackingCode = tracking_code || currentOrder.tracking_code;
+                    const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
+                    const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
 
-                let emailHtml, emailSubject;
-                if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
-                    emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
-                    emailSubject = `Seu Pedido #${id} foi enviado!`;
-                } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
-                    let pickupDetails = {};
-                    try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
-                    emailHtml = createReadyForPickupEmail(customerName, id, pickupDetails);
-                    emailSubject = `Seu Pedido #${id} está pronto para retirada!`;
-                } else {
-                    emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
-                    emailSubject = `Atualização sobre seu Pedido #${id}`;
-                }
+                    let emailHtml, emailSubject;
+                    if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
+                        emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
+                        emailSubject = `Seu Pedido #${id} foi enviado!`;
+                    } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
+                        let pickupDetails = {};
+                        try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
+                        emailHtml = createReadyForPickupEmail(customerName, id, pickupDetails);
+                        emailSubject = `Seu Pedido #${id} está pronto para retirada!`;
+                    } else {
+                        emailHtml = createGeneralUpdateEmail(customerName, id, status, parsedItems);
+                        emailSubject = `Atualização sobre seu Pedido #${id}`;
+                    }
 
-                if (emailHtml && emailSubject) {
-                    sendEmailAsync({ from: FROM_EMAIL, to: customerEmail, subject: emailSubject, html: emailHtml });
-                }
-            }
-        }
-        
-        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
+                    if (emailHtml && emailSubject) {
+                        sendEmailAsync({ from: FROM_EMAIL, to: customerEmail, subject: emailSubject, html: emailHtml });
+                    }
+                }
+            }
 
-        res.json({ message: "Pedido atualizado com sucesso." });
+            // 2. Notificação para o ADMIN (Se aprovado manualmente) + Checagem de Estoque
+            if (status === ORDER_STATUS.PAYMENT_APPROVED) {
+                const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
 
-   } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar pedido:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
-    } finally {
-        connection.release();
-    }
+                // Buscar dados para o e-mail do admin
+                const [itemsResult] = await db.query(`
+                    SELECT oi.quantity, oi.price, p.name, oi.variation_details
+                    FROM order_items oi 
+                    JOIN products p ON oi.product_id = p.id 
+                    WHERE oi.order_id = ?
+                `, [id]);
+                
+                const [userResult] = await db.query("SELECT name FROM users WHERE id = ?", [currentOrder.user_id]);
+                const customerName = userResult.length > 0 ? userResult[0].name : "Cliente";
+
+                // Envia e-mail de Nova Venda (Manual)
+                const adminEmailHtml = createAdminNewOrderEmail(currentOrder, itemsResult, customerName);
+                sendEmailAsync({
+                    from: FROM_EMAIL,
+                    to: adminEmail,
+                    subject: `Venda Aprovada Manualmente! Pedido #${id} - R$ ${Number(currentOrder.total).toFixed(2)}`,
+                    html: adminEmailHtml
+                });
+
+                // Checagem de Estoque Baixo
+                try {
+                    const LOW_STOCK_THRESHOLD = 5;
+                    const [allProducts] = await db.query("SELECT name, stock, product_type, variations FROM products WHERE is_active = 1");
+                    
+                    let zeroStockList = [];
+                    let lowStockList = [];
+
+                    allProducts.forEach(p => {
+                        if (p.product_type === 'clothing') {
+                            const vars = JSON.parse(p.variations || '[]');
+                            vars.forEach(v => {
+                                if (v.stock <= 0) {
+                                    zeroStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: 0 });
+                                } else if (v.stock <= LOW_STOCK_THRESHOLD) {
+                                    lowStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: v.stock });
+                                }
+                            });
+                        } else {
+                            if (p.stock <= 0) {
+                                zeroStockList.push({ name: p.name, variation: null, stock: 0 });
+                            } else if (p.stock <= LOW_STOCK_THRESHOLD) {
+                                lowStockList.push({ name: p.name, variation: null, stock: p.stock });
+                            }
+                        }
+                    });
+
+                    if (zeroStockList.length > 0 || lowStockList.length > 0) {
+                        const stockEmailHtml = createAdminStockAlertEmail(zeroStockList, lowStockList);
+                        await sendEmailAsync({
+                            from: FROM_EMAIL,
+                            to: adminEmail,
+                            subject: `⚠️ Alerta de Estoque (Pós-Aprovação): ${zeroStockList.length} Esgotados / ${lowStockList.length} Baixos`,
+                            html: stockEmailHtml
+                        });
+                    }
+                } catch (stockErr) {
+                    console.error("Erro ao verificar estoque na aprovação manual:", stockErr);
+                }
+            }
+        }
+        
+        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
+
+        res.json({ message: "Pedido atualizado com sucesso." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar pedido:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
+    } finally {
+        connection.release();
+    }
 });
-
-
 // --- SEÇÃO DE PAGAMENTOS E WEBHOOK ---
 app.get('/api/orders/:id/status', verifyToken, async (req, res) => {
     const { id } = req.params;
