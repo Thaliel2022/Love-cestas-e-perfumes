@@ -4337,6 +4337,16 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
     }
 });
 
+// Middleware Global de Tratamento de Erros
+app.use((err, req, res, next) => {
+    console.error("Erro não tratado capturado:", err.stack);
+    res.status(500).json({ 
+        status: 'error',
+        message: 'Ocorreu um erro interno no servidor.',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
