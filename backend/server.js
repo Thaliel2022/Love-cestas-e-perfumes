@@ -24,6 +24,8 @@ require('dotenv').config();
 // --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL;
+// NOVO: Define o email do admin (usa o FROM_EMAIL como fallback se não definido no .env)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
 
 
 // ---> Constantes para status de pedidos
