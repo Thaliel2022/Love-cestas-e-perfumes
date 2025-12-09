@@ -1513,34 +1513,6 @@ setInterval(async () => {
     }
 }, 60000);
 
-// Tarefa Diária: Verificar estoque zerado e notificar Admin
-setInterval(async () => {
-    try {
-        const connection = await db.getConnection();
-        // Busca produtos ativos com estoque menor ou igual a 0
-        const [outOfStockProducts] = await connection.query("SELECT name, brand, stock FROM products WHERE stock <= 0 AND is_active = 1");
-        
-        if (outOfStockProducts.length > 0) {
-            console.log(`[AUTO-STOCK] Encontrados ${outOfStockProducts.length} produtos fora de estoque. Enviando relatório para admin.`);
-            
-            const adminEmail = process.env.ADMIN_EMAIL;
-            if (adminEmail) {
-                const emailHtml = createAdminLowStockEmail(outOfStockProducts);
-                await sendEmailAsync({
-                    from: FROM_EMAIL,
-                    to: adminEmail,
-                    subject: `⚠️ Relatório Diário: ${outOfStockProducts.length} Produtos Fora de Estoque`,
-                    html: emailHtml
-                });
-            } else {
-                console.warn("[AUTO-STOCK] Variável de ambiente ADMIN_EMAIL não configurada. E-mail não enviado.");
-            }
-        }
-        connection.release();
-    } catch (err) {
-        console.error("[AUTO-STOCK] Erro ao verificar estoque:", err);
-    }
-}, 24 * 60 * 60 * 1000); // Executa a cada 24 horas (86400000 ms)
 
 // --- ROTA DE CRIAÇÃO DE PRODUTOS (POST) ---
 // Substitua sua rota app.post('/api/products'...) atual por esta versão completa:
@@ -2893,146 +2865,114 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
 
 
 const processPaymentWebhook = async (paymentId) => {
-    try {
-        if (!paymentId || paymentId === 123456 || paymentId === '123456') {
-            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
-            return;
-        }
+    try {
+        if (!paymentId || paymentId === 123456 || paymentId === '123456') {
+            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
+            return;
+        }
 
-        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
-        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-        });
+        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
+        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        });
 
-        if (!paymentResponse.ok) {
-            const errorText = await paymentResponse.text();
-            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
-            return;
-        }
-        
-        const payment = await paymentResponse.json();
-        const orderId = payment.external_reference;
-        const paymentStatus = payment.status;
+        if (!paymentResponse.ok) {
+            const errorText = await paymentResponse.text();
+            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
+            return;
+        }
+        
+        const payment = await paymentResponse.json();
+        const orderId = payment.external_reference;
+        const paymentStatus = payment.status;
 
-        if (!orderId) {
-            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
-            return;
-        }
+        if (!orderId) {
+            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
+            return;
+        }
 
-        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
-        
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
+        
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
-            const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [orderId]);
-            if (currentOrderResult.length === 0) {
-                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
-                await connection.commit();
-                return;
-            }
-            const currentOrder = currentOrderResult[0];
-            const currentDBStatus = currentOrder.status;
-            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
+            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [orderId]);
+            if (currentOrderResult.length === 0) {
+                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
+                await connection.commit();
+                return;
+            }
+            const currentDBStatus = currentOrderResult[0].status;
+            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
-            let paymentDetailsPayload = null;
-            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
-                paymentDetailsPayload = {
-                    method: 'credit_card',
-                    card_brand: payment.payment_method_id,
-                    card_last_four: payment.card.last_four_digits,
-                    installments: payment.installments
-                };
-            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
-                paymentDetailsPayload = { method: 'pix' };
-            } else if (payment.payment_type_id === 'ticket') {
-                paymentDetailsPayload = { method: 'boleto' };
-            }
-            
-            await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
-                [
-                    paymentStatus, 
-                    payment.id, 
-                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
-                    orderId
-                ]
-            );
-            
-            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+            let paymentDetailsPayload = null;
+            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
+                paymentDetailsPayload = {
+                    method: 'credit_card',
+                    card_brand: payment.payment_method_id,
+                    card_last_four: payment.card.last_four_digits,
+                    installments: payment.installments
+                };
+            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
+                paymentDetailsPayload = { method: 'pix' };
+            } else if (payment.payment_type_id === 'ticket') {
+                paymentDetailsPayload = { method: 'boleto' };
+            }
+            
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
+                [
+                    paymentStatus, 
+                    payment.id, 
+                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
+                    orderId
+                ]
+            );
+            
+            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
+                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
+                
+                const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
+                if (itemsToReturn.length > 0) {
+                    for (const item of itemsToReturn) {
+                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                        const product = productResult[0];
+                        if (product.product_type === 'clothing' && item.variation_details) {
+                            const variation = JSON.parse(item.variation_details);
+                            let variations = JSON.parse(product.variations || '[]');
+                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                            if (variationIndex !== -1) {
+                                variations[variationIndex].stock += item.quantity;
+                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                            }
+                        } else {
+                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                        }
+                    }
+                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
+                }
+            } else {
+                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
+            }
+            
+            await connection.commit();
+            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
 
-                // --- NOVA LÓGICA: Notificar Admin sobre Novo Pedido Aprovado ---
-                const adminEmail = process.env.ADMIN_EMAIL;
-                if (adminEmail) {
-                    // Busca dados do cliente e itens para o email do admin
-                    const [orderUser] = await connection.query("SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.id = ?", [orderId]);
-                    const [orderItems] = await connection.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [orderId]);
-                    
-                    const parsedItems = orderItems.map(item => ({
-                        ...item, 
-                        variation_details: item.variation_details ? JSON.parse(item.variation_details) : null
-                    }));
-                    
-                    const adminEmailHtml = createAdminNewOrderEmail(
-                        orderId, 
-                        orderUser[0]?.name || 'Cliente', 
-                        currentOrder.total, 
-                        parsedItems
-                    );
-                    
-                    // Envia email de forma assíncrona (sem await para não segurar a transação)
-                    sendEmailAsync({
-                        from: FROM_EMAIL,
-                        to: adminEmail,
-                        subject: `🔔 Novo Pedido Aprovado: #${orderId} - R$ ${Number(currentOrder.total).toFixed(2)}`,
-                        html: adminEmailHtml
-                    });
-                    console.log(`[Webhook] Notificação de novo pedido aprovado enviada para Admin (${adminEmail}).`);
-                }
-                // ----------------------------------------------------------------
+        } catch(dbError) {
+            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
+            if (connection) await connection.rollback();
+        } finally {
+            if (connection) connection.release();
+        }
 
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
-                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
-                
-                const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
-                if (itemsToReturn.length > 0) {
-                    for (const item of itemsToReturn) {
-                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                        const product = productResult[0];
-                        if (product.product_type === 'clothing' && item.variation_details) {
-                            const variation = JSON.parse(item.variation_details);
-                            let variations = JSON.parse(product.variations || '[]');
-                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                            if (variationIndex !== -1) {
-                                variations[variationIndex].stock += item.quantity;
-                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                            }
-                        } else {
-                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                        }
-                    }
-                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
-                }
-            } else {
-                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
-            }
-            
-            await connection.commit();
-            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
-
-        } catch(dbError) {
-            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
-            if (connection) await connection.rollback();
-        } finally {
-            if (connection) connection.release();
-        }
-
-    } catch (error) {
-        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
-    }
+    } catch (error) {
+        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
+    }
 };
 
 
@@ -4256,73 +4196,6 @@ app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) 
     }
 });
 
-const createAdminLowStockEmail = (products) => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const itemsHtml = products.map(p => `
-        <tr style="border-bottom: 1px solid #4B5563;">
-            <td style="padding: 10px; color: #E5E7EB;">${p.name}</td>
-            <td style="padding: 10px; color: #9CA3AF;">${p.brand}</td>
-            <td style="padding: 10px; color: #EF4444; font-weight: bold; text-align: center;">${p.stock}</td>
-        </tr>
-    `).join('');
-
-    const content = `
-        <h1 style="color: #EF4444; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">⚠️ Alerta de Estoque</h1>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; margin: 0 0 20px;">Olá Admin,</p>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; margin: 0 0 20px;">Os seguintes produtos estão <strong>fora de estoque</strong> (quantidade 0 ou negativa) e precisam de atenção:</p>
-        
-        <table width="100%" cellspacing="0" cellpadding="0" style="font-family: Arial, sans-serif; font-size: 14px; border-collapse: collapse;">
-            <thead>
-                <tr style="background-color: #374151;">
-                    <th align="left" style="padding: 10px; color: #D4AF37; border-bottom: 2px solid #4B5563;">Produto</th>
-                    <th align="left" style="padding: 10px; color: #D4AF37; border-bottom: 2px solid #4B5563;">Marca</th>
-                    <th align="center" style="padding: 10px; color: #D4AF37; border-bottom: 2px solid #4B5563;">Qtd</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${itemsHtml}
-            </tbody>
-        </table>
-
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 30px;">
-            <tr>
-                <td align="center">
-                    <a href="${appUrl}/#admin/products" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Gerenciar Estoque</a>
-                </td>
-            </tr>
-        </table>
-    `;
-    return createEmailBase(content);
-};
-
-const createAdminNewOrderEmail = (orderId, customerName, total, items) => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const itemsHtml = createItemsListHtml(items, "Itens do Pedido");
-    
-    const content = `
-        <h1 style="color: #10B981; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Novo Pedido Aprovado! 🎉</h1>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; margin: 0 0 15px;">Olá Admin,</p>
-        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; margin: 0 0 20px;">Um novo pedido foi realizado e o pagamento já foi <strong>confirmado</strong>.</p>
-        
-        <div style="background-color: #1F2937; border: 1px solid #374151; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <p style="margin: 5px 0; color: #E5E7EB; font-size: 15px;"><strong>Pedido:</strong> #${orderId}</p>
-            <p style="margin: 5px 0; color: #E5E7EB; font-size: 15px;"><strong>Cliente:</strong> ${customerName}</p>
-            <p style="margin: 5px 0; color: #D4AF37; font-size: 18px; font-weight: bold;"><strong>Total:</strong> R$ ${Number(total).toFixed(2).replace('.', ',')}</p>
-        </div>
-
-        ${itemsHtml}
-
-        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 30px;">
-            <tr>
-                <td align="center">
-                    <a href="${appUrl}/#admin/orders" target="_blank" style="display: inline-block; padding: 12px 25px; background-color: #D4AF37; color: #111827; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif;">Ver Pedido no Painel</a>
-                </td>
-            </tr>
-        </table>
-    `;
-    return createEmailBase(content);
-};
-
 // (Admin) Negar uma solicitação de reembolso
 app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => {
     const { id: refundId } = req.params;
@@ -4462,16 +4335,6 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
         console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
         res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
     }
-});
-
-// Middleware Global de Tratamento de Erros
-app.use((err, req, res, next) => {
-    console.error("Erro não tratado capturado:", err.stack);
-    res.status(500).json({ 
-        status: 'error',
-        message: 'Ocorreu um erro interno no servidor.',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
 });
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
