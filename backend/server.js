@@ -596,6 +596,124 @@ const createAdminDirectEmail = (customerName, subject, message) => {
     return createEmailBase(content);
 };
 
+const createAdminNewOrderEmail = (order, items, customerName) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const isPickup = order.shipping_method === 'Retirar na loja';
+    
+    let shippingInfoHtml = '';
+    if (isPickup) {
+        shippingInfoHtml = `
+            <div style="background-color: #374151; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="color: #D4AF37; font-weight: bold; margin: 0 0 5px;">📍 Método: Retirada na Loja</p>
+                <p style="color: #E5E7EB; margin: 0; font-size: 14px;">O cliente irá retirar o produto no endereço da loja.</p>
+            </div>`;
+    } else {
+        let address = {};
+        try { address = JSON.parse(order.shipping_address); } catch (e) {}
+        shippingInfoHtml = `
+            <div style="background-color: #374151; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="color: #D4AF37; font-weight: bold; margin: 0 0 10px;">🚚 Método: Envio para Endereço</p>
+                <p style="color: #E5E7EB; margin: 0 0 2px; font-size: 14px;"><strong>Rua:</strong> ${address.logradouro || 'N/A'}, ${address.numero || 'S/N'}</p>
+                <p style="color: #E5E7EB; margin: 0 0 2px; font-size: 14px;"><strong>Bairro:</strong> ${address.bairro || 'N/A'}</p>
+                <p style="color: #E5E7EB; margin: 0 0 2px; font-size: 14px;"><strong>Cidade:</strong> ${address.localidade || 'N/A'} - ${address.uf || ''}</p>
+                <p style="color: #E5E7EB; margin: 0; font-size: 14px;"><strong>CEP:</strong> ${address.cep || 'N/A'}</p>
+                ${address.complemento ? `<p style="color: #E5E7EB; margin: 2px 0 0; font-size: 14px;"><strong>Comp.:</strong> ${address.complemento}</p>` : ''}
+            </div>`;
+    }
+
+    const itemsList = items.map(item => `
+        <tr style="border-bottom: 1px solid #4B5563;">
+            <td style="padding: 10px 0; color: #E5E7EB;">${item.quantity}x</td>
+            <td style="padding: 10px 10px; color: #E5E7EB;">
+                ${item.name}
+                ${item.variation_details ? `<br><span style="font-size: 12px; color: #9CA3AF;">${JSON.parse(item.variation_details).color} / ${JSON.parse(item.variation_details).size}</span>` : ''}
+            </td>
+            <td style="padding: 10px 0; text-align: right; color: #D4AF37;">R$ ${Number(item.price).toFixed(2)}</td>
+        </tr>
+    `).join('');
+
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Nova Venda Aprovada! 💰</h1>
+        <p style="color: #E5E7EB; margin: 0 0 20px;">Olá Admin, um novo pedido foi confirmado e o pagamento foi aprovado.</p>
+        
+        <div style="background-color: #111827; border: 1px solid #374151; border-radius: 8px; overflow: hidden; margin-bottom: 25px;">
+            <div style="padding: 15px; border-bottom: 1px solid #374151; display: flex; justify-content: space-between;">
+                <span style="color: #9CA3AF;">Pedido <strong>#${order.id}</strong></span>
+                <span style="color: #10B981; font-weight: bold;">R$ ${Number(order.total).toFixed(2)}</span>
+            </div>
+            <div style="padding: 15px;">
+                <p style="color: #E5E7EB; margin: 0 0 5px;"><strong>Cliente:</strong> ${customerName}</p>
+                <p style="color: #E5E7EB; margin: 0;"><strong>Data:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+            </div>
+        </div>
+
+        <h3 style="color: #E5E7EB; margin: 0 0 10px;">📦 Detalhes do Envio</h3>
+        ${shippingInfoHtml}
+
+        <h3 style="color: #E5E7EB; margin: 0 0 10px;">🛒 Produtos</h3>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">
+            ${itemsList}
+        </table>
+
+        <div style="text-align: center;">
+            <a href="${appUrl}/#admin/orders" style="background-color: #D4AF37; color: #000; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">Gerenciar Pedido</a>
+        </div>
+    `;
+    return createEmailBase(content);
+};
+
+const createAdminStockAlertEmail = (zeroStockItems, lowStockItems) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    
+    let zeroStockHtml = '';
+    if (zeroStockItems.length > 0) {
+        zeroStockHtml = `
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: #EF4444; border-bottom: 1px solid #EF4444; padding-bottom: 8px; margin-bottom: 15px;">🚨 PRODUTOS ESGOTADOS (ESTOQUE 0)</h3>
+                <ul style="padding-left: 20px; margin: 0;">
+                    ${zeroStockItems.map(p => `
+                        <li style="color: #E5E7EB; margin-bottom: 8px;">
+                            <strong>${p.name}</strong> 
+                            ${p.variation ? `<span style="color: #9CA3AF; font-size: 13px;">(${p.variation})</span>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    let lowStockHtml = '';
+    if (lowStockItems.length > 0) {
+        lowStockHtml = `
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: #F59E0B; border-bottom: 1px solid #F59E0B; padding-bottom: 8px; margin-bottom: 15px;">⚠️ ALERTA DE ESTOQUE BAIXO</h3>
+                <ul style="padding-left: 20px; margin: 0;">
+                    ${lowStockItems.map(p => `
+                        <li style="color: #E5E7EB; margin-bottom: 8px;">
+                            <strong>${p.name}</strong> 
+                            ${p.variation ? `<span style="color: #9CA3AF; font-size: 13px;">(${p.variation})</span>` : ''}
+                            <span style="color: #F59E0B; font-weight: bold; margin-left: 10px;">Restam: ${p.stock}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    }
+
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Relatório de Estoque Crítico</h1>
+        <p style="color: #E5E7EB; margin: 0 0 20px;">Atenção Admin, detectamos atualizações críticas no inventário após a última venda.</p>
+        
+        ${zeroStockHtml}
+        ${lowStockHtml}
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="${appUrl}/#admin/products" style="background-color: #374151; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; border: 1px solid #4B5563;">Repor Estoque Agora</a>
+        </div>
+    `;
+    return createEmailBase(content);
+};
+
 // --- ROTAS DA APLICAÇÃO ---
 
 app.get('/api/health', (req, res) => {
@@ -2411,93 +2529,136 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.post('/api/orders', verifyToken, async (req, res) => {
-    const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details } = req.body;
-    if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
-    
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details } = req.body;
+    if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        for (const item of items) {
-            const [productResult] = await connection.query("SELECT product_type, variations, stock FROM products WHERE id = ? FOR UPDATE", [item.id]);
-            const product = productResult[0];
-            if (!product) throw new Error(`Produto com ID ${item.id} não encontrado.`);
+        for (const item of items) {
+            const [productResult] = await connection.query("SELECT product_type, variations, stock FROM products WHERE id = ? FOR UPDATE", [item.id]);
+            const product = productResult[0];
+            if (!product) throw new Error(`Produto com ID ${item.id} não encontrado.`);
 
-            if (product.product_type === 'clothing') {
-                if (!item.variation || !item.variation.color || !item.variation.size) {
-                    throw new Error(`Variação não especificada para o produto ${item.name}.`);
-                }
-                let variations = JSON.parse(product.variations || '[]');
-                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
-                
-                if (variationIndex === -1) throw new Error(`Variação ${item.variation.color}/${item.variation.size} não encontrada para ${item.name}.`);
-                if (variations[variationIndex].stock < item.qty) throw new Error(`Estoque insuficiente para ${item.name} (${item.variation.color}/${item.variation.size}).`);
-                
-            } else { // perfume
-                if (product.stock < item.qty) {
-                    throw new Error(`Produto "${item.name || item.id}" não tem estoque suficiente.`);
-                }
-            }
-        }
-        
-        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const orderParams = [
-            req.user.id, 
-            total, 
-            ORDER_STATUS.PENDING, 
-            shipping_method === 'Retirar na loja' ? null : JSON.stringify(shippingAddress), 
-            paymentMethod, 
-            shipping_method, 
-            shipping_cost, 
-            coupon_code || null, 
-            discount_amount || 0,
-            pickup_details || null
-        ];
-        const [orderResult] = await connection.query(orderSql, orderParams);
-        const orderId = orderResult.insertId;
+            if (product.product_type === 'clothing') {
+                if (!item.variation || !item.variation.color || !item.variation.size) {
+                    throw new Error(`Variação não especificada para o produto ${item.name}.`);
+                }
+                let variations = JSON.parse(product.variations || '[]');
+                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
+                
+                if (variationIndex === -1) throw new Error(`Variação ${item.variation.color}/${item.variation.size} não encontrada para ${item.name}.`);
+                if (variations[variationIndex].stock < item.qty) throw new Error(`Estoque insuficiente para ${item.name} (${item.variation.color}/${item.variation.size}).`);
+                
+            } else { // perfume
+                if (product.stock < item.qty) {
+                    throw new Error(`Produto "${item.name || item.id}" não tem estoque suficiente.`);
+                }
+            }
+        }
+        
+        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const orderParams = [
+            req.user.id, 
+            total, 
+            ORDER_STATUS.PENDING, 
+            shipping_method === 'Retirar na loja' ? null : JSON.stringify(shippingAddress), 
+            paymentMethod, 
+            shipping_method, 
+            shipping_cost, 
+            coupon_code || null, 
+            discount_amount || 0,
+            pickup_details || null
+        ];
+        const [orderResult] = await connection.query(orderSql, orderParams);
+        const orderId = orderResult.insertId;
 
-        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
-        
-        for (const item of items) {
-            const variationDetailsString = item.variation ? JSON.stringify(item.variation) : null;
-            await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.price, variationDetailsString]);
-            
-            const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.id]);
-            const product = productResult[0];
+        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
+        
+        for (const item of items) {
+            const variationDetailsString = item.variation ? JSON.stringify(item.variation) : null;
+            await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.price, variationDetailsString]);
+            
+            const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.id]);
+            const product = productResult[0];
 
-            if (product.product_type === 'clothing') {
-                let variations = JSON.parse(product.variations || '[]');
-                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
-                if (variationIndex !== -1) {
-                    variations[variationIndex].stock -= item.qty;
-                    const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                    await connection.query("UPDATE products SET variations = ?, stock = ?, sales = sales + ? WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.qty, item.id]);
-                }
-            } else {
-                await connection.query("UPDATE products SET stock = stock - ?, sales = sales + ? WHERE id = ?", [item.qty, item.qty, item.id]);
-            }
-        }
-        
-        if (coupon_code) {
-             const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
-             if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
-                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
-             }
-        }
-        
-        await connection.query("DELETE FROM user_carts WHERE user_id = ?", [req.user.id]);
-        
-        await connection.commit();
-        res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao criar pedido:", err);
-        res.status(500).json({ message: "Falha ao criar o pedido. Verifique o estoque e os dados enviados." });
-    } finally {
-        connection.release();
-    }
+            if (product.product_type === 'clothing') {
+                let variations = JSON.parse(product.variations || '[]');
+                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
+                if (variationIndex !== -1) {
+                    variations[variationIndex].stock -= item.qty;
+                    const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                    await connection.query("UPDATE products SET variations = ?, stock = ?, sales = sales + ? WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.qty, item.id]);
+                }
+            } else {
+                await connection.query("UPDATE products SET stock = stock - ?, sales = sales + ? WHERE id = ?", [item.qty, item.qty, item.id]);
+            }
+        }
+        
+        if (coupon_code) {
+             const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
+             if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
+                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+             }
+        }
+        
+        await connection.query("DELETE FROM user_carts WHERE user_id = ?", [req.user.id]);
+        
+        await connection.commit();
+
+        // --- VERIFICAÇÃO DE ESTOQUE PARA E-MAIL DE ADMIN ---
+        // Executado após o commit para garantir dados reais
+        try {
+            const LOW_STOCK_THRESHOLD = 5;
+            const [allProducts] = await db.query("SELECT name, stock, product_type, variations FROM products WHERE is_active = 1");
+            
+            let zeroStockList = [];
+            let lowStockList = [];
+
+            allProducts.forEach(p => {
+                if (p.product_type === 'clothing') {
+                    const vars = JSON.parse(p.variations || '[]');
+                    vars.forEach(v => {
+                        if (v.stock <= 0) {
+                            zeroStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: 0 });
+                        } else if (v.stock <= LOW_STOCK_THRESHOLD) {
+                            lowStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: v.stock });
+                        }
+                    });
+                } else {
+                    if (p.stock <= 0) {
+                        zeroStockList.push({ name: p.name, variation: null, stock: 0 });
+                    } else if (p.stock <= LOW_STOCK_THRESHOLD) {
+                        lowStockList.push({ name: p.name, variation: null, stock: p.stock });
+                    }
+                }
+            });
+
+            if (zeroStockList.length > 0 || lowStockList.length > 0) {
+                const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
+                const emailHtml = createAdminStockAlertEmail(zeroStockList, lowStockList);
+                await sendEmailAsync({
+                    from: FROM_EMAIL,
+                    to: adminEmail,
+                    subject: `⚠️ Alerta de Estoque: ${zeroStockList.length} Esgotados / ${lowStockList.length} Baixos`,
+                    html: emailHtml
+                });
+            }
+        } catch (stockErr) {
+            console.error("Erro ao verificar estoque para notificação do admin:", stockErr);
+        }
+        // --- FIM DA VERIFICAÇÃO ---
+
+        res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao criar pedido:", err);
+        res.status(500).json({ message: "Falha ao criar o pedido. Verifique o estoque e os dados enviados." });
+    } finally {
+        connection.release();
+    }
 });
-
 
 app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     const { id } = req.params;
@@ -2865,116 +3026,141 @@ app.get('/api/mercadopago/installments', checkMaintenanceMode, async (req, res) 
 
 
 const processPaymentWebhook = async (paymentId) => {
-    try {
-        if (!paymentId || paymentId === 123456 || paymentId === '123456') {
-            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
-            return;
-        }
+    try {
+        if (!paymentId || paymentId === 123456 || paymentId === '123456') {
+            console.log(`[Webhook] Notificação de simulação recebida (ID: ${paymentId}). Processo ignorado.`);
+            return;
+        }
 
-        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
-        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
-        });
+        console.log(`[Webhook] Consultando detalhes do pagamento ${paymentId} no Mercado Pago...`);
+        const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}` }
+        });
 
-        if (!paymentResponse.ok) {
-            const errorText = await paymentResponse.text();
-            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
-            return;
-        }
-        
-        const payment = await paymentResponse.json();
-        const orderId = payment.external_reference;
-        const paymentStatus = payment.status;
+        if (!paymentResponse.ok) {
+            const errorText = await paymentResponse.text();
+            console.error(`[Webhook] Falha ao consultar pagamento ${paymentId} no MP: Status ${paymentResponse.status}`, errorText);
+            return;
+        }
+        
+        const payment = await paymentResponse.json();
+        const orderId = payment.external_reference;
+        const paymentStatus = payment.status;
 
-        if (!orderId) {
-            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
-            return;
-        }
+        if (!orderId) {
+            console.log(`[Webhook] Notificação para pagamento ${paymentId} não continha um ID de pedido (external_reference).`);
+            return;
+        }
 
-        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
-        
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+        console.log(`[Webhook] Pedido ID: ${orderId}. Status do Pagamento MP: ${paymentStatus}`);
+        
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
-            const [currentOrderResult] = await connection.query("SELECT status FROM orders WHERE id = ? FOR UPDATE", [orderId]);
-            if (currentOrderResult.length === 0) {
-                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
-                await connection.commit();
-                return;
-            }
-            const currentDBStatus = currentOrderResult[0].status;
-            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
+            const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [orderId]);
+            if (currentOrderResult.length === 0) {
+                console.log(`[Webhook] Pedido ${orderId} não encontrado no banco de dados.`);
+                await connection.commit();
+                return;
+            }
+            const currentOrder = currentOrderResult[0];
+            const { status: currentDBStatus } = currentOrder;
+            console.log(`[Webhook] Status atual do pedido ${orderId} no DB: '${currentDBStatus}'`);
 
-            let paymentDetailsPayload = null;
-            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
-                paymentDetailsPayload = {
-                    method: 'credit_card',
-                    card_brand: payment.payment_method_id,
-                    card_last_four: payment.card.last_four_digits,
-                    installments: payment.installments
-                };
-            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
-                paymentDetailsPayload = { method: 'pix' };
-            } else if (payment.payment_type_id === 'ticket') {
-                paymentDetailsPayload = { method: 'boleto' };
-            }
-            
-            await connection.query(
-                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
-                [
-                    paymentStatus, 
-                    payment.id, 
-                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
-                    orderId
-                ]
-            );
-            
-            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
-            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
-                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
-                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
-                
-                const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
-                if (itemsToReturn.length > 0) {
-                    for (const item of itemsToReturn) {
-                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-                        const product = productResult[0];
-                        if (product.product_type === 'clothing' && item.variation_details) {
-                            const variation = JSON.parse(item.variation_details);
-                            let variations = JSON.parse(product.variations || '[]');
-                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                            if (variationIndex !== -1) {
-                                variations[variationIndex].stock += item.quantity;
-                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                            }
-                        } else {
-                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-                        }
-                    }
-                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
-                }
-            } else {
-                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
-            }
-            
-            await connection.commit();
-            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
+            let paymentDetailsPayload = null;
+            if (payment.payment_type_id === 'credit_card' && payment.card && payment.card.last_four_digits) {
+                paymentDetailsPayload = {
+                    method: 'credit_card',
+                    card_brand: payment.payment_method_id,
+                    card_last_four: payment.card.last_four_digits,
+                    installments: payment.installments
+                };
+            } else if (payment.payment_type_id === 'bank_transfer' || payment.payment_method_id === 'pix') {
+                paymentDetailsPayload = { method: 'pix' };
+            } else if (payment.payment_type_id === 'ticket') {
+                paymentDetailsPayload = { method: 'boleto' };
+            }
+            
+            await connection.query(
+                "UPDATE orders SET payment_status = ?, payment_gateway_id = ?, payment_details = ? WHERE id = ?",
+                [
+                    paymentStatus, 
+                    payment.id, 
+                    paymentDetailsPayload ? JSON.stringify(paymentDetailsPayload) : null, 
+                    orderId
+                ]
+            );
+            
+            if (paymentStatus === 'approved' && currentDBStatus === ORDER_STATUS.PENDING) {
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_APPROVED, connection);
+                
+                // --- NOVO: Notificação de Nova Venda para Admin ---
+                // Buscar dados do cliente e itens para o email
+                const [userResult] = await connection.query("SELECT name FROM users WHERE id = ?", [currentOrder.user_id]);
+                const customerName = userResult.length > 0 ? userResult[0].name : "Cliente";
+                
+                const [itemsResult] = await connection.query(`
+                    SELECT oi.quantity, oi.price, p.name, oi.variation_details
+                    FROM order_items oi 
+                    JOIN products p ON oi.product_id = p.id 
+                    WHERE oi.order_id = ?
+                `, [orderId]);
 
-        } catch(dbError) {
-            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
-            if (connection) await connection.rollback();
-        } finally {
-            if (connection) connection.release();
-        }
+                const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
+                const adminEmailHtml = createAdminNewOrderEmail(currentOrder, itemsResult, customerName);
+                
+                // Envia e-mail para o admin (sem await para não travar o webhook)
+                sendEmailAsync({
+                    from: FROM_EMAIL,
+                    to: adminEmail,
+                    subject: `Nova Venda Aprovada! Pedido #${orderId} - R$ ${Number(currentOrder.total).toFixed(2)}`,
+                    html: adminEmailHtml
+                });
+                // ------------------------------------------------
 
-    } catch (error) {
-        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
-    }
+            } else if ((paymentStatus === 'rejected' || paymentStatus === 'cancelled') && currentDBStatus !== ORDER_STATUS.CANCELLED) {
+                await updateOrderStatus(orderId, ORDER_STATUS.PAYMENT_REJECTED, connection);
+                await updateOrderStatus(orderId, ORDER_STATUS.CANCELLED, connection, "Pagamento recusado pela operadora.");
+                
+                const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [orderId]);
+                if (itemsToReturn.length > 0) {
+                    for (const item of itemsToReturn) {
+                        const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                        const product = productResult[0];
+                        if (product.product_type === 'clothing' && item.variation_details) {
+                            const variation = JSON.parse(item.variation_details);
+                            let variations = JSON.parse(product.variations || '[]');
+                            const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                            if (variationIndex !== -1) {
+                                variations[variationIndex].stock += item.quantity;
+                                const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                                await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                            }
+                        } else {
+                            await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                        }
+                    }
+                    console.log(`[Webhook] Estoque e vendas de ${itemsToReturn.length} item(ns) do pedido ${orderId} foram revertidos.`);
+                }
+            } else {
+                 console.log(`[Webhook] Nenhuma atualização de status necessária para o pedido ${orderId}. Status atual: '${currentDBStatus}'.`);
+            }
+            
+            await connection.commit();
+            console.log(`[Webhook] Transação para o pedido ${orderId} finalizada com sucesso.`);
+
+        } catch(dbError) {
+            console.error(`[Webhook] ERRO DE BANCO DE DADOS ao processar pedido ${orderId}:`, dbError);
+            if (connection) await connection.rollback();
+        } finally {
+            if (connection) connection.release();
+        }
+
+    } catch (error) {
+        console.error('Erro GRAVE e inesperado ao processar o webhook de pagamento:', error);
+    }
 };
-
 
 app.post('/api/mercadopago-webhook', (req, res) => {
     res.sendStatus(200);
