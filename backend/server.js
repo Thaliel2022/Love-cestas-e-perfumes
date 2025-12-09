@@ -1631,6 +1631,80 @@ setInterval(async () => {
     }
 }, 60000);
 
+// --- CRON JOB: RELATÓRIO DIÁRIO DE ESTOQUE (08:00 BRT) ---
+let lastDailyReportDate = null;
+
+setInterval(async () => {
+    // Obtém a hora atual forçando o fuso horário de São Paulo/Brasil
+    const now = new Date();
+    const options = { timeZone: 'America/Sao_Paulo', hour: 'numeric', minute: 'numeric', hour12: false };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatter.formatToParts(now);
+    const hour = parseInt(parts.find(p => p.type === 'hour').value, 10);
+    const minute = parseInt(parts.find(p => p.type === 'minute').value, 10);
+
+    // Verifica se é 08:00 da manhã
+    if (hour === 8 && minute === 0) {
+        const todayStr = now.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        
+        // Evita execução duplicada no mesmo dia (garante que rode apenas uma vez)
+        if (lastDailyReportDate === todayStr) return;
+        lastDailyReportDate = todayStr;
+
+        console.log('[AUTO-STOCK-DAILY] Iniciando verificação diária de estoque (08:00 BRT)...');
+
+        try {
+            const connection = await db.getConnection();
+            try {
+                const LOW_STOCK_THRESHOLD = 5;
+                const [allProducts] = await connection.query("SELECT name, stock, product_type, variations FROM products WHERE is_active = 1");
+                
+                let zeroStockList = [];
+                let lowStockList = [];
+
+                allProducts.forEach(p => {
+                    if (p.product_type === 'clothing') {
+                        const vars = JSON.parse(p.variations || '[]');
+                        vars.forEach(v => {
+                            if (v.stock <= 0) {
+                                zeroStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: 0 });
+                            } else if (v.stock <= LOW_STOCK_THRESHOLD) {
+                                lowStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: v.stock });
+                            }
+                        });
+                    } else {
+                        if (p.stock <= 0) {
+                            zeroStockList.push({ name: p.name, variation: null, stock: 0 });
+                        } else if (p.stock <= LOW_STOCK_THRESHOLD) {
+                            lowStockList.push({ name: p.name, variation: null, stock: p.stock });
+                        }
+                    }
+                });
+
+                if (zeroStockList.length > 0 || lowStockList.length > 0) {
+                    const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
+                    const emailHtml = createAdminStockAlertEmail(zeroStockList, lowStockList);
+                    
+                    // Assunto personalizado para o relatório diário
+                    await sendEmailAsync({
+                        from: FROM_EMAIL,
+                        to: adminEmail,
+                        subject: `📅 Relatório Diário (08:00): ${zeroStockList.length} Esgotados / ${lowStockList.length} Baixos`,
+                        html: emailHtml
+                    });
+                    console.log('[AUTO-STOCK-DAILY] Relatório diário enviado com sucesso.');
+                } else {
+                    console.log('[AUTO-STOCK-DAILY] Estoque saudável. Nenhum e-mail enviado.');
+                }
+
+            } finally {
+                connection.release();
+            }
+        } catch (err) {
+            console.error("[AUTO-STOCK-DAILY] Erro ao executar relatório diário:", err);
+        }
+    }
+}, 60000); // Verifica a cada minuto
 
 // --- ROTA DE CRIAÇÃO DE PRODUTOS (POST) ---
 // Substitua sua rota app.post('/api/products'...) atual por esta versão completa:
