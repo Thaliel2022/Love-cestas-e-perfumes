@@ -329,12 +329,11 @@ const AuthProvider = ({ children }) => {
 
 const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    // --- Estados da Loja (Existentes) ---
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -342,11 +341,64 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
-
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // --- Novos Estados para Temas (Integrado) ---
+    const [currentTheme, setCurrentTheme] = useState(null);
+    const [themeStyles, setThemeStyles] = useState({});
+
+    // Cores padrão do sistema (Gold/Black)
+    const defaultColors = useMemo(() => ({
+        primary: '#fbbf24',   // amber-400
+        secondary: '#111827', // gray-900
+        background: '#000000',
+        text: '#ffffff',
+        accent: '#d97706'     // amber-600
+    }), []);
+
+    // --- Funções de Tema ---
+    const applyTheme = useCallback((colors) => {
+        const root = document.documentElement;
+        if (!colors) return;
+
+        // Aplica variáveis CSS globais
+        root.style.setProperty('--theme-primary', colors.primary || defaultColors.primary);
+        root.style.setProperty('--theme-secondary', colors.secondary || defaultColors.secondary);
+        root.style.setProperty('--theme-bg', colors.background || defaultColors.background);
+        root.style.setProperty('--theme-text', colors.text || defaultColors.text);
+        root.style.setProperty('--theme-accent', colors.accent || defaultColors.accent);
+        
+        setThemeStyles(colors);
+    }, [defaultColors]);
+
+    const fetchTheme = useCallback(async () => {
+        try {
+            const data = await apiService('/theme/active');
+            if (data) {
+                // Parse das cores e assets se vierem como string JSON do DB
+                const colors = typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors;
+                const assets = typeof data.assets === 'string' ? JSON.parse(data.assets) : data.assets;
+                
+                setCurrentTheme({ ...data, colors, assets });
+                applyTheme(colors);
+            } else {
+                setCurrentTheme(null);
+                applyTheme(defaultColors); // Fallback
+            }
+        } catch (error) {
+            console.error("Falha ao carregar tema:", error);
+            applyTheme(defaultColors);
+        }
+    }, [applyTheme, defaultColors]);
+
+    // Efeito para carregar o tema ao iniciar
+    useEffect(() => {
+        fetchTheme();
+    }, [fetchTheme]);
+
+    // --- Funções da Loja (Existentes) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -358,7 +410,6 @@ const ShopProvider = ({ children }) => {
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
-            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
@@ -570,7 +621,9 @@ const ShopProvider = ({ children }) => {
             setSelectedShippingName,
             isGeolocating,
             couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
+            // --- Exportações de Tema ---
+            currentTheme, fetchTheme, themeStyles, defaultColors
         }}>
             {children}
         </ShopContext.Provider>
@@ -9566,6 +9619,233 @@ const AdminLogsPage = () => {
     );
 };
 
+function AppContent({ deferredPrompt }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const { currentTheme } = useShop(); // AGORA USA useShop
+  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+  const [isInMaintenance, setIsInMaintenance] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
+
+  // Aplica as cores dinâmicas no estilo inline do container principal
+  const appStyle = currentTheme ? {
+      '--theme-primary': currentTheme.colors?.primary,
+      '--theme-secondary': currentTheme.colors?.secondary,
+      '--theme-bg': currentTheme.colors?.background,
+      '--theme-text': currentTheme.colors?.text,
+      '--theme-accent': currentTheme.colors?.accent,
+  } : {};
+
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  useEffect(() => {
+    const checkStatus = () => {
+        apiService('/settings/maintenance-status')
+            .then(data => {
+                const isNowInMaintenance = data.maintenanceMode === 'on';
+                setIsInMaintenance(prevStatus => {
+                    if (prevStatus !== isNowInMaintenance) {
+                        return isNowInMaintenance;
+                    }
+                    return prevStatus;
+                });
+            })
+            .catch(err => {
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                setIsInMaintenance(false);
+            })
+            .finally(() => {
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
+            });
+    };
+
+    checkStatus(); 
+    const intervalId = setInterval(checkStatus, 30000); 
+    return () => clearInterval(intervalId); 
+  }, [isStatusLoading]); 
+
+  const navigate = useCallback((path) => {
+    window.location.hash = path;
+  }, []);
+  
+  useEffect(() => {
+    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
+    if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); 
+      navigate(`order-success/${pendingOrderId}`);
+    } else if (currentPath.startsWith('order-success')) {
+        sessionStorage.removeItem('pendingOrderId');
+    }
+  }, [currentPath, navigate]); 
+  
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentPath(window.location.hash.slice(1) || 'home');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPath]);
+  
+  if (isLoading || isStatusLoading) {
+      return (
+        <div className="h-screen flex items-center justify-center" style={{backgroundColor: 'var(--theme-bg, #000)'}}>
+            <SpinnerIcon className="h-8 w-8" style={{color: 'var(--theme-primary, #fbbf24)'}}/>
+        </div>
+      );
+  }
+
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminDomain = window.location.hostname.includes('vercel.app');
+
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
+
+  const renderPage = () => {
+    const [path, queryString] = currentPath.split('?');
+    const searchParams = new URLSearchParams(queryString);
+    const initialSearch = searchParams.get('search') || '';
+    const initialCategory = searchParams.get('category') || '';
+    const initialBrand = searchParams.get('brand') || '';
+    const initialIsPromo = searchParams.get('promo') === 'true';
+    
+    const pathParts = path.split('/');
+    const mainPage = pathParts[0];
+    const pageId = pathParts[1];
+
+    if (mainPage === 'admin') {
+        if (!isAuthenticated || user.role !== 'admin') {
+             return <LoginPage onNavigate={navigate} />;
+        }
+        
+        const adminSubPage = pageId || 'dashboard';
+        const adminPages = {
+            'dashboard': <AdminDashboard onNavigate={navigate} />, 
+            'banners': <AdminBanners />,
+            'products': <AdminProducts onNavigate={navigate} />,
+            'orders': <AdminOrders />,
+            'refunds': <AdminRefunds onNavigate={navigate} />,
+            'collections': <AdminCollections />,
+            'users': <AdminUsers />,
+            'coupons': <AdminCoupons />,
+            'reports': <AdminReports />,
+            'logs': <AdminLogsPage />,
+            'themes': <AdminThemes />,
+        };
+
+        return (
+            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
+                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
+            </AdminLayout>
+        );
+    }
+
+    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
+        return <LoginPage onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'product' && pageId) {
+        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
+    }
+
+    if (mainPage === 'order-success' && pageId) {
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'account') {
+        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
+    }
+
+   const pages = {
+        'home': <HomePage onNavigate={navigate} />,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
+        'login': <LoginPage onNavigate={navigate} />,
+        'register': <RegisterPage onNavigate={navigate} />,
+        'cart': <CartPage onNavigate={navigate} />,
+        'checkout': <CheckoutPage onNavigate={navigate} />,
+        'wishlist': <WishlistPage onNavigate={navigate} />,
+        'ajuda': <AjudaPage onNavigate={navigate} />,
+        'about': <AboutPage />,
+        'privacy': <PrivacyPolicyPage />,
+        'terms': <TermsOfServicePage />,
+        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
+    };
+    return pages[mainPage] || <HomePage onNavigate={navigate} />;
+  };
+
+  const showHeaderFooter = !currentPath.startsWith('admin');
+  
+  return (
+    <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
+      
+      {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
+          <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
+              {currentTheme.assets.decoration_icon}
+          </div>
+      )}
+
+      {showHeaderFooter && <Header onNavigate={navigate} />}
+      <main className="flex-grow">{renderPage()}</main>
+      {showHeaderFooter && !currentPath.startsWith('order-success') && (
+        <footer className="mt-auto border-t border-gray-800" style={{backgroundColor: 'var(--theme-secondary, #111827)'}}>
+            <div className="container mx-auto px-4 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold" style={{color: 'var(--theme-primary, #fbbf24)'}}>LovecestasePerfumes</h3>
+                        <p className="text-sm opacity-70">
+                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
+                        </p>
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-bold tracking-wider">Institucional</h3>
+                        <ul className="space-y-2 text-sm opacity-80">
+                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
+                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
+                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                        </ul>
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-bold tracking-wider">Atendimento</h3>
+                        <ul className="space-y-2 text-sm opacity-80">
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li>
+                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
+                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                    <div className="space-y-4">
+                        <h3 className="font-bold tracking-wider">Formas de Pagamento</h3>
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><PixIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><VisaIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><MastercardIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><EloIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><BoletoIcon className="h-6 w-auto text-black"/></div>
+                        </div>
+                         <p className="text-xs opacity-60">Parcele em até 4x sem juros.</p>
+                    </div>
+                </div>
+            </div>
+            <div className="py-4 border-t border-gray-800" style={{backgroundColor: 'var(--theme-bg, #000000)'}}>
+                <p className="text-center text-sm opacity-50">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+      )}
+      
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+    </div>
+  );
+}
+
 const MaintenancePage = () => {
     return (
         <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
@@ -10575,9 +10855,19 @@ const BannerCarousel = memo(({ onNavigate }) => {
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { currentTheme } = useShop(); // AGORA USA useShop
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
+
+  // Aplica as cores dinâmicas no estilo inline do container principal
+  const appStyle = currentTheme ? {
+      '--theme-primary': currentTheme.colors?.primary,
+      '--theme-secondary': currentTheme.colors?.secondary,
+      '--theme-bg': currentTheme.colors?.background,
+      '--theme-text': currentTheme.colors?.text,
+      '--theme-accent': currentTheme.colors?.accent,
+  } : {};
 
   // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
@@ -10585,7 +10875,6 @@ function AppContent({ deferredPrompt }) {
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
-                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
                 setIsInMaintenance(prevStatus => {
                     if (prevStatus !== isNowInMaintenance) {
                         return isNowInMaintenance;
@@ -10598,19 +10887,16 @@ function AppContent({ deferredPrompt }) {
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                // Garante que a tela de carregamento só desapareça na primeira vez
                 if (isStatusLoading) {
                     setIsStatusLoading(false);
                 }
             });
     };
 
-    checkStatus(); // Verifica imediatamente quando o componente monta
-
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
-
-    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
-  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
+    checkStatus(); 
+    const intervalId = setInterval(checkStatus, 30000); 
+    return () => clearInterval(intervalId); 
+  }, [isStatusLoading]); 
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -10642,8 +10928,8 @@ function AppContent({ deferredPrompt }) {
   
   if (isLoading || isStatusLoading) {
       return (
-        <div className="h-screen flex items-center justify-center bg-black">
-            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        <div className="h-screen flex items-center justify-center" style={{backgroundColor: 'var(--theme-bg, #000)'}}>
+            <SpinnerIcon className="h-8 w-8" style={{color: 'var(--theme-primary, #fbbf24)'}}/>
         </div>
       );
   }
@@ -10684,6 +10970,7 @@ function AppContent({ deferredPrompt }) {
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
+            'themes': <AdminThemes />,
         };
 
         return (
@@ -10729,35 +11016,37 @@ function AppContent({ deferredPrompt }) {
   const showHeaderFooter = !currentPath.startsWith('admin');
   
   return (
-    <div className="bg-black min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
+      
+      {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
+          <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
+              {currentTheme.assets.decoration_icon}
+          </div>
+      )}
+
       {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
+        <footer className="mt-auto border-t border-gray-800" style={{backgroundColor: 'var(--theme-secondary, #111827)'}}>
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-                    {/* Coluna 1: Sobre a Loja */}
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
-                        <p className="text-sm text-gray-400">
+                        <h3 className="text-xl font-bold" style={{color: 'var(--theme-primary, #fbbf24)'}}>LovecestasePerfumes</h3>
+                        <p className="text-sm opacity-70">
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
                     </div>
-
-                    {/* Coluna 2: Institucional */}
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
-                        <ul className="space-y-2 text-sm">
+                        <h3 className="font-bold tracking-wider">Institucional</h3>
+                        <ul className="space-y-2 text-sm opacity-80">
                             <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
                             <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
                             <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
                         </ul>
                     </div>
-
-                    {/* Coluna 3: Atendimento */}
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
-                        <ul className="space-y-2 text-sm">
+                        <h3 className="font-bold tracking-wider">Atendimento</h3>
+                        <ul className="space-y-2 text-sm opacity-80">
                             <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
                             <li>
                                 <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
@@ -10767,33 +11056,21 @@ function AppContent({ deferredPrompt }) {
                             </li>
                         </ul>
                     </div>
-
-                    {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
+                        <h3 className="font-bold tracking-wider">Formas de Pagamento</h3>
                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><PixIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><VisaIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><MastercardIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><EloIcon className="h-full w-auto"/></div>
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><BoletoIcon className="h-6 w-auto text-black"/></div>
                         </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
+                         <p className="text-xs opacity-60">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            <div className="py-4 border-t border-gray-800" style={{backgroundColor: 'var(--theme-bg, #000000)'}}>
+                <p className="text-center text-sm opacity-50">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
