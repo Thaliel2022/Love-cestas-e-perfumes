@@ -4671,6 +4671,142 @@ app.use((err, req, res, next) => {
     });
 });
 
+// --- ROTAS DE TEMAS (DINÂMICOS) ---
+
+// (Público) Busca o tema ativo atual
+app.get('/api/theme/active', async (req, res) => {
+    try {
+        const connection = await db.getConnection();
+        const today = new Date().toISOString().split('T')[0];
+
+        // Lógica de Prioridade:
+        // 1. Tema ativado manualmente
+        // 2. Tema agendado para a data de hoje
+        // 3. Tema padrão (id 1 ou fallback)
+
+        // Busca manual
+        const [manualTheme] = await connection.query("SELECT * FROM themes WHERE is_active_manual = 1 LIMIT 1");
+        
+        if (manualTheme.length > 0) {
+            connection.release();
+            return res.json(manualTheme[0]);
+        }
+
+        // Busca agendado
+        const [scheduledTheme] = await connection.query(
+            "SELECT * FROM themes WHERE ? BETWEEN start_date AND end_date LIMIT 1", 
+            [today]
+        );
+
+        if (scheduledTheme.length > 0) {
+            connection.release();
+            return res.json(scheduledTheme[0]);
+        }
+
+        // Fallback: Retorna null (o frontend usará o padrão hardcoded) ou busca o ID 1
+        const [defaultTheme] = await connection.query("SELECT * FROM themes ORDER BY id ASC LIMIT 1");
+        connection.release();
+        res.json(defaultTheme[0] || null);
+
+    } catch (err) {
+        console.error("Erro ao buscar tema ativo:", err);
+        res.status(500).json({ message: "Erro ao buscar tema." });
+    }
+});
+
+// (Admin) CRUD de Temas
+app.get('/api/themes', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [themes] = await db.query("SELECT * FROM themes ORDER BY created_at DESC");
+        res.json(themes);
+    } catch (err) {
+        console.error("Erro ao listar temas:", err);
+        res.status(500).json({ message: "Erro interno." });
+    }
+});
+
+app.post('/api/themes', verifyToken, verifyAdmin, async (req, res) => {
+    const { name, start_date, end_date, colors, assets } = req.body;
+    if (!name) return res.status(400).json({ message: "Nome do tema é obrigatório." });
+
+    try {
+        const sql = "INSERT INTO themes (name, start_date, end_date, colors, assets, is_active_manual) VALUES (?, ?, ?, ?, ?, 0)";
+        await db.query(sql, [
+            name, 
+            start_date || null, 
+            end_date || null, 
+            JSON.stringify(colors || {}), 
+            JSON.stringify(assets || {})
+        ]);
+        logAdminAction(req.user, 'CRIOU TEMA', `Nome: ${name}`);
+        res.status(201).json({ message: "Tema criado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao criar tema:", err);
+        res.status(500).json({ message: "Erro ao criar tema." });
+    }
+});
+
+app.put('/api/themes/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, start_date, end_date, colors, assets } = req.body;
+
+    try {
+        const sql = "UPDATE themes SET name = ?, start_date = ?, end_date = ?, colors = ?, assets = ? WHERE id = ?";
+        await db.query(sql, [
+            name, 
+            start_date || null, 
+            end_date || null, 
+            JSON.stringify(colors || {}), 
+            JSON.stringify(assets || {}), 
+            id
+        ]);
+        logAdminAction(req.user, 'EDITOU TEMA', `ID: ${id}`);
+        res.json({ message: "Tema atualizado." });
+    } catch (err) {
+        console.error("Erro ao atualizar tema:", err);
+        res.status(500).json({ message: "Erro ao atualizar tema." });
+    }
+});
+
+app.put('/api/themes/:id/activate', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body; // true ou false para manual active
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // Desativa todos primeiro se for ativar um
+        if (status) {
+            await connection.query("UPDATE themes SET is_active_manual = 0");
+        }
+        
+        await connection.query("UPDATE themes SET is_active_manual = ? WHERE id = ?", [status ? 1 : 0, id]);
+        
+        await connection.commit();
+        logAdminAction(req.user, 'ALTEROU STATUS TEMA', `ID: ${id}, Ativo Manual: ${status}`);
+        res.json({ message: "Status do tema atualizado." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao ativar tema:", err);
+        res.status(500).json({ message: "Erro ao ativar tema." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.delete('/api/themes/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.query("DELETE FROM themes WHERE id = ?", [id]);
+        logAdminAction(req.user, 'DELETOU TEMA', `ID: ${id}`);
+        res.json({ message: "Tema removido." });
+    } catch (err) {
+        console.error("Erro ao deletar tema:", err);
+        res.status(500).json({ message: "Erro ao deletar tema." });
+    }
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
