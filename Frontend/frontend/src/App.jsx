@@ -2047,178 +2047,230 @@ const NewsletterSection = () => (
 
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-    const [products, setProducts] = useState({
-        newArrivals: [],
-        bestSellers: [],
-        clothing: [],
-        perfumes: []
-    });
+    const [products, setProducts] = useState({ newArrivals: [], bestSellers: [], clothing: [], perfumes: [] });
+    // Estado para armazenar todos os banners vindos do banco de dados
+    const [allBanners, setAllBanners] = useState([]);
+    
+    // --- LÓGICA DE BANNERS DINÂMICOS ---
+    // Distribui os banners baseados na "Ordem de Exibição" definida no Admin:
+    // 0 a 9: Carrossel Principal (Topo)
+    // 10 a 19: Seção Oferta Relâmpago (Meio)
+    // 20 ou mais: Grid de Categorias/Universos (Abaixo)
+    const mainBanners = useMemo(() => allBanners.filter(b => b.display_order >= 0 && b.display_order < 10), [allBanners]);
+    const flashBanners = useMemo(() => allBanners.filter(b => b.display_order >= 10 && b.display_order < 20), [allBanners]);
+    const gridBanners = useMemo(() => allBanners.filter(b => b.display_order >= 20), [allBanners]);
+
+    const [currentFlashIndex, setCurrentFlashIndex] = useState(0);
 
     useEffect(() => {
-        apiService('/products')
-            .then(data => {
-                const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
-                
-                const clothingProducts = data.filter(p => p.product_type === 'clothing');
-                const perfumeProducts = data.filter(p => p.product_type === 'perfume');
+        // Busca Produtos
+        apiService('/products').then(data => {
+            const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
+            setProducts({
+                newArrivals: sortedByDate,
+                bestSellers: sortedBySales,
+                clothing: data.filter(p => p.product_type === 'clothing'),
+                perfumes: data.filter(p => p.product_type === 'perfume')
+            });
+        }).catch(err => console.error(err));
 
-                setProducts({
-                    newArrivals: sortedByDate,
-                    bestSellers: sortedBySales,
-                    clothing: clothingProducts,
-                    perfumes: perfumeProducts
-                });
-            })
-            .catch(err => console.error("Falha ao buscar produtos:", err));
+        // Busca Banners (Para tornar tudo editável pelo Admin)
+        apiService('/banners').then(data => {
+            if (Array.isArray(data)) setAllBanners(data);
+        }).catch(err => console.error(err));
     }, []);
 
+    // Rotação automática para a seção Flash (caso tenha mais de um banner configurado nessa posição)
+    useEffect(() => {
+        if (flashBanners.length > 1) {
+            const interval = setInterval(() => setCurrentFlashIndex(prev => (prev === flashBanners.length - 1 ? 0 : prev + 1)), 5000);
+            return () => clearInterval(interval);
+        }
+    }, [flashBanners.length]);
+
+    // Componente Interno do Carrossel Principal
+    const MainCarousel = ({ banners }) => {
+        const [index, setIndex] = useState(0);
+        useEffect(() => {
+            if (banners.length > 1) {
+                const timer = setTimeout(() => setIndex(prev => (prev === banners.length - 1 ? 0 : prev + 1)), 6000);
+                return () => clearTimeout(timer);
+            }
+        }, [index, banners.length]);
+
+        if (!banners.length) return null;
+        const current = banners[index];
+        const isMobile = window.innerWidth < 640;
+        const bgImage = isMobile && current.image_url_mobile ? current.image_url_mobile : current.image_url;
+
+        return (
+            <section className="relative h-[50vh] sm:h-[75vh] w-full bg-black overflow-hidden group">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={current.id}
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        transition={{ duration: 0.8 }}
+                        className="absolute inset-0 bg-cover bg-center cursor-pointer"
+                        style={{ backgroundImage: `url(${bgImage})` }}
+                        onClick={() => onNavigate(current.link_url.replace(/^#/, ''))}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        {(current.title || current.cta_enabled) && (
+                            <div className="absolute bottom-0 left-0 w-full p-8 md:p-16 flex flex-col items-center md:items-start text-center md:text-left z-10">
+                                <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="text-4xl md:text-7xl font-extrabold text-white mb-4 drop-shadow-xl max-w-4xl leading-tight">
+                                    {current.title}
+                                </motion.h1>
+                                {current.subtitle && <p className="text-gray-200 text-lg md:text-2xl mb-8 max-w-2xl font-light">{current.subtitle}</p>}
+                                {current.cta_enabled === 1 && (
+                                    <button className="bg-white text-black px-10 py-4 rounded-full font-bold text-lg hover:bg-amber-400 transition-all shadow-xl hover:scale-105 flex items-center gap-2">
+                                        {current.cta_text || 'Confira Agora'} <ArrowUturnLeftIcon className="h-5 w-5 rotate-180"/>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
+                {/* Navegação por pontos */}
+                {banners.length > 1 && (
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+                        {banners.map((_, idx) => (
+                            <button key={idx} onClick={() => setIndex(idx)} className={`h-1.5 rounded-full transition-all ${idx === index ? 'w-8 bg-amber-400' : 'w-2 bg-white/50'}`} />
+                        ))}
+                    </div>
+                )}
+            </section>
+        );
+    };
+
     return (
-      <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
-        {/* Banner Principal Rotativo */}
-        <BannerCarousel onNavigate={onNavigate} />
+      <div className="bg-black min-h-screen pb-0 overflow-x-hidden font-sans">
+        {/* 1. Banner Principal (Dinâmico) */}
+        <MainCarousel banners={mainBanners} />
         
-        {/* Barra de Benefícios (Confiança) */}
+        {/* 2. Barra de Benefícios */}
         <BenefitsBar />
         
-        {/* Carrossel de Categorias */}
-        <div className="py-8 md:py-12 bg-gradient-to-b from-black to-gray-900">
-             <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
+        {/* 3. Coleções (CORREÇÃO: Removido gradientes ou bordas que criavam a linha indesejada) */}
+        <div className="py-10 bg-black"> 
+             <CollectionsCarousel onNavigate={onNavigate} title="Nossas Coleções" />
         </div>
 
-        {/* Destaque Visual: Campanha Promocional */}
-        <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
-            <div 
-                className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
-                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop)' }}
-                onClick={() => onNavigate('products?promo=true')}
-            >
-                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                
-                <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
-                    <motion.span 
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
-                    >
-                        <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
-                    </motion.span>
-                    
-                    <motion.h2 
-                        initial={{ opacity: 0, x: -30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
-                    >
-                        Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span>
-                    </motion.h2>
-                    
-                    <motion.p 
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
-                    >
-                        Até <strong className="text-white font-bold">50% OFF</strong> em itens selecionados.
-                    </motion.p>
-                    
-                    <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
-                    >
-                        Ver Ofertas <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                    </motion.button>
+        {/* 4. Seção Dinâmica "Oferta Relâmpago" (Banners com ordem 10-19) */}
+        {flashBanners.length > 0 && (
+            <section className="container mx-auto px-4 mb-16 mt-4">
+                <div className="relative h-[400px] md:h-[500px] rounded-2xl overflow-hidden shadow-2xl border border-gray-800 bg-gray-900">
+                    <AnimatePresence mode="wait">
+                        {flashBanners.map((banner, index) => (
+                            index === currentFlashIndex && (
+                                <motion.div
+                                    key={banner.id}
+                                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.5 }}
+                                    className="absolute inset-0 bg-cover bg-center cursor-pointer"
+                                    style={{ backgroundImage: `url(${banner.image_url})` }}
+                                    onClick={() => onNavigate(banner.link_url.replace(/^#/, ''))}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/50 to-transparent"></div>
+                                    <div className="relative z-10 h-full flex flex-col justify-center px-8 md:px-16 max-w-3xl">
+                                        <span className="bg-red-600 text-white text-xs md:text-sm font-bold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 w-fit flex items-center gap-2 animate-pulse shadow-lg">
+                                            <ClockIcon className="h-4 w-4" /> Oferta Especial
+                                        </span>
+                                        <h2 className="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight drop-shadow-lg">
+                                            {banner.title || 'Oferta Imperdível'}
+                                        </h2>
+                                        <p className="text-xl text-gray-200 mb-8 font-light max-w-lg">
+                                            {banner.subtitle || 'Aproveite os descontos exclusivos por tempo limitado.'}
+                                        </p>
+                                        {banner.cta_enabled === 1 && (
+                                            <button className="bg-amber-400 text-black px-10 py-3 rounded-full font-bold text-lg hover:bg-white transition-all shadow-xl w-fit flex items-center gap-2">
+                                                {banner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-5 w-5 rotate-180"/>
+                                            </button>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )
+                        ))}
+                    </AnimatePresence>
                 </div>
-            </div>
-        </section>
+            </section>
+        )}
 
-        {/* Seção Lançamentos */}
-        <section className="bg-black text-white py-8 md:py-12">
+        {/* 5. Lançamentos */}
+        <section className="bg-black text-white py-12">
           <div className="container mx-auto px-4">
-              <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
+              <div className="flex items-end justify-between mb-8 border-b border-gray-800 pb-4">
                   <div>
-                      <h2 className="text-2xl md:text-4xl font-bold flex items-center gap-2 md:gap-3">
-                          <span className="w-1.5 h-6 md:w-2 md:h-10 bg-amber-500 rounded-full block"></span>
-                          Lançamentos
+                      <h2 className="text-3xl font-bold flex items-center gap-3">
+                          <span className="w-1.5 h-8 bg-amber-500 rounded-full block"></span> Lançamentos
                       </h2>
-                      <p className="text-gray-400 mt-1 md:mt-2 text-xs md:text-base ml-3 md:ml-5">Novidades que acabaram de chegar.</p>
                   </div>
-                  <button onClick={() => onNavigate('products')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
-                      Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                  <button onClick={() => onNavigate('products')} className="text-amber-400 hover:text-white transition-colors text-sm font-bold flex items-center gap-2 group">
+                      Ver tudo <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
                   </button>
               </div>
               <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} />
           </div>
         </section>
         
-        {/* Seção Mais Vendidos */}
-        <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+        {/* 6. Mais Vendidos */}
+        <section className="bg-gradient-to-r from-gray-900 to-black py-16 my-8 border-y border-gray-800 relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900 via-gray-900 to-black"></div>
           <div className="container mx-auto px-4 relative z-10">
-             <div className="text-center mb-8 md:mb-12">
-                  <span className="text-amber-500 font-bold tracking-widest text-[10px] md:text-xs uppercase mb-1 md:mb-2 block">Preferidos dos Clientes</span>
-                  <h2 className="text-2xl md:text-5xl font-extrabold text-white flex items-center justify-center gap-2 md:gap-3">
-                      <SparklesIcon className="h-6 w-6 md:h-8 md:w-8 text-amber-400"/> Mais Vendidos
+             <div className="text-center mb-12">
+                  <span className="text-amber-500 font-bold tracking-widest text-xs uppercase mb-2 block">Top Sellers</span>
+                  <h2 className="text-4xl md:text-5xl font-extrabold text-white flex items-center justify-center gap-3">
+                      <SparklesIcon className="h-8 w-8 text-amber-400"/> Mais Vendidos
                   </h2>
               </div>
              <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} />
           </div>
         </section>
 
-        {/* Grid de Categorias (Cards otimizados para Mobile) */}
-        <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                {/* Card Moda */}
-                <div 
-                    onClick={() => onNavigate('products?category=Roupas')}
-                    className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
-                >
-                    <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop" alt="Moda Feminina" className="w-full h-full object-cover"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                        <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">Moda & Estilo</h3>
-                        <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">Peças exclusivas para sua personalidade.</p>
-                        <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
-                            Explorar Roupas &rarr;
-                        </span>
-                    </div>
+        {/* 7. Grid de Universos Dinâmico (Banners com ordem 20+) */}
+        {gridBanners.length > 0 && (
+            <section className="container mx-auto px-4 py-12 mb-12">
+                <h2 className="text-3xl font-bold mb-10 text-center text-white">Navegue por Universo</h2>
+                <div className={`grid gap-8 ${gridBanners.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+                    {gridBanners.map(banner => (
+                        <div 
+                            key={banner.id}
+                            onClick={() => onNavigate(banner.link_url.replace(/^#/, ''))}
+                            className="relative h-[450px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl border border-gray-800 bg-gray-900"
+                        >
+                            <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90 group-hover:opacity-100"/>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent flex flex-col justify-end p-10">
+                                <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                                    <h3 className="text-4xl font-bold text-white mb-3">{banner.title}</h3>
+                                    <p className="text-gray-300 text-lg mb-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-75 line-clamp-2">{banner.subtitle}</p>
+                                    <span className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-bold text-sm hover:bg-amber-400 transition-colors">
+                                        {banner.cta_text || 'Explorar'} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-
-                {/* Card Perfumes */}
-                <div 
-                    onClick={() => onNavigate('products?category=Perfumes')}
-                    className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
-                >
-                    <img src="https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop" alt="Perfumaria" className="w-full h-full object-cover"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                        <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">Perfumaria</h3>
-                        <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">Fragrâncias marcantes importadas e nacionais.</p>
-                        <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
-                            Ver Perfumes &rarr;
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </section>
+            </section>
+        )}
         
-        {/* Vitrine Roupas */}
-        <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
+        {/* 8. Vitrines de Produtos */}
+        <section className="bg-black text-white py-12 border-t border-gray-800">
           <div className="container mx-auto px-4">
-              <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                  <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                  <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
+              <div className="flex items-center gap-4 mb-8">
+                  <div className="bg-gray-800 p-3 rounded-full"><ShirtIcon className="h-6 w-6 text-amber-400"/></div>
+                  <h2 className="text-2xl md:text-3xl font-bold">Roupas em Destaque</h2>
               </div>
               <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
           </div>
         </section>
 
-        {/* Vitrine Perfumes (Condicional) */}
         {products.perfumes.length > 0 && (
-            <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
+            <section className="bg-black text-white py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
-                    <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                        <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                        <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="bg-gray-800 p-3 rounded-full"><SparklesIcon className="h-6 w-6 text-amber-400"/></div>
+                        <h2 className="text-2xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
                     </div>
                     <ProductCarousel products={products.perfumes} onNavigate={onNavigate} />
                 </div>
@@ -2229,7 +2281,6 @@ const HomePage = ({ onNavigate }) => {
       </div>
     );
 };
-
 // ===== ATUALIZAÇÃO PROMOÇÕES =====
 const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', initialBrand = '', initialIsPromo = false }) => {
     const [allProducts, setAllProducts] = useState([]);
