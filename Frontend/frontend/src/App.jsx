@@ -1441,7 +1441,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, shippingLocation } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1450,211 +1450,425 @@ const Header = memo(({ onNavigate }) => {
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+
+    // Estado para visibilidade da BottomNavBar
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
 
-    // --- Ícone de Logo Personalizado ---
-    const LogoIcon = ({ className }) => (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
-            <path fillRule="evenodd" d="M7.5 6v.75H5.513c-.96 0-1.764.724-1.865 1.679l-1.263 12A1.875 1.875 0 004.25 22.5h15.5a1.875 1.875 0 001.865-2.071l-1.263-12a1.875 1.875 0 00-1.865-1.679H16.5V6a4.5 4.5 0 10-9 0zM12 3a3 3 0 00-3 3v.75h6V6a3 3 0 00-3-3zm-3 8.25a3 3 0 106 0v-.75a.75.75 0 011.5 0v.75a4.5 4.5 0 11-9 0v-.75a.75.75 0 011.5 0v.75z" clipRule="evenodd" />
-        </svg>
-    );
-
     useEffect(() => {
-        const handleHashChange = () => setCurrentPath(window.location.hash.slice(1) || 'home');
+        const handleHashChange = () => {
+             setCurrentPath(window.location.hash.slice(1) || 'home');
+        };
         window.addEventListener('hashchange', handleHashChange);
+        handleHashChange();
         return () => window.removeEventListener('hashchange', handleHashChange);
      }, []);
 
+    // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
     useEffect(() => {
-        const isIOS = () => /iPad|iPhone|iPod/.test(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        // --- INÍCIO DA MODIFICAÇÃO ---
+        // Função para verificar se é iPhone
+        const isIOS = () => {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            // iPad on iOS 13 detection
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+        }
+
         const controlNavbar = () => {
-            if (!isIOS()) { setIsBottomNavVisible(true); return; }
-            const currentScrollY = window.scrollY;
-            if (window.innerWidth < 768) {
-                if (currentScrollY > lastScrollY.current + 5 && !isScrollingDown.current) { setIsBottomNavVisible(false); isScrollingDown.current = true; } 
-                else if (currentScrollY < lastScrollY.current - 5 && isScrollingDown.current) { setIsBottomNavVisible(true); isScrollingDown.current = false; }
+            // Se NÃO for iOS, mantém a barra visível e sai da função
+            if (!isIOS()) {
+                 setIsBottomNavVisible(true);
+                 isScrollingDown.current = false; // Garante que a lógica de scroll não interfira
+                 lastScrollY.current = window.scrollY; // Atualiza a posição para evitar saltos se mudar de OS
+                 return;
             }
+
+            // Lógica original, agora executada APENAS se for iOS
+            const currentScrollY = window.scrollY;
+            const threshold = 5;
+
+            if (window.innerWidth < 768) {
+                if (currentScrollY > lastScrollY.current + threshold && !isScrollingDown.current) {
+                    setIsBottomNavVisible(false);
+                    isScrollingDown.current = true;
+                } else if (currentScrollY < lastScrollY.current - threshold && isScrollingDown.current) {
+                    setIsBottomNavVisible(true);
+                    isScrollingDown.current = false;
+                }
+            } else {
+                setIsBottomNavVisible(true);
+                isScrollingDown.current = false;
+            }
+
             lastScrollY.current = currentScrollY;
         };
+        // --- FIM DA MODIFICAÇÃO ---
+
         window.addEventListener('scroll', controlNavbar);
-        return () => window.removeEventListener('scroll', controlNavbar);
-    }, []);
+        return () => {
+            window.removeEventListener('scroll', controlNavbar);
+        };
+    }, []); // Dependência vazia, executa apenas uma vez
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
             .then(data => {
                 const groupedMenu = data.reduce((acc, category) => {
-                    if (!acc[category.menu_section]) acc[category.menu_section] = [];
-                    acc[category.menu_section].push(category);
+                    const section = category.menu_section;
+                    if (!acc[section]) {
+                        acc[section] = [];
+                    }
+                    acc[section].push({ name: category.name, filter: category.filter });
                     return acc;
                 }, {});
+
                 const menuOrder = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
-                setDynamicMenuItems(menuOrder.filter(name => groupedMenu[name]).map(name => ({ name, sub: groupedMenu[name] })));
+                const finalMenuStructure = menuOrder
+                    .filter(sectionName => groupedMenu[sectionName])
+                    .map(sectionName => ({
+                        name: sectionName,
+                        sub: groupedMenu[sectionName]
+                    }));
+                setDynamicMenuItems(finalMenuStructure);
             })
-            .catch(() => setDynamicMenuItems([]));
+            .catch(err => {
+                console.error("Falha ao construir o menu dinâmico:", err);
+                setDynamicMenuItems([]);
+            });
     }, []);
 
-    useEffect(() => { fetchAndBuildMenu(); }, [fetchAndBuildMenu]);
+    useEffect(() => {
+        fetchAndBuildMenu();
+    }, [fetchAndBuildMenu]);
+
+    useEffect(() => {
+        if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
+            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
+            fetchAndBuildMenu();
+        }
+    }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    const prevTotalCartItems = useRef(totalCartItems);
+    const cartAnimationControls = useAnimation();
+
+    useEffect(() => {
+        if (totalCartItems > prevTotalCartItems.current) {
+            cartAnimationControls.start({
+                scale: [1, 1.25, 0.9, 1.1, 1],
+                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
+            });
+        }
+        prevTotalCartItems.current = totalCartItems;
+    }, [totalCartItems, cartAnimationControls]);
+
+    useEffect(() => {
+        if (searchTerm.length < 1) {
+            setSearchSuggestions([]);
+            return;
+        }
+        const debounceTimer = setTimeout(() => {
+            apiService(`/products/search-suggestions?q=${searchTerm}`)
+                .then(data => setSearchSuggestions(data))
+                .catch(err => console.error(err));
+        }, 300);
+        return () => clearTimeout(debounceTimer);
+    }, [searchTerm]);
+
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         if (searchTerm.trim()) {
             onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setSearchTerm(''); setIsMobileMenuOpen(false);
+            setSearchTerm('');
+            setSearchSuggestions([]);
+            setIsMobileMenuOpen(false);
         }
     };
 
+    const handleSuggestionClick = (productId) => {
+        onNavigate(`product/${productId}`);
+        setSearchTerm('');
+        setSearchSuggestions([]);
+        setIsSearchFocused(false);
+        setIsMobileMenuOpen(false);
+    };
+
+    const dropdownVariants = {
+        open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
+        closed: { opacity: 0, y: -20, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
+    };
+
+    const mobileMenuVariants = {
+        open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
+        closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
+    };
+
+    const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+    const [manualCep, setManualCep] = useState('');
+    const [cepError, setCepError] = useState('');
+
+    useEffect(() => {
+        if (isAddressModalOpen && isAuthenticated) {
+            fetchAddresses();
+        }
+    }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
+
+    const handleSelectAddress = (addr) => {
+        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
+        setIsAddressModalOpen(false);
+    };
+
+    const handleManualCepSubmit = async (e) => {
+        e.preventDefault();
+        setCepError('');
+        const cleanCep = manualCep.replace(/\D/g, '');
+        if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; }
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            const data = await response.json();
+            if (data.erro) { setCepError("CEP não encontrado."); } else {
+                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
+                setIsAddressModalOpen(false);
+                setManualCep('');
+            }
+        } catch { setCepError("Não foi possível buscar o CEP."); }
+    };
+
+    const handleCepInputChange = (e) => {
+        setManualCep(maskCEP(e.target.value));
+        if (cepError) setCepError('');
+    };
+
     let addressDisplay = 'Selecione um endereço';
-    if (shippingLocation?.cep?.replace(/\D/g, '').length === 8) {
-        addressDisplay = `Enviar para ${shippingLocation.alias || 'CEP ' + shippingLocation.cep}`;
+    if (shippingLocation && shippingLocation.cep) {
+        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+        if (cleanCep.length === 8) {
+            const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
+            const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - ');
+            let prefix = 'Enviar para';
+
+            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
+                prefix = `Enviar para ${shippingLocation.alias} -`;
+            } else if (isAuthenticated && user?.name) {
+                prefix = `Enviar para ${user.name.split(' ')[0]} -`;
+            }
+
+            if (displayCityState) {
+                addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
+            } else {
+                 addressDisplay = `${prefix} ${formattedCep}`;
+            }
+        }
     }
+
+    // Componente da Barra de Navegação Inferior (Mobile)
+    const BottomNavBar = () => {
+        const wishlistCount = wishlist.length;
+
+        const navVariants = {
+            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
+            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
+        };
+
+        return (
+            <motion.div
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden"
+                initial={false}
+                animate={isBottomNavVisible ? "visible" : "hidden"}
+                variants={navVariants}
+            >
+                <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HomeIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Início</span>
+                </button>
+                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <UserIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Conta</span>
+                </button>
+                <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HeartIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Lista</span>
+                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                </button>
+                <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <motion.div animate={cartAnimationControls}>
+                        <CartIcon className="h-6 w-6 mb-1"/>
+                    </motion.div>
+                    <span className="text-xs">Carrinho</span>
+                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                </button>
+                <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <MenuIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-xs">Menu</span>
+                </button>
+            </motion.div>
+        );
+    };
 
     return (
         <>
-        <header className="bg-black/90 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 border-b border-gray-800">
-            {/* Top Bar - Desktop */}
-            <div className="hidden md:block px-4 sm:px-6">
-                <div className="flex justify-between items-center py-4">
-                    {/* LOGO ATUALIZADA E PROFISSIONAL */}
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 group">
-                        <div className="bg-amber-400 p-1.5 rounded-lg text-black group-hover:bg-white transition-colors">
-                            <LogoIcon className="h-6 w-6" />
-                        </div>
-                        <span className="text-xl font-bold tracking-wide text-white group-hover:text-amber-400 transition-colors">
-                            Love<span className="text-amber-400 group-hover:text-white">Cestas</span>
-                        </span>
-                    </a>
-
-                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
-                         <form onSubmit={handleSearchSubmit} className="relative">
-                           <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="O que você procura hoje?" className="w-full bg-gray-800 text-white px-5 py-2.5 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500 border border-gray-700 transition-all focus:bg-gray-900"/>
-                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                        </form>
-                    </div>
-
-                    <div className="flex items-center space-x-6">
-                        <button onClick={() => onNavigate('wishlist')} className="relative hover:text-amber-400 transition flex flex-col items-center gap-0.5"> 
-                            <HeartIcon className="h-6 w-6"/> 
-                            <span className="text-[10px] font-medium uppercase tracking-wider">Lista</span>
-                            {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} 
-                        </button>
-                        
-                        <button onClick={() => onNavigate('cart')} className="relative hover:text-amber-400 transition flex flex-col items-center gap-0.5"> 
-                            <CartIcon className="h-6 w-6"/> 
-                            <span className="text-[10px] font-medium uppercase tracking-wider">Sacola</span>
-                            {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} 
-                        </button>
-
-                        <div className="hidden sm:block pl-4 border-l border-gray-700">
-                            {isAuthenticated ? (
-                                <button onClick={() => onNavigate('account')} className="flex items-center gap-2 hover:text-amber-400 transition text-left"> 
-                                    <div className="bg-gray-800 p-1.5 rounded-full"><UserIcon className="h-5 w-5"/></div>
-                                    <div className="flex flex-col"> <span className="text-[10px] text-gray-400">Olá, {user.name.split(' ')[0]}</span> <span className="text-sm font-bold">Minha Conta</span> </div> 
-                                </button>
-                            ) : ( 
-                                <button onClick={() => onNavigate('login')} className="flex items-center gap-2 hover:text-amber-400 transition"> 
-                                    <div className="bg-gray-800 p-1.5 rounded-full"><UserIcon className="h-5 w-5"/></div>
-                                    <div className="flex flex-col text-left"> <span className="text-[10px] text-gray-400">Bem-vindo</span> <span className="text-sm font-bold">Entrar / Cadastrar</span> </div> 
-                                </button> 
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-             {/* Mobile Header */}
-             <div className="block md:hidden px-4 py-3">
-                <div className="flex justify-between items-center mb-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2">
-                        <div className="bg-amber-400 p-1 rounded-md text-black"><LogoIcon className="h-5 w-5" /></div>
-                        <span className="text-lg font-bold tracking-wide text-white">Love<span className="text-amber-400">Cestas</span></span>
-                    </a>
-                    {/* Botão de busca mobile */}
-                </div>
-                <form onSubmit={handleSearchSubmit} className="relative">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Buscar produtos..." className="w-full bg-gray-800 text-white px-4 py-2.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 text-sm border border-gray-700" />
-                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400"><SearchIcon className="h-5 w-5" /></button>
-                </form>
-            </div>
-
-            {/* Desktop Nav */}
-            <nav className="hidden md:flex justify-center h-12 items-center border-t border-gray-800 bg-black">
-                <div className="container mx-auto px-4 flex items-center justify-center gap-8">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-sm font-bold uppercase hover:text-amber-400 transition-colors py-3 border-b-2 border-transparent hover:border-amber-400">Início</a>
-                    {/* Menu Hover */}
-                    <div className="relative group h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')} onMouseLeave={() => setActiveMenu(null)}>
-                        <button className="text-sm font-bold uppercase hover:text-amber-400 transition-colors py-3 flex items-center gap-1 group-hover:text-amber-400">Coleções <ChevronDownIcon className="h-3 w-3"/></button>
-                        <div className={`absolute top-full left-1/2 -translate-x-1/2 w-[600px] bg-gray-900 border border-gray-700 shadow-2xl rounded-b-lg p-6 grid grid-cols-3 gap-6 transition-all duration-200 visible opacity-100 origin-top z-50 ${activeMenu === 'Coleções' ? 'block' : 'hidden'}`}>
-                            {dynamicMenuItems.map(cat => (
-                                <div key={cat.name}>
-                                    <h4 className="text-amber-400 font-bold mb-2 border-b border-gray-700 pb-1">{cat.name}</h4>
-                                    <ul className="space-y-1">
-                                        {cat.sub.map(sub => (
-                                            <li key={sub.id}><a href="#" onClick={(e)=>{e.preventDefault(); onNavigate(`products?category=${sub.filter}`);}} className="text-sm text-gray-300 hover:text-white block py-0.5">{sub.name}</a></li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <a href="#promo" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="text-sm font-bold uppercase text-red-500 hover:text-red-400 transition-colors py-3 flex items-center gap-1"><SaleIcon className="h-4 w-4"/> Ofertas</a>
-                </div>
-            </nav>
-        </header>
-        
-        {/* Mobile Bottom Nav (Mantido) */}
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-gray-900 border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe">
-            <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath==='home'?'text-amber-400':'text-gray-400'}`}><HomeIcon className="h-6 w-6"/><span className="text-[10px] mt-1">Início</span></button>
-            <button onClick={() => onNavigate('wishlist')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath==='wishlist'?'text-amber-400':'text-gray-400'}`}><HeartIcon className="h-6 w-6"/><span className="text-[10px] mt-1">Favoritos</span></button>
-            <button onClick={() => onNavigate('cart')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath==='cart'?'text-amber-400':'text-gray-400'} relative`}>
-                <div className="bg-amber-400 p-3 rounded-full -mt-6 border-4 border-black text-black shadow-lg"><CartIcon className="h-6 w-6"/></div>
-                {totalCartItems > 0 && <span className="absolute top-0 right-2 bg-red-600 text-white text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold border border-black">{totalCartItems}</span>}
-            </button>
-            <button onClick={() => onNavigate('account')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath.includes('account')?'text-amber-400':'text-gray-400'}`}><UserIcon className="h-6 w-6"/><span className="text-[10px] mt-1">Conta</span></button>
-            <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center justify-center w-1/5 text-gray-400"><MenuIcon className="h-6 w-6"/><span className="text-[10px] mt-1">Menu</span></button>
-        </div>
-
-        {/* Mobile Menu Sidebar (Mantido com melhorias visuais) */}
         <AnimatePresence>
-            {isMobileMenuOpen && (
-                <>
-                    <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 bg-black/80 z-[60] md:hidden" onClick={()=>setIsMobileMenuOpen(false)}/>
-                    <motion.div initial={{x:'-100%'}} animate={{x:0}} exit={{x:'-100%'}} transition={{type:'spring', damping:25}} className="fixed top-0 left-0 h-full w-4/5 max-w-sm bg-gray-900 z-[70] overflow-y-auto border-r border-gray-800">
-                        <div className="p-5 border-b border-gray-800 flex justify-between items-center bg-black">
-                            <div className="flex items-center gap-2 font-bold text-white"><LogoIcon className="h-6 w-6 text-amber-400"/> Menu</div>
-                            <button onClick={()=>setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-gray-400"/></button>
+            {isAddressModalOpen && (
+                <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Selecionar Endereço de Entrega" size="md">
+                    <div className="space-y-4">
+                        {isAuthenticated && addresses && addresses.length > 0 && addresses.map(addr => (
+                             <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
+                                 <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
+                                 <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero} - {addr.bairro}</p>
+                                 <p className="text-sm text-gray-500">{addr.localidade} - {addr.uf}</p>
+                             </div>
+                        ))}
+                         {isAuthenticated && addresses.length === 0 && (
+                            <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>
+                         )}
+                         {!isAuthenticated && (
+                            <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>
+                         )}
+                        <div className="pt-4 border-t">
+                            <form onSubmit={handleManualCepSubmit} className="space-y-2">
+                                 <label className="block text-sm font-medium text-gray-700">Calcular frete para um CEP</label>
+                                 <div className="flex gap-2">
+                                    <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
+                                    <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
+                                 </div>
+                                 {cepError && <p className="text-red-500 text-xs mt-1">{cepError}</p>}
+                            </form>
                         </div>
-                        <div className="p-4 space-y-1">
-                            {dynamicMenuItems.map((cat, idx) => (
-                                <div key={idx} className="border-b border-gray-800 last:border-0">
-                                    <button onClick={()=>setMobileAccordion(mobileAccordion===idx?null:idx)} className="w-full flex justify-between items-center py-3 text-gray-300 font-medium hover:text-white">
-                                        {cat.name} <ChevronDownIcon className={`h-4 w-4 transition-transform ${mobileAccordion===idx?'rotate-180':''}`}/>
-                                    </button>
-                                    <AnimatePresence>
-                                        {mobileAccordion===idx && (
-                                            <motion.ul initial={{height:0}} animate={{height:'auto'}} exit={{height:0}} className="overflow-hidden bg-black/30 rounded-lg mb-2">
-                                                {cat.sub.map(sub=>(
-                                                    <li key={sub.id}><button onClick={()=>{onNavigate(`products?category=${sub.filter}`); setIsMobileMenuOpen(false);}} className="block w-full text-left px-4 py-2 text-sm text-gray-400 hover:text-amber-400 hover:bg-white/5">{sub.name}</button></li>
-                                                ))}
-                                            </motion.ul>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            ))}
-                            <div className="pt-4 mt-4 border-t border-gray-800">
-                                <button onClick={()=>{onNavigate('products?promo=true'); setIsMobileMenuOpen(false);}} className="w-full flex items-center gap-3 py-3 text-red-500 font-bold bg-red-500/10 rounded-lg px-4 mb-2"><SaleIcon className="h-5 w-5"/> Ofertas do Dia</button>
-                                {isAuthenticated && user.role === 'admin' && (
-                                    <button onClick={()=>{onNavigate('admin'); setIsMobileMenuOpen(false);}} className="w-full flex items-center gap-3 py-3 text-amber-400 font-bold bg-amber-400/10 rounded-lg px-4"><AdminIcon className="h-5 w-5"/> Painel Admin</button>
-                                )}
-                            </div>
-                        </div>
-                    </motion.div>
-                </>
+                    </div>
+                </Modal>
             )}
         </AnimatePresence>
+
+        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+            {/* Top Bar - Desktop */}
+            <div className="hidden md:block px-4 sm:px-6">
+                <div className="flex justify-between items-center py-3">
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
+                         <form onSubmit={handleSearchSubmit} className="relative">
+                           <input
+                                type="text" value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                onFocus={() => setIsSearchFocused(true)}
+                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                                placeholder="O que você procura?"
+                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
+                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                            <AnimatePresence>
+                            {isSearchFocused && searchTerm.length > 0 && (
+                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                                        <div className="max-h-96 overflow-y-auto">
+                                            {searchSuggestions.length > 0 ? (
+                                                searchSuggestions.map(p => (
+                                                    <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
+                                                        <img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" />
+                                                        <div className="flex-grow">
+                                                            <p className="font-semibold text-gray-800">{p.name}</p>
+                                                            {p.is_on_sale && p.sale_price > 0 ? (
+                                                                <div className="flex items-baseline gap-2">
+                                                                    <p className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</p>
+                                                                    <p className="text-gray-500 text-sm line-through">R$ {Number(p.price).toFixed(2)}</p>
+                                                                </div>
+                                                            ) : (
+                                                                <p className="text-gray-700 font-bold">R$ {Number(p.price).toFixed(2)}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
+                                        </div>
+                                        {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors"> Ver todos os resultados para "{searchTerm}" </button> )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </form>
+                    </div>
+                    <div className="flex items-center space-x-2 sm:space-x-4">
+                        {isAuthenticated && ( <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button> )}
+                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
+                        <div className="hidden sm:block">
+                            {isAuthenticated ? (
+                                <div className="relative group">
+                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none"> <UserIcon className="h-6 w-6 mt-0.5"/> <div className="flex flex-col items-start text-xs"> <span>Olá, {user.name.split(' ')[0]}</span> <span className="font-bold text-sm">Conta</span> </div> </button>
+                                   <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800"> <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm text-amber-400 hover:bg-gray-800">Painel Admin</a>} <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a> </div>
+                                </div>
+                            ) : ( <button onClick={() => onNavigate('login')} className="flex items-center gap-1 bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold"> <UserIcon className="h-5 w-5"/> <span className="text-sm">Login</span> </button> )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+             <div className="block md:hidden px-4 pt-3">
+                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a> </div>
+                <form onSubmit={handleSearchSubmit} className="relative mb-2">
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
+                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                    <AnimatePresence>
+                        {isSearchFocused && searchTerm.length > 0 && (
+                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                                <div className="max-h-60 overflow-y-auto">
+                                    {searchSuggestions.length > 0 ? (
+                                        searchSuggestions.map(p => (
+                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0"> <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" /> <div className="flex-grow"> <p className="font-semibold text-gray-800 text-sm">{p.name}</p> {p.is_on_sale && p.sale_price > 0 ? ( <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> ) : ( <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> )} </div> </div>
+                                        ))
+                                    ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
+                                </div>
+                                {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"> Ver todos os resultados </button> )}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </form>
+                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
+            </div>
+
+            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
+                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
+                <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}> <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button> </div>
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"> <SaleIcon className="h-4 w-4" /> Promoções </a>
+                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
+                <AnimatePresence>
+                    {activeMenu === 'Coleções' && (
+                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700">
+                            <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
+                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a></li> ))} </ul> </div> ) ))}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </nav>
+
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <>
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col">
+                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
+                            <div className="flex-grow overflow-y-auto p-4">
+                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
+                                <div className="border-b border-gray-800"> <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300"> <SaleIcon className="h-5 w-5"/> Promoções </a> </div>
+                                <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
+                                <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
+                                <div className="pt-4 space-y-3">
+                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </header>
+
+        {/* Renderiza a BottomNavBar */}
+        <BottomNavBar />
         </>
     );
 });
