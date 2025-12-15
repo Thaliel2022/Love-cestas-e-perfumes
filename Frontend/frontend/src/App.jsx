@@ -400,7 +400,7 @@ const ShopProvider = ({ children }) => {
         accent: '#d97706'     // Dourado Escuro
     }), []);
 
-
+    
     // --- Lógica de Aplicação de Tema ---
     const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
@@ -6759,7 +6759,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
    // --- AQUI ESTÁ A ATUALIZAÇÃO DO MENU ---
    const menuItems = [
-        { key: 'dashboard', label: 'MEUPAL', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
         { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // <--- NOVO ITEM ADICIONADO AQUI
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
@@ -10057,238 +10057,6 @@ const AdminLogsPage = () => {
     );
 };
 
-function AppContent({ deferredPrompt }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const { currentTheme } = useShop(); 
-  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-  const [isInMaintenance, setIsInMaintenance] = useState(false);
-  const [isStatusLoading, setIsStatusLoading] = useState(true);
-
-  // Aplica as variáveis CSS dinamicamente com base no tema ativo
-  const appStyle = currentTheme ? {
-      '--theme-primary': currentTheme.colors?.primary,
-      '--theme-secondary': currentTheme.colors?.secondary,
-      '--theme-bg': currentTheme.colors?.background,
-      '--theme-text': currentTheme.colors?.text,
-      '--theme-accent': currentTheme.colors?.accent,
-      fontFamily: 'var(--theme-font, sans-serif)',
-  } : { fontFamily: 'sans-serif' };
-
-  useEffect(() => {
-    const checkStatus = () => {
-        apiService('/settings/maintenance-status')
-            .then(data => {
-                const isNowInMaintenance = data.maintenanceMode === 'on';
-                setIsInMaintenance(prevStatus => {
-                    if (prevStatus !== isNowInMaintenance) {
-                        return isNowInMaintenance;
-                    }
-                    return prevStatus;
-                });
-            })
-            .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção.", err);
-                setIsInMaintenance(false);
-            })
-            .finally(() => {
-                if (isStatusLoading) {
-                    setIsStatusLoading(false);
-                }
-            });
-    };
-
-    checkStatus(); 
-    const intervalId = setInterval(checkStatus, 30000); 
-    return () => clearInterval(intervalId); 
-  }, [isStatusLoading]); 
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-  }, []);
-  
-  useEffect(() => {
-    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
-    if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      sessionStorage.removeItem('pendingOrderId'); 
-      navigate(`order-success/${pendingOrderId}`);
-    } else if (currentPath.startsWith('order-success')) {
-        sessionStorage.removeItem('pendingOrderId');
-    }
-  }, [currentPath, navigate]); 
-  
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentPath]);
-  
-  if (isLoading || isStatusLoading) {
-      return (
-        <div className="h-screen flex items-center justify-center" style={{backgroundColor: 'var(--theme-bg, #000)'}}>
-            <SpinnerIcon className="h-8 w-8" style={{color: 'var(--theme-primary, #fbbf24)'}}/>
-        </div>
-      );
-  }
-
-  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
-  const isAdminDomain = window.location.hostname.includes('vercel.app');
-
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
-      return <MaintenancePage />;
-  }
-
-  const renderPage = () => {
-    const [path, queryString] = currentPath.split('?');
-    const searchParams = new URLSearchParams(queryString);
-    const initialSearch = searchParams.get('search') || '';
-    const initialCategory = searchParams.get('category') || '';
-    const initialBrand = searchParams.get('brand') || '';
-    const initialIsPromo = searchParams.get('promo') === 'true';
-    
-    const pathParts = path.split('/');
-    const mainPage = pathParts[0];
-    const pageId = pathParts[1];
-
-    if (mainPage === 'admin') {
-        if (!isAuthenticated || user.role !== 'admin') {
-             return <LoginPage onNavigate={navigate} />;
-        }
-        
-        const adminSubPage = pageId || 'dashboard';
-        const adminPages = {
-            'dashboard': <AdminDashboard onNavigate={navigate} />, 
-            'banners': <AdminBanners />,
-            'products': <AdminProducts onNavigate={navigate} />,
-            'orders': <AdminOrders />,
-            'refunds': <AdminRefunds onNavigate={navigate} />,
-            'collections': <AdminCollections />,
-            'users': <AdminUsers />,
-            'coupons': <AdminCoupons />,
-            'reports': <AdminReports />,
-            'logs': <AdminLogsPage />,
-            'themes': <AdminThemes />, // <--- AQUI ESTÁ A ROTA PARA A PÁGINA
-        };
-
-        return (
-            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
-            </AdminLayout>
-        );
-    }
-
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'product' && pageId) {
-        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'account') {
-        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
-    }
-
-   const pages = {
-        'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
-        'login': <LoginPage onNavigate={navigate} />,
-        'register': <RegisterPage onNavigate={navigate} />,
-        'cart': <CartPage onNavigate={navigate} />,
-        'checkout': <CheckoutPage onNavigate={navigate} />,
-        'wishlist': <WishlistPage onNavigate={navigate} />,
-        'ajuda': <AjudaPage onNavigate={navigate} />,
-        'about': <AboutPage />,
-        'privacy': <PrivacyPolicyPage />,
-        'terms': <TermsOfServicePage />,
-        'forgot-password': <ForgotPasswordPage onNavigate={navigate} />,
-    };
-    return pages[mainPage] || <HomePage onNavigate={navigate} />;
-  };
-
-  const showHeaderFooter = !currentPath.startsWith('admin');
-  
-  return (
-    <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
-      
-      {/* RENDERIZA OS EFEITOS DO TEMA ATIVO (NEVE, CORAÇÕES, ETC) */}
-      {currentTheme && !currentPath.startsWith('admin') && (
-          <ThemeEffects type={currentTheme.effect_type} />
-      )}
-
-      {/* ÍCONE DE DECORAÇÃO FLUTUANTE */}
-      {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
-          <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
-              {currentTheme.assets.decoration_icon.startsWith('http') ? <img src={currentTheme.assets.decoration_icon} className="w-12 h-12 object-contain" alt="icon"/> : currentTheme.assets.decoration_icon}
-          </div>
-      )}
-
-      {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="mt-auto border-t border-gray-800" style={{backgroundColor: 'var(--theme-secondary, #111827)'}}>
-            <div className="container mx-auto px-4 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-bold" style={{color: 'var(--theme-primary, #fbbf24)'}}>LovecestasePerfumes</h3>
-                        <p className="text-sm opacity-70">
-                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
-                        </p>
-                    </div>
-                    <div className="space-y-4">
-                        <h3 className="font-bold tracking-wider">Institucional</h3>
-                        <ul className="space-y-2 text-sm opacity-80">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
-                        </ul>
-                    </div>
-                    <div className="space-y-4">
-                        <h3 className="font-bold tracking-wider">Atendimento</h3>
-                        <ul className="space-y-2 text-sm opacity-80">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
-                            <li>
-                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
-                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                    <div className="space-y-4">
-                        <h3 className="font-bold tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><PixIcon className="h-full w-auto"/></div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><VisaIcon className="h-full w-auto"/></div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><MastercardIcon className="h-full w-auto"/></div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><EloIcon className="h-full w-auto"/></div>
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14"><BoletoIcon className="h-6 w-auto text-black"/></div>
-                        </div>
-                         <p className="text-xs opacity-60">Parcele em até 4x sem juros.</p>
-                    </div>
-                </div>
-            </div>
-            <div className="py-4 border-t border-gray-800" style={{backgroundColor: 'var(--theme-bg, #000000)'}}>
-                <p className="text-center text-sm opacity-50">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-      )}
-      
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
-    </div>
-  );
-}
-
 const MaintenancePage = () => {
     return (
         <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
@@ -11298,21 +11066,21 @@ const BannerCarousel = memo(({ onNavigate }) => {
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { currentTheme } = useShop(); // AGORA USA useShop
+  const { currentTheme } = useShop(); 
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Aplica as cores dinâmicas no estilo inline do container principal
+  // Aplica as variáveis CSS dinamicamente com base no tema ativo
   const appStyle = currentTheme ? {
       '--theme-primary': currentTheme.colors?.primary,
       '--theme-secondary': currentTheme.colors?.secondary,
       '--theme-bg': currentTheme.colors?.background,
       '--theme-text': currentTheme.colors?.text,
       '--theme-accent': currentTheme.colors?.accent,
-  } : {};
+      fontFamily: 'var(--theme-font, sans-serif)',
+  } : { fontFamily: 'sans-serif' };
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -11326,7 +11094,7 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                console.error("Falha ao verificar o modo de manutenção.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
@@ -11349,7 +11117,6 @@ function AppContent({ deferredPrompt }) {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
       sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
@@ -11413,7 +11180,7 @@ function AppContent({ deferredPrompt }) {
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'themes': <AdminThemes />,
+            'themes': <AdminThemes />, // <--- AQUI ESTÁ A ROTA PARA A PÁGINA
         };
 
         return (
@@ -11461,9 +11228,15 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
       
+      {/* RENDERIZA OS EFEITOS DO TEMA ATIVO (NEVE, CORAÇÕES, ETC) */}
+      {currentTheme && !currentPath.startsWith('admin') && (
+          <ThemeEffects type={currentTheme.effect_type} />
+      )}
+
+      {/* ÍCONE DE DECORAÇÃO FLUTUANTE */}
       {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
           <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
-              {currentTheme.assets.decoration_icon}
+              {currentTheme.assets.decoration_icon.startsWith('http') ? <img src={currentTheme.assets.decoration_icon} className="w-12 h-12 object-contain" alt="icon"/> : currentTheme.assets.decoration_icon}
           </div>
       )}
 
