@@ -6418,13 +6418,14 @@ const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
     const notification = useNotification();
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 });
-    const [lowStockProducts, setLowStockProducts] = useState([]);
+    const [lowStockProducts, setLowStockProducts] = useState([]); // <-- A lista completa ainda é buscada aqui
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true);
-    
-    // Estados para gráficos
+    // REMOVIDO: const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
+
+    // Estados separados para os dados dos gráficos
     const [dailySalesData, setDailySalesData] = useState([]);
     const [bestSellersData, setBestSellersData] = useState([]);
 
@@ -6444,9 +6445,16 @@ const AdminDashboard = ({ onNavigate }) => {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
             const timestamp = new Date().toLocaleString('pt-BR');
-            doc.setFontSize(18); doc.text(title, pageWidth / 2, 16, { align: 'center' });
-            doc.setFontSize(8); doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({ head: [headers], body: data, startY: 25 });
+
+            doc.setFontSize(18);
+            doc.text(title, pageWidth / 2, 16, { align: 'center' });
+            doc.setFontSize(8);
+            doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
+            doc.autoTable({
+                head: [headers],
+                body: data,
+                startY: 25
+            });
             doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
         }, ['pdf']);
     };
@@ -6464,100 +6472,144 @@ const AdminDashboard = ({ onNavigate }) => {
         try {
             const orders = await apiService('/orders');
             const data = orders.map(o => ({ Pedido_ID: o.id, Cliente: o.user_name, Data: new Date(o.date).toLocaleDateString(), Total: o.total, Status: o.status }));
-            if (format === 'pdf') generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio_Vendas');
-            else generateExcel(data, 'relatorio_vendas');
-        } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
+            if (format === 'pdf') {
+                generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio de Vendas');
+            } else {
+                generateExcel(data, 'relatorio_vendas');
+            }
+        } catch (error) {
+            notification.show(`Falha ao gerar relatório de vendas: ${error.message}`, 'error');
+        }
     };
 
     const handleStockExport = async (format) => {
         try {
             const products = await apiService('/products/all');
             const data = products.map(p => ({ Produto: p.name, Marca: p.brand, Estoque: p.stock, Preço: p.price }));
-            if (format === 'pdf') generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio_Estoque');
-            else generateExcel(data, 'relatorio_estoque');
-        } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
+            if (format === 'pdf') {
+                generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio de Estoque');
+            } else {
+                generateExcel(data, 'relatorio_estoque');
+            }
+        } catch (error) {
+            notification.show(`Falha ao gerar relatório de estoque: ${error.message}`, 'error');
+        }
     };
 
     const fetchDashboardData = useCallback((filter = 'month') => {
         setIsLoadingData(true);
+        console.log(`Fetching dashboard data with filter: ${filter}`);
         Promise.all([
-            apiService(`/reports/dashboard?filter=${filter}`).catch(() => ({ stats: {}, dailySales: [], bestSellers: [] })),
-            apiService('/products/low-stock').catch(() => [])
+            apiService(`/reports/dashboard?filter=${filter}`).catch(err => {
+                console.error('Error fetching dashboard report data:', err);
+                notification.show(`Erro ao carregar dados do dashboard: ${err.message}`, 'error');
+                return { stats: { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 }, dailySales: [], bestSellers: [] };
+            }),
+            apiService('/products/low-stock').catch(err => {
+                console.error('Error fetching low stock products:', err);
+                return [];
+            })
         ]).then(([reportData, lowStockItems]) => {
             const statsData = reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 };
-            setStats(statsData);
-            setDailySalesData(reportData?.dailySales || []);
-            setBestSellersData(reportData?.bestSellers || []);
-            setLowStockProducts(lowStockItems || []);
-        }).finally(() => setIsLoadingData(false));
-    }, []);
+            const dailySalesData = reportData?.dailySales || [];
+            const bestSellersData = reportData?.bestSellers || [];
 
-    useEffect(() => { fetchDashboardData(activeFilter); }, [activeFilter, fetchDashboardData]);
+            setStats(statsData);
+            setDailySalesData(dailySalesData);
+            setBestSellersData(bestSellersData);
+            setLowStockProducts(lowStockItems || []); // <-- A lista completa é salva no estado
+        }).finally(() => {
+            setIsLoadingData(false);
+        });
+    }, [notification]);
 
     useEffect(() => {
-        if (!isLoadingData && window.Chart) {
-            const renderChart = (id, type, data, options) => {
-                const ctx = document.getElementById(id)?.getContext('2d');
-                if (ctx) {
-                    if (window[`my${id}Chart`]) window[`my${id}Chart`].destroy();
-                    window[`my${id}Chart`] = new window.Chart(ctx, { type, data, options });
+        fetchDashboardData(activeFilter);
+    }, [activeFilter, fetchDashboardData]);
+
+    // Efeito para RENDERIZAR os gráficos
+    useEffect(() => {
+        if (!isLoadingData) {
+            const renderCharts = () => {
+                if (window.Chart) {
+                    // Gráfico de Vendas Diárias
+                    const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
+                    if (dailySalesCtx && dailySalesData) {
+                        if (window.myDailySalesChart) window.myDailySalesChart.destroy();
+
+                        // --- CORREÇÃO DA DATA ---
+                        // Transforma 'YYYY-MM-DD' (ou data ISO) em uma data local segura
+                        const safeLabels = dailySalesData.map(d => {
+                            if (!d.sale_date) return "Data Inválida";
+                            // A API retorna uma data (ex: 2025-10-18T03:00:00.000Z)
+                            const dateObj = new Date(d.sale_date);
+                            if (isNaN(dateObj.getTime())) {
+                                // Fallback se a string de data for apenas YYYY-MM-DD
+                                const parts = d.sale_date.split('-');
+                                if (parts.length === 3) {
+                                     // new Date(ano, mês_zero_indexado, dia) - cria data local
+                                     const dateObjFallback = new Date(parts[0], parts[1] - 1, parts[2]);
+                                     return dateObjFallback.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                                }
+                                return "Data Inválida";
+                            }
+                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                        });
+
+                        window.myDailySalesChart = new window.Chart(dailySalesCtx, {
+                            type: 'line',
+                            data: {
+                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
+                                datasets: [{
+                                    label: 'Faturamento Diário (R$)',
+                                    data: dailySalesData.map(d => d.daily_total),
+                                    borderColor: 'rgba(212, 175, 55, 1)',
+                                    backgroundColor: 'rgba(212, 175, 55, 0.2)',
+                                    fill: true, tension: 0.3
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false }
+                        });
+                    } else if (!isLoadingData) {
+                        console.warn("Elemento canvas 'dailySalesChart' não encontrado ou dados ausentes.");
+                    }
+
+                    // Gráfico de Mais Vendidos
+                    const bestSellersCtx = document.getElementById('bestSellersChart')?.getContext('2d');
+                    if (bestSellersCtx && bestSellersData) {
+                        if (window.myBestSellersChart) window.myBestSellersChart.destroy();
+                        window.myBestSellersChart = new window.Chart(bestSellersCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: bestSellersData.map(p => p.name),
+                                datasets: [{
+                                    label: 'Unidades Vendidas',
+                                    data: bestSellersData.map(p => p.sales || 0),
+                                    backgroundColor: [
+                                        'rgba(212, 175, 55, 0.8)', 'rgba(192, 192, 192, 0.8)',
+                                        'rgba(205, 127, 50, 0.8)', 'rgba(169, 169, 169, 0.8)',
+                                        'rgba(245, 222, 179, 0.8)'
+                                    ],
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
+                        });
+                    } else if (!isLoadingData) {
+                        console.warn("Elemento canvas 'bestSellersChart' não encontrado ou dados ausentes.");
+                    }
+                } else {
+                    console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
+                    setTimeout(renderCharts, 100);
                 }
             };
 
-            const commonOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
-                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
-                }
-            };
+            // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto
+            setTimeout(renderCharts, 0);
 
-            const safeLabels = dailySalesData.map(d => {
-                if (!d.sale_date) return "";
-                const dateObj = new Date(d.sale_date);
-                if (isNaN(dateObj.getTime())) {
-                     const parts = d.sale_date.split('-');
-                     if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('pt-BR');
-                     return "";
-                }
-                return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-            });
-
-            renderChart('dailySalesChart', 'line', {
-                labels: safeLabels,
-                datasets: [{
-                    label: 'Faturamento',
-                    data: dailySalesData.map(d => d.daily_total),
-                    borderColor: '#4f46e5', // Indigo 600
-                    backgroundColor: (context) => {
-                        const ctx = context.chart.ctx;
-                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
-                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
-                        return gradient;
-                    },
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    fill: true,
-                    tension: 0.4
-                }]
-            }, commonOptions);
-
-            renderChart('bestSellersChart', 'bar', {
-                labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
-                datasets: [{
-                    label: 'Vendas',
-                    data: bestSellersData.map(p => p.sales || 0),
-                    backgroundColor: '#0ea5e9', // Sky 500
-                    borderRadius: 4,
-                    barThickness: 20
-                }]
-            }, { ...commonOptions, indexAxis: 'y' });
         }
-    }, [isLoadingData, dailySalesData, bestSellersData]);
+    }, [isLoadingData, dailySalesData, bestSellersData]); // Roda quando o carregamento termina ou os dados dos gráficos mudam
 
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
@@ -6565,233 +6617,204 @@ const AdminDashboard = ({ onNavigate }) => {
         fetchDashboardData(activeFilter);
     };
 
+    const handleFilterClick = (filter) => {
+        setActiveFilter(filter);
+    };
+
     const calculateGrowth = () => {
-        if (!stats.prevPeriodRevenue) return { text: '--', isPositive: true };
-        const current = Number(stats.totalRevenue);
-        const prev = Number(stats.prevPeriodRevenue);
-        if (prev === 0) return { text: current > 0 ? '+100%' : '0%', isPositive: true };
-        const growth = ((current - prev) / prev) * 100;
-        return { text: `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`, isPositive: growth >= 0 };
+        if (!stats || stats.prevPeriodRevenue === undefined || stats.totalRevenue === undefined) {
+            return { text: '--', color: 'text-gray-500' };
+        }
+        const prevRevenue = Number(stats.prevPeriodRevenue);
+        const currentRevenue = Number(stats.totalRevenue);
+
+        if (prevRevenue === 0) {
+            return currentRevenue > 0 ? { text: '+∞%', color: 'text-green-600' } : { text: '0.0%', color: 'text-gray-500' };
+        }
+        const growth = ((currentRevenue - prevRevenue) / prevRevenue) * 100;
+        if (growth > 0) return { text: `+${growth.toFixed(1)}%`, color: 'text-green-600' };
+        if (growth < 0) return { text: `${growth.toFixed(1)}%`, color: 'text-red-600' };
+        return { text: '0.0%', color: 'text-gray-500' };
     };
     const growth = calculateGrowth();
 
-    const StatCard = ({ title, value, icon: Icon, growth, subtext, iconBg, iconColor }) => (
-        <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
-        >
-            <div>
-                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
-                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
-                {(growth || subtext) && (
-                    <div className="flex items-center gap-2 mt-2">
-                        {growth && (
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                {growth.text}
-                            </span>
-                        )}
-                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
-                    </div>
-                )}
-            </div>
-            <div className={`p-3 rounded-lg ${iconBg}`}>
-                <Icon className={`h-6 w-6 ${iconColor}`} />
-            </div>
-        </motion.div>
-    );
+    const getComparisonText = () => {
+        switch(activeFilter) {
+            case 'today': return 'vs. Ontem';
+            case 'week': return 'vs. Semana Anterior';
+            case 'year': return 'vs. Ano Anterior';
+            case 'month':
+            default: return 'vs. Mês Anterior';
+        }
+    };
 
-    const LowStockWidget = () => {
-        const [searchTerm, setSearchTerm] = useState('');
-        const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const LowStockAlerts = () => { // A prop 'lowStockProducts' é recebida implicitamente agora
+        // --- INÍCIO: Estado e Lógica movidos para cá ---
+        const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
+
+        // Filtra os produtos com estoque baixo usando a lista completa vinda do estado pai
+        const filteredLowStockProducts = lowStockProducts.filter(item =>
+            item.name.toLowerCase().includes(lowStockSearchTerm.toLowerCase())
+            // Adicionar filtro por SKU se disponível no futuro: || (item.sku && item.sku.toLowerCase().includes(lowStockSearchTerm.toLowerCase()))
+        );
+        // --- FIM: Estado e Lógica movidos para cá ---
+
+        if (lowStockProducts.length === 0) return null;
 
         return (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
-                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
-                        <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
-                        Reposição Necessária
-                    </h3>
-                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
-                </div>
-                <div className="p-3 bg-white border-b border-gray-50">
-                    <div className="relative">
-                        <input 
-                            type="text" 
-                            placeholder="Buscar produto..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                        />
-                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
+                <div className="flex items-center">
+                    <ExclamationIcon className="h-6 w-6 text-yellow-500 mr-3"/>
+                    <div>
+                        <h3 className="font-bold text-yellow-800">Alerta de Estoque Baixo</h3>
+                        <p className="text-sm text-yellow-700">
+                            {lowStockProducts.length} item(ns) precisam de atenção.
+                        </p>
                     </div>
                 </div>
-                <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
-                    {filtered.length > 0 ? filtered.map(item => (
-                        <div key={item.id + item.name} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100">
-                            <div className="flex items-center gap-3 overflow-hidden">
-                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
-                                    <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
+                 {/* Input de busca usa o estado local */}
+                <div className="mt-4 mb-2 relative">
+                     <input
+                        type="text"
+                        placeholder="Buscar produto em alerta..."
+                        value={lowStockSearchTerm} // Usa estado local
+                        onChange={(e) => setLowStockSearchTerm(e.target.value)} // Atualiza estado local
+                        className="w-full p-2 pl-8 border border-gray-300 rounded-md text-sm"
+                    />
+                    <SearchIcon className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"/>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                    {filteredLowStockProducts.length > 0 ? (
+                        filteredLowStockProducts.map(item => ( // Usa a lista filtrada localmente
+                             <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
+                                    <span className="text-gray-800 truncate">{item.name}</span>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-slate-400">SKU: {item.id}</p>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                    <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
+                                        Restam: {item.stock}
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedStockItem(item);
+                                            setIsStockModalOpen(true);
+                                        }}
+                                        className="text-green-600 hover:underline text-xs font-semibold"
+                                    >
+                                        Atualizar
+                                    </button>
+                                    <button onClick={() => {
+                                        const baseName = item.name.split(' (')[0];
+                                        onNavigate(`admin/products?search=${encodeURIComponent(baseName)}`);
+                                    }} className="text-blue-600 hover:underline text-xs font-semibold">
+                                        Ver
+                                    </button>
                                 </div>
-                            </div>
-                            <div className="text-right flex-shrink-0 flex flex-col items-end">
-                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
-                                <button 
-                                    onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    Repor
-                                </button>
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
-                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
-                            <p className="text-xs">Estoque saudável!</p>
-                        </div>
+                             </div>
+                        ))
+                    ) : (
+                        <p className="text-center text-sm text-gray-500 py-4">Nenhum produto encontrado na busca.</p>
                     )}
                 </div>
             </div>
         );
     };
 
+    const StatCard = ({ title, value, comparisonValue, growth }) => (
+        <motion.div
+            className="bg-white p-6 rounded-lg shadow"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <h4 className="text-gray-500">{title}</h4>
+            <div className="flex justify-between items-baseline">
+                <p className="text-3xl font-bold">{value}</p>
+                {growth && <span className={`font-semibold ${growth.color}`}>{growth.text}</span>}
+            </div>
+            {comparisonValue && <p className="text-sm text-gray-400">{comparisonValue}</p>}
+        </motion.div>
+    );
+
+    const FilterButton = ({ label, filterName }) => (
+        <button
+            onClick={() => handleFilterClick(filterName)}
+            className={`px-4 py-1.5 rounded-md font-semibold text-sm transition-colors ${
+                activeFilter === filterName ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+        >
+            {label}
+        </button>
+    );
+
+    // REMOVIDO: Lógica de filtragem que estava aqui
+
     return (
-        <div className="space-y-8 pb-10">
+        <div>
+            {/* Modais */}
             <AnimatePresence>
                 {isStockModalOpen && (
-                    <QuickStockUpdateModal item={selectedStockItem} onClose={() => setIsStockModalOpen(false)} onSave={handleQuickStockSave} />
+                    <QuickStockUpdateModal
+                        item={selectedStockItem}
+                        onClose={() => setIsStockModalOpen(false)}
+                        onSave={handleQuickStockSave}
+                    />
                 )}
             </AnimatePresence>
 
-            {/* Header com Filtros */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
-                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
-                </div>
-                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
-                    {['today', 'week', 'month', 'year'].map(f => {
-                        const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
-                        return (
-                            <button
-                                key={f}
-                                onClick={() => setActiveFilter(f)}
-                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
-                            >
-                                {labels[f]}
-                            </button>
-                        );
-                    })}
+            {/* Header e Filtros */}
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                <h1 className="text-3xl font-bold">Dashboard</h1>
+                <div className="flex items-center gap-2">
+                    <FilterButton label="Hoje" filterName="today" />
+                    <FilterButton label="Semana" filterName="week" />
+                    <FilterButton label="Mês" filterName="month" />
+                    <FilterButton label="Ano" filterName="year" />
                 </div>
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
+                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500" /></div>
             ) : (
                 <>
-                    {/* Cards de KPIs */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <StatCard 
-                            title="Faturamento Total" 
-                            value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`} 
-                            growth={growth}
-                            subtext="vs. período anterior"
-                            icon={CurrencyDollarIcon}
-                            iconBg="bg-green-100"
-                            iconColor="text-green-600"
-                        />
-                        <StatCard 
-                            title="Vendas Realizadas" 
-                            value={stats.totalSales} 
-                            icon={BoxIcon}
-                            iconBg="bg-blue-100"
-                            iconColor="text-blue-600"
-                        />
-                        <StatCard 
-                            title="Novos Clientes" 
-                            value={stats.newCustomers} 
-                            icon={UsersIcon}
-                            iconBg="bg-purple-100"
-                            iconColor="text-purple-600"
-                        />
-                        <StatCard 
-                            title="Pedidos Pendentes" 
-                            value={stats.pendingOrders} 
-                            icon={ClockIcon}
-                            iconBg="bg-amber-100"
-                            iconColor="text-amber-600"
-                        />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <MaintenanceModeToggle />
+                        <LowStockAlerts /> {/* Passa a lista completa como prop */}
                     </div>
 
-                    {/* Área Principal: Gráfico e Estoque */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Gráfico Principal */}
-                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <div className="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
-                                    <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
-                                </div>
-                                <button onClick={() => handleSalesExport('excel')} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center gap-1 transition-colors">
-                                    <DownloadIcon className="h-3.5 w-3.5"/> Exportar
-                                </button>
-                            </div>
-                            <div className="h-80 w-full relative">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                        <StatCard
+                            title={`Faturamento (${getComparisonText().replace('vs. ', '')})`}
+                            value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`}
+                            comparisonValue={`R$ ${Number(stats.prevPeriodRevenue).toFixed(2)} (${getComparisonText()})`}
+                            growth={growth}
+                        />
+                        <StatCard title="Vendas no Período" value={stats.totalSales ?? 0} />
+                        <StatCard title="Novos Clientes no Período" value={stats.newCustomers ?? 0} />
+                        <StatCard title="Pedidos Pendentes no Período" value={stats.pendingOrders ?? 0} />
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg shadow mb-6">
+                        <h3 className="font-bold mb-4">Exportar Relatórios</h3>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <button onClick={() => handleSalesExport('excel')} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span> </button>
+                            <button onClick={() => handleStockExport('excel')} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span> </button>
+                            <button onClick={() => handleSalesExport('pdf')} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span> </button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]"> {/* Altura mínima */}
+                            <h3 className="font-bold mb-4">Vendas Diárias ({getComparisonText().replace('vs. ', '')})</h3>
+                            <div className="relative h-64"> {/* Container com altura definida */}
                                 <canvas id="dailySalesChart"></canvas>
                             </div>
                         </div>
-
-                        {/* Widget Lateral */}
-                        <div className="space-y-6">
-                            <div className="h-full">
-                                <LowStockWidget />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Área Inferior: Ações e Secundários */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Gráfico Secundário */}
-                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
-                            <div className="h-64 relative">
+                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]"> {/* Altura mínima */}
+                            <h3 className="font-bold mb-4">Mais Vendidos ({getComparisonText().replace('vs. ', '')})</h3>
+                            <div className="relative h-64"> {/* Container com altura definida */}
                                 <canvas id="bestSellersChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        {/* Manutenção e Ações Rápidas */}
-                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
-                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
-                                <MaintenanceModeToggle />
-                            </div>
-
-                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
-                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                    <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
-                                </h3>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
-                                        <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
-                                    </button>
-                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
-                                        <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Banners</span>
-                                    </button>
-                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
-                                        <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
-                                    </button>
-                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
-                                        <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
-                                        <span className="text-xs font-bold block text-gray-200">Cupom</span>
-                                    </button>
-                                </div>
                             </div>
                         </div>
                     </div>
