@@ -400,7 +400,7 @@ const ShopProvider = ({ children }) => {
         accent: '#d97706'     // Dourado Escuro
     }), []);
 
-    
+
     // --- Lógica de Aplicação de Tema ---
     const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
@@ -6759,7 +6759,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
    // --- AQUI ESTÁ A ATUALIZAÇÃO DO MENU ---
    const menuItems = [
-        { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'dashboard', label: 'MEUPAL', icon: <ChartIcon className="h-5 w-5"/> },
         { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // <--- NOVO ITEM ADICIONADO AQUI
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
