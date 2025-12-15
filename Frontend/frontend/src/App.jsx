@@ -330,7 +330,7 @@ const AuthProvider = ({ children }) => {
 const ThemeEffects = memo(({ type }) => {
     if (!type || type === 'none') return null;
 
-    const renderParticles = (emoji, count = 20) => {
+    const renderParticles = (emoji, count = 30) => {
         return (
             <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 {[...Array(count)].map((_, i) => (
@@ -358,11 +358,12 @@ const ThemeEffects = memo(({ type }) => {
     };
 
     switch (type) {
-        case 'snow': return renderParticles('❄️', 30);
-        case 'hearts': return renderParticles('❤️', 20);
-        case 'flowers': return renderParticles('🌸', 20);
-        case 'confetti': return renderParticles('🎉', 30);
-        case 'halloween': return renderParticles('🎃', 15);
+        case 'snow': return renderParticles('❄️', 40);
+        case 'hearts': return renderParticles('❤️', 25);
+        case 'flowers': return renderParticles('🌸', 25);
+        case 'confetti': return renderParticles('🎉', 40);
+        case 'halloween': return renderParticles('🎃', 20);
+        case 'stars': return renderParticles('✨', 30);
         default: return null;
     }
 });
@@ -386,41 +387,41 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- Estados de Tema ---
+    // --- Estados de Tema (Visual) ---
     const [currentTheme, setCurrentTheme] = useState(null);
     const [themeStyles, setThemeStyles] = useState({});
 
-    // Cores padrão (Gold/Black)
+    // Cores padrão (Gold/Black) para fallback
     const defaultColors = useMemo(() => ({
-        primary: '#fbbf24',   // amber-400
-        secondary: '#111827', // gray-900
-        background: '#000000',
-        text: '#ffffff',
-        accent: '#d97706'     // amber-600
+        primary: '#fbbf24',   // Dourado
+        secondary: '#111827', // Cinza Escuro
+        background: '#000000', // Preto
+        text: '#ffffff',      // Branco
+        accent: '#d97706'     // Dourado Escuro
     }), []);
 
-    // --- Lógica de Temas ---
+    // --- Lógica de Aplicação de Tema ---
     const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
         
         const colors = themeData?.colors || defaultColors;
         const font = themeData?.typography || 'sans-serif';
 
-        // Variáveis CSS para cores
+        // Aplica variáveis CSS globais para uso em toda a aplicação
         root.style.setProperty('--theme-primary', colors.primary || defaultColors.primary);
         root.style.setProperty('--theme-secondary', colors.secondary || defaultColors.secondary);
         root.style.setProperty('--theme-bg', colors.background || defaultColors.background);
         root.style.setProperty('--theme-text', colors.text || defaultColors.text);
         root.style.setProperty('--theme-accent', colors.accent || defaultColors.accent);
         
-        // Lógica de Fonte
-        let fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        // Mapeamento de Fontes
+        let fontFamily = 'ui-sans-serif, system-ui, sans-serif';
         if (font === 'serif') fontFamily = 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
-        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
         if (font === 'cursive') fontFamily = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", sans-serif';
+        if (font === 'modern') fontFamily = '"Montserrat", "Helvetica Neue", Arial, sans-serif';
         
         root.style.setProperty('--theme-font', fontFamily);
-        
         setThemeStyles(colors);
     }, [defaultColors]);
 
@@ -431,9 +432,9 @@ const ShopProvider = ({ children }) => {
                 const colors = typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors;
                 const assets = typeof data.assets === 'string' ? JSON.parse(data.assets) : data.assets;
                 
-                // Salva tema completo (incluindo typography e effect_type)
-                setCurrentTheme({ ...data, colors, assets });
-                applyTheme({ ...data, colors, assets });
+                const fullTheme = { ...data, colors, assets };
+                setCurrentTheme(fullTheme);
+                applyTheme(fullTheme);
             } else {
                 setCurrentTheme(null);
                 applyTheme({ colors: defaultColors });
@@ -448,7 +449,7 @@ const ShopProvider = ({ children }) => {
         fetchTheme();
     }, [fetchTheme]);
 
-    // --- Lógica da Loja (Existente) ---
+    // --- Lógica da Loja (Mantida Original) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -6340,6 +6341,10 @@ const AdminThemes = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTheme, setEditingTheme] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Estado temporário para Preview ao Vivo dentro do Modal
+    const [previewTheme, setPreviewTheme] = useState(null);
+
     const notification = useNotification();
     const { fetchTheme } = useShop(); 
 
@@ -6355,36 +6360,28 @@ const AdminThemes = () => {
 
     const handleSave = async (e) => {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = {
-            name: formData.get('name'),
-            start_date: formData.get('start_date'),
-            end_date: formData.get('end_date'),
-            typography: formData.get('typography'),
-            effect_type: formData.get('effect_type'),
-            colors: {
-                primary: formData.get('color_primary'),
-                secondary: formData.get('color_secondary'),
-                background: formData.get('color_background'),
-                text: formData.get('color_text'),
-                accent: formData.get('color_accent'),
-            },
-            assets: {
-                banner_url: formData.get('banner_url'),
-                decoration_icon: formData.get('decoration_icon')
-            }
-        };
-
         try {
-            if (editingTheme) {
-                await apiService(`/themes/${editingTheme.id}`, 'PUT', data);
+            // O objeto previewTheme já contém os dados do formulário atualizados
+            const dataToSave = {
+                name: previewTheme.name,
+                start_date: previewTheme.start_date,
+                end_date: previewTheme.end_date,
+                typography: previewTheme.typography,
+                effect_type: previewTheme.effect_type,
+                colors: previewTheme.colors,
+                assets: previewTheme.assets
+            };
+
+            if (editingTheme && editingTheme.id) {
+                await apiService(`/themes/${editingTheme.id}`, 'PUT', dataToSave);
                 notification.show("Tema atualizado!");
             } else {
-                await apiService('/themes', 'POST', data);
+                await apiService('/themes', 'POST', dataToSave);
                 notification.show("Tema criado!");
             }
             setIsModalOpen(false);
             setEditingTheme(null);
+            setPreviewTheme(null);
             fetchThemes();
             fetchTheme(); 
         } catch (err) {
@@ -6404,7 +6401,7 @@ const AdminThemes = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Tem certeza?")) return;
+        if (!window.confirm("Tem certeza que deseja remover este tema?")) return;
         try {
             await apiService(`/themes/${id}`, 'DELETE');
             notification.show("Tema removido.");
@@ -6415,131 +6412,309 @@ const AdminThemes = () => {
     };
 
     const openModal = (theme = null) => {
-        setEditingTheme(theme);
+        const defaultData = {
+            name: '',
+            start_date: '',
+            end_date: '',
+            typography: 'sans-serif',
+            effect_type: 'none',
+            colors: {
+                primary: '#fbbf24',
+                secondary: '#111827',
+                background: '#000000',
+                text: '#ffffff',
+                accent: '#d97706',
+            },
+            assets: { banner_url: '', decoration_icon: '' }
+        };
+
+        if (theme) {
+            // Parse seguro ao abrir edição
+            const parsedColors = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
+            const parsedAssets = typeof theme.assets === 'string' ? JSON.parse(theme.assets) : theme.assets;
+            const loadedTheme = { ...theme, colors: parsedColors, assets: parsedAssets };
+            
+            setEditingTheme(loadedTheme);
+            setPreviewTheme(loadedTheme);
+        } else {
+            setEditingTheme(null);
+            setPreviewTheme(defaultData);
+        }
         setIsModalOpen(true);
     };
 
-    const getColor = (theme, key) => {
-        try {
-            const c = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
-            return c?.[key] || '#000000';
-        } catch { return '#000000'; }
+    // Atualiza o estado de preview conforme o usuário digita
+    const handlePreviewChange = (field, value, nestedKey = null) => {
+        setPreviewTheme(prev => {
+            if (nestedKey) {
+                return { ...prev, [field]: { ...prev[field], [nestedKey]: value } };
+            }
+            return { ...prev, [field]: value };
+        });
     };
-    
-    const getAsset = (theme, key) => {
+
+    // Helper para o card da lista (parse rápido)
+    const getThemeData = (t) => {
         try {
-            const a = typeof theme.assets === 'string' ? JSON.parse(theme.assets) : theme.assets;
-            return a?.[key] || '';
-        } catch { return ''; }
+            return {
+                ...t,
+                colors: typeof t.colors === 'string' ? JSON.parse(t.colors) : t.colors,
+                assets: typeof t.assets === 'string' ? JSON.parse(t.assets) : t.assets,
+            };
+        } catch { return t; }
+    };
+
+    // Componente Mini Preview (Card Visual)
+    const ThemePreviewCard = ({ themeData, isInteractive = false }) => {
+        const colors = themeData.colors || {};
+        return (
+            <div className="w-full h-40 rounded-lg overflow-hidden relative shadow-md border border-gray-200 flex flex-col transition-all"
+                 style={{ backgroundColor: colors.background, color: colors.text, fontFamily: themeData.typography === 'serif' ? 'serif' : 'sans-serif' }}>
+                
+                {/* Header Simulado */}
+                <div className="h-8 w-full flex items-center px-3 justify-between" style={{ backgroundColor: colors.secondary }}>
+                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: colors.primary }}></div>
+                    <div className="text-[10px] opacity-70">Loja</div>
+                </div>
+
+                {/* Corpo Simulado */}
+                <div className="flex-grow p-3 flex flex-col justify-center items-center gap-2 relative">
+                    {/* Botão Simulado */}
+                    <div className="px-3 py-1 rounded text-xs font-bold shadow-sm" style={{ backgroundColor: colors.primary, color: '#000' }}>
+                        Botão Primário
+                    </div>
+                    {/* Texto Accent */}
+                    <div className="text-xs font-bold" style={{ color: colors.accent }}>Destaque Accent</div>
+                    
+                    {/* Ícone Decorativo (se houver) */}
+                    {themeData.assets?.decoration_icon && (
+                        <div className="absolute bottom-2 right-2 text-xl animate-bounce">{themeData.assets.decoration_icon}</div>
+                    )}
+                    
+                    {/* Efeito (Simulação textual) */}
+                    {themeData.effect_type !== 'none' && (
+                        <div className="absolute top-2 left-2 text-[10px] bg-white/20 px-1 rounded backdrop-blur-sm">
+                            ✨ {themeData.effect_type}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Gerenciar Temas</h1>
-                <button onClick={() => openModal()} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2">
-                    <PlusIcon className="h-5 w-5"/> Novo Tema
+        <div className="p-6 bg-gray-50 min-h-screen">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Temas & Identidade Visual</h1>
+                    <p className="text-gray-500 text-sm mt-1">Gerencie a aparência da sua loja para datas comemorativas.</p>
+                </div>
+                <button onClick={() => openModal()} className="bg-amber-500 text-white px-5 py-2.5 rounded-lg hover:bg-amber-600 shadow-md flex items-center gap-2 font-semibold transition-all">
+                    <PlusIcon className="h-5 w-5"/> Criar Novo Tema
                 </button>
             </div>
 
-            {isLoading ? <SpinnerIcon className="mx-auto h-8 w-8"/> : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {themes.map(t => (
-                        <div key={t.id} className={`border rounded-lg p-4 bg-white shadow-sm relative overflow-hidden ${t.is_active_manual ? 'ring-2 ring-green-500' : ''}`}>
-                            {t.is_active_manual && <div className="absolute top-0 right-0 bg-green-500 text-white text-xs px-2 py-1">Ativo Manualmente</div>}
-                            
-                            <h3 className="font-bold text-lg mb-2">{t.name}</h3>
-                            <div className="flex gap-2 mb-4">
-                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'primary')}} title="Primary"></div>
-                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'secondary')}} title="Secondary"></div>
-                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'background')}} title="Background"></div>
-                            </div>
-                            
-                            <div className="text-sm text-gray-500 mb-2">
-                                <p>📅 {t.start_date ? new Date(t.start_date).toLocaleDateString() : 'Sem início'} - {t.end_date ? new Date(t.end_date).toLocaleDateString() : 'Sem fim'}</p>
-                            </div>
-                            <div className="flex gap-2 text-xs mb-4">
-                                <span className="bg-gray-100 px-2 py-1 rounded border">✍️ {t.typography || 'Padrão'}</span>
-                                <span className="bg-gray-100 px-2 py-1 rounded border">✨ {t.effect_type || 'Nenhum'}</span>
-                            </div>
+            {isLoading ? <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500"/></div> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {themes.map(rawTheme => {
+                        const t = getThemeData(rawTheme);
+                        return (
+                            <div key={t.id} className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-all hover:shadow-md ${t.is_active_manual ? 'border-green-500 ring-2 ring-green-100' : 'border-gray-100'}`}>
+                                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                                    <h3 className="font-bold text-lg text-gray-800">{t.name}</h3>
+                                    {t.is_active_manual && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide">Ativo Manual</span>}
+                                </div>
+                                
+                                {/* Preview Visual do Tema */}
+                                <div className="p-4 bg-gray-100">
+                                    <ThemePreviewCard themeData={t} />
+                                </div>
 
-                            <div className="flex justify-between items-center border-t pt-3">
-                                <button onClick={() => toggleManualActive(t)} className={`text-sm font-semibold ${t.is_active_manual ? 'text-red-500' : 'text-green-600'}`}>
-                                    {t.is_active_manual ? 'Desativar' : 'Ativar Agora'}
-                                </button>
-                                <div className="flex gap-2">
-                                    <button onClick={() => openModal(t)} className="text-gray-500 hover:text-blue-600"><EditIcon className="h-5 w-5"/></button>
-                                    <button onClick={() => handleDelete(t.id)} className="text-gray-500 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                                <div className="p-4">
+                                    <div className="text-sm text-gray-500 mb-4 flex items-center gap-2">
+                                        <ClockIcon className="h-4 w-4"/>
+                                        {t.start_date ? (
+                                            <span>{new Date(t.start_date).toLocaleDateString()} até {new Date(t.end_date).toLocaleDateString()}</span>
+                                        ) : (
+                                            <span>Sem agendamento</span>
+                                        )}
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => toggleManualActive(t)} 
+                                            className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-colors ${t.is_active_manual ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
+                                        >
+                                            {t.is_active_manual ? 'Desativar' : 'Ativar'}
+                                        </button>
+                                        <button onClick={() => openModal(rawTheme)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-md"><EditIcon className="h-5 w-5"/></button>
+                                        <button onClick={() => handleDelete(t.id)} className="p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-md"><TrashIcon className="h-5 w-5"/></button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 
-            {isModalOpen && (
-                <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? "Editar Tema" : "Novo Tema"}>
-                    <form onSubmit={handleSave} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium">Nome do Tema</label>
-                            <input name="name" defaultValue={editingTheme?.name} required className="w-full p-2 border rounded"/>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium">Início (Agendamento)</label>
-                                <input type="date" name="start_date" defaultValue={editingTheme?.start_date ? editingTheme.start_date.split('T')[0] : ''} className="w-full p-2 border rounded"/>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium">Fim (Agendamento)</label>
-                                <input type="date" name="end_date" defaultValue={editingTheme?.end_date ? editingTheme.end_date.split('T')[0] : ''} className="w-full p-2 border rounded"/>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium">Tipografia</label>
-                                <select name="typography" defaultValue={editingTheme?.typography || 'sans-serif'} className="w-full p-2 border rounded">
-                                    <option value="sans-serif">Padrão (Sans-Serif)</option>
-                                    <option value="serif">Elegante (Serif)</option>
-                                    <option value="mono">Técnico (Monospace)</option>
-                                    <option value="cursive">Divertida (Cursive)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium">Efeito Especial</label>
-                                <select name="effect_type" defaultValue={editingTheme?.effect_type || 'none'} className="w-full p-2 border rounded">
-                                    <option value="none">Nenhum</option>
-                                    <option value="snow">Neve (Natal)</option>
-                                    <option value="hearts">Corações (Dia dos Namorados)</option>
-                                    <option value="flowers">Flores (Dia das Mães/Mulher)</option>
-                                    <option value="confetti">Confete (Ano Novo/Carnaval)</option>
-                                    <option value="halloween">Abóboras (Halloween)</option>
-                                </select>
-                            </div>
-                        </div>
+            {isModalOpen && previewTheme && (
+                <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? `Editar: ${editingTheme.name}` : "Novo Tema Personalizado"} size="3xl">
+                    <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         
-                        <div className="border-t pt-4">
-                            <h4 className="font-bold mb-2">Paleta de Cores</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs">Primária (Botões/Destaques)</label><input type="color" name="color_primary" defaultValue={getColor(editingTheme, 'primary')} className="w-full h-10"/></div>
-                                <div><label className="text-xs">Secundária (Bordas/Cards)</label><input type="color" name="color_secondary" defaultValue={getColor(editingTheme, 'secondary')} className="w-full h-10"/></div>
-                                <div><label className="text-xs">Fundo (Background)</label><input type="color" name="color_background" defaultValue={getColor(editingTheme, 'background')} className="w-full h-10"/></div>
-                                <div><label className="text-xs">Texto (Geral)</label><input type="color" name="color_text" defaultValue={getColor(editingTheme, 'text')} className="w-full h-10"/></div>
-                                <div><label className="text-xs">Accent (Detalhes)</label><input type="color" name="color_accent" defaultValue={getColor(editingTheme, 'accent')} className="w-full h-10"/></div>
-                            </div>
-                        </div>
-
-                        <div className="border-t pt-4">
-                            <h4 className="font-bold mb-2">Assets Visuais</h4>
+                        {/* Coluna da Esquerda: Controles */}
+                        <div className="space-y-5">
                             <div>
-                                <label className="text-xs">Ícone Flutuante (Opcional - ex: URL de logo)</label>
-                                <input type="text" name="decoration_icon" defaultValue={getAsset(editingTheme, 'decoration_icon')} placeholder="URL da imagem ou Emoji" className="w-full p-2 border rounded"/>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Tema</label>
+                                <input type="text" value={previewTheme.name} onChange={(e) => handlePreviewChange('name', e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md"/>
+                            </div>
+
+                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Paleta de Cores</h4>
+                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <label className="block text-gray-500 mb-1">Primária (Botões)</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
+                                            <input type="text" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="w-20 p-1 border rounded text-xs"/>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-500 mb-1">Fundo (Site)</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
+                                            <input type="text" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="w-20 p-1 border rounded text-xs"/>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-500 mb-1">Texto Principal</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
+                                            <input type="text" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="w-20 p-1 border rounded text-xs"/>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-500 mb-1">Secundária (Footer)</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
+                                            <input type="text" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="w-20 p-1 border rounded text-xs"/>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-500 mb-1">Accent (Detalhes)</label>
+                                        <div className="flex gap-2">
+                                            <input type="color" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
+                                            <input type="text" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="w-20 p-1 border rounded text-xs"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Tipografia</label>
+                                    <select value={previewTheme.typography} onChange={(e) => handlePreviewChange('typography', e.target.value)} className="w-full p-2 border rounded-md bg-white">
+                                        <option value="sans-serif">Padrão (Moderno)</option>
+                                        <option value="serif">Serif (Elegante)</option>
+                                        <option value="mono">Monospace (Tech)</option>
+                                        <option value="cursive">Cursive (Divertido)</option>
+                                        <option value="modern">Montserrat (Clean)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Efeitos Visuais</label>
+                                    <select value={previewTheme.effect_type} onChange={(e) => handlePreviewChange('effect_type', e.target.value)} className="w-full p-2 border rounded-md bg-white">
+                                        <option value="none">Nenhum</option>
+                                        <option value="snow">Neve (Natal)</option>
+                                        <option value="hearts">Corações (Namorados)</option>
+                                        <option value="flowers">Flores (Primavera)</option>
+                                        <option value="confetti">Confete (Festa)</option>
+                                        <option value="halloween">Halloween</option>
+                                        <option value="stars">Estrelas (Noite)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ícone Decorativo (Flutuante)</label>
+                                <input type="text" value={previewTheme.assets.decoration_icon} onChange={(e) => handlePreviewChange('assets', e.target.value, 'decoration_icon')} placeholder="Ex: 🎄, 🎁 ou URL de imagem" className="w-full p-2 border border-gray-300 rounded-md"/>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                                <h4 className="font-bold text-blue-800 text-sm mb-2">Agendamento Automático</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-blue-600">Início</label>
+                                        <input type="date" value={previewTheme.start_date ? previewTheme.start_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('start_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-blue-600">Fim</label>
+                                        <input type="date" value={previewTheme.end_date ? previewTheme.end_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('end_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 pt-4">
-                            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded">Salvar</button>
+                        {/* Coluna da Direita: Preview em Tempo Real */}
+                        <div className="sticky top-0">
+                            <h3 className="font-bold text-gray-500 uppercase tracking-wide text-xs mb-3">Pré-visualização em Tempo Real</h3>
+                            <div className="border-4 border-gray-800 rounded-xl overflow-hidden shadow-2xl h-[500px] flex flex-col relative" style={{ backgroundColor: previewTheme.colors.background, fontFamily: previewTheme.typography === 'serif' ? 'serif' : 'sans-serif' }}>
+                                {/* Navbar Simulada */}
+                                <div className="h-12 flex items-center justify-between px-4 shadow-sm" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                                    <div className="font-bold" style={{ color: previewTheme.colors.primary }}>LoveCestas</div>
+                                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: previewTheme.colors.primary }}></div>
+                                </div>
+
+                                {/* Banner Simulado */}
+                                <div className="h-32 bg-gray-300 flex items-center justify-center relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-black/40"></div>
+                                    <h2 className="relative z-10 text-white font-bold text-xl drop-shadow-md">Promoção Especial</h2>
+                                </div>
+
+                                {/* Conteúdo Simulado */}
+                                <div className="p-4 flex-grow space-y-4">
+                                    <h3 className="text-lg font-bold" style={{ color: previewTheme.colors.text }}>Produtos em Destaque</h3>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {[1, 2].map(i => (
+                                            <div key={i} className="rounded-lg p-2 border" style={{ borderColor: previewTheme.colors.secondary, backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                                <div className="h-20 bg-gray-200/20 rounded mb-2"></div>
+                                                <div className="h-3 w-3/4 rounded mb-1" style={{ backgroundColor: previewTheme.colors.text, opacity: 0.5 }}></div>
+                                                <div className="font-bold text-sm" style={{ color: previewTheme.colors.primary }}>R$ 99,90</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button className="w-full py-2 rounded font-bold shadow-lg mt-4" style={{ backgroundColor: previewTheme.colors.primary, color: '#000' }}>
+                                        Ver Ofertas
+                                    </button>
+                                </div>
+
+                                {/* Ícone Decorativo Simulado */}
+                                {previewTheme.assets.decoration_icon && (
+                                    <div className="absolute bottom-16 right-4 text-3xl animate-bounce">
+                                        {previewTheme.assets.decoration_icon}
+                                    </div>
+                                )}
+
+                                {/* Simulação de Partículas (Estática para performance) */}
+                                {previewTheme.effect_type !== 'none' && (
+                                    <div className="absolute top-2 left-2 bg-white/20 backdrop-blur px-2 py-1 rounded text-xs text-white">
+                                        Efeito: {previewTheme.effect_type} 
+                                    </div>
+                                )}
+
+                                {/* Footer Simulado */}
+                                <div className="h-10 mt-auto flex items-center justify-center text-[10px]" style={{ backgroundColor: previewTheme.colors.secondary, color: previewTheme.colors.text }}>
+                                    © 2025 LoveCestas
+                                </div>
+                            </div>
+                            
+                            <div className="mt-6 flex gap-3">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition">
+                                    Cancelar
+                                </button>
+                                <button type="submit" className="flex-1 py-3 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 shadow-lg transition">
+                                    Salvar Tema
+                                </button>
+                            </div>
                         </div>
                     </form>
                 </Modal>
@@ -6559,11 +6734,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
-                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
                     setNewOrdersCount(0);
                     return;
                 }
-
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = data.filter(o => {
                     if (!o || !o.date) return false;
@@ -6588,7 +6761,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
-        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM
+        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // MENU ITEM ADICIONADO
         { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
         { key: 'collections', label: 'Coleções', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
@@ -9889,14 +10062,14 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Aplica as variáveis CSS
+  // Aplica as variáveis CSS dinamicamente com base no tema ativo
   const appStyle = currentTheme ? {
       '--theme-primary': currentTheme.colors?.primary,
       '--theme-secondary': currentTheme.colors?.secondary,
       '--theme-bg': currentTheme.colors?.background,
       '--theme-text': currentTheme.colors?.text,
       '--theme-accent': currentTheme.colors?.accent,
-      fontFamily: 'var(--theme-font, sans-serif)', // Aplica a fonte aqui
+      fontFamily: 'var(--theme-font, sans-serif)',
   } : { fontFamily: 'sans-serif' };
 
   useEffect(() => {
@@ -10046,14 +10219,15 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
       
-      {/* --- RENDERIZA O COMPONENTE DE EFEITOS AQUI --- */}
+      {/* RENDERIZA OS EFEITOS DO TEMA ATIVO (NEVE, CORAÇÕES, ETC) */}
       {currentTheme && !currentPath.startsWith('admin') && (
           <ThemeEffects type={currentTheme.effect_type} />
       )}
 
+      {/* ÍCONE DE DECORAÇÃO FLUTUANTE */}
       {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
           <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
-              {currentTheme.assets.decoration_icon.startsWith('http') ? <img src={currentTheme.assets.decoration_icon} className="w-12 h-12" alt="icon"/> : currentTheme.assets.decoration_icon}
+              {currentTheme.assets.decoration_icon.startsWith('http') ? <img src={currentTheme.assets.decoration_icon} className="w-12 h-12 object-contain" alt="icon"/> : currentTheme.assets.decoration_icon}
           </div>
       )}
 
@@ -10069,7 +10243,6 @@ function AppContent({ deferredPrompt }) {
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
                     </div>
-                    {/* ... (O restante do footer permanece o mesmo, mantendo a estrutura) ... */}
                     <div className="space-y-4">
                         <h3 className="font-bold tracking-wider">Institucional</h3>
                         <ul className="space-y-2 text-sm opacity-80">
