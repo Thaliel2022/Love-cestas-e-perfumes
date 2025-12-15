@@ -6235,20 +6235,19 @@ const TermsOfServicePage = () => {
 
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
-    const { user, logout } = useAuth(); // Importa 'user'
+    const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const mainContentRef = useRef(null); // <-- ADICIONADO O REF
+    const mainContentRef = useRef(null);
 
+    // Busca contagem de novos pedidos para o badge de notificação
     useEffect(() => {
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
-                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
                     setNewOrdersCount(0);
                     return;
                 }
-
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = data.filter(o => {
                     if (!o || !o.date) return false;
@@ -6258,7 +6257,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 setNewOrdersCount(recentOrders.length);
             })
             .catch(err => {
-                console.error("Falha crítica ao buscar contagem de novos pedidos:", err);
+                console.error("Erro silencioso ao buscar contagem de pedidos:", err);
                 setNewOrdersCount(0);
             });
     }, [activePage]);
@@ -6268,77 +6267,146 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         onNavigate('home');
     }
 
-   const menuItems = [
-        { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
-        { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
-        { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
-        { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
-        { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
-        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
-        { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
-        { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
-        { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
-        { key: 'logs', label: 'Histórico de Ações', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
+    const menuGroups = [
+        {
+            title: "Principal",
+            items: [
+                { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
+                { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
+            ]
+        },
+        {
+            title: "Catálogo",
+            items: [
+                { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
+                { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
+                { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
+            ]
+        },
+        {
+            title: "Marketing & Clientes",
+            items: [
+                { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
+                { key: 'users', label: 'Clientes', icon: <UsersIcon className="h-5 w-5"/> },
+            ]
+        },
+        {
+            title: "Sistema",
+            items: [
+                { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+                { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
+            ]
+        }
     ];
 
     return (
-        <div className="h-screen flex overflow-hidden bg-gray-100 text-gray-800">
+        <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
+            {/* Overlay Mobile */}
+            {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
+
             {/* Sidebar */}
-            <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
-                    <span className="text-xl font-bold text-amber-400">ADMIN</span>
-                    <button className="lg:hidden p-2" onClick={() => setIsSidebarOpen(false)}>
+            <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
+                {/* Logo Area */}
+                <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
+                    <div className="flex items-center gap-3 text-indigo-600">
+                        <div className="p-1.5 bg-indigo-600 rounded-lg">
+                            <AdminIcon className="h-5 w-5 text-white"/>
+                        </div>
+                        <span className="text-lg font-extrabold tracking-tight text-slate-900">ADMINISTRAÇÃO</span>
+                    </div>
+                    <button className="lg:hidden ml-auto text-gray-400 hover:text-gray-600" onClick={() => setIsSidebarOpen(false)}>
                         <CloseIcon className="h-6 w-6"/>
                     </button>
                 </div>
-                <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
-                    {menuItems.map(item => (
-                        <a 
-                            href="#" 
-                            key={item.key} 
-                            onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                            className={`flex items-center justify-between px-4 py-2 rounded-md transition-colors ${activePage.startsWith(item.key) ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}
-                        >
-                            <div className="flex items-center space-x-3">
-                                {item.icon}
-                                <span>{item.label}</span>
+
+                {/* Navigation */}
+                <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
+                    {menuGroups.map((group, idx) => (
+                        <div key={idx}>
+                            <h3 className="px-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{group.title}</h3>
+                            <div className="space-y-1">
+                                {group.items.map(item => {
+                                    const isActive = activePage.startsWith(item.key);
+                                    return (
+                                        <a 
+                                            href="#" 
+                                            key={item.key} 
+                                            onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
+                                            className={`group flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
+                                                isActive 
+                                                ? 'bg-indigo-50 text-indigo-700 shadow-sm ring-1 ring-indigo-200' 
+                                                : 'text-slate-600 hover:bg-gray-50 hover:text-slate-900'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className={`transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                                                    {item.icon}
+                                                </span>
+                                                <span>{item.label}</span>
+                                            </div>
+                                            {item.badge > 0 && (
+                                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </a>
+                                    );
+                                })}
                             </div>
-                            {item.key === 'orders' && newOrdersCount > 0 && (
-                                <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                                    {newOrdersCount}
-                                </span>
-                            )}
-                        </a>
+                        </div>
                     ))}
                 </nav>
-                <div className="p-4 border-t border-gray-800 flex-shrink-0">
-                    <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2">🏠 Voltar à Loja</a>
-                    <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800">🚪 Sair</button>
+
+                {/* User Footer */}
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
+                            {user?.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="overflow-hidden">
+                            <p className="text-sm font-bold text-slate-800 truncate">{user?.name}</p>
+                            <p className="text-xs text-slate-500 truncate">Administrador</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => onNavigate('home')} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-gray-200 text-slate-600 text-xs font-semibold hover:bg-gray-50 hover:text-indigo-600 transition-all shadow-sm">
+                            <EyeIcon className="h-3 w-3"/> Ver Loja
+                        </button>
+                        <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-white border border-red-100 text-red-600 text-xs font-semibold hover:bg-red-50 hover:border-red-200 transition-all shadow-sm">
+                            <ArrowUturnLeftIcon className="h-3 w-3"/> Sair
+                        </button>
+                    </div>
                 </div>
             </aside>
-             {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
             {/* Main Content */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-white shadow-md h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-                     <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden">
-                        <MenuIcon className="h-6 w-6 text-gray-600"/>
-                     </button>
-                     <h1 className="text-lg font-bold ml-4 capitalize lg:hidden">{activePage.split('/')[0]}</h1>
-                     <div className="hidden lg:block">
-                        <span className="text-xl font-semibold">Bem-vindo, {user?.name.split(' ')[0]} 👋</span>
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+                {/* Header Topbar */}
+                <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
+                     <div className="flex items-center gap-4">
+                         <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
+                            <MenuIcon className="h-6 w-6"/>
+                         </button>
+                         <h1 className="text-xl font-bold text-slate-800 capitalize tracking-tight hidden sm:block">
+                            {activePage.split('/')[0].replace('-', ' ')}
+                         </h1>
                      </div>
                      <div className="flex items-center gap-4">
-                        <button onClick={() => onNavigate('home')} className="p-2 text-gray-600 hover:text-black" title="Ver a Loja">
-                            <EyeIcon className="h-6 w-6" />
-                        </button>
-                        <button onClick={handleLogout} className="p-2 text-gray-600 hover:text-red-600" title="Sair">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        </button>
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
+                        </div>
                      </div>
                 </header>
-                <main ref={mainContentRef} className="flex-grow p-4 sm:p-6 overflow-y-auto">
-                    {children}
+
+                <main ref={mainContentRef} className="flex-grow p-6 sm:p-8 overflow-y-auto bg-gray-50">
+                    <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+                        {children}
+                    </div>
                 </main>
                 <BackToTopButton scrollableRef={mainContentRef} />
             </div>
@@ -6350,14 +6418,13 @@ const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
     const notification = useNotification();
     const [stats, setStats] = useState({ totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 });
-    const [lowStockProducts, setLowStockProducts] = useState([]); // <-- A lista completa ainda é buscada aqui
+    const [lowStockProducts, setLowStockProducts] = useState([]);
     const [isStockModalOpen, setIsStockModalOpen] = useState(false);
     const [selectedStockItem, setSelectedStockItem] = useState(null);
     const [activeFilter, setActiveFilter] = useState('month');
     const [isLoadingData, setIsLoadingData] = useState(true);
-    // REMOVIDO: const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
-
-    // Estados separados para os dados dos gráficos
+    
+    // Estados para gráficos
     const [dailySalesData, setDailySalesData] = useState([]);
     const [bestSellersData, setBestSellersData] = useState([]);
 
@@ -6377,16 +6444,9 @@ const AdminDashboard = ({ onNavigate }) => {
             const doc = new jsPDF();
             const pageWidth = doc.internal.pageSize.getWidth();
             const timestamp = new Date().toLocaleString('pt-BR');
-
-            doc.setFontSize(18);
-            doc.text(title, pageWidth / 2, 16, { align: 'center' });
-            doc.setFontSize(8);
-            doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
-            doc.autoTable({
-                head: [headers],
-                body: data,
-                startY: 25
-            });
+            doc.setFontSize(18); doc.text(title, pageWidth / 2, 16, { align: 'center' });
+            doc.setFontSize(8); doc.text(timestamp, pageWidth - 14, 10, { align: 'right' });
+            doc.autoTable({ head: [headers], body: data, startY: 25 });
             doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
         }, ['pdf']);
     };
@@ -6404,144 +6464,100 @@ const AdminDashboard = ({ onNavigate }) => {
         try {
             const orders = await apiService('/orders');
             const data = orders.map(o => ({ Pedido_ID: o.id, Cliente: o.user_name, Data: new Date(o.date).toLocaleDateString(), Total: o.total, Status: o.status }));
-            if (format === 'pdf') {
-                generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio de Vendas');
-            } else {
-                generateExcel(data, 'relatorio_vendas');
-            }
-        } catch (error) {
-            notification.show(`Falha ao gerar relatório de vendas: ${error.message}`, 'error');
-        }
+            if (format === 'pdf') generatePdf(data.map(Object.values), ['Pedido ID', 'Cliente', 'Data', 'Total', 'Status'], 'Relatorio_Vendas');
+            else generateExcel(data, 'relatorio_vendas');
+        } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
     };
 
     const handleStockExport = async (format) => {
         try {
             const products = await apiService('/products/all');
             const data = products.map(p => ({ Produto: p.name, Marca: p.brand, Estoque: p.stock, Preço: p.price }));
-            if (format === 'pdf') {
-                generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio de Estoque');
-            } else {
-                generateExcel(data, 'relatorio_estoque');
-            }
-        } catch (error) {
-            notification.show(`Falha ao gerar relatório de estoque: ${error.message}`, 'error');
-        }
+            if (format === 'pdf') generatePdf(data.map(Object.values), ['Produto', 'Marca', 'Estoque', 'Preço'], 'Relatorio_Estoque');
+            else generateExcel(data, 'relatorio_estoque');
+        } catch (error) { notification.show(`Erro exportação: ${error.message}`, 'error'); }
     };
 
     const fetchDashboardData = useCallback((filter = 'month') => {
         setIsLoadingData(true);
-        console.log(`Fetching dashboard data with filter: ${filter}`);
         Promise.all([
-            apiService(`/reports/dashboard?filter=${filter}`).catch(err => {
-                console.error('Error fetching dashboard report data:', err);
-                notification.show(`Erro ao carregar dados do dashboard: ${err.message}`, 'error');
-                return { stats: { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 }, dailySales: [], bestSellers: [] };
-            }),
-            apiService('/products/low-stock').catch(err => {
-                console.error('Error fetching low stock products:', err);
-                return [];
-            })
+            apiService(`/reports/dashboard?filter=${filter}`).catch(() => ({ stats: {}, dailySales: [], bestSellers: [] })),
+            apiService('/products/low-stock').catch(() => [])
         ]).then(([reportData, lowStockItems]) => {
             const statsData = reportData?.stats || { totalRevenue: 0, totalSales: 0, newCustomers: 0, pendingOrders: 0, prevPeriodRevenue: 0 };
-            const dailySalesData = reportData?.dailySales || [];
-            const bestSellersData = reportData?.bestSellers || [];
-
             setStats(statsData);
-            setDailySalesData(dailySalesData);
-            setBestSellersData(bestSellersData);
-            setLowStockProducts(lowStockItems || []); // <-- A lista completa é salva no estado
-        }).finally(() => {
-            setIsLoadingData(false);
-        });
-    }, [notification]);
+            setDailySalesData(reportData?.dailySales || []);
+            setBestSellersData(reportData?.bestSellers || []);
+            setLowStockProducts(lowStockItems || []);
+        }).finally(() => setIsLoadingData(false));
+    }, []);
+
+    useEffect(() => { fetchDashboardData(activeFilter); }, [activeFilter, fetchDashboardData]);
 
     useEffect(() => {
-        fetchDashboardData(activeFilter);
-    }, [activeFilter, fetchDashboardData]);
-
-    // Efeito para RENDERIZAR os gráficos
-    useEffect(() => {
-        if (!isLoadingData) {
-            const renderCharts = () => {
-                if (window.Chart) {
-                    // Gráfico de Vendas Diárias
-                    const dailySalesCtx = document.getElementById('dailySalesChart')?.getContext('2d');
-                    if (dailySalesCtx && dailySalesData) {
-                        if (window.myDailySalesChart) window.myDailySalesChart.destroy();
-
-                        // --- CORREÇÃO DA DATA ---
-                        // Transforma 'YYYY-MM-DD' (ou data ISO) em uma data local segura
-                        const safeLabels = dailySalesData.map(d => {
-                            if (!d.sale_date) return "Data Inválida";
-                            // A API retorna uma data (ex: 2025-10-18T03:00:00.000Z)
-                            const dateObj = new Date(d.sale_date);
-                            if (isNaN(dateObj.getTime())) {
-                                // Fallback se a string de data for apenas YYYY-MM-DD
-                                const parts = d.sale_date.split('-');
-                                if (parts.length === 3) {
-                                     // new Date(ano, mês_zero_indexado, dia) - cria data local
-                                     const dateObjFallback = new Date(parts[0], parts[1] - 1, parts[2]);
-                                     return dateObjFallback.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                                }
-                                return "Data Inválida";
-                            }
-                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
-                            return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                        });
-
-                        window.myDailySalesChart = new window.Chart(dailySalesCtx, {
-                            type: 'line',
-                            data: {
-                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
-                                datasets: [{
-                                    label: 'Faturamento Diário (R$)',
-                                    data: dailySalesData.map(d => d.daily_total),
-                                    borderColor: 'rgba(212, 175, 55, 1)',
-                                    backgroundColor: 'rgba(212, 175, 55, 0.2)',
-                                    fill: true, tension: 0.3
-                                }]
-                            },
-                            options: { responsive: true, maintainAspectRatio: false }
-                        });
-                    } else if (!isLoadingData) {
-                        console.warn("Elemento canvas 'dailySalesChart' não encontrado ou dados ausentes.");
-                    }
-
-                    // Gráfico de Mais Vendidos
-                    const bestSellersCtx = document.getElementById('bestSellersChart')?.getContext('2d');
-                    if (bestSellersCtx && bestSellersData) {
-                        if (window.myBestSellersChart) window.myBestSellersChart.destroy();
-                        window.myBestSellersChart = new window.Chart(bestSellersCtx, {
-                            type: 'bar',
-                            data: {
-                                labels: bestSellersData.map(p => p.name),
-                                datasets: [{
-                                    label: 'Unidades Vendidas',
-                                    data: bestSellersData.map(p => p.sales || 0),
-                                    backgroundColor: [
-                                        'rgba(212, 175, 55, 0.8)', 'rgba(192, 192, 192, 0.8)',
-                                        'rgba(205, 127, 50, 0.8)', 'rgba(169, 169, 169, 0.8)',
-                                        'rgba(245, 222, 179, 0.8)'
-                                    ],
-                                    borderWidth: 1
-                                }]
-                            },
-                            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
-                        });
-                    } else if (!isLoadingData) {
-                        console.warn("Elemento canvas 'bestSellersChart' não encontrado ou dados ausentes.");
-                    }
-                } else {
-                    console.warn("Biblioteca Chart.js não carregada, tentando novamente em 100ms...");
-                    setTimeout(renderCharts, 100);
+        if (!isLoadingData && window.Chart) {
+            const renderChart = (id, type, data, options) => {
+                const ctx = document.getElementById(id)?.getContext('2d');
+                if (ctx) {
+                    if (window[`my${id}Chart`]) window[`my${id}Chart`].destroy();
+                    window[`my${id}Chart`] = new window.Chart(ctx, { type, data, options });
                 }
             };
 
-            // Adiciona um pequeno delay para garantir que o DOM esteja 100% pronto
-            setTimeout(renderCharts, 0);
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10, family: 'sans-serif' }, color: '#64748b' } },
+                    y: { grid: { borderDash: [2, 4], color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#64748b' }, beginAtZero: true }
+                }
+            };
 
+            const safeLabels = dailySalesData.map(d => {
+                if (!d.sale_date) return "";
+                const dateObj = new Date(d.sale_date);
+                if (isNaN(dateObj.getTime())) {
+                     const parts = d.sale_date.split('-');
+                     if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('pt-BR');
+                     return "";
+                }
+                return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            });
+
+            renderChart('dailySalesChart', 'line', {
+                labels: safeLabels,
+                datasets: [{
+                    label: 'Faturamento',
+                    data: dailySalesData.map(d => d.daily_total),
+                    borderColor: '#4f46e5', // Indigo 600
+                    backgroundColor: (context) => {
+                        const ctx = context.chart.ctx;
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)');
+                        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.0)');
+                        return gradient;
+                    },
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.4
+                }]
+            }, commonOptions);
+
+            renderChart('bestSellersChart', 'bar', {
+                labels: bestSellersData.map(p => p.name.substring(0, 15) + '...'),
+                datasets: [{
+                    label: 'Vendas',
+                    data: bestSellersData.map(p => p.sales || 0),
+                    backgroundColor: '#0ea5e9', // Sky 500
+                    borderRadius: 4,
+                    barThickness: 20
+                }]
+            }, { ...commonOptions, indexAxis: 'y' });
         }
-    }, [isLoadingData, dailySalesData, bestSellersData]); // Roda quando o carregamento termina ou os dados dos gráficos mudam
+    }, [isLoadingData, dailySalesData, bestSellersData]);
 
     const handleQuickStockSave = () => {
         setIsStockModalOpen(false);
@@ -6549,204 +6565,233 @@ const AdminDashboard = ({ onNavigate }) => {
         fetchDashboardData(activeFilter);
     };
 
-    const handleFilterClick = (filter) => {
-        setActiveFilter(filter);
-    };
-
     const calculateGrowth = () => {
-        if (!stats || stats.prevPeriodRevenue === undefined || stats.totalRevenue === undefined) {
-            return { text: '--', color: 'text-gray-500' };
-        }
-        const prevRevenue = Number(stats.prevPeriodRevenue);
-        const currentRevenue = Number(stats.totalRevenue);
-
-        if (prevRevenue === 0) {
-            return currentRevenue > 0 ? { text: '+∞%', color: 'text-green-600' } : { text: '0.0%', color: 'text-gray-500' };
-        }
-        const growth = ((currentRevenue - prevRevenue) / prevRevenue) * 100;
-        if (growth > 0) return { text: `+${growth.toFixed(1)}%`, color: 'text-green-600' };
-        if (growth < 0) return { text: `${growth.toFixed(1)}%`, color: 'text-red-600' };
-        return { text: '0.0%', color: 'text-gray-500' };
+        if (!stats.prevPeriodRevenue) return { text: '--', isPositive: true };
+        const current = Number(stats.totalRevenue);
+        const prev = Number(stats.prevPeriodRevenue);
+        if (prev === 0) return { text: current > 0 ? '+100%' : '0%', isPositive: true };
+        const growth = ((current - prev) / prev) * 100;
+        return { text: `${growth > 0 ? '+' : ''}${growth.toFixed(1)}%`, isPositive: growth >= 0 };
     };
     const growth = calculateGrowth();
 
-    const getComparisonText = () => {
-        switch(activeFilter) {
-            case 'today': return 'vs. Ontem';
-            case 'week': return 'vs. Semana Anterior';
-            case 'year': return 'vs. Ano Anterior';
-            case 'month':
-            default: return 'vs. Mês Anterior';
-        }
-    };
+    const StatCard = ({ title, value, icon: Icon, growth, subtext, iconBg, iconColor }) => (
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-all duration-300"
+        >
+            <div>
+                <p className="text-sm font-semibold text-gray-500 mb-1 tracking-wide uppercase text-[10px]">{title}</p>
+                <h4 className="text-2xl font-extrabold text-slate-800">{value}</h4>
+                {(growth || subtext) && (
+                    <div className="flex items-center gap-2 mt-2">
+                        {growth && (
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${growth.isPositive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {growth.text}
+                            </span>
+                        )}
+                        {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
+                    </div>
+                )}
+            </div>
+            <div className={`p-3 rounded-lg ${iconBg}`}>
+                <Icon className={`h-6 w-6 ${iconColor}`} />
+            </div>
+        </motion.div>
+    );
 
-    const LowStockAlerts = () => { // A prop 'lowStockProducts' é recebida implicitamente agora
-        // --- INÍCIO: Estado e Lógica movidos para cá ---
-        const [lowStockSearchTerm, setLowStockSearchTerm] = useState('');
-
-        // Filtra os produtos com estoque baixo usando a lista completa vinda do estado pai
-        const filteredLowStockProducts = lowStockProducts.filter(item =>
-            item.name.toLowerCase().includes(lowStockSearchTerm.toLowerCase())
-            // Adicionar filtro por SKU se disponível no futuro: || (item.sku && item.sku.toLowerCase().includes(lowStockSearchTerm.toLowerCase()))
-        );
-        // --- FIM: Estado e Lógica movidos para cá ---
-
-        if (lowStockProducts.length === 0) return null;
+    const LowStockWidget = () => {
+        const [searchTerm, setSearchTerm] = useState('');
+        const filtered = lowStockProducts.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
         return (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow">
-                <div className="flex items-center">
-                    <ExclamationIcon className="h-6 w-6 text-yellow-500 mr-3"/>
-                    <div>
-                        <h3 className="font-bold text-yellow-800">Alerta de Estoque Baixo</h3>
-                        <p className="text-sm text-yellow-700">
-                            {lowStockProducts.length} item(ns) precisam de atenção.
-                        </p>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
+                <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                        <ExclamationCircleIcon className="h-5 w-5 text-amber-500" />
+                        Reposição Necessária
+                    </h3>
+                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">{lowStockProducts.length}</span>
+                </div>
+                <div className="p-3 bg-white border-b border-gray-50">
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Buscar produto..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                        />
+                        <SearchIcon className="absolute left-3 top-2 h-3.5 w-3.5 text-gray-400" />
                     </div>
                 </div>
-                 {/* Input de busca usa o estado local */}
-                <div className="mt-4 mb-2 relative">
-                     <input
-                        type="text"
-                        placeholder="Buscar produto em alerta..."
-                        value={lowStockSearchTerm} // Usa estado local
-                        onChange={(e) => setLowStockSearchTerm(e.target.value)} // Atualiza estado local
-                        className="w-full p-2 pl-8 border border-gray-300 rounded-md text-sm"
-                    />
-                    <SearchIcon className="h-4 w-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2"/>
-                </div>
-                <div className="max-h-48 overflow-y-auto space-y-2">
-                    {filteredLowStockProducts.length > 0 ? (
-                        filteredLowStockProducts.map(item => ( // Usa a lista filtrada localmente
-                             <div key={item.id + item.name} className="flex justify-between items-center text-sm p-2 bg-white rounded-md border">
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                    <img src={getFirstImage(item.images)} alt={item.name} className="w-8 h-8 object-contain rounded bg-gray-100 flex-shrink-0"/>
-                                    <span className="text-gray-800 truncate">{item.name}</span>
+                <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
+                    {filtered.length > 0 ? filtered.map(item => (
+                        <div key={item.id + item.name} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                                <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
+                                    <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
                                 </div>
-                                <div className="flex items-center gap-3 flex-shrink-0">
-                                    <span className="font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full text-xs">
-                                        Restam: {item.stock}
-                                    </span>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedStockItem(item);
-                                            setIsStockModalOpen(true);
-                                        }}
-                                        className="text-green-600 hover:underline text-xs font-semibold"
-                                    >
-                                        Atualizar
-                                    </button>
-                                    <button onClick={() => {
-                                        const baseName = item.name.split(' (')[0];
-                                        onNavigate(`admin/products?search=${encodeURIComponent(baseName)}`);
-                                    }} className="text-blue-600 hover:underline text-xs font-semibold">
-                                        Ver
-                                    </button>
+                                <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
+                                    <p className="text-[10px] text-slate-400">SKU: {item.id}</p>
                                 </div>
-                             </div>
-                        ))
-                    ) : (
-                        <p className="text-center text-sm text-gray-500 py-4">Nenhum produto encontrado na busca.</p>
+                            </div>
+                            <div className="text-right flex-shrink-0 flex flex-col items-end">
+                                <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
+                                <button 
+                                    onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
+                                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    Repor
+                                </button>
+                            </div>
+                        </div>
+                    )) : (
+                        <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <CheckCircleIcon className="h-8 w-8 text-green-100 mb-2"/>
+                            <p className="text-xs">Estoque saudável!</p>
+                        </div>
                     )}
                 </div>
             </div>
         );
     };
 
-    const StatCard = ({ title, value, comparisonValue, growth }) => (
-        <motion.div
-            className="bg-white p-6 rounded-lg shadow"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-        >
-            <h4 className="text-gray-500">{title}</h4>
-            <div className="flex justify-between items-baseline">
-                <p className="text-3xl font-bold">{value}</p>
-                {growth && <span className={`font-semibold ${growth.color}`}>{growth.text}</span>}
-            </div>
-            {comparisonValue && <p className="text-sm text-gray-400">{comparisonValue}</p>}
-        </motion.div>
-    );
-
-    const FilterButton = ({ label, filterName }) => (
-        <button
-            onClick={() => handleFilterClick(filterName)}
-            className={`px-4 py-1.5 rounded-md font-semibold text-sm transition-colors ${
-                activeFilter === filterName ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-        >
-            {label}
-        </button>
-    );
-
-    // REMOVIDO: Lógica de filtragem que estava aqui
-
     return (
-        <div>
-            {/* Modais */}
+        <div className="space-y-8 pb-10">
             <AnimatePresence>
                 {isStockModalOpen && (
-                    <QuickStockUpdateModal
-                        item={selectedStockItem}
-                        onClose={() => setIsStockModalOpen(false)}
-                        onSave={handleQuickStockSave}
-                    />
+                    <QuickStockUpdateModal item={selectedStockItem} onClose={() => setIsStockModalOpen(false)} onSave={handleQuickStockSave} />
                 )}
             </AnimatePresence>
 
-            {/* Header e Filtros */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold">Dashboard</h1>
-                <div className="flex items-center gap-2">
-                    <FilterButton label="Hoje" filterName="today" />
-                    <FilterButton label="Semana" filterName="week" />
-                    <FilterButton label="Mês" filterName="month" />
-                    <FilterButton label="Ano" filterName="year" />
+            {/* Header com Filtros */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard</h2>
+                    <p className="text-slate-500 text-sm mt-1">Bem-vindo de volta, {user?.name.split(' ')[0]}. Aqui está o que está acontecendo hoje.</p>
+                </div>
+                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+                    {['today', 'week', 'month', 'year'].map(f => {
+                        const labels = { today: 'Hoje', week: '7 Dias', month: 'Este Mês', year: 'Este Ano' };
+                        return (
+                            <button
+                                key={f}
+                                onClick={() => setActiveFilter(f)}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeFilter === f ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'}`}
+                            >
+                                {labels[f]}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {isLoadingData ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500" /></div>
+                <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-indigo-500 animate-spin"/></div>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                        <MaintenanceModeToggle />
-                        <LowStockAlerts /> {/* Passa a lista completa como prop */}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                        <StatCard
-                            title={`Faturamento (${getComparisonText().replace('vs. ', '')})`}
-                            value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`}
-                            comparisonValue={`R$ ${Number(stats.prevPeriodRevenue).toFixed(2)} (${getComparisonText()})`}
+                    {/* Cards de KPIs */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard 
+                            title="Faturamento Total" 
+                            value={`R$ ${Number(stats.totalRevenue).toFixed(2)}`} 
                             growth={growth}
+                            subtext="vs. período anterior"
+                            icon={CurrencyDollarIcon}
+                            iconBg="bg-green-100"
+                            iconColor="text-green-600"
                         />
-                        <StatCard title="Vendas no Período" value={stats.totalSales ?? 0} />
-                        <StatCard title="Novos Clientes no Período" value={stats.newCustomers ?? 0} />
-                        <StatCard title="Pedidos Pendentes no Período" value={stats.pendingOrders ?? 0} />
+                        <StatCard 
+                            title="Vendas Realizadas" 
+                            value={stats.totalSales} 
+                            icon={BoxIcon}
+                            iconBg="bg-blue-100"
+                            iconColor="text-blue-600"
+                        />
+                        <StatCard 
+                            title="Novos Clientes" 
+                            value={stats.newCustomers} 
+                            icon={UsersIcon}
+                            iconBg="bg-purple-100"
+                            iconColor="text-purple-600"
+                        />
+                        <StatCard 
+                            title="Pedidos Pendentes" 
+                            value={stats.pendingOrders} 
+                            icon={ClockIcon}
+                            iconBg="bg-amber-100"
+                            iconColor="text-amber-600"
+                        />
                     </div>
 
-                    <div className="bg-white p-6 rounded-lg shadow mb-6">
-                        <h3 className="font-bold mb-4">Exportar Relatórios</h3>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <button onClick={() => handleSalesExport('excel')} className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span> </button>
-                            <button onClick={() => handleStockExport('excel')} className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span> </button>
-                            <button onClick={() => handleSalesExport('pdf')} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center justify-center gap-2"> <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span> </button>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]"> {/* Altura mínima */}
-                            <h3 className="font-bold mb-4">Vendas Diárias ({getComparisonText().replace('vs. ', '')})</h3>
-                            <div className="relative h-64"> {/* Container com altura definida */}
+                    {/* Área Principal: Gráfico e Estoque */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Gráfico Principal */}
+                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
+                                    <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
+                                </div>
+                                <button onClick={() => handleSalesExport('excel')} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center gap-1 transition-colors">
+                                    <DownloadIcon className="h-3.5 w-3.5"/> Exportar
+                                </button>
+                            </div>
+                            <div className="h-80 w-full relative">
                                 <canvas id="dailySalesChart"></canvas>
                             </div>
                         </div>
-                        <div className="bg-white p-6 rounded-lg shadow min-h-[300px]"> {/* Altura mínima */}
-                            <h3 className="font-bold mb-4">Mais Vendidos ({getComparisonText().replace('vs. ', '')})</h3>
-                            <div className="relative h-64"> {/* Container com altura definida */}
+
+                        {/* Widget Lateral */}
+                        <div className="space-y-6">
+                            <div className="h-full">
+                                <LowStockWidget />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Área Inferior: Ações e Secundários */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Gráfico Secundário */}
+                        <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h3 className="font-bold text-slate-800 text-lg mb-4">Top 5 Mais Vendidos</h3>
+                            <div className="h-64 relative">
                                 <canvas id="bestSellersChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        {/* Manutenção e Ações Rápidas */}
+                        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
+                                <h3 className="font-bold text-slate-800 mb-2">Status da Loja</h3>
+                                <MaintenanceModeToggle />
+                            </div>
+
+                            <div className="bg-gradient-to-br from-indigo-900 to-slate-900 p-6 rounded-xl shadow-lg text-white">
+                                <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                    <SparklesIcon className="h-5 w-5 text-amber-400"/> Ações Rápidas
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button onClick={() => onNavigate('admin/products')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                        <PlusIcon className="h-5 w-5 mb-2 text-green-400"/>
+                                        <span className="text-xs font-bold block text-gray-200">Novo Produto</span>
+                                    </button>
+                                    <button onClick={() => onNavigate('admin/banners')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                        <PhotoIcon className="h-5 w-5 mb-2 text-blue-400"/>
+                                        <span className="text-xs font-bold block text-gray-200">Banners</span>
+                                    </button>
+                                    <button onClick={() => handleStockExport('excel')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                        <FileIcon className="h-5 w-5 mb-2 text-amber-400"/>
+                                        <span className="text-xs font-bold block text-gray-200">Rel. Estoque</span>
+                                    </button>
+                                    <button onClick={() => onNavigate('admin/coupons')} className="bg-white/10 hover:bg-white/20 p-3 rounded-lg text-left transition-all hover:scale-105 border border-white/5">
+                                        <TagIcon className="h-5 w-5 mb-2 text-pink-400"/>
+                                        <span className="text-xs font-bold block text-gray-200">Cupom</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
