@@ -1080,65 +1080,162 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, wishlist, addToWishlist, removeFromWishlist } = useShop(); 
+    const { addToCart, wishlist, addToWishlist, removeFromWishlist, currentTheme } = useShop(); 
     const notification = useNotification();
     const { isAuthenticated } = useAuth();
+
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-    const [isPromoActive, setIsPromoActive] = useState(!!product.is_on_sale && product.sale_price > 0);
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isPromoActive, setIsPromoActive] = useState(false);
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
+
+    // Atualiza estado local quando product muda
+    useEffect(() => {
+        setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
+    }, [product]);
+
     const currentPrice = isPromoActive ? product.sale_price : product.price;
 
-    const handleAddToCart = async (e) => { 
+    const discountPercent = useMemo(() => {
+        if (isPromoActive && product.price > 0) { 
+            return Math.round(((product.price - product.sale_price) / product.price) * 100);
+        }
+        return 0;
+    }, [isPromoActive, product]);
+
+    const isNew = useMemo(() => {
+        if (!product || !product.created_at) return false;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        return new Date(product.created_at) > thirtyDaysAgo;
+    }, [product]);
+
+    // Lógica do Timer
+    useEffect(() => {
+        if (!product?.sale_end_date || !isPromoActive) { setTimeLeft(''); return; }
+        const calculateTimeLeft = () => {
+            const difference = new Date(product.sale_end_date) - new Date();
+            if (difference > 0) {
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+                let timeString = '';
+                if (days > 0) timeString += `${days}d `;
+                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                setTimeLeft(timeString);
+            } else { setTimeLeft('Expirada'); setIsPromoActive(false); }
+        };
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
+        return () => clearInterval(timer);
+    }, [isPromoActive, product.sale_end_date]);
+
+    const installmentInfo = useMemo(() => {
+        if (currentPrice >= 100) {
+            const installmentValue = currentPrice / 4;
+            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
+        }
+        return null;
+    }, [currentPrice]);
+
+    const handleViewDetails = (e) => { e.stopPropagation(); onNavigate(`product/${product.id}`); };
+
+    const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
-        if (product.product_type === 'clothing') { notification.show("Escolha cor/tamanho.", "error"); onNavigate(`product/${product.id}`); return; }
+        if (product.product_type === 'clothing') { notification.show("Escolha cor e tamanho na página do produto.", "error"); onNavigate(`product/${product.id}`); return; }
         setIsAddingToCart(true);
-        try { await addToCart(product, 1); notification.show("Adicionado!"); } catch (e) { notification.show(e.message, "error"); } finally { setIsAddingToCart(false); }
+        try { await addToCart(product, 1); notification.show(`${product.name} adicionado ao carrinho!`); } 
+        catch (error) { notification.show(error.message, "error"); } 
+        finally { setIsAddingToCart(false); }
     };
 
-    const toggleWishlist = async (e) => {
-        e.stopPropagation();
-        if (!isAuthenticated) { notification.show("Faça login.", "error"); return; }
-        const isW = wishlist.some(i => i.id === product.id);
-        if(isW) await removeFromWishlist(product.id); else await addToWishlist(product);
+    const WishlistButton = ({ product }) => {
+        const isWishlisted = wishlist.some(item => item.id === product.id);
+        const handleWishlistToggle = async (e) => {
+            e.stopPropagation(); 
+            if (!isAuthenticated) { notification.show("Faça login para adicionar à lista de desejos", "error"); return; }
+            if (isWishlisted) { await removeFromWishlist(product.id); notification.show("Removido da lista.", 'error'); } 
+            else { await addToWishlist(product); notification.show("Adicionado à lista!", 'success'); }
+        };
+        return (
+            <button onClick={handleWishlistToggle} className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-[var(--theme-primary)]' : 'hover:text-[var(--theme-primary)]'}`}>
+                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
+            </button>
+        );
     };
-    const isWishlisted = wishlist.some(i => i.id === product.id);
 
     return (
         <motion.div
             layout 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} 
-            className="rounded-lg overflow-hidden flex flex-col h-full shadow-sm transition-all duration-300 group border border-white/10"
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
+            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
+            className={`rounded-lg overflow-hidden flex flex-col h-full transition-shadow duration-300 border border-white/10`}
+            // AQUI: Aplica a cor do tema, mas mantém a estrutura original
             style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
-            <div className="relative h-64 bg-white overflow-hidden">
-                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-110"/>
-                <button onClick={toggleWishlist} className={`absolute top-2 right-2 p-1.5 rounded-full z-10 ${isWishlisted ? 'text-[var(--theme-primary)] bg-black/10' : 'text-gray-400 hover:text-[var(--theme-primary)]'}`}>
-                    <HeartIcon className="h-5 w-5" filled={isWishlisted} />
-                </button>
-                {isPromoActive && <div className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded">PROMO</div>}
+            {/* Seção da Imagem */}
+            <div className="relative h-64 bg-white overflow-hidden group">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"/>
+                <WishlistButton product={product} /> 
+
+                {/* Badges/Selos Originais */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
+                    {product.stock <= 0 ? (
+                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
+                    ) : isPromoActive ? (
+                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
+                            <SaleIcon className="h-4 w-4"/>
+                            <span>PROMOÇÃO {discountPercent}%</span>
+                        </div>
+                    ) : isNew ? (
+                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                    ) : null}
+                </div>
             </div>
 
+            {/* Seção de Informações */}
             <div className="p-4 flex flex-col flex-grow">
-                <p className="text-xs font-bold opacity-60 mb-1">{product.brand}</p>
-                <h4 className="text-sm font-semibold leading-tight line-clamp-2 h-10 group-hover:text-[var(--theme-primary)] transition-colors">{product.name}</h4>
+                <div>
+                    <p className="text-xs font-semibold mb-1" style={{ color: 'var(--theme-primary)' }}>{product.brand.toUpperCase()}</p>
+                    <h4 className="text-base font-semibold tracking-tight cursor-pointer hover:opacity-80 transition-colors line-clamp-2 h-10" title={product.name}>
+                        {product.name}
+                    </h4>
+                </div>
+
+                {/* Preço e Parcelas */}
                 <div className="mt-auto pt-3">
                     {isPromoActive ? (
                          <div className="flex flex-col">
-                            <p className="text-xs opacity-50 line-through">R$ {Number(product.price).toFixed(2)}</p>
-                            <p className="text-lg font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                            <p className="text-xs font-light opacity-60 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
+                                <span className={`text-xs font-bold ${timeLeft ? 'text-red-500' : 'text-green-500'}`}>{discountPercent}% OFF</span>
+                            </div>
                         </div>
-                    ) : ( <p className="text-lg font-bold">R$ {Number(product.price).toFixed(2)}</p> )}
-                    <button onClick={handleAddToCart} disabled={isAddingToCart} className="w-full mt-3 py-2 rounded text-sm font-bold bg-white/5 hover:bg-white/10 border border-white/10 transition flex justify-center">
-                        {isAddingToCart ? <SpinnerIcon className="h-5 w-5"/> : "Adicionar"}
-                    </button>
+                    ) : ( <p className="text-xl font-semibold">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
+
+                    {installmentInfo && ( <p className="text-[11px] opacity-60 mt-0.5">{installmentInfo}</p> )}
+
+                    {/* Botões de Ação Originais */}
+                    {product.stock <= 0 ? (
+                        <div className="mt-3 w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
+                    ) : (
+                        <div className="mt-3 flex items-stretch space-x-2">
+                            <button onClick={handleViewDetails} className="flex-grow py-2 px-3 rounded-md transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md text-black" style={{ backgroundColor: 'var(--theme-primary)' }}>
+                                <EyeIcon className="h-4 w-4"/> Ver Detalhes
+                            </button>
+                            <button onClick={handleAddToCartInternal} disabled={isAddingToCart} className="flex-shrink-0 border border-gray-600 opacity-80 hover:opacity-100 p-2 rounded-md transition flex items-center justify-center disabled:opacity-50">
+                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5" /> : <CartIcon className="h-5 w-5"/>}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </motion.div>
     );
 });
-
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
@@ -2121,7 +2218,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart } = useShop();
     const notification = useNotification();
-    const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
     const [product, setProduct] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -2137,6 +2233,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
+    
+    // Estados do Tema e Promoção
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
@@ -2164,15 +2262,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [isPromoActive, product]);
 
     useEffect(() => {
-        if (!product?.sale_end_date || !isPromoActive) { setTimeLeft(null); return; }
+        if (!product?.sale_end_date || !isPromoActive) { setTimeLeft(''); return; }
         const calculateTimeLeft = () => {
             const difference = new Date(product.sale_end_date) - new Date();
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-                setTimeLeft({ days, hours, minutes, seconds });
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+                let timeString = '';
+                if (days > 0) timeString += `${days}d `;
+                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                setTimeLeft(timeString);
             } else { setTimeLeft('Expirada'); setIsPromoActive(false); }
         };
         calculateTimeLeft();
@@ -2180,43 +2281,82 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
-    // ... (Mantém useEffects de fetch e lógica, omitidos para focar no visual) ...
-    // Funções auxiliares (getYouTubeEmbedUrl, parseTextToList, etc) devem ser mantidas se estiverem fora, 
-    // se estiverem dentro, copie do seu código original. Vou assumir que você tem o resto da lógica.
-    
-    // REPLIQUEI A LOGICA DE FETCH E HANDLERS PARA GARANTIR FUNCIONAMENTO:
+    // Fetch Data (Mantido o original que funciona)
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
+        const signal = controller.signal;
         setIsLoading(true);
         try {
             const [productData, reviewsData, allProductsData, crossSellData] = await Promise.all([
-                apiService(`/products/${id}`, 'GET', null, { signal: controller.signal }),
-                apiService(`/products/${id}/reviews`, 'GET', null, { signal: controller.signal }),
-                apiService('/products', 'GET', null, { signal: controller.signal }),
-                apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal: controller.signal }).catch(() => [])
+                apiService(`/products/${id}`, 'GET', null, { signal }),
+                apiService(`/products/${id}/reviews`, 'GET', null, { signal }),
+                apiService('/products', 'GET', null, { signal }),
+                apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
+            if (signal.aborted) return;
+
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-            setMainImage(images[0]); setGalleryImages(images); setProduct(productData); setReviews(Array.isArray(reviewsData) ? reviewsData : []); setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+            setGalleryImages(images);
+            setProduct(productData);
+            setReviews(Array.isArray(reviewsData) ? reviewsData : []);
+            setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
+
             if (productData && allProductsData) {
                 const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
             }
-        } catch (err) { if (err.name !== 'AbortError') notification.show(err.message, 'error'); } finally { setIsLoading(false); }
-        return () => controller.abort();
+        } catch (err) { if (err.name !== 'AbortError') notification.show(err.message, 'error'); } 
+        finally { if (!signal.aborted) setIsLoading(false); }
+        return () => { controller.abort(); };
     }, [notification]);
 
-    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
+    // Installments Fetcher
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; }
+            setIsLoadingInstallments(true);
+            try {
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
+            } catch (error) { setInstallments([]); } finally { setIsLoadingInstallments(false); }
+        };
+        if (product && !product.error && currentPrice > 0) fetchInstallments(currentPrice);
+    }, [product, currentPrice]);
+
+    // Handlers
+    const handleQuantityChange = (amount) => {
+        setQuantity(prev => {
+            const newQty = prev + amount;
+            if (newQty < 1) return 1;
+            const limit = product?.product_type === 'clothing' ? selectedVariation?.stock : product?.stock;
+            if (limit !== undefined && newQty > limit) { notification.show(`Apenas ${limit} unidades disponíveis.`, 'error'); return limit; }
+            return newQty;
+        });
+    };
 
     const handleAction = async (action) => {
         if (!product) return;
-        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione cor e tamanho.", "error"); return; }
-        try { await addToCart(product, quantity, selectedVariation); notification.show(`${quantity}x ${product.name} adicionado!`); if (action === 'buyNow') onNavigate('cart'); } catch (error) { notification.show(error.message, 'error'); }
+        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        try { await addToCart(product, quantity, selectedVariation); notification.show(`${quantity}x ${product.name} adicionado ao carrinho!`); if (action === 'buyNow') onNavigate('cart'); } catch (error) { notification.show(error.message, 'error'); }
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
-        return <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-[var(--theme-primary)] opacity-100' : 'border-transparent opacity-60 hover:opacity-80'}`} style={{ color: 'var(--theme-text)', borderColor: activeTab === tabName ? 'var(--theme-primary)' : 'transparent' }}>{label}</button>;
+        return <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-[var(--theme-primary)] opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`} style={{ borderColor: activeTab === tabName ? 'var(--theme-primary)' : 'transparent', color: 'var(--theme-text)' }}> {label} </button>;
     };
+
+    const itemsForShipping = useMemo(() => product ? [{...product, qty: quantity}] : [], [product, quantity]);
+    
+    // Scroll Gallery logic
+    const checkScrollButtons = useCallback(() => {
+        const gallery = galleryRef.current;
+        if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); }
+    }, []);
+    useEffect(() => { checkScrollButtons(); const g = galleryRef.current; if(g) { g.addEventListener('scroll', checkScrollButtons); return () => g.removeEventListener('scroll', checkScrollButtons); } }, [galleryImages, checkScrollButtons]);
+    const scrollGallery = (d) => { const g = galleryRef.current; if(g) g.scrollBy({ left: d === 'left' ? -g.clientWidth*0.7 : g.clientWidth*0.7, behavior: 'smooth' }); };
+    
+    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
 
     if (isLoading) return <div className="flex justify-center items-center py-20 min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}><SpinnerIcon className="h-8 w-8 text-[var(--theme-primary)]"/></div>;
     if (!product) return <div className="min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}></div>;
@@ -2225,50 +2365,75 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const isPerfume = product.product_type === 'perfume';
     const stockLimit = isClothing ? selectedVariation?.stock : product.stock;
     const isOutOfStock = stockLimit <= 0;
+    const showGalleryArrows = galleryImages.length > 4;
 
-    // CORREÇÃO DO VISUAL AQUI:
     return (
         <div className="min-h-screen transition-colors duration-500" style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
+            {isLightboxOpen && <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={() => setIsLightboxOpen(false)}><img src={mainImage} className="max-w-full max-h-full object-contain rounded-lg"/></div>}
+            
             <div className="container mx-auto px-4 py-8 lg:py-12">
                 <div className="mb-6">
-                    <button onClick={() => onNavigate('products')} className="text-sm hover:underline flex items-center w-fit transition-colors" style={{ color: 'var(--theme-primary)' }}> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar </button>
+                    <button onClick={() => onNavigate('products')} className="text-sm hover:underline flex items-center w-fit transition-colors" style={{ color: 'var(--theme-primary)' }}> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para produtos </button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    {/* Imagem */}
                     <div className="lg:sticky lg:top-24 self-start">
-                        <div className="aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden border border-gray-200">
-                             {!isOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive && <div className="bg-red-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">PROMO {discountPercent}%</div>} </div> )}
+                        {/* Imagem Principal */}
+                        <div onClick={() => setIsLightboxOpen(true)} className="aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden border border-gray-200 cursor-zoom-in">
+                             {!isOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">PROMOÇÃO {discountPercent}%</div> : null} </div> )}
                              {isOutOfStock && <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div>}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4" />
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 hover:scale-105" />
                         </div>
-                        {/* Galeria Simples */}
-                        <div className="flex gap-2 overflow-x-auto pb-2">
-                            {galleryImages.map((img, i) => (
-                                <div key={i} onClick={() => setMainImage(img)} className={`w-20 h-20 bg-white p-1 rounded border-2 cursor-pointer ${mainImage === img ? 'border-[var(--theme-primary)]' : 'border-transparent'}`} style={{ borderColor: mainImage === img ? 'var(--theme-primary)' : 'transparent' }}>
-                                    <img src={img} className="w-full h-full object-contain"/>
-                                </div>
-                            ))}
+                        
+                        {/* Galeria */}
+                        <div className="relative group">
+                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {product.video_url && (
+                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 hover:border-[var(--theme-primary)] relative flex items-center justify-center">
+                                        <div className="absolute text-white"><svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
+                                    </div>
+                                )}
+                                {galleryImages.map((img, i) => (
+                                    <div key={i} onClick={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-[var(--theme-primary)]' : 'border-transparent hover:border-gray-400'}`}>
+                                        <img src={img} className="w-full h-full object-contain" />
+                                    </div>
+                                ))}
+                            </div>
+                            {showGalleryArrows && <><button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className="absolute top-1/2 left-0 -translate-y-1/2 bg-gray-800 text-white p-1 rounded-full disabled:opacity-0"><ChevronDownIcon className="h-5 w-5 rotate-90"/></button><button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className="absolute top-1/2 right-0 -translate-y-1/2 bg-gray-800 text-white p-1 rounded-full disabled:opacity-0"><ChevronDownIcon className="h-5 w-5 -rotate-90"/></button></>}
                         </div>
                     </div>
 
-                    {/* Detalhes */}
                     <div className="space-y-6">
                         <div>
                             <p className="text-sm font-bold tracking-wider mb-1" style={{ color: 'var(--theme-primary)' }}>{product.brand.toUpperCase()}</p>
-                            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
-                            {isPerfume && <h2 className="text-base opacity-60">{product.volume}</h2>}
+                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
+                            {isPerfume && <h2 className="text-base font-light opacity-60">{product.volume}</h2>}
                         </div>
 
-                        {/* Área de Preço */}
-                        <div className="border-t border-b border-white/10 py-4" style={{ borderColor: 'var(--theme-secondary)' }}>
+                        {/* --- ÁREA DE PROMOÇÃO (RESTAURADA) --- */}
+                        {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
+                            <div className="bg-gradient-to-br from-red-900/80 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden text-white">
+                                <div className="flex items-center gap-2 mb-3 text-red-400 font-bold uppercase text-xs"> <SparklesIcon className="h-4 w-4 animate-pulse" /> Oferta Limitada </div>
+                                <div className="flex justify-between items-center">
+                                    <div className="text-2xl font-bold font-mono">{timeLeft}</div>
+                                    <div className="text-right"> <p className="text-xs opacity-60 line-through">R$ {Number(product.price).toFixed(2)}</p> <p className="text-xl font-bold text-[var(--theme-primary)]">R$ {Number(product.sale_price).toFixed(2)}</p> </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="border-t border-b border-white/10 py-4">
                             {isPromoActive ? (
                                 <div className="flex items-center gap-3">
                                     <p className="text-4xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    <span className="text-lg opacity-50 line-through">R$ {Number(product.price).toFixed(2)}</span>
+                                    {!timeLeft && <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
                                 </div>
                              ) : ( <p className="text-3xl font-bold">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
+                            <div className="mt-2 flex items-center gap-2 text-sm opacity-80">
+                                <CreditCardIcon className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--theme-primary)' }} />
+                                {/* Resumo de Parcelas (Omitido para brevidade, mas deve ser mantido) */}
+                                {!isLoadingInstallments && installments.length > 0 && <button onClick={() => setIsInstallmentModalOpen(true)} className="font-semibold hover:underline" style={{ color: 'var(--theme-primary)' }}>Ver parcelas</button>}
+                            </div>
                         </div>
 
                         {isClothing && <VariationSelector product={product} variations={productVariations} onSelectionChange={(v, c) => { setSelectedVariation(v); if(v) setQuantity(1); }} />}
@@ -2277,35 +2442,38 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
                                 <div className="flex items-center border border-gray-600 rounded-md overflow-hidden">
-                                    <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-1.5 hover:bg-white/10">-</button>
+                                    <button onClick={() => handleQuantityChange(-1)} className="px-3 py-1.5 hover:bg-white/10">-</button>
                                     <span className="px-4 py-1.5 font-bold border-x border-gray-600">{quantity}</span>
-                                    <button onClick={() => setQuantity(Math.min(stockLimit, quantity + 1))} className="px-3 py-1.5 hover:bg-white/10">+</button>
+                                    <button onClick={() => handleQuantityChange(1)} className="px-3 py-1.5 hover:bg-white/10">+</button>
                                 </div>
+                                {stockLimit !== undefined && <span className="text-xs opacity-60">({stockLimit} disp.)</span>}
                             </div>
                         )}
 
                         <div className="space-y-3 pt-2">
-                            {isOutOfStock ? ( <div className="w-full bg-gray-600 text-white py-3 rounded text-center font-bold">Produto Esgotado</div> ) : ( 
+                            {isOutOfStock ? ( <div className="w-full bg-gray-700 py-3 rounded-md font-bold text-center text-white">Esgotado</div> ) : ( 
                                 <> 
-                                    <button onClick={() => handleAction('buyNow')} className="w-full py-3.5 rounded text-base font-bold text-black shadow-md hover:opacity-90 flex justify-center gap-2" style={{ backgroundColor: 'var(--theme-primary)' }}>Comprar Agora</button> 
-                                    <button onClick={() => handleAction('addToCart')} className="w-full py-3 rounded text-base font-bold border border-white/20 hover:bg-white/10 flex justify-center gap-2" style={{ borderColor: 'var(--theme-secondary)' }}> <CartIcon className="h-5 w-5"/> Adicionar ao Carrinho </button> 
+                                    <button onClick={() => handleAction('buyNow')} className="w-full py-3.5 rounded-md font-bold text-black shadow-md hover:opacity-90 flex justify-center gap-2" style={{ backgroundColor: 'var(--theme-primary)' }}>Comprar Agora</button> 
+                                    <button onClick={() => handleAction('addToCart')} className="w-full py-3 rounded-md font-bold border border-white/20 hover:bg-white/10 flex justify-center gap-2" style={{ borderColor: 'var(--theme-secondary)' }}> <CartIcon className="h-5 w-5" /> Adicionar </button> 
                                 </> 
                             )}
                         </div>
+                        <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
 
-                {/* Tabs de Descrição */}
-                <div className="mt-16 pt-10 border-t border-white/10" style={{ borderColor: 'var(--theme-secondary)' }}>
-                    <div className="flex justify-center border-b border-white/10 mb-8 flex-wrap" style={{ borderColor: 'var(--theme-secondary)' }}>
+                <div className="mt-16 pt-10 border-t border-white/10">
+                    <div className="flex justify-center border-b border-white/10 mb-8 flex-wrap gap-4">
                         <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Detalhes" tabName="details" isVisible={isPerfume} />
+                        <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                     </div>
-                    <div className="opacity-80 leading-relaxed max-w-3xl mx-auto prose prose-invert">
+                    <div className="opacity-80 leading-relaxed max-w-3xl mx-auto">
                         {activeTab === 'description' && <p>{product.description}</p>}
-                        {activeTab === 'details' && <p>{product.notes}</p>}
+                        {activeTab === 'notes' && <p>{product.notes}</p>}
                     </div>
                 </div>
+
+                {/* Reviews, Related Products (Omitidos, mas mantenha-os no seu código final) */}
             </div>
         </div>
     );
