@@ -4725,18 +4725,22 @@ app.get('/api/themes', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Admin) CRUD de Temas - ATUALIZADO
 app.post('/api/themes', verifyToken, verifyAdmin, async (req, res) => {
-    const { name, start_date, end_date, colors, assets } = req.body;
+    // Adicionado typography e effect_type
+    const { name, start_date, end_date, colors, assets, typography, effect_type } = req.body;
     if (!name) return res.status(400).json({ message: "Nome do tema é obrigatório." });
 
     try {
-        const sql = "INSERT INTO themes (name, start_date, end_date, colors, assets, is_active_manual) VALUES (?, ?, ?, ?, ?, 0)";
+        const sql = "INSERT INTO themes (name, start_date, end_date, colors, assets, typography, effect_type, is_active_manual) VALUES (?, ?, ?, ?, ?, ?, ?, 0)";
         await db.query(sql, [
             name, 
             start_date || null, 
             end_date || null, 
             JSON.stringify(colors || {}), 
-            JSON.stringify(assets || {})
+            JSON.stringify(assets || {}),
+            typography || 'sans-serif', // Padrão
+            effect_type || 'none'       // Padrão
         ]);
         logAdminAction(req.user, 'CRIOU TEMA', `Nome: ${name}`);
         res.status(201).json({ message: "Tema criado com sucesso." });
@@ -4748,16 +4752,19 @@ app.post('/api/themes', verifyToken, verifyAdmin, async (req, res) => {
 
 app.put('/api/themes/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { name, start_date, end_date, colors, assets } = req.body;
+    // Adicionado typography e effect_type
+    const { name, start_date, end_date, colors, assets, typography, effect_type } = req.body;
 
     try {
-        const sql = "UPDATE themes SET name = ?, start_date = ?, end_date = ?, colors = ?, assets = ? WHERE id = ?";
+        const sql = "UPDATE themes SET name = ?, start_date = ?, end_date = ?, colors = ?, assets = ?, typography = ?, effect_type = ? WHERE id = ?";
         await db.query(sql, [
             name, 
             start_date || null, 
             end_date || null, 
             JSON.stringify(colors || {}), 
             JSON.stringify(assets || {}), 
+            typography || 'sans-serif',
+            effect_type || 'none',
             id
         ]);
         logAdminAction(req.user, 'EDITOU TEMA', `ID: ${id}`);

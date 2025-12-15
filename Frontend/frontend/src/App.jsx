@@ -327,9 +327,50 @@ const AuthProvider = ({ children }) => {
     return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
 };
 
+const ThemeEffects = memo(({ type }) => {
+    if (!type || type === 'none') return null;
+
+    const renderParticles = (emoji, count = 20) => {
+        return (
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+                {[...Array(count)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        initial={{ y: -50, x: Math.random() * window.innerWidth, opacity: 0 }}
+                        animate={{ 
+                            y: window.innerHeight + 50, 
+                            opacity: [0, 1, 0],
+                            rotate: 360 
+                        }}
+                        transition={{ 
+                            duration: Math.random() * 5 + 5, 
+                            repeat: Infinity, 
+                            delay: Math.random() * 5,
+                            ease: "linear"
+                        }}
+                        className="absolute text-2xl"
+                    >
+                        {emoji}
+                    </motion.div>
+                ))}
+            </div>
+        );
+    };
+
+    switch (type) {
+        case 'snow': return renderParticles('❄️', 30);
+        case 'hearts': return renderParticles('❤️', 20);
+        case 'flowers': return renderParticles('🌸', 20);
+        case 'confetti': return renderParticles('🎉', 30);
+        case 'halloween': return renderParticles('🎃', 15);
+        default: return null;
+    }
+});
+
 const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
-    // --- Estados da Loja (Existentes) ---
+    
+    // --- Estados da Loja ---
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
     const [addresses, setAddresses] = useState([]);
@@ -345,11 +386,11 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- Novos Estados para Temas (Integrado) ---
+    // --- Estados de Tema ---
     const [currentTheme, setCurrentTheme] = useState(null);
     const [themeStyles, setThemeStyles] = useState({});
 
-    // Cores padrão do sistema (Gold/Black)
+    // Cores padrão (Gold/Black)
     const defaultColors = useMemo(() => ({
         primary: '#fbbf24',   // amber-400
         secondary: '#111827', // gray-900
@@ -358,17 +399,27 @@ const ShopProvider = ({ children }) => {
         accent: '#d97706'     // amber-600
     }), []);
 
-    // --- Funções de Tema ---
-    const applyTheme = useCallback((colors) => {
+    // --- Lógica de Temas ---
+    const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
-        if (!colors) return;
+        
+        const colors = themeData?.colors || defaultColors;
+        const font = themeData?.typography || 'sans-serif';
 
-        // Aplica variáveis CSS globais
+        // Variáveis CSS para cores
         root.style.setProperty('--theme-primary', colors.primary || defaultColors.primary);
         root.style.setProperty('--theme-secondary', colors.secondary || defaultColors.secondary);
         root.style.setProperty('--theme-bg', colors.background || defaultColors.background);
         root.style.setProperty('--theme-text', colors.text || defaultColors.text);
         root.style.setProperty('--theme-accent', colors.accent || defaultColors.accent);
+        
+        // Lógica de Fonte
+        let fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        if (font === 'serif') fontFamily = 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
+        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+        if (font === 'cursive') fontFamily = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", sans-serif';
+        
+        root.style.setProperty('--theme-font', fontFamily);
         
         setThemeStyles(colors);
     }, [defaultColors]);
@@ -377,28 +428,27 @@ const ShopProvider = ({ children }) => {
         try {
             const data = await apiService('/theme/active');
             if (data) {
-                // Parse das cores e assets se vierem como string JSON do DB
                 const colors = typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors;
                 const assets = typeof data.assets === 'string' ? JSON.parse(data.assets) : data.assets;
                 
+                // Salva tema completo (incluindo typography e effect_type)
                 setCurrentTheme({ ...data, colors, assets });
-                applyTheme(colors);
+                applyTheme({ ...data, colors, assets });
             } else {
                 setCurrentTheme(null);
-                applyTheme(defaultColors); // Fallback
+                applyTheme({ colors: defaultColors });
             }
         } catch (error) {
             console.error("Falha ao carregar tema:", error);
-            applyTheme(defaultColors);
+            applyTheme({ colors: defaultColors });
         }
     }, [applyTheme, defaultColors]);
 
-    // Efeito para carregar o tema ao iniciar
     useEffect(() => {
         fetchTheme();
     }, [fetchTheme]);
 
-    // --- Funções da Loja (Existentes) ---
+    // --- Lógica da Loja (Existente) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -527,7 +577,6 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
-    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
@@ -622,7 +671,7 @@ const ShopProvider = ({ children }) => {
             isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            // --- Exportações de Tema ---
+            // --- EXPORTAÇÃO DOS TEMAS ---
             currentTheme, fetchTheme, themeStyles, defaultColors
         }}>
             {children}
@@ -6286,12 +6335,225 @@ const TermsOfServicePage = () => {
     );
 };
 
+const AdminThemes = () => {
+    const [themes, setThemes] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTheme, setEditingTheme] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const notification = useNotification();
+    const { fetchTheme } = useShop(); 
+
+    const fetchThemes = useCallback(() => {
+        setIsLoading(true);
+        apiService('/themes')
+            .then(setThemes)
+            .catch(err => notification.show("Erro ao buscar temas", "error"))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => { fetchThemes(); }, [fetchThemes]);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const data = {
+            name: formData.get('name'),
+            start_date: formData.get('start_date'),
+            end_date: formData.get('end_date'),
+            typography: formData.get('typography'),
+            effect_type: formData.get('effect_type'),
+            colors: {
+                primary: formData.get('color_primary'),
+                secondary: formData.get('color_secondary'),
+                background: formData.get('color_background'),
+                text: formData.get('color_text'),
+                accent: formData.get('color_accent'),
+            },
+            assets: {
+                banner_url: formData.get('banner_url'),
+                decoration_icon: formData.get('decoration_icon')
+            }
+        };
+
+        try {
+            if (editingTheme) {
+                await apiService(`/themes/${editingTheme.id}`, 'PUT', data);
+                notification.show("Tema atualizado!");
+            } else {
+                await apiService('/themes', 'POST', data);
+                notification.show("Tema criado!");
+            }
+            setIsModalOpen(false);
+            setEditingTheme(null);
+            fetchThemes();
+            fetchTheme(); 
+        } catch (err) {
+            notification.show(err.message, "error");
+        }
+    };
+
+    const toggleManualActive = async (theme) => {
+        try {
+            await apiService(`/themes/${theme.id}/activate`, 'PUT', { status: !theme.is_active_manual });
+            notification.show(`Tema ${!theme.is_active_manual ? 'ativado' : 'desativado'} manualmente.`);
+            fetchThemes();
+            fetchTheme();
+        } catch (err) {
+            notification.show("Erro ao alterar status.", "error");
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Tem certeza?")) return;
+        try {
+            await apiService(`/themes/${id}`, 'DELETE');
+            notification.show("Tema removido.");
+            fetchThemes();
+        } catch(err) {
+            notification.show("Erro ao remover.", "error");
+        }
+    };
+
+    const openModal = (theme = null) => {
+        setEditingTheme(theme);
+        setIsModalOpen(true);
+    };
+
+    const getColor = (theme, key) => {
+        try {
+            const c = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
+            return c?.[key] || '#000000';
+        } catch { return '#000000'; }
+    };
+    
+    const getAsset = (theme, key) => {
+        try {
+            const a = typeof theme.assets === 'string' ? JSON.parse(theme.assets) : theme.assets;
+            return a?.[key] || '';
+        } catch { return ''; }
+    };
+
+    return (
+        <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Gerenciar Temas</h1>
+                <button onClick={() => openModal()} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2">
+                    <PlusIcon className="h-5 w-5"/> Novo Tema
+                </button>
+            </div>
+
+            {isLoading ? <SpinnerIcon className="mx-auto h-8 w-8"/> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {themes.map(t => (
+                        <div key={t.id} className={`border rounded-lg p-4 bg-white shadow-sm relative overflow-hidden ${t.is_active_manual ? 'ring-2 ring-green-500' : ''}`}>
+                            {t.is_active_manual && <div className="absolute top-0 right-0 bg-green-500 text-white text-xs px-2 py-1">Ativo Manualmente</div>}
+                            
+                            <h3 className="font-bold text-lg mb-2">{t.name}</h3>
+                            <div className="flex gap-2 mb-4">
+                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'primary')}} title="Primary"></div>
+                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'secondary')}} title="Secondary"></div>
+                                <div className="w-6 h-6 rounded-full border" style={{background: getColor(t, 'background')}} title="Background"></div>
+                            </div>
+                            
+                            <div className="text-sm text-gray-500 mb-2">
+                                <p>📅 {t.start_date ? new Date(t.start_date).toLocaleDateString() : 'Sem início'} - {t.end_date ? new Date(t.end_date).toLocaleDateString() : 'Sem fim'}</p>
+                            </div>
+                            <div className="flex gap-2 text-xs mb-4">
+                                <span className="bg-gray-100 px-2 py-1 rounded border">✍️ {t.typography || 'Padrão'}</span>
+                                <span className="bg-gray-100 px-2 py-1 rounded border">✨ {t.effect_type || 'Nenhum'}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center border-t pt-3">
+                                <button onClick={() => toggleManualActive(t)} className={`text-sm font-semibold ${t.is_active_manual ? 'text-red-500' : 'text-green-600'}`}>
+                                    {t.is_active_manual ? 'Desativar' : 'Ativar Agora'}
+                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => openModal(t)} className="text-gray-500 hover:text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleDelete(t.id)} className="text-gray-500 hover:text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {isModalOpen && (
+                <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? "Editar Tema" : "Novo Tema"}>
+                    <form onSubmit={handleSave} className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium">Nome do Tema</label>
+                            <input name="name" defaultValue={editingTheme?.name} required className="w-full p-2 border rounded"/>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium">Início (Agendamento)</label>
+                                <input type="date" name="start_date" defaultValue={editingTheme?.start_date ? editingTheme.start_date.split('T')[0] : ''} className="w-full p-2 border rounded"/>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Fim (Agendamento)</label>
+                                <input type="date" name="end_date" defaultValue={editingTheme?.end_date ? editingTheme.end_date.split('T')[0] : ''} className="w-full p-2 border rounded"/>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium">Tipografia</label>
+                                <select name="typography" defaultValue={editingTheme?.typography || 'sans-serif'} className="w-full p-2 border rounded">
+                                    <option value="sans-serif">Padrão (Sans-Serif)</option>
+                                    <option value="serif">Elegante (Serif)</option>
+                                    <option value="mono">Técnico (Monospace)</option>
+                                    <option value="cursive">Divertida (Cursive)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium">Efeito Especial</label>
+                                <select name="effect_type" defaultValue={editingTheme?.effect_type || 'none'} className="w-full p-2 border rounded">
+                                    <option value="none">Nenhum</option>
+                                    <option value="snow">Neve (Natal)</option>
+                                    <option value="hearts">Corações (Dia dos Namorados)</option>
+                                    <option value="flowers">Flores (Dia das Mães/Mulher)</option>
+                                    <option value="confetti">Confete (Ano Novo/Carnaval)</option>
+                                    <option value="halloween">Abóboras (Halloween)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div className="border-t pt-4">
+                            <h4 className="font-bold mb-2">Paleta de Cores</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs">Primária (Botões/Destaques)</label><input type="color" name="color_primary" defaultValue={getColor(editingTheme, 'primary')} className="w-full h-10"/></div>
+                                <div><label className="text-xs">Secundária (Bordas/Cards)</label><input type="color" name="color_secondary" defaultValue={getColor(editingTheme, 'secondary')} className="w-full h-10"/></div>
+                                <div><label className="text-xs">Fundo (Background)</label><input type="color" name="color_background" defaultValue={getColor(editingTheme, 'background')} className="w-full h-10"/></div>
+                                <div><label className="text-xs">Texto (Geral)</label><input type="color" name="color_text" defaultValue={getColor(editingTheme, 'text')} className="w-full h-10"/></div>
+                                <div><label className="text-xs">Accent (Detalhes)</label><input type="color" name="color_accent" defaultValue={getColor(editingTheme, 'accent')} className="w-full h-10"/></div>
+                            </div>
+                        </div>
+
+                        <div className="border-t pt-4">
+                            <h4 className="font-bold mb-2">Assets Visuais</h4>
+                            <div>
+                                <label className="text-xs">Ícone Flutuante (Opcional - ex: URL de logo)</label>
+                                <input type="text" name="decoration_icon" defaultValue={getAsset(editingTheme, 'decoration_icon')} placeholder="URL da imagem ou Emoji" className="w-full p-2 border rounded"/>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4">
+                            <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
+                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded">Salvar</button>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </div>
+    );
+};
+
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
-    const { user, logout } = useAuth(); // Importa 'user'
+    const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const mainContentRef = useRef(null); // <-- ADICIONADO O REF
+    const mainContentRef = useRef(null);
 
     useEffect(() => {
         apiService('/orders')
@@ -6326,10 +6588,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
+        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM
         { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
-        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
+        { key: 'collections', label: 'Coleções', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
-        { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
+        { key: 'coupons', label: 'Cupons', icon: <SaleIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
         { key: 'logs', label: 'Histórico de Ações', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
     ];
@@ -9621,21 +9884,21 @@ const AdminLogsPage = () => {
 
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { currentTheme } = useShop(); // AGORA USA useShop
+  const { currentTheme } = useShop(); 
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Aplica as cores dinâmicas no estilo inline do container principal
+  // Aplica as variáveis CSS
   const appStyle = currentTheme ? {
       '--theme-primary': currentTheme.colors?.primary,
       '--theme-secondary': currentTheme.colors?.secondary,
       '--theme-bg': currentTheme.colors?.background,
       '--theme-text': currentTheme.colors?.text,
       '--theme-accent': currentTheme.colors?.accent,
-  } : {};
+      fontFamily: 'var(--theme-font, sans-serif)', // Aplica a fonte aqui
+  } : { fontFamily: 'sans-serif' };
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -9649,7 +9912,7 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                console.error("Falha ao verificar o modo de manutenção.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
@@ -9672,7 +9935,6 @@ function AppContent({ deferredPrompt }) {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
       sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
@@ -9784,9 +10046,14 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-500" style={{...appStyle, backgroundColor: 'var(--theme-bg, #000000)', color: 'var(--theme-text, #ffffff)'}}>
       
+      {/* --- RENDERIZA O COMPONENTE DE EFEITOS AQUI --- */}
+      {currentTheme && !currentPath.startsWith('admin') && (
+          <ThemeEffects type={currentTheme.effect_type} />
+      )}
+
       {currentTheme?.assets?.decoration_icon && !currentPath.startsWith('admin') && (
           <div className="fixed bottom-24 right-4 text-4xl animate-bounce z-40 pointer-events-none opacity-80">
-              {currentTheme.assets.decoration_icon}
+              {currentTheme.assets.decoration_icon.startsWith('http') ? <img src={currentTheme.assets.decoration_icon} className="w-12 h-12" alt="icon"/> : currentTheme.assets.decoration_icon}
           </div>
       )}
 
@@ -9802,6 +10069,7 @@ function AppContent({ deferredPrompt }) {
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
                     </div>
+                    {/* ... (O restante do footer permanece o mesmo, mantendo a estrutura) ... */}
                     <div className="space-y-4">
                         <h3 className="font-bold tracking-wider">Institucional</h3>
                         <ul className="space-y-2 text-sm opacity-80">
