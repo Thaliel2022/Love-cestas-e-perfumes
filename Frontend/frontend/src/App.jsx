@@ -390,20 +390,19 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-    // --- Estados de Tema (Visual) ---
+    // --- Estados de Tema ---
     const [currentTheme, setCurrentTheme] = useState(null);
     const [themeStyles, setThemeStyles] = useState({});
 
-    // Cores padrão (Gold/Black) para fallback
+    // Cores padrão (Gold/Black)
     const defaultColors = useMemo(() => ({
-        primary: '#fbbf24',   // Dourado
-        secondary: '#111827', // Cinza Escuro
-        background: '#000000', // Preto
-        text: '#ffffff',      // Branco
-        accent: '#d97706'     // Dourado Escuro
+        primary: '#fbbf24',   // amber-400
+        secondary: '#111827', // gray-900
+        background: '#000000',
+        text: '#ffffff',
+        accent: '#d97706'     // amber-600
     }), []);
 
-    
     // --- Lógica de Aplicação de Tema ---
     const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
@@ -411,21 +410,21 @@ const ShopProvider = ({ children }) => {
         const colors = themeData?.colors || defaultColors;
         const font = themeData?.typography || 'sans-serif';
 
-        // Aplica variáveis CSS globais para uso em toda a aplicação
+        // Aplica variáveis CSS globais
         root.style.setProperty('--theme-primary', colors.primary || defaultColors.primary);
         root.style.setProperty('--theme-secondary', colors.secondary || defaultColors.secondary);
         root.style.setProperty('--theme-bg', colors.background || defaultColors.background);
         root.style.setProperty('--theme-text', colors.text || defaultColors.text);
         root.style.setProperty('--theme-accent', colors.accent || defaultColors.accent);
         
-        // Mapeamento de Fontes
-        let fontFamily = 'ui-sans-serif, system-ui, sans-serif';
+        // Aplica Fonte
+        let fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
         if (font === 'serif') fontFamily = 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
-        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
+        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
         if (font === 'cursive') fontFamily = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", sans-serif';
-        if (font === 'modern') fontFamily = '"Montserrat", "Helvetica Neue", Arial, sans-serif';
         
         root.style.setProperty('--theme-font', fontFamily);
+        
         setThemeStyles(colors);
     }, [defaultColors]);
 
@@ -436,9 +435,9 @@ const ShopProvider = ({ children }) => {
                 const colors = typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors;
                 const assets = typeof data.assets === 'string' ? JSON.parse(data.assets) : data.assets;
                 
-                const fullTheme = { ...data, colors, assets };
-                setCurrentTheme(fullTheme);
-                applyTheme(fullTheme);
+                // Salva tema completo
+                setCurrentTheme({ ...data, colors, assets });
+                applyTheme({ ...data, colors, assets });
             } else {
                 setCurrentTheme(null);
                 applyTheme({ colors: defaultColors });
@@ -453,7 +452,7 @@ const ShopProvider = ({ children }) => {
         fetchTheme();
     }, [fetchTheme]);
 
-    // --- Lógica da Loja (Mantida Original) ---
+    // --- Lógica da Loja (Existente) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -676,7 +675,7 @@ const ShopProvider = ({ children }) => {
             isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            // --- EXPORTAÇÃO DOS TEMAS ---
+            // --- Exportações de Tema ---
             currentTheme, fetchTheme, themeStyles, defaultColors
         }}>
             {children}
@@ -2218,6 +2217,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
     const { addToCart } = useShop();
     const notification = useNotification();
+    const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
     const [product, setProduct] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -2233,8 +2233,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
-    
-    // Estados do Tema e Promoção
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
@@ -2281,7 +2279,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
-    // Fetch Data (Mantido o original que funciona)
+    // Fetch Data
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2311,7 +2309,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
-    // Installments Fetcher
     useEffect(() => {
         const fetchInstallments = async (price) => {
             if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; }
@@ -2324,7 +2321,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product && !product.error && currentPrice > 0) fetchInstallments(currentPrice);
     }, [product, currentPrice]);
 
-    // Handlers
     const handleQuantityChange = (amount) => {
         setQuantity(prev => {
             const newQty = prev + amount;
@@ -2346,9 +2342,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-[var(--theme-primary)] opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`} style={{ borderColor: activeTab === tabName ? 'var(--theme-primary)' : 'transparent', color: 'var(--theme-text)' }}> {label} </button>;
     };
 
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return null;
+        let videoId;
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.hostname === 'youtu.be') videoId = urlObj.pathname.slice(1);
+            else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) videoId = urlObj.searchParams.get('v');
+            else return null;
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        } catch (e) { return null; }
+    };
+
+    const parseTextToList = (text) => {
+        if (!text || text.trim() === '') return null;
+        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="mr-2 mt-1 text-xs" style={{color: 'var(--theme-primary)'}}>&#10003;</span><span>{line}</span></li>)}</ul>;
+    };
+
     const itemsForShipping = useMemo(() => product ? [{...product, qty: quantity}] : [], [product, quantity]);
     
-    // Scroll Gallery logic
     const checkScrollButtons = useCallback(() => {
         const gallery = galleryRef.current;
         if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); }
@@ -2358,7 +2370,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
 
-    if (isLoading) return <div className="flex justify-center items-center py-20 min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}><SpinnerIcon className="h-8 w-8 text-[var(--theme-primary)]"/></div>;
+    if (isLoading) return <div className="flex justify-center items-center py-20 min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}><SpinnerIcon className="h-8 w-8" style={{color: 'var(--theme-primary)'}}/></div>;
     if (!product) return <div className="min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}></div>;
 
     const isClothing = product.product_type === 'clothing';
@@ -2370,8 +2382,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     return (
         <div className="min-h-screen transition-colors duration-500" style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
-            {isLightboxOpen && <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={() => setIsLightboxOpen(false)}><img src={mainImage} className="max-w-full max-h-full object-contain rounded-lg"/></div>}
+            {isLightboxOpen && <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={() => setIsLightboxOpen(false)}><button className="absolute top-4 right-4 text-white text-5xl">&times;</button><img src={mainImage} className="max-w-full max-h-full object-contain rounded-lg"/></div>}
             
+            <AnimatePresence>
+                {isVideoModalOpen && product.video_url && (
+                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
+                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
+                            <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <div className="container mx-auto px-4 py-8 lg:py-12">
                 <div className="mb-6">
                     <button onClick={() => onNavigate('products')} className="text-sm hover:underline flex items-center w-fit transition-colors" style={{ color: 'var(--theme-primary)' }}> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para produtos </button>
@@ -2379,23 +2401,21 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     <div className="lg:sticky lg:top-24 self-start">
-                        {/* Imagem Principal */}
                         <div onClick={() => setIsLightboxOpen(true)} className="aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden border border-gray-200 cursor-zoom-in">
                              {!isOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">PROMOÇÃO {discountPercent}%</div> : null} </div> )}
                              {isOutOfStock && <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div>}
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 hover:scale-105" />
                         </div>
                         
-                        {/* Galeria */}
                         <div className="relative group">
                             <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                 {product.video_url && (
-                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 hover:border-[var(--theme-primary)] relative flex items-center justify-center">
+                                     <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 relative flex items-center justify-center" style={{ borderColor: 'var(--theme-primary)' }}>
                                         <div className="absolute text-white"><svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                     </div>
                                 )}
                                 {galleryImages.map((img, i) => (
-                                    <div key={i} onClick={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all ${mainImage === img ? 'border-[var(--theme-primary)]' : 'border-transparent hover:border-gray-400'}`}>
+                                    <div key={i} onClick={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all`} style={{ borderColor: mainImage === img ? 'var(--theme-primary)' : 'transparent' }}>
                                         <img src={img} className="w-full h-full object-contain" />
                                     </div>
                                 ))}
@@ -2407,31 +2427,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <div className="space-y-6">
                         <div>
                             <p className="text-sm font-bold tracking-wider mb-1" style={{ color: 'var(--theme-primary)' }}>{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && <h2 className="text-base font-light opacity-60">{product.volume}</h2>}
+                            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+                            {isPerfume && <h2 className="text-base opacity-60">{product.volume}</h2>}
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO (RESTAURADA) --- */}
-                        {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/80 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden text-white">
-                                <div className="flex items-center gap-2 mb-3 text-red-400 font-bold uppercase text-xs"> <SparklesIcon className="h-4 w-4 animate-pulse" /> Oferta Limitada </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="text-2xl font-bold font-mono">{timeLeft}</div>
-                                    <div className="text-right"> <p className="text-xs opacity-60 line-through">R$ {Number(product.price).toFixed(2)}</p> <p className="text-xl font-bold text-[var(--theme-primary)]">R$ {Number(product.sale_price).toFixed(2)}</p> </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="border-t border-b border-white/10 py-4">
+                        <div className="border-t border-b border-white/10 py-4" style={{ borderColor: 'var(--theme-secondary)' }}>
                             {isPromoActive ? (
                                 <div className="flex items-center gap-3">
                                     <p className="text-4xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    {!timeLeft && <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
+                                    <span className="text-lg opacity-50 line-through">R$ {Number(product.price).toFixed(2)}</span>
                                 </div>
                              ) : ( <p className="text-3xl font-bold">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
                             <div className="mt-2 flex items-center gap-2 text-sm opacity-80">
                                 <CreditCardIcon className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--theme-primary)' }} />
-                                {/* Resumo de Parcelas (Omitido para brevidade, mas deve ser mantido) */}
+                                {/* Resumo de Parcelas */}
                                 {!isLoadingInstallments && installments.length > 0 && <button onClick={() => setIsInstallmentModalOpen(true)} className="font-semibold hover:underline" style={{ color: 'var(--theme-primary)' }}>Ver parcelas</button>}
                             </div>
                         </div>
@@ -2462,18 +2471,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
 
-                <div className="mt-16 pt-10 border-t border-white/10">
-                    <div className="flex justify-center border-b border-white/10 mb-8 flex-wrap gap-4">
+                <div className="mt-16 pt-10 border-t border-white/10" style={{ borderColor: 'var(--theme-secondary)' }}>
+                    <div className="flex justify-center border-b border-white/10 mb-8 flex-wrap gap-4" style={{ borderColor: 'var(--theme-secondary)' }}>
                         <TabButton label="Descrição" tabName="description" />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
+                        <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
+                        <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
+                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
+                        <TabButton label="Cuidados" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="opacity-80 leading-relaxed max-w-3xl mx-auto">
-                        {activeTab === 'description' && <p>{product.description}</p>}
-                        {activeTab === 'notes' && <p>{product.notes}</p>}
+                    <div className="opacity-80 leading-relaxed max-w-3xl mx-auto prose prose-invert">
+                        {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas não disponíveis.</p>)}
+                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções não disponíveis.'}</p>}
+                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia não disponível.</p>)}
+                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções não disponíveis.</p>)}
                     </div>
                 </div>
-
-                {/* Reviews, Related Products (Omitidos, mas mantenha-os no seu código final) */}
             </div>
         </div>
     );
@@ -6010,9 +6025,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
+                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
                     setNewOrdersCount(0);
                     return;
                 }
+
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = data.filter(o => {
                     if (!o || !o.date) return false;
@@ -6032,10 +6049,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         onNavigate('home');
     }
 
-   // --- AQUI ESTÁ A ATUALIZAÇÃO DO MENU ---
    const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
-        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // <--- NOVO ITEM ADICIONADO AQUI
+        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> },
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
@@ -6049,7 +6065,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-100 text-gray-800">
-            {/* Sidebar */}
+            {/* Sidebar (Restaurado fundo escuro) */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
