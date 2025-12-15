@@ -1991,66 +1991,54 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
 
 // Adicione estes componentes antes da função HomePage ou no início do arquivo se preferir organizar assim
 
+
 const BenefitsBar = () => (
-    <div className="bg-gray-900 border-b border-gray-800 py-8">
+    <div className="bg-gray-900 border-b border-gray-800 py-4 md:py-8">
         <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
-                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
-                        <TruckIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+            {/* Mobile: Scroll Horizontal com Snap / Desktop: Grid */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:pb-0 md:grid md:grid-cols-4 md:gap-6 scrollbar-hide">
+                {[
+                    { icon: TruckIcon, title: "Frete Grátis", desc: "Acima de R$ 299" },
+                    { icon: CreditCardIcon, title: "4x Sem Juros", desc: "No cartão de crédito" },
+                    { icon: ShieldCheckIcon, title: "Compra Segura", desc: "Proteção de dados" },
+                    { icon: ArrowUturnLeftIcon, title: "Troca Fácil", desc: "1ª troca grátis" },
+                ].map((item, index) => (
+                    <div key={index} className="snap-center shrink-0 w-36 md:w-auto flex flex-col items-center text-center group p-3 md:p-4 rounded-lg bg-gray-800/30 md:bg-transparent md:hover:bg-gray-800/50 transition-all border border-gray-800 md:border-transparent">
+                        <div className="p-2 md:p-3 bg-gray-800 rounded-full mb-2 md:mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
+                            <item.icon className="h-5 w-5 md:h-6 md:w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                        </div>
+                        <h3 className="font-bold text-white text-xs md:text-sm uppercase tracking-wide whitespace-nowrap">{item.title}</h3>
+                        <p className="text-[10px] md:text-xs text-gray-400 mt-0.5">{item.desc}</p>
                     </div>
-                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Frete Grátis</h3>
-                    <p className="text-xs text-gray-400 mt-1">Em compras acima de R$ 299 para todo o Brasil</p>
-                </div>
-                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
-                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
-                        <CreditCardIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Parcele Sem Juros</h3>
-                    <p className="text-xs text-gray-400 mt-1">Em até 4x no cartão de crédito</p>
-                </div>
-                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
-                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
-                        <ShieldCheckIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Compra 100% Segura</h3>
-                    <p className="text-xs text-gray-400 mt-1">Seus dados protegidos de ponta a ponta</p>
-                </div>
-                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
-                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
-                        <ArrowUturnLeftIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
-                    </div>
-                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Troca Fácil</h3>
-                    <p className="text-xs text-gray-400 mt-1">1ª troca grátis em até 7 dias corridos</p>
-                </div>
+                ))}
             </div>
         </div>
     </div>
 );
 
 const NewsletterSection = () => (
-    <section className="bg-gradient-to-r from-amber-500 to-amber-600 py-16 mt-16 relative overflow-hidden">
+    <section className="bg-gradient-to-r from-amber-500 to-amber-600 py-10 md:py-16 mt-8 md:mt-16 relative overflow-hidden">
         {/* Padrão de fundo decorativo */}
         <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
         
-        <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-10 relative z-10">
+        <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-10 relative z-10">
             <div className="text-center lg:text-left text-black max-w-xl">
-                <h2 className="text-3xl md:text-4xl font-extrabold flex flex-col md:flex-row items-center lg:items-start gap-3 mb-3 leading-tight">
-                    <span className="bg-black text-amber-500 p-2 rounded-lg shadow-lg"><SparklesIcon className="h-8 w-8" /></span>
-                    <span>Entre para o Clube VIP!</span>
+                <h2 className="text-2xl md:text-4xl font-extrabold flex flex-col md:flex-row items-center lg:items-start gap-2 md:gap-3 mb-2 md:mb-3 leading-tight">
+                    <span className="bg-black text-amber-500 p-1.5 md:p-2 rounded-lg shadow-lg transform -rotate-3"><SparklesIcon className="h-6 w-6 md:h-8 md:w-8" /></span>
+                    <span>Clube VIP</span>
                 </h2>
-                <p className="font-medium text-black/80 text-lg">Cadastre-se e receba <span className="font-bold border-b-2 border-black">ofertas exclusivas</span>, cupons surpresa e lançamentos em primeira mão.</p>
+                <p className="font-medium text-black/80 text-sm md:text-lg px-2 md:px-0">Cadastre-se e receba <span className="font-bold border-b-2 border-black">ofertas exclusivas</span> e cupons surpresa.</p>
             </div>
             
-            <form className="w-full lg:w-auto flex flex-col sm:flex-row gap-4 flex-grow max-w-lg bg-white/20 p-2 rounded-xl backdrop-blur-sm" onSubmit={(e) => { e.preventDefault(); alert('Obrigado por se inscrever!'); }}>
+            <form className="w-full lg:w-auto flex flex-col sm:flex-row gap-3 flex-grow max-w-lg bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-sm" onSubmit={(e) => { e.preventDefault(); alert('Obrigado por se inscrever!'); }}>
                 <input 
                     type="email" 
-                    placeholder="Digite seu melhor e-mail" 
-                    className="w-full px-6 py-4 rounded-lg border-0 focus:ring-4 focus:ring-black/20 text-gray-900 shadow-inner placeholder-gray-500 font-medium"
+                    placeholder="Seu melhor e-mail" 
+                    className="w-full px-4 py-3 md:px-6 md:py-4 rounded-lg border-0 focus:ring-4 focus:ring-black/20 text-gray-900 shadow-inner placeholder-gray-600 font-medium text-sm md:text-base"
                     required
                 />
-                <button type="submit" className="bg-black text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-900 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 whitespace-nowrap flex items-center justify-center gap-2">
-                    Cadastrar <CheckIcon className="h-5 w-5 text-amber-500"/>
+                <button type="submit" className="bg-black text-white px-6 py-3 md:px-8 md:py-4 rounded-lg font-bold text-sm md:text-lg hover:bg-gray-900 transition-all shadow-lg hover:shadow-xl transform active:scale-95 whitespace-nowrap flex items-center justify-center gap-2">
+                    Cadastrar <CheckIcon className="h-4 w-4 md:h-5 md:w-5 text-amber-500"/>
                 </button>
             </form>
         </div>
