@@ -6635,7 +6635,7 @@ const AdminDashboard = ({ onNavigate }) => {
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
-                                    <p className="text-[10px] text-slate-400">SKU: {item.id}</p>
+                                    <p className="text-[10px] text-slate-400">{item.brand}</p>
                                 </div>
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
@@ -6727,6 +6727,31 @@ const AdminDashboard = ({ onNavigate }) => {
                         />
                     </div>
 
+                    {/* Seção de Exportação */}
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-slate-800 text-lg mb-4">Exportar Relatórios</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button 
+                                onClick={() => handleSalesExport('excel')} 
+                                className="bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                            >
+                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (Excel)</span>
+                            </button>
+                            <button 
+                                onClick={() => handleStockExport('excel')} 
+                                className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                            >
+                                <DownloadIcon className="h-5 w-5"/> <span>Estoque (Excel)</span>
+                            </button>
+                            <button 
+                                onClick={() => handleSalesExport('pdf')} 
+                                className="bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                            >
+                                <DownloadIcon className="h-5 w-5"/> <span>Vendas (PDF)</span>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Área Principal: Gráfico e Estoque */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Gráfico Principal */}
@@ -6736,9 +6761,6 @@ const AdminDashboard = ({ onNavigate }) => {
                                     <h3 className="font-bold text-slate-800 text-lg">Performance de Vendas</h3>
                                     <p className="text-xs text-gray-400">Receita bruta ao longo do tempo</p>
                                 </div>
-                                <button onClick={() => handleSalesExport('excel')} className="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-md hover:bg-indigo-100 flex items-center gap-1 transition-colors">
-                                    <DownloadIcon className="h-3.5 w-3.5"/> Exportar
-                                </button>
                             </div>
                             <div className="h-80 w-full relative">
                                 <canvas id="dailySalesChart"></canvas>
