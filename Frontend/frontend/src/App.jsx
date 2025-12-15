@@ -330,7 +330,7 @@ const AuthProvider = ({ children }) => {
 const ThemeEffects = memo(({ type }) => {
     if (!type || type === 'none') return null;
 
-    const renderParticles = (emoji, count = 30) => {
+    const renderParticles = (emoji, count = 30, speed = 5) => {
         return (
             <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 {[...Array(count)].map((_, i) => (
@@ -343,12 +343,13 @@ const ThemeEffects = memo(({ type }) => {
                             rotate: 360 
                         }}
                         transition={{ 
-                            duration: Math.random() * 5 + 5, 
+                            duration: Math.random() * 5 + speed, 
                             repeat: Infinity, 
                             delay: Math.random() * 5,
                             ease: "linear"
                         }}
                         className="absolute text-2xl"
+                        style={{ left: `${Math.random() * 100}vw` }}
                     >
                         {emoji}
                     </motion.div>
@@ -358,12 +359,14 @@ const ThemeEffects = memo(({ type }) => {
     };
 
     switch (type) {
-        case 'snow': return renderParticles('❄️', 40);
-        case 'hearts': return renderParticles('❤️', 25);
-        case 'flowers': return renderParticles('🌸', 25);
-        case 'confetti': return renderParticles('🎉', 40);
-        case 'halloween': return renderParticles('🎃', 20);
-        case 'stars': return renderParticles('✨', 30);
+        case 'snow': return renderParticles('❄️', 50, 8); // Natal (Lento)
+        case 'hearts': return renderParticles('❤️', 30, 6); // Namorados
+        case 'flowers': return renderParticles('🌸', 25, 7); // Mães/Mulher
+        case 'confetti': return renderParticles('🎉', 40, 4); // Ano Novo
+        case 'halloween': return renderParticles('🎃', 20, 6); // Halloween
+        case 'stars': return renderParticles('✨', 35, 5); // Pais/Geral
+        case 'money': return renderParticles('💸', 25, 3); // Black Friday (Rápido)
+        case 'easter': return renderParticles('🐰', 20, 6); // Páscoa
         default: return null;
     }
 });

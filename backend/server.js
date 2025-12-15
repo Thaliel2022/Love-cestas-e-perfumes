@@ -4674,30 +4674,43 @@ app.use((err, req, res, next) => {
 // --- ROTAS DE TEMAS (DINÂMICOS E VISUAIS) ---
 
 // (Público) Busca o tema ativo (Lógica: Manual > Data > Padrão)
+// (Público) Busca o tema ativo
 app.get('/api/theme/active', async (req, res) => {
     try {
         const connection = await db.getConnection();
+        
+        // Obtém data atual no formato YYYY-MM-DD
+        // Ajuste para garantir fuso horário correto (Brasil -3h) se necessário, 
+        // ou usa UTC dependendo da configuração do servidor. 
+        // Aqui usamos ISO simples que pega a data do servidor.
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Prioridade: Tema ativado manualmente
+        // 1. Prioridade Máxima: Tema ativado manualmente
+        // O administrador forçou este tema.
         const [manualTheme] = await connection.query("SELECT * FROM themes WHERE is_active_manual = 1 LIMIT 1");
+        
         if (manualTheme.length > 0) {
             connection.release();
             return res.json(manualTheme[0]);
         }
 
-        // 2. Prioridade: Tema agendado para hoje
+        // 2. Prioridade Secundária: Tema agendado por data
+        // Se nenhum manual estiver ativo, verifica se hoje cai em algum intervalo.
         const [scheduledTheme] = await connection.query(
             "SELECT * FROM themes WHERE ? BETWEEN start_date AND end_date LIMIT 1", 
             [today]
         );
+
         if (scheduledTheme.length > 0) {
             connection.release();
             return res.json(scheduledTheme[0]);
         }
 
-        // 3. Fallback: Tema padrão (ID 1 ou o primeiro criado)
+        // 3. Fallback: Tema Padrão
+        // Se não for manual nem data comemorativa, pega o tema criado primeiro (ID 1) ou qualquer um marcado como padrão no nome.
+        // Ordena por ID ASC para garantir que o primeiro (Padrão) seja pego.
         const [defaultTheme] = await connection.query("SELECT * FROM themes ORDER BY id ASC LIMIT 1");
+        
         connection.release();
         res.json(defaultTheme[0] || null);
 
