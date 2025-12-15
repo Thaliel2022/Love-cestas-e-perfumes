@@ -257,6 +257,49 @@ const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600
     return (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
 };
 
+const ThemeEffects = memo(({ type }) => {
+    if (!type || type === 'none') return null;
+
+    const renderParticles = (emoji, count = 30, speed = 5) => {
+        return (
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+                {[...Array(count)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        initial={{ y: -50, x: Math.random() * window.innerWidth, opacity: 0 }}
+                        animate={{ 
+                            y: window.innerHeight + 50, 
+                            opacity: [0, 1, 0],
+                            rotate: 360 
+                        }}
+                        transition={{ 
+                            duration: Math.random() * 5 + speed, 
+                            repeat: Infinity, 
+                            delay: Math.random() * 5,
+                            ease: "linear"
+                        }}
+                        className="absolute text-2xl"
+                        style={{ left: `${Math.random() * 100}vw` }}
+                    >
+                        {emoji}
+                    </motion.div>
+                ))}
+            </div>
+        );
+    };
+
+    switch (type) {
+        case 'snow': return renderParticles('❄️', 50, 8);
+        case 'hearts': return renderParticles('❤️', 30, 6);
+        case 'flowers': return renderParticles('🌸', 25, 7);
+        case 'confetti': return renderParticles('🎉', 40, 4);
+        case 'halloween': return renderParticles('🎃', 20, 6);
+        case 'stars': return renderParticles('✨', 35, 5);
+        case 'money': return renderParticles('💸', 25, 3);
+        case 'easter': return renderParticles('🐰', 20, 6);
+        default: return null;
+    }
+});
 // --- CONTEXTOS GLOBAIS ---
 const AuthContext = createContext(null);
 const ShopContext = createContext(null);
@@ -329,12 +372,12 @@ const AuthProvider = ({ children }) => {
 
 const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    
+    // --- Estados da Loja ---
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -342,27 +385,82 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
-
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // --- Estados de Tema ---
+    const [currentTheme, setCurrentTheme] = useState(null);
+    const [themeStyles, setThemeStyles] = useState({});
+
+    // Cores padrão (ORIGINAL DO SITE: PRETO E DOURADO)
+    const defaultColors = useMemo(() => ({
+        primary: '#fbbf24',   // amber-400
+        secondary: '#111827', // gray-900
+        background: '#000000', // preto
+        text: '#ffffff',      // branco
+        accent: '#d97706'     // amber-600
+    }), []);
+
+    // --- Lógica de Temas ---
+    const applyTheme = useCallback((themeData) => {
+        const root = document.documentElement;
+        
+        const colors = themeData?.colors || defaultColors;
+        const font = themeData?.typography || 'sans-serif';
+
+        root.style.setProperty('--theme-primary', colors.primary || defaultColors.primary);
+        root.style.setProperty('--theme-secondary', colors.secondary || defaultColors.secondary);
+        root.style.setProperty('--theme-bg', colors.background || defaultColors.background);
+        root.style.setProperty('--theme-text', colors.text || defaultColors.text);
+        root.style.setProperty('--theme-accent', colors.accent || defaultColors.accent);
+        
+        let fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+        if (font === 'serif') fontFamily = 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif';
+        if (font === 'mono') fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+        if (font === 'cursive') fontFamily = '"Comic Sans MS", "Chalkboard SE", "Comic Neue", sans-serif';
+        if (font === 'modern') fontFamily = '"Montserrat", "Helvetica Neue", Arial, sans-serif';
+        
+        root.style.setProperty('--theme-font', fontFamily);
+        setThemeStyles(colors);
+    }, [defaultColors]);
+
+    const fetchTheme = useCallback(async () => {
+        try {
+            const data = await apiService('/theme/active');
+            if (data) {
+                const colors = typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors;
+                const assets = typeof data.assets === 'string' ? JSON.parse(data.assets) : data.assets;
+                setCurrentTheme({ ...data, colors, assets });
+                applyTheme({ ...data, colors, assets });
+            } else {
+                setCurrentTheme(null);
+                applyTheme({ colors: defaultColors });
+            }
+        } catch (error) {
+            console.error("Falha ao carregar tema:", error);
+            applyTheme({ colors: defaultColors });
+        }
+    }, [applyTheme, defaultColors]);
+
+    useEffect(() => { fetchTheme(); }, [fetchTheme]);
+
+    // --- Lógica da Loja (Mantida Original) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
-        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
+        } catch (err) { setCart([]); }
     }, [isAuthenticated]);
 
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
-            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
+        } catch (error) { setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -378,9 +476,7 @@ const ShopProvider = ({ children }) => {
         let locationDetermined = false;
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            if (userAddresses && userAddresses.length > 0) {
-                locationDetermined = updateDefaultShippingLocation(userAddresses);
-            }
+            if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
         }
         if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
@@ -394,109 +490,66 @@ const ShopProvider = ({ children }) => {
                             const cep = data.address.postcode.replace(/\D/g, '');
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
-                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    } catch (error) { } 
                     finally { setIsGeolocating(false); }
                 }, 
-                (error) => { 
-                    console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false);
-                },
-                { timeout: 10000 }
+                (error) => { setIsGeolocating(false); }, { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
     useEffect(() => {
         if (isAuthLoading) return;
-        if (isAuthenticated) {
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage('');
-            determineShippingLocation();
-        }
+        if (isAuthenticated) { fetchPersistentCart(); determineShippingLocation(); apiService('/wishlist').then(setWishlist).catch(console.error); } 
+        else { setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation(); }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
-
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-                setIsLoadingShipping(true);
-                setShippingError('');
-                
+                setIsLoadingShipping(true); setShippingError('');
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = itemsToCalculate.map(item => ({
-                            id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        
+                        const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1, }));
                         const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-
                         const shippingApiOptions = [];
-                        if (pacOptionRaw) {
-                            shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        } else if (sedexOption) {
-                            shippingApiOptions.push(sedexOption);
-                        }
-
+                        if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                        else if (sedexOption) shippingApiOptions.push(sedexOption);
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        
                         const finalOptions = [...shippingApiOptions, pickupOption];
                         setShippingOptions(finalOptions);
-                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         const primaryShippingOption = shippingApiOptions[0];
-                        
                         setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
-
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
-                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
-                        setAutoCalculatedShipping(desiredOption || pickupOption);
-                    } finally {
-                        setIsLoadingShipping(false);
-                    }
+                        setAutoCalculatedShipping(pickupOption);
+                    } finally { setIsLoadingShipping(false); }
                 };
                 calculateShipping();
-            } else {
-                setShippingOptions([]);
-                setAutoCalculatedShipping(null);
-            }
+            } else { setShippingOptions([]); setAutoCalculatedShipping(null); }
         }, 500);
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
 
-    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
-        const currentQtyInCart = existing ? existing.qty : 0;
         
-        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        if ((existing ? existing.qty : 0) + qty > availableStock) throw new Error(`Estoque insuficiente.`);
 
         setCart(currentCart => {
             let updatedCart;
-            if (existing) {
-                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-            } else {
-                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
-            }
-
-            if (isAuthenticated) {
-                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
-            }
+            if (existing) updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            else updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
+            if (isAuthenticated) apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
             return updatedCart;
         });
     }, [cart, isAuthenticated]);
@@ -504,8 +557,7 @@ const ShopProvider = ({ children }) => {
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
-        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
-        setCart(updatedCart);
+        setCart(current => current.filter(item => item.cartItemId !== cartItemId));
         if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
@@ -514,10 +566,8 @@ const ShopProvider = ({ children }) => {
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-
-        const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
-        setCart(updatedCart);
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
+        setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
         if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
     
@@ -530,7 +580,7 @@ const ShopProvider = ({ children }) => {
             const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
             setWishlist(current => [...current, addedProduct]);
             return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
+        } catch (error) { return { success: false, message: `Erro ao adicionar: ${error.message}` }; }
     }, [isAuthenticated, wishlist]);
 
     const removeFromWishlist = useCallback(async (productId) => {
@@ -549,28 +599,19 @@ const ShopProvider = ({ children }) => {
             const response = await apiService('/coupons/validate', 'POST', { code });
             setAppliedCoupon(response.coupon);
             setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
-        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
+        } catch (error) { removeCoupon(); setCouponMessage(error.message || "Erro no cupom."); }
     }, [removeCoupon]);
     
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
         <ShopContext.Provider value={{
-            cart, setCart, clearOrderState,
-            wishlist, addToCart, 
-            addToWishlist, removeFromWishlist,
-            updateQuantity, removeFromCart,
-            userName: user?.name,
-            addresses, fetchAddresses,
-            shippingLocation, setShippingLocation,
-            autoCalculatedShipping, setAutoCalculatedShipping,
-            shippingOptions, isLoadingShipping, shippingError,
-            updateDefaultShippingLocation, determineShippingLocation,
-            setPreviewShippingItem, 
-            setSelectedShippingName,
-            isGeolocating,
-            couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon
+            cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart,
+            userName: user?.name, addresses, fetchAddresses, shippingLocation, setShippingLocation,
+            autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError,
+            updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName,
+            isGeolocating, couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon,
+            currentTheme, fetchTheme, themeStyles, defaultColors
         }}>
             {children}
         </ShopContext.Provider>
@@ -973,76 +1014,22 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation } = useShop(); 
+    const { addToCart, wishlist, addToWishlist, removeFromWishlist } = useShop(); 
     const notification = useNotification();
-    const { user } = useAuth();
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
     const { isAuthenticated } = useAuth();
-
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-    // isBuyingNow não é mais necessário aqui, mas mantive para evitar quebras se usado em outro lugar
-    const [isBuyingNow, setIsBuyingNow] = useState(false); 
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); 
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
-    
-    // Novo estado para o tempo restante da promoção
-    const [timeLeft, setTimeLeft] = useState('');
-    
-    // NOVO: Estado para controle local da promoção
     const [isPromoActive, setIsPromoActive] = useState(false);
+    const [timeLeft, setTimeLeft] = useState('');
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
-    // Atualiza estado local quando product muda
-    useEffect(() => {
-        setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
-    }, [product]);
+    useEffect(() => { setIsPromoActive(!!product.is_on_sale && product.sale_price > 0); }, [product]);
 
-    // Lógica baseada no estado local
     const currentPrice = isPromoActive ? product.sale_price : product.price;
-
     const discountPercent = useMemo(() => {
-        if (isPromoActive && product.price > 0) { 
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
+        if (isPromoActive && product.price > 0) return Math.round(((product.price - product.sale_price) / product.price) * 100);
         return 0;
     }, [isPromoActive, product]);
-
-    // --- LÓGICA DO CONTADOR REGRESSIVO COM EXPIRAÇÃO AUTOMÁTICA ---
-    useEffect(() => {
-        if (!product?.sale_end_date) {
-            setTimeLeft('');
-            return;
-        }
-
-        // Se a promoção já foi desativada localmente, não roda o timer
-        if (!isPromoActive) return;
-
-        const calculateTimeLeft = () => {
-            const difference = new Date(product.sale_end_date) - new Date();
-            
-            if (difference > 0) {
-                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((difference / 1000 / 60) % 60);
-                const seconds = Math.floor((difference / 1000) % 60);
-
-                let timeString = '';
-                if (days > 0) timeString += `${days}d `;
-                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                setTimeLeft(timeString);
-            } else {
-                // TEMPO ACABOU: Desativa promoção localmente
-                setTimeLeft('Expirada');
-                setIsPromoActive(false);
-            }
-        };
-
-        calculateTimeLeft(); // Executa imediatamente
-        const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
-
-        return () => clearInterval(timer);
-    }, [isPromoActive, product.sale_end_date]);
 
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
@@ -1050,283 +1037,85 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
 
-    const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
-    const reviewCount = product.review_count || 0;
-
-    const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-    const isProductOutOfStock = product.stock <= 0;
-    const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
-    const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
-
-    // --- Efeito de Frete ---
     useEffect(() => {
-        const controller = new AbortController();
-        const signal = controller.signal;
-         const debounceTimer = setTimeout(() => {
-            if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-                setIsCardShippingLoading(true);
-                setCardShippingInfo(null);
-
-                const calculateShipping = async () => {
-                    try {
-                        const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
-
-                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        if (!shippingOption) {
-                            shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                        }
-
-                        if (shippingOption) {
-                            const date = new Date();
-                            let deliveryTime = shippingOption.delivery_time;
-                            let addedDays = 0;
-                            while (addedDays < deliveryTime) {
-                                date.setDate(date.getDate() + 1);
-                                if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
-                            }
-                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
-                        } else {
-                            setCardShippingInfo('Entrega indisponível para este CEP.');
-                        }
-                    } catch (error) {
-                        if (error.name !== 'AbortError') {
-                            setCardShippingInfo('Erro ao calcular frete.');
-                        }
-                    } finally {
-                        if (!signal.aborted) { setIsCardShippingLoading(false); }
-                    }
-                };
-                calculateShipping();
-            } else {
-                setCardShippingInfo(null); 
-                 setIsCardShippingLoading(false); 
-            }
-        }, 500);
-
-        return () => {
-            clearTimeout(debounceTimer);
-            controller.abort();
+        if (!product?.sale_end_date || !isPromoActive) { setTimeLeft(''); return; }
+        const calculateTimeLeft = () => {
+            const difference = new Date(product.sale_end_date) - new Date();
+            if (difference > 0) {
+                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+                let timeString = '';
+                if (days > 0) timeString += `${days}d `;
+                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                setTimeLeft(timeString);
+            } else { setTimeLeft('Expirada'); setIsPromoActive(false); }
         };
-    }, [product, shippingLocation.cep, currentPrice]); 
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
+        return () => clearInterval(timer);
+    }, [isPromoActive, product.sale_end_date]);
 
-    const installmentInfo = useMemo(() => {
-        if (currentPrice >= 100) {
-            const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
-        }
-        return null;
-    }, [currentPrice]);
-
-    // Função para ver detalhes (substitui o Comprar direto)
-    const handleViewDetails = (e) => {
+    const handleAddToCart = async (e) => { 
         e.stopPropagation();
-        onNavigate(`product/${product.id}`);
-    };
-
-    // Função de Adicionar ao Carrinho (MANTIDA)
-    const handleAddToCartInternal = async (e) => { 
-        e.stopPropagation();
-        if (product.product_type === 'clothing') {
-            notification.show("Escolha cor e tamanho na página do produto.", "error");
-            onNavigate(`product/${product.id}`);
-            return;
-        }
+        if (product.product_type === 'clothing') { notification.show("Escolha cor/tamanho.", "error"); onNavigate(`product/${product.id}`); return; }
         setIsAddingToCart(true);
-        try {
-            await addToCart(product, 1);
-            notification.show(`${product.name} adicionado ao carrinho!`);
-        } catch (error) {
-            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
-        } finally {
-            setIsAddingToCart(false);
-        }
+        try { await addToCart(product, 1); notification.show("Adicionado!"); } catch (e) { notification.show(e.message, "error"); } finally { setIsAddingToCart(false); }
     };
 
-    const WishlistButton = ({ product }) => {
-        const isWishlisted = wishlist.some(item => item.id === product.id);
-        const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); 
-            if (!isAuthenticated) {
-                notification.show("Faça login para adicionar à lista de desejos", "error");
-                return;
-            }
-            if (isWishlisted) {
-                await removeFromWishlist(product.id);
-                notification.show(`${product.name} removido da lista de desejos.`, 'error');
-            } else {
-                const result = await addToWishlist(product);
-                notification.show(result.message, result.success ? 'success' : 'error');
-            }
-        };
-        return (
-            <button
-                onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
-                aria-label="Adicionar à Lista de Desejos"
-            >
-                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
-            </button>
-        );
+    const toggleWishlist = async (e) => {
+        e.stopPropagation();
+        if (!isAuthenticated) { notification.show("Faça login.", "error"); return; }
+        const isW = wishlist.some(i => i.id === product.id);
+        if(isW) await removeFromWishlist(product.id); else await addToWishlist(product);
     };
-
-    const cardVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-    };
+    const isWishlisted = wishlist.some(i => i.id === product.id);
 
     return (
         <motion.div
             layout 
-            variants={cardVariants}
-            initial="hidden" 
-            animate="visible" 
-            exit="hidden" 
-            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} 
+            whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)" }}
+            className="rounded-lg overflow-hidden flex flex-col h-full shadow-sm transition-all duration-300 group border border-white/10"
+            style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
-            {/* --- Seção da Imagem --- */}
-            <div className="relative h-64 bg-white overflow-hidden group">
-                <img
-                    src={imageUrl} 
-                    alt={product.name}
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                />
-                <WishlistButton product={product} /> 
-
-                {/* --- Badges/Selos --- */}
-                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
-                    {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
-                    ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
-                            <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span>
-                        </div>
-                    ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                    ) : null}
+            <div className="relative h-64 bg-white overflow-hidden">
+                <img src={imageUrl} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-110"/>
+                <button onClick={toggleWishlist} className={`absolute top-2 right-2 p-1.5 rounded-full z-10 transition-colors ${isWishlisted ? 'text-[var(--theme-primary)] bg-black/10' : 'text-gray-400 hover:text-[var(--theme-primary)]'}`}>
+                    <HeartIcon className="h-5 w-5" filled={isWishlisted} />
+                </button>
+                <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
+                    {product.stock <= 0 ? <div className="bg-gray-800 text-white text-[10px] font-bold px-2 py-1 rounded">ESGOTADO</div> : isPromoActive ? <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">PROMO -{discountPercent}%</div> : isNew ? <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">NOVO</div> : null}
                 </div>
-
-                {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
-                {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
-                            <span>Oferta Relâmpago</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-white"/>
-                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
-                {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-white fill-white"/>
-                            <span>Preço Especial</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
-                            <span className="text-white font-bold text-[9px]">Aproveite</span>
-                        </div>
-                    </div>
-                )}
-
-                 {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
-                        Ver Cores e Tamanhos
-                    </div>
-                 )}
-                 {user && user.role === 'admin' && (
-                    <div className="absolute top-2 right-10 z-10"> 
-                        <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
-                                title="Editar Produto">
-                            <EditIcon className="h-4 w-4" />
-                        </button>
-                    </div>
-                )}
             </div>
 
-            {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
-                <div>
-                    <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
-                    <h4
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
-                        title={product.name}
-                    >
-                        {product.name}
-                    </h4>
-                    <div className="flex items-center mt-1.5 h-4 gap-1">
-                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
-                        {reviewCount > 0 && ( <span className="text-[10px] text-gray-500">({reviewCount})</span> )}
-                    </div>
-                </div>
-
-                {/* --- Preço e Parcelas --- */}
+                <p className="text-xs font-bold tracking-wider opacity-60 mb-1">{product.brand.toUpperCase()}</p>
+                <h4 className="text-sm font-semibold leading-tight line-clamp-2 h-10 group-hover:text-[var(--theme-primary)] transition-colors">{product.name}</h4>
+                
                 <div className="mt-auto pt-3">
                     {isPromoActive ? (
                          <div className="flex flex-col">
-                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
+                            <p className="text-xs opacity-50 line-through">R$ {Number(product.price).toFixed(2)}</p>
                             <div className="flex items-baseline gap-2">
-                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
-                                <span className={`text-xs font-bold ${timeLeft && timeLeft !== 'Expirada' ? 'text-red-500' : 'text-green-500'}`}>{discountPercent}% OFF</span>
+                                <p className="text-lg font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2)}</p>
+                                {timeLeft && timeLeft !== 'Expirada' && <span className="text-[10px] text-red-500 font-bold bg-red-100 px-1 rounded">{timeLeft}</span>}
                             </div>
                         </div>
-                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
-
-                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
-
-                    {/* --- Botões de Ação --- */}
-                    {isOutOfStock ? (
-                        <div className="mt-3">
-                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
-                        </div>
-                    ) : (
-                        <div className="mt-3 flex items-stretch space-x-2">
-                            {/* Botão Ver Detalhes (Substitui o Comprar Direto) */}
-                            <button
-                                onClick={handleViewDetails}
-                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                            >
-                                <EyeIcon className="h-4 w-4"/>
-                                Ver Detalhes
-                            </button>
-                            {/* Botão Adicionar ao Carrinho (Mantido) */}
-                            <button
-                                onClick={handleAddToCartInternal}
-                                disabled={isAddingToCart}
-                                title="Adicionar ao Carrinho"
-                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
-                    )}
+                    ) : ( <p className="text-lg font-bold">R$ {Number(product.price).toFixed(2)}</p> )}
+                    
+                    <div className="mt-3 flex gap-2">
+                        <button onClick={(e) => {e.stopPropagation(); onNavigate(`product/${product.id}`)}} className="flex-1 py-2 rounded text-sm font-bold text-black transition hover:opacity-90 flex items-center justify-center gap-1" style={{ backgroundColor: 'var(--theme-primary)' }}>
+                            <EyeIcon className="h-4 w-4"/> Ver
+                        </button>
+                        <button onClick={handleAddToCart} disabled={isAddingToCart} className="p-2 border border-white/20 rounded hover:bg-white/10 transition disabled:opacity-50">
+                            {isAddingToCart ? <SpinnerIcon className="h-5 w-5"/> : <CartIcon className="h-5 w-5"/>}
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            {/* --- Informação de Frete --- */}
-            {(isCardShippingLoading || cardShippingInfo) && (
-                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
-                    {isCardShippingLoading ? (
-                        <SpinnerIcon className="h-3 w-3 text-gray-500" />
-                    ) : cardShippingInfo.includes('Erro') ? (
-                         <ExclamationCircleIcon className="h-3 w-3 text-red-500" />
-                    ) : (
-                        <TruckIcon className="h-3 w-3 text-green-500"/>
-                    )}
-                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
-                        {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
-                    </span>
-                </div>
-            )}
         </motion.div>
     );
 });
@@ -1450,396 +1239,142 @@ const Header = memo(({ onNavigate }) => {
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-
-    // Estado para visibilidade da BottomNavBar
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
-    const lastScrollY = useRef(0);
-    const isScrollingDown = useRef(false);
-
-    useEffect(() => {
-        const handleHashChange = () => {
-             setCurrentPath(window.location.hash.slice(1) || 'home');
-        };
-        window.addEventListener('hashchange', handleHashChange);
-        handleHashChange();
-        return () => window.removeEventListener('hashchange', handleHashChange);
-     }, []);
-
-    // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
-    useEffect(() => {
-        // --- INÍCIO DA MODIFICAÇÃO ---
-        // Função para verificar se é iPhone
-        const isIOS = () => {
-            return [
-                'iPad Simulator',
-                'iPhone Simulator',
-                'iPod Simulator',
-                'iPad',
-                'iPhone',
-                'iPod'
-            ].includes(navigator.platform)
-            // iPad on iOS 13 detection
-            || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
-        }
-
-        const controlNavbar = () => {
-            // Se NÃO for iOS, mantém a barra visível e sai da função
-            if (!isIOS()) {
-                 setIsBottomNavVisible(true);
-                 isScrollingDown.current = false; // Garante que a lógica de scroll não interfira
-                 lastScrollY.current = window.scrollY; // Atualiza a posição para evitar saltos se mudar de OS
-                 return;
-            }
-
-            // Lógica original, agora executada APENAS se for iOS
-            const currentScrollY = window.scrollY;
-            const threshold = 5;
-
-            if (window.innerWidth < 768) {
-                if (currentScrollY > lastScrollY.current + threshold && !isScrollingDown.current) {
-                    setIsBottomNavVisible(false);
-                    isScrollingDown.current = true;
-                } else if (currentScrollY < lastScrollY.current - threshold && isScrollingDown.current) {
-                    setIsBottomNavVisible(true);
-                    isScrollingDown.current = false;
-                }
-            } else {
-                setIsBottomNavVisible(true);
-                isScrollingDown.current = false;
-            }
-
-            lastScrollY.current = currentScrollY;
-        };
-        // --- FIM DA MODIFICAÇÃO ---
-
-        window.addEventListener('scroll', controlNavbar);
-        return () => {
-            window.removeEventListener('scroll', controlNavbar);
-        };
-    }, []); // Dependência vazia, executa apenas uma vez
-
-    const fetchAndBuildMenu = useCallback(() => {
-        apiService('/collections')
-            .then(data => {
-                const groupedMenu = data.reduce((acc, category) => {
-                    const section = category.menu_section;
-                    if (!acc[section]) {
-                        acc[section] = [];
-                    }
-                    acc[section].push({ name: category.name, filter: category.filter });
-                    return acc;
-                }, {});
-
-                const menuOrder = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
-                const finalMenuStructure = menuOrder
-                    .filter(sectionName => groupedMenu[sectionName])
-                    .map(sectionName => ({
-                        name: sectionName,
-                        sub: groupedMenu[sectionName]
-                    }));
-                setDynamicMenuItems(finalMenuStructure);
-            })
-            .catch(err => {
-                console.error("Falha ao construir o menu dinâmico:", err);
-                setDynamicMenuItems([]);
-            });
-    }, []);
-
-    useEffect(() => {
-        fetchAndBuildMenu();
-    }, [fetchAndBuildMenu]);
-
-    useEffect(() => {
-        if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
-            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
-            fetchAndBuildMenu();
-        }
-    }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
-
-    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
-    const prevTotalCartItems = useRef(totalCartItems);
-    const cartAnimationControls = useAnimation();
-
-    useEffect(() => {
-        if (totalCartItems > prevTotalCartItems.current) {
-            cartAnimationControls.start({
-                scale: [1, 1.25, 0.9, 1.1, 1],
-                transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
-            });
-        }
-        prevTotalCartItems.current = totalCartItems;
-    }, [totalCartItems, cartAnimationControls]);
-
-    useEffect(() => {
-        if (searchTerm.length < 1) {
-            setSearchSuggestions([]);
-            return;
-        }
-        const debounceTimer = setTimeout(() => {
-            apiService(`/products/search-suggestions?q=${searchTerm}`)
-                .then(data => setSearchSuggestions(data))
-                .catch(err => console.error(err));
-        }, 300);
-        return () => clearTimeout(debounceTimer);
-    }, [searchTerm]);
-
-    const handleSearchSubmit = (e) => {
-        e.preventDefault();
-        if (searchTerm.trim()) {
-            onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setSearchTerm('');
-            setSearchSuggestions([]);
-            setIsMobileMenuOpen(false);
-        }
-    };
-
-    const handleSuggestionClick = (productId) => {
-        onNavigate(`product/${productId}`);
-        setSearchTerm('');
-        setSearchSuggestions([]);
-        setIsSearchFocused(false);
-        setIsMobileMenuOpen(false);
-    };
-
-    const dropdownVariants = {
-        open: { opacity: 1, y: 0, display: 'block', transition: { duration: 0.2 } },
-        closed: { opacity: 0, y: -20, transition: { duration: 0.2 }, transitionEnd: { display: 'none' } }
-    };
-
-    const mobileMenuVariants = {
-        open: { x: 0, transition: { type: 'spring', stiffness: 300, damping: 30 } },
-        closed: { x: "-100%", transition: { type: 'spring', stiffness: 300, damping: 30 } },
-    };
-
+    
+    // Estados Endereço
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
+    // Listener Path
     useEffect(() => {
-        if (isAddressModalOpen && isAuthenticated) {
-            fetchAddresses();
-        }
-    }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
+        const handleHashChange = () => setCurrentPath(window.location.hash.slice(1) || 'home');
+        window.addEventListener('hashchange', handleHashChange); handleHashChange();
+        return () => window.removeEventListener('hashchange', handleHashChange);
+     }, []);
 
-    const handleSelectAddress = (addr) => {
-        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
-        setIsAddressModalOpen(false);
-    };
-
-    const handleManualCepSubmit = async (e) => {
-        e.preventDefault();
-        setCepError('');
-        const cleanCep = manualCep.replace(/\D/g, '');
-        if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; }
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-            const data = await response.json();
-            if (data.erro) { setCepError("CEP não encontrado."); } else {
-                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
-                setIsAddressModalOpen(false);
-                setManualCep('');
-            }
-        } catch { setCepError("Não foi possível buscar o CEP."); }
-    };
-
-    const handleCepInputChange = (e) => {
-        setManualCep(maskCEP(e.target.value));
-        if (cepError) setCepError('');
-    };
-
-    let addressDisplay = 'Selecione um endereço';
-    if (shippingLocation && shippingLocation.cep) {
-        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
-        if (cleanCep.length === 8) {
-            const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
-            const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - ');
-            let prefix = 'Enviar para';
-
-            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
-                prefix = `Enviar para ${shippingLocation.alias} -`;
-            } else if (isAuthenticated && user?.name) {
-                prefix = `Enviar para ${user.name.split(' ')[0]} -`;
-            }
-
-            if (displayCityState) {
-                addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
-            } else {
-                 addressDisplay = `${prefix} ${formattedCep}`;
-            }
-        }
-    }
-
-    // Componente da Barra de Navegação Inferior (Mobile)
-    const BottomNavBar = () => {
-        const wishlistCount = wishlist.length;
-
-        const navVariants = {
-            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
-            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
+    // Listener Scroll (iOS)
+    useEffect(() => {
+        const isIOS = () => ['iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod'].includes(navigator.platform) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        let lastScrollY = window.scrollY;
+        const controlNavbar = () => {
+            if (!isIOS()) { setIsBottomNavVisible(true); return; }
+            if (window.innerWidth < 768) {
+                if (window.scrollY > lastScrollY + 5) setIsBottomNavVisible(false);
+                else if (window.scrollY < lastScrollY - 5) setIsBottomNavVisible(true);
+            } else setIsBottomNavVisible(true);
+            lastScrollY = window.scrollY;
         };
+        window.addEventListener('scroll', controlNavbar);
+        return () => window.removeEventListener('scroll', controlNavbar);
+    }, []);
 
-        return (
-            <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden"
-                initial={false}
-                animate={isBottomNavVisible ? "visible" : "hidden"}
-                variants={navVariants}
-            >
-                <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HomeIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Início</span>
-                </button>
-                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <UserIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Conta</span>
-                </button>
-                <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HeartIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
-                </button>
-                <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <motion.div animate={cartAnimationControls}>
-                        <CartIcon className="h-6 w-6 mb-1"/>
-                    </motion.div>
-                    <span className="text-xs">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                </button>
-                <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <MenuIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Menu</span>
-                </button>
-            </motion.div>
-        );
-    };
+    const fetchAndBuildMenu = useCallback(() => {
+        apiService('/collections').then(data => {
+            const groupedMenu = data.reduce((acc, c) => {
+                if (!acc[c.menu_section]) acc[c.menu_section] = [];
+                acc[c.menu_section].push({ name: c.name, filter: c.filter });
+                return acc;
+            }, {});
+            const order = ['Perfumaria', 'Roupas', 'Conjuntos', 'Moda Íntima', 'Calçados', 'Acessórios'];
+            setDynamicMenuItems(order.filter(s => groupedMenu[s]).map(s => ({ name: s, sub: groupedMenu[s] })));
+        }).catch(() => setDynamicMenuItems([]));
+    }, []);
+    useEffect(() => { fetchAndBuildMenu(); }, [fetchAndBuildMenu]);
+
+    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    const cartAnimationControls = useAnimation();
+    const prevTotal = useRef(totalCartItems);
+    useEffect(() => { if (totalCartItems > prevTotal.current) cartAnimationControls.start({ scale: [1, 1.25, 1], transition: { duration: 0.3 } }); prevTotal.current = totalCartItems; }, [totalCartItems, cartAnimationControls]);
+
+    const handleSearchSubmit = (e) => { e.preventDefault(); if (searchTerm.trim()) { onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`); setSearchTerm(''); setIsSearchFocused(false); setIsMobileMenuOpen(false); } };
+    const handleSuggestionClick = (id) => { onNavigate(`product/${id}`); setSearchTerm(''); setIsSearchFocused(false); setIsMobileMenuOpen(false); };
+    const handleManualCepSubmit = async (e) => { e.preventDefault(); setCepError(''); const c = manualCep.replace(/\D/g, ''); if (c.length !== 8) return setCepError("CEP inválido"); try { const res = await fetch(`https://viacep.com.br/ws/${c}/json/`); const data = await res.json(); if (data.erro) setCepError("Não encontrado"); else { setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` }); setIsAddressModalOpen(false); setManualCep(''); } } catch { setCepError("Erro ao buscar"); } };
+
+    let addressDisplay = 'Selecione endereço';
+    if (shippingLocation?.cep?.replace(/\D/g, '').length === 8) addressDisplay = `Enviar para ${shippingLocation.alias || 'Local'} - ${shippingLocation.cep}`;
+
+    const BottomNavBar = () => (
+        <motion.div className="fixed bottom-0 left-0 right-0 h-16 flex justify-around items-center z-40 md:hidden border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]" initial={false} animate={isBottomNavVisible ? { y: 0 } : { y: "100%" }} style={{ backgroundColor: 'var(--theme-secondary)', borderColor: 'rgba(255,255,255,0.1)' }}>
+            <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center w-1/5 text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]"><HomeIcon className="h-6 w-6 mb-1"/><span className="text-xs">Início</span></button>
+            <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center w-1/5 text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]"><UserIcon className="h-6 w-6 mb-1"/><span className="text-xs">Conta</span></button>
+            <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className="relative flex flex-col items-center w-1/5 text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]"><HeartIcon className="h-6 w-6 mb-1"/><span className="text-xs">Lista</span>{wishlist.length > 0 && <span className="absolute top-0 right-[20%] bg-[var(--theme-primary)] text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>}</button>
+            <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className="relative flex flex-col items-center w-1/5 text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]"><motion.div animate={cartAnimationControls}><CartIcon className="h-6 w-6 mb-1"/></motion.div><span className="text-xs">Carrinho</span>{totalCartItems > 0 && <span className="absolute top-0 right-[20%] bg-[var(--theme-primary)] text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}</button>
+            <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center w-1/5 text-[var(--theme-text)] opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]"><MenuIcon className="h-6 w-6 mb-1"/><span className="text-xs">Menu</span></button>
+        </motion.div>
+    );
 
     return (
         <>
         <AnimatePresence>
             {isAddressModalOpen && (
-                <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Selecionar Endereço de Entrega" size="md">
+                <Modal isOpen={true} onClose={() => setIsAddressModalOpen(false)} title="Endereço de Entrega" size="md">
                     <div className="space-y-4">
-                        {isAuthenticated && addresses && addresses.length > 0 && addresses.map(addr => (
-                             <div key={addr.id} onClick={() => handleSelectAddress(addr)} className="p-4 border-2 rounded-lg cursor-pointer transition-all bg-gray-50 hover:border-amber-400 hover:bg-amber-50">
-                                 <p className="font-bold text-gray-800">{addr.alias} {addr.is_default ? <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full ml-2">Padrão</span> : ''}</p>
-                                 <p className="text-sm text-gray-600">{addr.logradouro}, {addr.numero} - {addr.bairro}</p>
-                                 <p className="text-sm text-gray-500">{addr.localidade} - {addr.uf}</p>
-                             </div>
-                        ))}
-                         {isAuthenticated && addresses.length === 0 && (
-                            <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>
-                         )}
-                         {!isAuthenticated && (
-                            <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>
-                         )}
-                        <div className="pt-4 border-t">
-                            <form onSubmit={handleManualCepSubmit} className="space-y-2">
-                                 <label className="block text-sm font-medium text-gray-700">Calcular frete para um CEP</label>
-                                 <div className="flex gap-2">
-                                    <input type="text" value={manualCep} onChange={handleCepInputChange} placeholder="00000-000" className="w-full p-2 border border-gray-300 rounded-md text-gray-900" />
-                                    <button type="submit" className="bg-gray-800 text-white font-bold px-4 rounded-md hover:bg-black">OK</button>
-                                 </div>
-                                 {cepError && <p className="text-red-500 text-xs mt-1">{cepError}</p>}
-                            </form>
-                        </div>
+                        {isAuthenticated && addresses.map(addr => <div key={addr.id} onClick={() => {setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias }); setIsAddressModalOpen(false);}} className="p-4 border rounded cursor-pointer hover:border-[var(--theme-primary)]"><p className="font-bold">{addr.alias}</p><p className="text-sm">{addr.logradouro}, {addr.numero} - {addr.bairro}</p></div>)}
+                        <div className="pt-4 border-t"><form onSubmit={handleManualCepSubmit} className="flex gap-2"><input type="text" value={manualCep} onChange={(e) => setManualCep(e.target.value)} placeholder="00000-000" className="w-full p-2 border rounded text-black" /><button type="submit" className="bg-[var(--theme-primary)] text-black font-bold px-4 rounded">OK</button></form>{cepError && <p className="text-red-500 text-xs mt-1">{cepError}</p>}</div>
                     </div>
                 </Modal>
             )}
         </AnimatePresence>
 
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
-            {/* Top Bar - Desktop */}
-            <div className="hidden md:block px-4 sm:px-6">
+        <header className="sticky top-0 z-40 shadow-lg backdrop-blur-md transition-colors duration-500" style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}>
+            <div className="hidden md:block px-6">
                 <div className="flex justify-between items-center py-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
-                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide transition-colors" style={{ color: 'var(--theme-primary)' }}>LovecestasePerfumes</a>
+                    <div className="flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
-                           <input
-                                type="text" value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="O que você procura?"
-                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
-                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                            <AnimatePresence>
-                            {isSearchFocused && searchTerm.length > 0 && (
-                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                                        <div className="max-h-96 overflow-y-auto">
-                                            {searchSuggestions.length > 0 ? (
-                                                searchSuggestions.map(p => (
-                                                    <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
-                                                        <img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" />
-                                                        <div className="flex-grow">
-                                                            <p className="font-semibold text-gray-800">{p.name}</p>
-                                                            {p.is_on_sale && p.sale_price > 0 ? (
-                                                                <div className="flex items-baseline gap-2">
-                                                                    <p className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</p>
-                                                                    <p className="text-gray-500 text-sm line-through">R$ {Number(p.price).toFixed(2)}</p>
-                                                                </div>
-                                                            ) : (
-                                                                <p className="text-gray-700 font-bold">R$ {Number(p.price).toFixed(2)}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
-                                        </div>
-                                        {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors"> Ver todos os resultados para "{searchTerm}" </button> )}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                           <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="O que você procura?" className="w-full px-5 py-2 rounded-full focus:outline-none focus:ring-2 text-black bg-white/90" style={{ focusRing: 'var(--theme-primary)' }}/>
+                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-500 hover:text-[var(--theme-primary)]"><SearchIcon className="h-5 w-5" /></button>
+                           <AnimatePresence>{isSearchFocused && searchTerm.length > 0 && (<motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden text-black"><div className="max-h-96 overflow-y-auto">{searchSuggestions.length > 0 ? searchSuggestions.map(p => (<div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"><img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" /><div className="flex-grow"><p className="font-semibold">{p.name}</p><p className="text-gray-700 font-bold">R$ {Number(p.sale_price || p.price).toFixed(2)}</p></div></div>)) : <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p>}</div></motion.div>)}</AnimatePresence>
                         </form>
                     </div>
-                    <div className="flex items-center space-x-2 sm:space-x-4">
-                        {isAuthenticated && ( <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button> )}
-                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
+                    <div className="flex items-center space-x-4">
+                        {isAuthenticated && <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-[var(--theme-primary)] transition"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button>}
+                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-[var(--theme-primary)] transition"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute -top-1 -right-1 bg-[var(--theme-primary)] text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-[var(--theme-primary)] transition"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-[var(--theme-primary)] text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
+                        
+                        {/* --- MENU ADMIN RESTAURADO AQUI --- */}
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
-                                   <button className="flex items-start gap-1 hover:text-amber-400 transition px-2 py-1 leading-none"> <UserIcon className="h-6 w-6 mt-0.5"/> <div className="flex flex-col items-start text-xs"> <span>Olá, {user.name.split(' ')[0]}</span> <span className="font-bold text-sm">Conta</span> </div> </button>
-                                   <div className="absolute top-full right-0 w-48 bg-gray-900 rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-800"> <span className="block px-4 py-2 text-sm text-gray-400">Olá, {user.name}</span> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Minha Conta</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm text-amber-400 hover:bg-gray-800">Painel Admin</a>} <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm text-white hover:bg-gray-800">Sair</a> </div>
+                                   <button className="flex items-start gap-1 hover:text-[var(--theme-primary)] transition leading-none"> <UserIcon className="h-6 w-6 mt-0.5"/> <div className="flex flex-col items-start text-xs"> <span>Olá, {user.name.split(' ')[0]}</span> <span className="font-bold text-sm">Conta</span> </div> </button>
+                                   <div className="absolute top-full right-0 w-48 bg-white rounded-md shadow-lg py-1 z-20 invisible group-hover:visible border border-gray-200 text-gray-800"> 
+                                        <span className="block px-4 py-2 text-sm text-gray-500 border-b">Olá, {user.name}</span> 
+                                        <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); }} className="block px-4 py-2 text-sm hover:bg-gray-100">Minha Conta</a> 
+                                        {user.role === 'admin' && (
+                                            <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard');}} className="block px-4 py-2 text-sm font-bold text-amber-600 hover:bg-gray-100 border-t border-b border-gray-100">Painel Admin</a>
+                                        )} 
+                                        <a href="#logout" onClick={(e) => {e.preventDefault(); logout(); onNavigate('home');}} className="block px-4 py-2 text-sm hover:bg-gray-100 text-red-600">Sair</a> 
+                                   </div>
                                 </div>
-                            ) : ( <button onClick={() => onNavigate('login')} className="flex items-center gap-1 bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold"> <UserIcon className="h-5 w-5"/> <span className="text-sm">Login</span> </button> )}
+                            ) : ( <button onClick={() => onNavigate('login')} className="flex items-center gap-1 bg-[var(--theme-primary)] text-black px-4 py-2 rounded-md hover:opacity-80 transition font-bold"> <UserIcon className="h-5 w-5"/> <span className="text-sm">Login</span> </button> )}
                         </div>
                     </div>
                 </div>
             </div>
 
-             <div className="block md:hidden px-4 pt-3">
-                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a> </div>
+             {/* Top Bar Mobile */}
+             <div className="block md:hidden px-4 pt-3 pb-2">
+                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide" style={{ color: 'var(--theme-primary)' }}>LovecestasePerfumes</a> </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
-                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
-                    <AnimatePresence>
-                        {isSearchFocused && searchTerm.length > 0 && (
-                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                                <div className="max-h-60 overflow-y-auto">
-                                    {searchSuggestions.length > 0 ? (
-                                        searchSuggestions.map(p => (
-                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0"> <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" /> <div className="flex-grow"> <p className="font-semibold text-gray-800 text-sm">{p.name}</p> {p.is_on_sale && p.sale_price > 0 ? ( <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> ) : ( <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> )} </div> </div>
-                                        ))
-                                    ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
-                                </div>
-                                {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"> Ver todos os resultados </button> )}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Pesquisar..." className="w-full bg-white/90 text-black px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)] text-sm" />
+                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-500"><SearchIcon className="h-5 w-5" /></button>
                 </form>
-                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
+                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs opacity-80 px-1 py-1 rounded cursor-pointer hover:opacity-100"> <MapPinIcon className="h-4 w-4 mr-2 text-[var(--theme-primary)]"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto"/> </button>
             </div>
 
-            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
-                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
-                <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}> <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button> </div>
-                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"> <SaleIcon className="h-4 w-4" /> Promoções </a>
-                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
+            {/* Navegação Desktop */}
+            <nav className="hidden md:flex justify-center px-4 h-12 items-center border-t border-white/10 relative">
+                <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-[var(--theme-primary)] transition-colors">Início</a>
+                <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}> <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-[var(--theme-primary)] transition-colors">Coleções</button> </div>
+                <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:opacity-80 transition-colors flex items-center gap-1" style={{ color: 'var(--theme-accent)' }}> <SaleIcon className="h-4 w-4" /> Promoções </a>
+                <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-[var(--theme-primary)] transition-colors">Ajuda</a>
+                
                 <AnimatePresence>
                     {activeMenu === 'Coleções' && (
-                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700">
+                        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} onMouseLeave={() => setActiveMenu(null)} className="absolute top-full left-0 w-full shadow-xl border-t border-white/10 z-50 transition-colors duration-500" style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}>
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a></li> ))} </ul> </div> ) ))}
+                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold mb-3 text-base" style={{ color: 'var(--theme-primary)' }}>{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm opacity-80 hover:opacity-100 hover:text-[var(--theme-primary)]">{subCat.name}</a></li> ))} </ul> </div> ) ))}
                             </div>
                         </motion.div>
                     )}
@@ -1850,15 +1385,13 @@ const Header = memo(({ onNavigate }) => {
                 {isMobileMenuOpen && (
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
-                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col">
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
+                        <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: 'spring', damping: 25 }} className="fixed top-0 left-0 h-screen w-4/5 max-w-sm z-[60] flex flex-col transition-colors duration-500" style={{ backgroundColor: 'var(--theme-secondary)', color: 'var(--theme-text)' }}>
+                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-white/10"> <h2 className="font-bold" style={{ color: 'var(--theme-primary)' }}>Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6" /></button> </div>
                             <div className="flex-grow overflow-y-auto p-4">
-                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
-                                <div className="border-b border-gray-800"> <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300"> <SaleIcon className="h-5 w-5"/> Promoções </a> </div>
-                                <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
-                                <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
+                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-white/10"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm opacity-80 hover:text-[var(--theme-primary)]">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
+                                <div className="border-b border-white/10"> <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold" style={{ color: 'var(--theme-accent)' }}> <SaleIcon className="h-5 w-5"/> Promoções </a> </div>
                                 <div className="pt-4 space-y-3">
-                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block hover:text-[var(--theme-primary)]">Minha Conta</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block font-bold" style={{ color: 'var(--theme-accent)' }}>Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left hover:text-[var(--theme-primary)]">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-[var(--theme-primary)] text-black px-4 py-2 rounded-md font-bold">Login</button> )}
                                 </div>
                             </div>
                         </motion.div>
@@ -1866,8 +1399,6 @@ const Header = memo(({ onNavigate }) => {
                 )}
             </AnimatePresence>
         </header>
-
-        {/* Renderiza a BottomNavBar */}
         <BottomNavBar />
         </>
     );
@@ -1885,7 +1416,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
+            .then(data => setCategories(data))
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
@@ -1912,24 +1443,6 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
         setCurrentIndex(prev => Math.max(prev - 1, 0));
     }, []);
 
-    if (isLoading) {
-        return (
-            <section className="bg-black text-white py-12 md:py-16">
-                <div className="container mx-auto px-4">
-                    {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-                    <div className="animate-pulse flex justify-center items-center h-48">
-                        <SpinnerIcon className="h-8 w-8 text-amber-500" />
-                    </div>
-                </div>
-            </section>
-        );
-    }
-
-    if (!categories || categories.length === 0) return null;
-
-    const canGoPrev = currentIndex > 0;
-    const canGoNext = categories.length > itemsPerPage && currentIndex < (categories.length - itemsPerPage);
-
     const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
     const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
     const handleTouchEnd = () => {
@@ -1941,48 +1454,45 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
         setTouchEnd(null);
     };
 
+    const canGoPrev = currentIndex > 0;
+    const canGoNext = categories.length > itemsPerPage && currentIndex < (categories.length - itemsPerPage);
+
+    if (isLoading) {
+        return (
+            <section className="py-12 md:py-16 transition-colors duration-500" style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
+                <div className="container mx-auto px-4">
+                    {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10" style={{ color: 'var(--theme-primary)' }}>{title}</h2>}
+                    <div className="animate-pulse flex justify-center items-center h-48">
+                        <SpinnerIcon className="h-8 w-8 text-[var(--theme-primary)]" />
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    if (!categories || categories.length === 0) return null;
+
     return (
-        <section className="bg-black text-white py-12 md:py-16">
+        <section className="py-12 md:py-16 transition-colors duration-500" style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
             <div className="container mx-auto px-4">
-                {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
+                {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10" style={{ color: 'var(--theme-primary)' }}>{title}</h2>}
                 <div className="relative">
-                    <div 
-                        className="overflow-hidden"
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                    >
-                        <motion.div
-                            className="flex -mx-2"
-                            animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }}
-                            transition={{ type: 'spring', stiffness: 350, damping: 40 }}
-                        >
+                    <div className="overflow-hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+                        <motion.div className="flex -mx-2" animate={{ x: `-${currentIndex * (100 / itemsPerPage)}%` }} transition={{ type: 'spring', stiffness: 350, damping: 40 }}>
                             {categories.map(cat => (
-                                <div 
-                                    key={cat.name} 
-                                    className="flex-shrink-0 px-2"
-                                    style={{ width: `${100 / itemsPerPage}%` }}
-                                >
-                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                <div key={cat.name} className="flex-shrink-0 px-2" style={{ width: `${100 / itemsPerPage}%` }}>
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer border border-white/10" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
                                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
                                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
-                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
+                                            <h3 className="text-xl font-bold text-white text-center tracking-wide drop-shadow-md">{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </motion.div>
                     </div>
-                    {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                        </button>
-                    )}
-                    {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                    )}
+                    {canGoPrev && <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex hover:scale-110 transition"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>}
+                    {canGoNext && <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex hover:scale-110 transition"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>}
                 </div>
             </div>
         </section>
@@ -2499,10 +2009,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
-    
     const [timeLeft, setTimeLeft] = useState('');
-    
-    // Estado para controlar se a promoção está ativa visualmente
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const galleryRef = useRef(null);
@@ -2512,126 +2019,43 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // LÓGICA ATUALIZADA: Verifica se a promoção está ativa considerando a variação selecionada
     useEffect(() => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
-
-            // Se for roupa e tiver uma variação selecionada, verifica a regra específica da variação
             if (product.product_type === 'clothing' && selectedVariation) {
-                // Se is_promo for explicitamente false, a promoção não se aplica a esta cor
-                if (selectedVariation.is_promo === false) {
-                    active = false;
-                }
+                if (selectedVariation.is_promo === false) active = false;
             }
-
             setIsPromoActive(active);
         }
     }, [product, selectedVariation]);
 
-    // Usa o estado local isPromoActive para definir preço e desconto
-    const currentPrice = isPromoActive ? product.sale_price : product?.price;
-
+    const currentPrice = isPromoActive ? product?.sale_price : product?.price;
     const discountPercent = useMemo(() => {
-        if (isPromoActive && product) {
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
+        if (isPromoActive && product) return Math.round(((product.price - product.sale_price) / product.price) * 100);
         return 0;
     }, [isPromoActive, product]);
 
-    // --- Lógica do Contador Regressivo e Expiração Automática ---
     useEffect(() => {
-        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal (limpa o timer)
-        if (!product?.sale_end_date) {
-            setTimeLeft(null);
-            return;
-        }
-        
-        // Se a promoção já foi desativada localmente (por ex: cor sem desconto), não roda o timer
-        if (!isPromoActive) {
-             setTimeLeft(null);
-             return;
-        }
-
+        if (!product?.sale_end_date || !isPromoActive) { setTimeLeft(''); return; }
         const calculateTimeLeft = () => {
-            const now = new Date().getTime();
-            const endDate = new Date(product.sale_end_date).getTime();
-            const difference = endDate - now;
-            
+            const difference = new Date(product.sale_end_date) - new Date();
             if (difference > 0) {
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
-                setTimeLeft({ days, hours, minutes, seconds });
-            } else {
-                // TEMPO ACABOU: Desativa a promoção localmente na hora!
-                setTimeLeft('Expirada');
-                setIsPromoActive(false); 
-            }
+                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((difference / 1000 / 60) % 60);
+                const seconds = Math.floor((difference / 1000) % 60);
+                let timeString = '';
+                if (days > 0) timeString += `${days}d `;
+                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                setTimeLeft(timeString);
+            } else { setTimeLeft('Expirada'); setIsPromoActive(false); }
         };
-
         calculateTimeLeft();
         const timer = setInterval(calculateTimeLeft, 1000);
-
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
-    const isNew = useMemo(() => {
-        if (!product || !product.created_at) return false;
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product]);
-
-
-    const avgRating = useMemo(() => {
-        return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
-    }, [reviews]);
-
-    const itemsForShipping = useMemo(() => {
-        if (!product) return [];
-        return [{...product, qty: quantity}];
-    }, [product, quantity]);
-
-    const isClothing = product?.product_type === 'clothing';
-    const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0;
-    const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-    const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
-
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        let videoId;
-        try {
-            const urlObj = new URL(url);
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
-                videoId = urlObj.searchParams.get('v');
-            } else { return null; }
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            console.error("URL do YouTube inválida:", e);
-            return null;
-        }
-    };
-
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
-    };
-
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
-        return null;
-    };
-
+    // Fetch Data
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
         const signal = controller.signal;
@@ -2643,439 +2067,166 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 apiService('/products', 'GET', null, { signal }),
                 apiService(`/products/${id}/related-by-purchase`, 'GET', null, { signal }).catch(() => [])
             ]);
-
             if (signal.aborted) return;
-
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
             setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setGalleryImages(images);
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
-
             if (productData && allProductsData) {
                 const related = allProductsData.filter(p => p.id !== productData.id && (p.brand === productData.brand || p.category === productData.category)).slice(0, 8);
                 setRelatedProducts(related);
             }
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                 console.error("Falha ao buscar dados do produto:", err);
-                 setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
-                 notification.show(err.message || "Produto não encontrado", 'error');
-            }
-        } finally {
-            if (!signal.aborted) { setIsLoading(false); }
-        }
+        } catch (err) { if (err.name !== 'AbortError') notification.show(err.message, 'error'); } 
+        finally { if (!signal.aborted) setIsLoading(false); }
         return () => { controller.abort(); };
     }, [notification]);
 
-    const handleDeleteReview = (reviewId) => {
-        confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
+    useEffect(() => {
+        const fetchInstallments = async (price) => {
+            if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; }
+            setIsLoadingInstallments(true);
             try {
-                await apiService(`/reviews/${reviewId}`, 'DELETE');
-                notification.show('Avaliação excluída com sucesso.');
-                fetchProductData(productId);
-            } catch (error) {
-                notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
-            }
-        });
-    };
-
-    const handleShare = async () => {
-        const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
-        const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
-        if (navigator.share) {
-            try { await navigator.share(shareData); } catch (err) { if (err.name !== 'AbortError') { notification.show('Compartilhamento cancelado.', 'error'); } }
-        } else {
-            try { await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`); notification.show('Link do produto copiado!'); } catch (err) { notification.show('Não foi possível copiar o link.', 'error'); }
-        }
-    };
+                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
+                setInstallments(installmentData || []);
+            } catch (error) { setInstallments([]); } finally { setIsLoadingInstallments(false); }
+        };
+        if (product && !product.error && currentPrice > 0) fetchInstallments(currentPrice);
+    }, [product, currentPrice]);
 
     const handleQuantityChange = (amount) => {
         setQuantity(prev => {
             const newQty = prev + amount;
             if (newQty < 1) return 1;
-            const currentStockLimit = isClothing ? selectedVariation?.stock : product?.stock;
-            if (currentStockLimit !== undefined && newQty > currentStockLimit) {
-                 notification.show(`Apenas ${currentStockLimit} unidades disponíveis.`, 'error');
-                 return currentStockLimit;
-            }
+            const limit = product?.product_type === 'clothing' ? selectedVariation?.stock : product?.stock;
+            if (limit !== undefined && newQty > limit) { notification.show(`Apenas ${limit} unidades disponíveis.`, 'error'); return limit; }
             return newQty;
         });
     };
 
-
     const handleAction = async (action) => {
         if (!product) return;
-        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
-        try {
-            await addToCart(product, quantity, selectedVariation);
-            notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
-            if (action === 'buyNow') { onNavigate('cart'); }
-        } catch (error) { notification.show(error.message, 'error'); }
-    };
-
-    const handleVariationSelection = useCallback((variation, color) => {
-        setQuantity(1);
-        setSelectedVariation(variation);
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color && v.images && v.images.length > 0)
-                .flatMap(v => v.images)
-                .filter((value, index, self) => self.indexOf(value) === index);
-
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
-
-    }, [productVariations, productImages]);
-
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0);
-    }, [productId, fetchProductData]);
-
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) {
-                setInstallments([]);
-                setIsLoadingInstallments(false);
-                return;
-            }
-            setIsLoadingInstallments(true);
-            setInstallments([]);
-            try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                setInstallments(installmentData || []);
-            } catch (error) {
-                console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                setInstallments([]);
-            } finally {
-                setIsLoadingInstallments(false);
-            }
-        };
-        if (product && !product.error && currentPrice > 0) {
-            fetchInstallments(currentPrice);
-        } else if (!product || product.error || !(currentPrice > 0)) {
-             setInstallments([]);
-             setIsLoadingInstallments(false);
-        }
-    }, [product, currentPrice]);
-
-    // Efeito e Funções para Galeria
-    const checkScrollButtons = useCallback(() => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            setCanScrollLeft(gallery.scrollLeft > 0);
-            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-        }
-    }, []);
-
-    useEffect(() => {
-        checkScrollButtons();
-        const gallery = galleryRef.current;
-        if (gallery) {
-            gallery.addEventListener('scroll', checkScrollButtons);
-            window.addEventListener('resize', checkScrollButtons);
-            return () => {
-                gallery.removeEventListener('scroll', checkScrollButtons);
-                window.removeEventListener('resize', checkScrollButtons);
-            };
-        }
-    }, [galleryImages, checkScrollButtons]);
-
-    const scrollGallery = (direction) => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            const scrollAmount = gallery.clientWidth * 0.7;
-            gallery.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: 'smooth'
-            });
-        }
+        if (product.product_type === 'clothing' && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        try { await addToCart(product, quantity, selectedVariation); notification.show(`${quantity}x ${product.name} adicionado ao carrinho!`); if (action === 'buyNow') onNavigate('cart'); } catch (error) { notification.show(error.message, 'error'); }
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => {
         if (!isVisible) return null;
-        return (
-            <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button>
-        );
+        return <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-[var(--theme-primary)] opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`} style={{ borderColor: activeTab === tabName ? 'var(--theme-primary)' : 'transparent', color: 'var(--theme-text)' }}> {label} </button>;
     };
 
-    const Lightbox = ({ mainImage, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
-            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
-            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
-        </div>
-    );
+    const itemsForShipping = useMemo(() => product ? [{...product, qty: quantity}] : [], [product, quantity]);
+    
+    const checkScrollButtons = useCallback(() => {
+        const gallery = galleryRef.current;
+        if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); }
+    }, []);
+    useEffect(() => { checkScrollButtons(); const g = galleryRef.current; if(g) { g.addEventListener('scroll', checkScrollButtons); return () => g.removeEventListener('scroll', checkScrollButtons); } }, [galleryImages, checkScrollButtons]);
+    const scrollGallery = (d) => { const g = galleryRef.current; if(g) g.scrollBy({ left: d === 'left' ? -g.clientWidth*0.7 : g.clientWidth*0.7, behavior: 'smooth' }); };
+    
+    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
 
-    if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
-    if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
-    if (!product) return <div className="bg-black min-h-screen"></div>;
+    if (isLoading) return <div className="flex justify-center items-center py-20 min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}><SpinnerIcon className="h-8 w-8" style={{color: 'var(--theme-primary)'}}/></div>;
+    if (!product) return <div className="min-h-screen" style={{ backgroundColor: 'var(--theme-bg)' }}></div>;
 
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
-
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+    const isClothing = product.product_type === 'clothing';
+    const isPerfume = product.product_type === 'perfume';
+    const stockLimit = isClothing ? selectedVariation?.stock : product.stock;
+    const isOutOfStock = stockLimit <= 0;
+    const showGalleryArrows = galleryImages.length > 4;
 
     return (
-        <div className="bg-black text-white min-h-screen">
+        <div className="min-h-screen transition-colors duration-500" style={{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }}>
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
-            {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
-            <AnimatePresence>
-                {isVideoModalOpen && product.video_url && (
-                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
-                        </div>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
+            {isLightboxOpen && <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={() => setIsLightboxOpen(false)}><button className="absolute top-4 right-4 text-white text-5xl">&times;</button><img src={mainImage} className="max-w-full max-h-full object-contain rounded-lg"/></div>}
+            
             <div className="container mx-auto px-4 py-8 lg:py-12">
                 <div className="mb-6">
-                    <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
+                    <button onClick={() => onNavigate('products')} className="text-sm hover:underline flex items-center w-fit transition-colors" style={{ color: 'var(--theme-primary)' }}> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para produtos </button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     <div className="lg:sticky lg:top-24 self-start">
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
-                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
+                        <div onClick={() => setIsLightboxOpen(true)} className="aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden border border-gray-200 cursor-zoom-in">
+                             {!isOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">PROMOÇÃO {discountPercent}%</div> : null} </div> )}
+                             {isOutOfStock && <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div>}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 hover:scale-105" />
                         </div>
-
-                        {/* Galeria com Setas */}
                         <div className="relative group">
-                            <div
-                                ref={galleryRef}
-                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                style={{
-                                    msOverflowStyle: 'none', 
-                                    scrollbarWidth: 'none' 
-                                }}
-                            >
-                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
-
-                               {product.video_url && (
-                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
-                                        </div>
-                                    </div>
-                                )}
-                                {galleryImages.map((img, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => setMainImage(img)}
-                                        onMouseEnter={() => setMainImage(img)}
-                                        className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
-                                    >
-                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
+                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {galleryImages.map((img, i) => (
+                                    <div key={i} onClick={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all`} style={{ borderColor: mainImage === img ? 'var(--theme-primary)' : 'transparent' }}>
+                                        <img src={img} className="w-full h-full object-contain" />
                                     </div>
                                 ))}
                             </div>
-                            {showGalleryArrows && (
-                                <>
-                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-                                    </button>
-                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                                    </button>
-                                </>
-                            )}
+                            {showGalleryArrows && <><button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className="absolute top-1/2 left-0 -translate-y-1/2 bg-gray-800 text-white p-1 rounded-full disabled:opacity-0"><ChevronDownIcon className="h-5 w-5 rotate-90"/></button><button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className="absolute top-1/2 right-0 -translate-y-1/2 bg-gray-800 text-white p-1 rounded-full disabled:opacity-0"><ChevronDownIcon className="h-5 w-5 -rotate-90"/></button></>}
                         </div>
                     </div>
 
                     <div className="space-y-6">
                         <div>
-                            <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
-                                </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
-                            </div>
+                            <p className="text-sm font-bold tracking-wider mb-1" style={{ color: 'var(--theme-primary)' }}>{product.brand.toUpperCase()}</p>
+                            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+                            {isPerfume && <h2 className="text-base opacity-60">{product.volume}</h2>}
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
-                        {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                                    <ClockIcon className="h-24 w-24 text-red-500" />
-                                </div>
-                                <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
-                                    <SparklesIcon className="h-4 w-4 animate-pulse" />
-                                    Oferta por Tempo Limitado
-                                </div>
-                                
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-                                    {/* Contador - Centralizado e Responsivo */}
-                                    <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.days).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
-                                        </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.hours).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
-                                        </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
-                                        </div>
-                                        <span className="self-center text-red-500">:</span>
-                                        <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
-                                            <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Preços - Empilhados e centralizados no mobile */}
-                                    <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
-                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <div className="flex items-center justify-center sm:justify-end gap-2">
-                                            <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
-                                        </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
-                        {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
-                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                                    <TagIcon className="h-24 w-24 text-green-500" />
-                                </div>
-                                <div className="flex items-center gap-2 mb-2 text-green-400 font-bold uppercase tracking-wide text-sm">
-                                    <SaleIcon className="h-5 w-5" />
-                                    Preço Especial
-                                </div>
-                                <div className="flex items-center justify-between relative z-10">
-                                    <div>
-                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
-                                        <div className="flex items-center gap-2">
-                                            <p className="text-white font-bold text-2xl">Por: <span className="text-green-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
-                                        </div>
-                                    </div>
-                                    <div className="bg-green-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
-                                        -{discountPercent}%
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="border-t border-b border-gray-800 py-4">
+                        <div className="border-t border-b border-white/10 py-4" style={{ borderColor: 'var(--theme-secondary)' }}>
                             {isPromoActive ? (
                                 <div className="flex items-center gap-3">
                                     <p className="text-4xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.',',')}</p>
-                                    {!timeLeft && <span className="text-sm font-bold text-green-500 bg-green-900/50 px-2 py-0.5 rounded-md">{discountPercent}% OFF</span>}
+                                    <span className="text-lg opacity-50 line-through">R$ {Number(product.price).toFixed(2)}</span>
                                 </div>
-                             ) : ( <p className="text-3xl font-bold text-white">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
-                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-300">
-                                <CreditCardIcon className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                                <span>{getInstallmentSummary()}</span>
-                                {!isLoadingInstallments && installments && installments.length > 0 && ( <button onClick={() => setIsInstallmentModalOpen(true)} className="text-amber-400 font-semibold hover:underline text-xs ml-2"> (ver mais)</button> )}
+                             ) : ( <p className="text-3xl font-bold">R$ {Number(product.price).toFixed(2).replace('.',',')}</p> )}
+                            <div className="mt-2 flex items-center gap-2 text-sm opacity-80">
+                                <CreditCardIcon className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--theme-primary)' }} />
+                                {!isLoadingInstallments && installments.length > 0 && <button onClick={() => setIsInstallmentModalOpen(true)} className="font-semibold hover:underline" style={{ color: 'var(--theme-primary)' }}>Ver parcelas</button>}
                             </div>
                         </div>
 
-                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+                        {isClothing && <VariationSelector product={product} variations={productVariations} onSelectionChange={(v, c) => { setSelectedVariation(v); if(v) setQuantity(1); }} />}
 
-                        {!productOrVariationOutOfStock && (
+                        {!isOutOfStock && (
                             <div className="flex items-center space-x-4">
                                 <p className="font-semibold text-sm">Quantidade:</p>
-                                <div className="flex items-center border border-gray-700 rounded-md overflow-hidden">
-                                    <button onClick={() => handleQuantityChange(-1)} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors">-</button>
-                                    <span className="px-4 py-1.5 font-bold text-base border-x border-gray-700">{quantity}</span>
-                                    <button onClick={() => handleQuantityChange(1)} disabled={isQtyAtMax} className="px-3 py-1.5 text-lg hover:bg-gray-800 transition-colors disabled:text-gray-600 disabled:cursor-not-allowed disabled:hover:bg-transparent">+</button>
+                                <div className="flex items-center border border-gray-600 rounded-md overflow-hidden">
+                                    <button onClick={() => handleQuantityChange(-1)} className="px-3 py-1.5 hover:bg-white/10">-</button>
+                                    <span className="px-4 py-1.5 font-bold border-x border-gray-600">{quantity}</span>
+                                    <button onClick={() => handleQuantityChange(1)} className="px-3 py-1.5 hover:bg-white/10">+</button>
                                 </div>
-                                {stockLimit !== undefined && <span className="text-xs text-gray-500">({stockLimit} unid. disponíveis)</span>}
-                                {isQtyAtMax && <span className="text-xs text-red-400">Limite atingido</span>}
+                                {stockLimit !== undefined && <span className="text-xs opacity-60">({stockLimit} disp.)</span>}
                             </div>
                         )}
 
                         <div className="space-y-3 pt-2">
-                            {productOrVariationOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} </div> ) : ( <> <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg" disabled={isClothing && !selectedVariation} > Comprar Agora </button> <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md" disabled={isClothing && !selectedVariation} > <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho </button> </> )}
+                            {isOutOfStock ? ( <div className="w-full bg-gray-700 py-3 rounded-md font-bold text-center text-white">Esgotado</div> ) : ( 
+                                <> 
+                                    <button onClick={() => handleAction('buyNow')} className="w-full py-3.5 rounded-md font-bold text-black shadow-md hover:opacity-90 flex justify-center gap-2" style={{ backgroundColor: 'var(--theme-primary)' }}>Comprar Agora</button> 
+                                    <button onClick={() => handleAction('addToCart')} className="w-full py-3 rounded-md font-bold border border-white/20 hover:bg-white/10 flex justify-center gap-2" style={{ borderColor: 'var(--theme-secondary)' }}> <CartIcon className="h-5 w-5" /> Adicionar </button> 
+                                </> 
+                            )}
                         </div>
-
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
 
-                <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
-                    <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
+                <div className="mt-16 pt-10 border-t border-white/10" style={{ borderColor: 'var(--theme-secondary)' }}>
+                    <div className="flex justify-center border-b border-white/10 mb-8 flex-wrap gap-4" style={{ borderColor: 'var(--theme-secondary)' }}>
                         <TabButton label="Descrição" tabName="description" />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
                         <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
-                        <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
+                        <TabButton label="Cuidados" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
+                    <div className="opacity-80 leading-relaxed max-w-3xl mx-auto prose prose-invert">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas não disponíveis.</p>)}
+                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
-                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
-                    </div>
-                </div>
-
-                {crossSellProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={crossSellProducts} onNavigate={onNavigate} title="Quem comprou, levou também" /></div> )}
-                {relatedProducts.length > 0 && ( <div className="mt-16 pt-10 border-t border-gray-800"><ProductCarousel products={relatedProducts} onNavigate={onNavigate} title="Pode também gostar de..." /></div> )}
-
-                <div className="mt-16 pt-10 border-t border-gray-800 max-w-3xl mx-auto">
-                    <h2 className="text-2xl font-bold mb-8 text-center">Avaliações de Clientes</h2>
-                    <div className="space-y-8 mb-10">
-                      {reviews.length > 0 ? reviews.map((review) => (
-                            <div key={review.id} className="border-b border-gray-800 pb-6 last:border-b-0 last:pb-0 relative group">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 flex-shrink-0">
-                                        <UserIcon className="h-5 w-5" />
-                                    </div>
-                                    <span className="font-semibold text-white text-sm">{review.user_name || 'Cliente'}</span>
-                                     {user && user.role === 'admin' && (
-                                        <button
-                                            onClick={() => handleDeleteReview(review.id)}
-                                            className="absolute top-0 right-0 p-1 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            title="Excluir avaliação"
-                                        >
-                                            <TrashIcon className="h-4 w-4" />
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="flex">{[...Array(5)].map((_, j) => <StarIcon key={j} className={`h-5 w-5 ${j < review.rating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={j < review.rating}/>)}</div>
-                                    {review.comment && review.comment.length > 30 && <span className="font-bold text-white text-sm ml-2 truncate">{review.comment.substring(0, 30)}...</span>}
-                                </div>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    Avaliado no Brasil em {new Date(review.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                </p>
-                                <p className="text-xs font-semibold text-amber-500 mb-3">Compra verificada</p>
-                                {review.comment && <p className="text-gray-300 text-sm leading-relaxed break-words">{review.comment}</p>}
-                            </div>
-                        )) : <p className="text-gray-500 text-center mb-8">Este produto ainda não possui avaliações.</p>}
-                    </div>
-
-                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 text-center shadow">
-                        <h3 className="font-semibold text-white mb-2">Comprou este produto?</h3>
-                        <p className="text-gray-400 text-sm mb-4">Compartilhe sua opinião para ajudar outros clientes!</p>
-                        <p className="text-xs text-gray-500">Você pode avaliar os produtos comprados na seção <a href="#account/orders" onClick={(e) => {e.preventDefault(); onNavigate('account/orders')}} className="text-amber-400 underline hover:text-amber-300">Meus Pedidos</a>.</p>
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia não disponível.</p>)}
+                        {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções não disponíveis.</p>)}
                     </div>
                 </div>
             </div>
@@ -6233,22 +5384,379 @@ const TermsOfServicePage = () => {
     );
 };
 
+const AdminThemes = () => {
+    const [themes, setThemes] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTheme, setEditingTheme] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [previewTheme, setPreviewTheme] = useState(null);
+
+    const notification = useNotification();
+    const { fetchTheme } = useShop(); 
+
+    const fetchThemes = useCallback(() => {
+        setIsLoading(true);
+        apiService('/themes')
+            .then(data => {
+                const sorted = data.sort((a, b) => {
+                    // Manual active first, then date active, then ID
+                    const aManual = !!a.is_active_manual;
+                    const bManual = !!b.is_active_manual;
+                    if (aManual !== bManual) return bManual - aManual;
+                    return a.id - b.id;
+                });
+                setThemes(sorted);
+            })
+            .catch(err => notification.show("Erro ao buscar temas", "error"))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => { fetchThemes(); }, [fetchThemes]);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        try {
+            const dataToSave = {
+                name: previewTheme.name,
+                start_date: previewTheme.start_date,
+                end_date: previewTheme.end_date,
+                typography: previewTheme.typography,
+                effect_type: previewTheme.effect_type,
+                colors: previewTheme.colors,
+                assets: previewTheme.assets
+            };
+
+            if (editingTheme && editingTheme.id) {
+                await apiService(`/themes/${editingTheme.id}`, 'PUT', dataToSave);
+                notification.show("Tema atualizado com sucesso!");
+            } else {
+                await apiService('/themes', 'POST', dataToSave);
+                notification.show("Novo tema criado com sucesso!");
+            }
+            setIsModalOpen(false);
+            setEditingTheme(null);
+            setPreviewTheme(null);
+            fetchThemes();
+            fetchTheme(); 
+        } catch (err) {
+            notification.show(err.message, "error");
+        }
+    };
+
+    const toggleManualActive = async (theme) => {
+        try {
+            const newStatus = !theme.is_active_manual;
+            await apiService(`/themes/${theme.id}/activate`, 'PUT', { status: newStatus });
+            notification.show(newStatus ? `Tema "${theme.name}" ativado!` : `Tema "${theme.name}" desativado. Voltando ao automático.`);
+            await fetchThemes(); 
+            await fetchTheme();
+        } catch (err) {
+            notification.show("Erro ao alterar status.", "error");
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm("Tem certeza que deseja remover este tema permanentemente?")) return;
+        try {
+            await apiService(`/themes/${id}`, 'DELETE');
+            notification.show("Tema removido.");
+            fetchThemes();
+        } catch(err) {
+            notification.show("Erro ao remover.", "error");
+        }
+    };
+
+    const openModal = (theme = null) => {
+        const defaultData = {
+            name: '',
+            start_date: '',
+            end_date: '',
+            typography: 'sans-serif',
+            effect_type: 'none',
+            colors: {
+                primary: '#111827',
+                secondary: '#F3F4F6',
+                background: '#FFFFFF',
+                text: '#1F2937',
+                accent: '#D4AF37',
+            },
+            assets: { banner_url: '', decoration_icon: '' }
+        };
+
+        if (theme) {
+            const parsedColors = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
+            const parsedAssets = typeof theme.assets === 'string' ? JSON.parse(theme.assets) : theme.assets;
+            const loadedTheme = { ...theme, colors: parsedColors, assets: parsedAssets };
+            setEditingTheme(loadedTheme);
+            setPreviewTheme(loadedTheme);
+        } else {
+            setEditingTheme(null);
+            setPreviewTheme(defaultData);
+        }
+        setIsModalOpen(true);
+    };
+
+    const handlePreviewChange = (field, value, nestedKey = null) => {
+        setPreviewTheme(prev => {
+            if (nestedKey) {
+                return { ...prev, [field]: { ...prev[field], [nestedKey]: value } };
+            }
+            return { ...prev, [field]: value };
+        });
+    };
+
+    const getThemeData = (t) => {
+        try {
+            return {
+                ...t,
+                colors: typeof t.colors === 'string' ? JSON.parse(t.colors) : t.colors,
+                assets: typeof t.assets === 'string' ? JSON.parse(t.assets) : t.assets,
+            };
+        } catch { return t; }
+    };
+
+    // Card de Preview para a Lista
+    const ThemeListCard = ({ rawTheme }) => {
+        const t = getThemeData(rawTheme);
+        const isActiveDate = t.start_date && t.end_date && new Date() >= new Date(t.start_date) && new Date() <= new Date(t.end_date);
+        const isManual = !!t.is_active_manual; 
+
+        return (
+            <div className={`bg-white rounded-xl border transition-all hover:shadow-lg flex flex-col overflow-hidden relative ${isManual ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200'}`}>
+                
+                {/* Status Badge */}
+                <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    {isManual && (
+                        <span className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm flex items-center gap-1">
+                            <CheckIcon className="h-3 w-3"/> Ativo Manual
+                        </span>
+                    )}
+                    {!isManual && isActiveDate && (
+                        <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm flex items-center gap-1">
+                            <ClockIcon className="h-3 w-3"/> Ativo (Data)
+                        </span>
+                    )}
+                </div>
+
+                {/* Área Visual (Preview das cores) */}
+                <div className="h-28 w-full flex relative" style={{ backgroundColor: t.colors.background }}>
+                    <div className="absolute top-0 w-full h-8 flex items-center px-3 gap-2" style={{ backgroundColor: t.colors.secondary }}>
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.colors.primary }}></div>
+                    </div>
+                    <div className="w-full h-full flex items-center justify-center pt-6">
+                        <div className="px-4 py-1.5 rounded text-xs font-bold shadow-sm transform -rotate-2" style={{ backgroundColor: t.colors.primary, color: ['#FFFFFF', '#fff', '#ffffff'].includes(t.colors.text) ? '#fff' : '#000' }}>
+                            Visualização
+                        </div>
+                    </div>
+                    <div className="absolute bottom-2 right-2 text-3xl drop-shadow-md">{t.assets.decoration_icon}</div>
+                </div>
+
+                <div className="p-4 flex-grow flex flex-col">
+                    <h3 className="font-bold text-gray-800 text-lg mb-1">{t.name}</h3>
+                    
+                    <div className="mt-2 text-xs text-gray-500 space-y-1.5 mb-4">
+                        <div className="flex items-center gap-2">
+                            <ClockIcon className="h-3.5 w-3.5 text-gray-400"/>
+                            {t.start_date ? (
+                                <span>
+                                    {new Date(t.start_date).toLocaleDateString()} até {new Date(t.end_date).toLocaleDateString()}
+                                </span>
+                            ) : <span>Sem agendamento (Fixo)</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <SparklesIcon className="h-3.5 w-3.5 text-gray-400"/>
+                            <span className="capitalize">{t.effect_type !== 'none' ? `Efeito: ${t.effect_type}` : 'Sem efeitos'}</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-auto pt-3 border-t flex items-center gap-2">
+                        <button 
+                            onClick={() => toggleManualActive(t)} 
+                            className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wide transition-colors shadow-sm ${isManual ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300' : 'bg-amber-400 text-black hover:bg-amber-300 border border-amber-500'}`}
+                        >
+                            {isManual ? 'Desativar' : 'Ativar Agora'}
+                        </button>
+                        <button onClick={() => openModal(rawTheme)} className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition border border-transparent hover:border-blue-200"><EditIcon className="h-4 w-4"/></button>
+                        <button onClick={() => handleDelete(t.id)} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition border border-transparent hover:border-red-200"><TrashIcon className="h-4 w-4"/></button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div className="p-6 bg-gray-50 min-h-screen">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Temas & Identidade Visual</h1>
+                    <p className="text-gray-500 text-sm mt-1">Personalize a aparência da loja para datas especiais.</p>
+                </div>
+                <button onClick={() => openModal()} className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-black shadow-lg flex items-center gap-2 font-bold transition-all transform hover:-translate-y-0.5">
+                    <PlusIcon className="h-5 w-5"/> Criar Novo Tema
+                </button>
+            </div>
+
+            {isLoading ? <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div> : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {themes.map(t => <ThemeListCard key={t.id} rawTheme={t} />)}
+                </div>
+            )}
+
+            {isModalOpen && previewTheme && (
+                <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? `Editar: ${editingTheme.name}` : "Novo Tema Personalizado"} size="3xl">
+                    <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Coluna Esquerda: Form */}
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Tema</label>
+                                <input type="text" value={previewTheme.name} onChange={(e) => handlePreviewChange('name', e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md"/>
+                            </div>
+
+                            <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                <h4 className="font-bold text-gray-700 mb-3 border-b pb-2 text-xs uppercase">Cores</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Cor Primária</label><span className="text-[10px] text-gray-400">Botões, Destaques</span></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Fundo (Background)</label><span className="text-[10px] text-gray-400">Cor principal da página</span></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Texto</label><span className="text-[10px] text-gray-400">Cor dos textos principais</span></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Secundária</label><span className="text-[10px] text-gray-400">Footer, Barras</span></div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Accent</label><span className="text-[10px] text-gray-400">Detalhes pequenos</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Tipografia</label>
+                                    <select value={previewTheme.typography} onChange={(e) => handlePreviewChange('typography', e.target.value)} className="w-full p-2 border rounded-md bg-white">
+                                        <option value="sans-serif">Padrão (Clean)</option>
+                                        <option value="serif">Serif (Luxo)</option>
+                                        <option value="mono">Monospace (Tech)</option>
+                                        <option value="cursive">Cursive (Divertido)</option>
+                                        <option value="modern">Modern (Geometric)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Efeitos</label>
+                                    <select value={previewTheme.effect_type} onChange={(e) => handlePreviewChange('effect_type', e.target.value)} className="w-full p-2 border rounded-md bg-white">
+                                        <option value="none">Nenhum</option>
+                                        <option value="snow">Neve ❄️</option>
+                                        <option value="hearts">Corações ❤️</option>
+                                        <option value="flowers">Flores 🌸</option>
+                                        <option value="confetti">Confete 🎉</option>
+                                        <option value="money">Dinheiro 💸</option>
+                                        <option value="stars">Estrelas ✨</option>
+                                        <option value="halloween">Halloween 🎃</option>
+                                        <option value="easter">Coelhos 🐰</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                                <h4 className="font-bold text-blue-800 text-sm mb-2">📅 Agendamento Automático</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs text-blue-600 font-bold">Data Início</label>
+                                        <input type="date" value={previewTheme.start_date ? previewTheme.start_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('start_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-blue-600 font-bold">Data Fim</label>
+                                        <input type="date" value={previewTheme.end_date ? previewTheme.end_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('end_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ícone Decorativo</label>
+                                <input type="text" value={previewTheme.assets.decoration_icon} onChange={(e) => handlePreviewChange('assets', e.target.value, 'decoration_icon')} placeholder="Ex: 🎄" className="w-full p-2 border border-gray-300 rounded-md"/>
+                            </div>
+                        </div>
+
+                        {/* Coluna Direita: Preview */}
+                        <div className="sticky top-0 h-full flex flex-col">
+                            <h3 className="font-bold text-gray-500 uppercase tracking-wide text-xs mb-3">Pré-visualização em Tempo Real</h3>
+                            <div className="border-4 border-gray-800 rounded-xl overflow-hidden shadow-2xl flex-grow flex flex-col relative" style={{ backgroundColor: previewTheme.colors.background, fontFamily: previewTheme.typography === 'serif' ? 'serif' : 'sans-serif' }}>
+                                
+                                {/* Header */}
+                                <div className="h-14 flex items-center justify-between px-4 shadow-sm" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
+                                    <div className="font-bold text-lg" style={{ color: previewTheme.colors.primary }}>LoveCestas</div>
+                                    <div className="flex gap-2">
+                                        <div className="w-6 h-6 rounded-full opacity-50" style={{ backgroundColor: previewTheme.colors.text }}></div>
+                                        <div className="w-6 h-6 rounded-full opacity-50" style={{ backgroundColor: previewTheme.colors.text }}></div>
+                                    </div>
+                                </div>
+
+                                {/* Conteúdo */}
+                                <div className="p-6 flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                                    <h2 className="text-2xl font-bold" style={{ color: previewTheme.colors.text }}>Grande Oferta</h2>
+                                    <p className="opacity-80" style={{ color: previewTheme.colors.text }}>Este é um exemplo de como o texto e as cores ficarão na sua loja.</p>
+                                    
+                                    <button className="px-8 py-3 rounded-full font-bold shadow-lg transform hover:scale-105 transition" style={{ backgroundColor: previewTheme.colors.primary, color: '#FFFFFF' }}>
+                                        Comprar Agora
+                                    </button>
+
+                                    <div className="text-sm font-bold" style={{ color: previewTheme.colors.accent }}>
+                                        Destaque Especial
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="h-12 flex items-center justify-center text-xs opacity-70" style={{ backgroundColor: previewTheme.colors.secondary, color: previewTheme.colors.text }}>
+                                    © 2026 LoveCestas
+                                </div>
+
+                                {/* Elementos Flutuantes */}
+                                {previewTheme.assets.decoration_icon && (
+                                    <div className="absolute bottom-16 right-4 text-4xl animate-bounce">
+                                        {previewTheme.assets.decoration_icon}
+                                    </div>
+                                )}
+                                {previewTheme.effect_type !== 'none' && (
+                                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur">
+                                        Efeito: {previewTheme.effect_type}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="mt-6 flex gap-3">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition">Cancelar</button>
+                                <button type="submit" className="flex-1 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-black shadow-lg transition">Salvar Tema</button>
+                            </div>
+                        </div>
+                    </form>
+                </Modal>
+            )}
+        </div>
+    );
+};
+
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
-    const { user, logout } = useAuth(); // Importa 'user'
+    const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const mainContentRef = useRef(null); // <-- ADICIONADO O REF
+    const mainContentRef = useRef(null);
 
     useEffect(() => {
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
-                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
                     setNewOrdersCount(0);
                     return;
                 }
-
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const recentOrders = data.filter(o => {
                     if (!o || !o.date) return false;
@@ -6270,20 +5778,21 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
    const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> },
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
         { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
-        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
+        { key: 'collections', label: 'Coleções', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
-        { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
+        { key: 'coupons', label: 'Cupons', icon: <SaleIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
         { key: 'logs', label: 'Histórico de Ações', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
     ];
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-100 text-gray-800">
-            {/* Sidebar */}
+            {/* Sidebar - Fundo Escuro Restaurado */}
             <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
@@ -6345,7 +5854,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
-
 const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
     const notification = useNotification();
