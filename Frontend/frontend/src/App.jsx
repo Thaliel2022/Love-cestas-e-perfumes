@@ -736,6 +736,50 @@ const ConfirmationProvider = ({ children }) => {
     );
 };
 
+const ThemeContext = createContext(null);
+
+const ThemeProvider = ({ children }) => {
+    const [currentTheme, setCurrentTheme] = useState(null);
+
+    const fetchCurrentTheme = useCallback(async () => {
+        try {
+            const theme = await apiService('/themes/current');
+            setCurrentTheme(theme);
+        } catch (error) {
+            console.error("Falha tema:", error);
+        }
+    }, []);
+
+    useEffect(() => { fetchCurrentTheme(); }, [fetchCurrentTheme]);
+
+    useEffect(() => {
+        if (!currentTheme) return;
+        const colors = typeof currentTheme.colors === 'string' ? JSON.parse(currentTheme.colors) : currentTheme.colors;
+        const root = document.documentElement;
+        
+        root.style.setProperty('--theme-primary', colors.primary);
+        root.style.setProperty('--theme-secondary', colors.secondary);
+        root.style.setProperty('--theme-bg', colors.background);
+        root.style.setProperty('--theme-text', colors.text);
+        root.style.setProperty('--theme-font', currentTheme.typography || 'sans-serif');
+    }, [currentTheme]);
+
+    const ThemeDecorations = () => {
+        if (!currentTheme || currentTheme.decoration === 'none') return null;
+        // Lógica simplificada de decoração
+        if (currentTheme.decoration === 'snow') return <div className="fixed inset-0 pointer-events-none z-50 text-white opacity-20">❄️ Neve Ativa ❄️</div>;
+        return null;
+    };
+
+    return (
+        <ThemeContext.Provider value={{ currentTheme, refreshTheme: fetchCurrentTheme }}>
+            <div style={{ fontFamily: 'var(--theme-font)', backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)', minHeight: '100vh' }}>
+                <ThemeDecorations />
+                {children}
+            </div>
+        </ThemeContext.Provider>
+    );
+};
 
 // --- COMPONENTES DA UI ---
 const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
@@ -6235,112 +6279,65 @@ const TermsOfServicePage = () => {
 
 // --- PAINEL DO ADMINISTRADOR ---
 const AdminLayout = memo(({ activePage, onNavigate, children }) => {
-    const { user, logout } = useAuth(); // Importa 'user'
+    const { user, logout } = useAuth(); 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const mainContentRef = useRef(null); // <-- ADICIONADO O REF
+    const mainContentRef = useRef(null); 
 
     useEffect(() => {
-        apiService('/orders')
-            .then(data => {
-                if (!Array.isArray(data)) {
-                    console.error("Os dados recebidos da API de pedidos não são uma lista (array).", data);
-                    setNewOrdersCount(0);
-                    return;
-                }
-
-                const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recentOrders = data.filter(o => {
-                    if (!o || !o.date) return false;
-                    const orderDate = new Date(o.date);
-                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
-                });
-                setNewOrdersCount(recentOrders.length);
-            })
-            .catch(err => {
-                console.error("Falha crítica ao buscar contagem de novos pedidos:", err);
-                setNewOrdersCount(0);
+        apiService('/orders').then(data => {
+            if (!Array.isArray(data)) { setNewOrdersCount(0); return; }
+            const recent = data.filter(o => {
+                const date = new Date(o.date);
+                return !isNaN(date) && date > new Date(Date.now() - 24 * 60 * 60 * 1000);
             });
+            setNewOrdersCount(recent.length);
+        }).catch(() => setNewOrdersCount(0));
     }, [activePage]);
 
-    const handleLogout = () => {
-        logout();
-        onNavigate('home');
-    }
+    const handleLogout = () => { logout(); onNavigate('home'); }
 
    const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'themes', label: 'Temas', icon: <SparklesIcon className="h-5 w-5"/> }, // <--- ADICIONADO AQUI
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
         { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
-        { key: 'collections', label: 'Coleções', icon: <SparklesIcon className="h-5 w-5"/> },
+        { key: 'collections', label: 'Coleções', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
-        { key: 'coupons', label: 'Cupons', icon: <TagIcon className="h-5 w-5"/> },
+        { key: 'coupons', label: 'Cupons', icon: <SaleIcon className="h-5 w-5"/> },
         { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
-        { key: 'logs', label: 'Histórico de Ações', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
+        { key: 'logs', label: 'Histórico', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
     ];
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-100 text-gray-800">
-            {/* Sidebar */}
-            <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 ease-in-out z-50 flex flex-col`}>
-                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 flex-shrink-0">
+            <aside className={`bg-gray-900 text-white w-64 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-200 z-50 flex flex-col`}>
+                <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
                     <span className="text-xl font-bold text-amber-400">ADMIN</span>
-                    <button className="lg:hidden p-2" onClick={() => setIsSidebarOpen(false)}>
-                        <CloseIcon className="h-6 w-6"/>
-                    </button>
+                    <button className="lg:hidden p-2" onClick={() => setIsSidebarOpen(false)}><CloseIcon className="h-6 w-6"/></button>
                 </div>
                 <nav className="flex-grow p-4 space-y-2 overflow-y-auto">
                     {menuItems.map(item => (
-                        <a 
-                            href="#" 
-                            key={item.key} 
-                            onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} 
-                            className={`flex items-center justify-between px-4 py-2 rounded-md transition-colors ${activePage.startsWith(item.key) ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}
-                        >
-                            <div className="flex items-center space-x-3">
-                                {item.icon}
-                                <span>{item.label}</span>
-                            </div>
-                            {item.key === 'orders' && newOrdersCount > 0 && (
-                                <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
-                                    {newOrdersCount}
-                                </span>
-                            )}
+                        <a href="#" key={item.key} onClick={(e) => { e.preventDefault(); onNavigate(`admin/${item.key}`); setIsSidebarOpen(false); }} className={`flex items-center justify-between px-4 py-2 rounded-md transition-colors ${activePage.startsWith(item.key) ? 'bg-amber-500 text-black' : 'hover:bg-gray-800'}`}>
+                            <div className="flex items-center space-x-3">{item.icon}<span>{item.label}</span></div>
+                            {item.key === 'orders' && newOrdersCount > 0 && <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{newOrdersCount}</span>}
                         </a>
                     ))}
                 </nav>
-                <div className="p-4 border-t border-gray-800 flex-shrink-0">
+                <div className="p-4 border-t border-gray-800">
                     <a href="#" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800 mb-2">🏠 Voltar à Loja</a>
                     <button onClick={handleLogout} className="w-full text-left flex items-center px-4 py-2 rounded-md hover:bg-gray-800">🚪 Sair</button>
                 </div>
             </aside>
              {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
-
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="bg-white shadow-md h-16 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-                     <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden">
-                        <MenuIcon className="h-6 w-6 text-gray-600"/>
-                     </button>
-                     <h1 className="text-lg font-bold ml-4 capitalize lg:hidden">{activePage.split('/')[0]}</h1>
-                     <div className="hidden lg:block">
-                        <span className="text-xl font-semibold">Bem-vindo, {user?.name.split(' ')[0]} 👋</span>
-                     </div>
-                     <div className="flex items-center gap-4">
-                        <button onClick={() => onNavigate('home')} className="p-2 text-gray-600 hover:text-black" title="Ver a Loja">
-                            <EyeIcon className="h-6 w-6" />
-                        </button>
-                        <button onClick={handleLogout} className="p-2 text-gray-600 hover:text-red-600" title="Sair">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        </button>
-                     </div>
+                <header className="bg-white shadow-md h-16 flex items-center justify-between px-4 sm:px-6">
+                     <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden"><MenuIcon className="h-6 w-6 text-gray-600"/></button>
+                     <div className="hidden lg:block"><span className="text-xl font-semibold">Bem-vindo, {user?.name.split(' ')[0]} 👋</span></div>
                 </header>
-                <main ref={mainContentRef} className="flex-grow p-4 sm:p-6 overflow-y-auto">
-                    {children}
-                </main>
-                <BackToTopButton scrollableRef={mainContentRef} />
+                <main ref={mainContentRef} className="flex-grow p-4 sm:p-6 overflow-y-auto">{children}</main>
             </div>
         </div>
     );
@@ -9494,6 +9491,120 @@ const AdminReports = () => {
     );
 };
 
+const AdminThemes = () => {
+    const [themes, setThemes] = useState([]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTheme, setEditingTheme] = useState(null);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    const [formData, setFormData] = useState({
+        name: '',
+        colors: { primary: '#fbbf24', secondary: '#000000', background: '#000000', text: '#ffffff' },
+        typography: 'sans-serif',
+        decoration: 'none',
+        start_date: '',
+        end_date: '',
+        is_active_manual: false
+    });
+
+    const fetchThemes = useCallback(() => {
+        apiService('/themes').then(setThemes).catch(console.error);
+    }, []);
+
+    useEffect(() => { fetchThemes(); }, [fetchThemes]);
+
+    const handleOpenModal = (theme = null) => {
+        if (theme && theme.name === 'Padrão') {
+            notification.show("O tema Padrão é protegido.", "error");
+            return;
+        }
+        if (theme) {
+            setEditingTheme(theme);
+            setFormData({
+                ...theme,
+                colors: typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors,
+                start_date: theme.start_date ? theme.start_date.split('T')[0] : '',
+                end_date: theme.end_date ? theme.end_date.split('T')[0] : '',
+                is_active_manual: !!theme.is_active_manual
+            });
+        } else {
+            setEditingTheme(null);
+            setFormData({
+                name: '', colors: { primary: '#fbbf24', secondary: '#000000', background: '#000000', text: '#ffffff' },
+                typography: 'sans-serif', decoration: 'none', start_date: '', end_date: '', is_active_manual: false
+            });
+        }
+        setIsModalOpen(true);
+    };
+
+    const handleColorChange = (key, value) => {
+        setFormData(prev => ({ ...prev, colors: { ...prev.colors, [key]: value } }));
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        try {
+            await apiService('/themes', 'POST', { ...formData, id: editingTheme?.id });
+            notification.show('Tema salvo!');
+            setIsModalOpen(false);
+            fetchThemes();
+        } catch (err) { notification.show('Erro ao salvar.', 'error'); }
+    };
+
+    const handleDelete = (id) => {
+        confirmation.show("Excluir tema?", async () => {
+            try { await apiService(`/themes/${id}`, 'DELETE'); notification.show('Excluído.'); fetchThemes(); }
+            catch (err) { notification.show(err.message, 'error'); }
+        });
+    };
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="text-3xl font-bold">Gerenciar Temas</h1>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded">Novo Tema</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {themes.map(theme => {
+                    const colors = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
+                    return (
+                        <div key={theme.id} className="bg-white border rounded p-4 relative">
+                            <h3 className="font-bold">{theme.name}</h3>
+                            <div className="flex gap-2 my-2">
+                                {Object.values(colors).map((c, i) => <div key={i} className="w-4 h-4 rounded-full" style={{backgroundColor: c}}/>)}
+                            </div>
+                            {theme.name !== 'Padrão' ? (
+                                <div className="flex gap-2 mt-2">
+                                    <button onClick={() => handleOpenModal(theme)} className="text-blue-600 text-sm">Editar</button>
+                                    <button onClick={() => handleDelete(theme.id)} className="text-red-600 text-sm">Excluir</button>
+                                </div>
+                            ) : <span className="text-xs text-gray-400">Protegido</span>}
+                            {theme.is_active_manual && <span className="absolute top-2 right-2 text-xs bg-green-100 text-green-800 px-2 rounded">Ativo</span>}
+                        </div>
+                    );
+                })}
+            </div>
+            <AnimatePresence>
+                {isModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? 'Editar' : 'Novo'}>
+                        <form onSubmit={handleSave} className="space-y-4">
+                            <input placeholder="Nome" value={formData.name} onChange={e=>setFormData({...formData, name:e.target.value})} className="w-full border p-2 rounded" required/>
+                            <div className="grid grid-cols-2 gap-2">
+                                <label>Primária: <input type="color" value={formData.colors.primary} onChange={e=>handleColorChange('primary', e.target.value)}/></label>
+                                <label>Fundo: <input type="color" value={formData.colors.background} onChange={e=>handleColorChange('background', e.target.value)}/></label>
+                                <label>Texto: <input type="color" value={formData.colors.text} onChange={e=>handleColorChange('text', e.target.value)}/></label>
+                            </div>
+                            <label className="flex items-center gap-2"><input type="checkbox" checked={formData.is_active_manual} onChange={e=>setFormData({...formData, is_active_manual: e.target.checked})}/> Ativar Agora Manualmente</label>
+                            <div className="flex justify-end gap-2"><button type="button" onClick={()=>setIsModalOpen(false)} className="bg-gray-200 px-4 py-2 rounded">Cancelar</button><button type="submit" className="bg-black text-white px-4 py-2 rounded">Salvar</button></div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
 const AdminLogsPage = () => {
     const [logs, setLogs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -10579,48 +10690,23 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
-            .then(data => {
-                const isNowInMaintenance = data.maintenanceMode === 'on';
-                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
-                setIsInMaintenance(prevStatus => {
-                    if (prevStatus !== isNowInMaintenance) {
-                        return isNowInMaintenance;
-                    }
-                    return prevStatus;
-                });
-            })
-            .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
-                setIsInMaintenance(false);
-            })
-            .finally(() => {
-                // Garante que a tela de carregamento só desapareça na primeira vez
-                if (isStatusLoading) {
-                    setIsStatusLoading(false);
-                }
-            });
+            .then(data => setIsInMaintenance(data.maintenanceMode === 'on'))
+            .catch(() => setIsInMaintenance(false))
+            .finally(() => { if (isStatusLoading) setIsStatusLoading(false); });
     };
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 30000);
+    return () => clearInterval(intervalId);
+  }, [isStatusLoading]);
 
-    checkStatus(); // Verifica imediatamente quando o componente monta
-
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
-
-    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
-  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-  }, []);
+  const navigate = useCallback((path) => { window.location.hash = path; }, []);
   
   useEffect(() => {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
       sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
@@ -10629,31 +10715,19 @@ function AppContent({ deferredPrompt }) {
   }, [currentPath, navigate]); 
   
   useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
+    const handleHashChange = () => { setCurrentPath(window.location.hash.slice(1) || 'home'); };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentPath]);
+  useEffect(() => { window.scrollTo(0, 0); }, [currentPath]);
   
-  if (isLoading || isStatusLoading) {
-      return (
-        <div className="h-screen flex items-center justify-center bg-black">
-            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
-        </div>
-      );
-  }
+  if (isLoading || isStatusLoading) return <div className="h-screen flex items-center justify-center bg-black"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
 
   const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
   const isAdminDomain = window.location.hostname.includes('vercel.app');
 
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
-      return <MaintenancePage />;
-  }
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) return <MaintenancePage />;
 
   const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
@@ -10668,14 +10742,13 @@ function AppContent({ deferredPrompt }) {
     const pageId = pathParts[1];
 
     if (mainPage === 'admin') {
-        if (!isAuthenticated || user.role !== 'admin') {
-             return <LoginPage onNavigate={navigate} />;
-        }
+        if (!isAuthenticated || user.role !== 'admin') return <LoginPage onNavigate={navigate} />;
         
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
             'banners': <AdminBanners />,
+            'themes': <AdminThemes />, // <--- PÁGINA REGISTRADA AQUI
             'products': <AdminProducts onNavigate={navigate} />,
             'orders': <AdminOrders />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
@@ -10686,28 +10759,13 @@ function AppContent({ deferredPrompt }) {
             'logs': <AdminLogsPage />,
         };
 
-        return (
-            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
-                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
-            </AdminLayout>
-        );
+        return <AdminLayout activePage={adminSubPage} onNavigate={navigate}>{adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}</AdminLayout>;
     }
 
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'product' && pageId) {
-        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    }
-
-    if (mainPage === 'order-success' && pageId) {
-        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    }
-    
-    if (mainPage === 'account') {
-        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
-    }
+    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) return <LoginPage onNavigate={navigate} />;
+    if (mainPage === 'product' && pageId) return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
+    if (mainPage === 'order-success' && pageId) return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+    if (mainPage === 'account') return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
 
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
@@ -10735,69 +10793,10 @@ function AppContent({ deferredPrompt }) {
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-                    {/* Coluna 1: Sobre a Loja */}
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
-                        <p className="text-sm text-gray-400">
-                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
-                        </p>
-                    </div>
-
-                    {/* Coluna 2: Institucional */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 3: Atendimento */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
-                            <li>
-                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
-                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 4: Formas de Pagamento */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
-                        </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
-                    </div>
-                </div>
-            </div>
-            <div className="bg-black py-4 border-t border-gray-800">
                 <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
-      
       {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
@@ -10807,32 +10806,21 @@ export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
-        // --- Configuração PWA ---
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            console.log('`beforeinstallprompt` event foi disparado e está pronto para ser usado.');
         });
         
-        // Registra o Service Worker a partir do arquivo estático
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker estático registrado com sucesso:', registration))
-                    .catch(error => console.log('Falha no registro do Service Worker estático:', error));
+                navigator.serviceWorker.register('/sw.js').catch(error => console.log('Falha SW:', error));
             });
         }
 
-        // --- Carregamento de Scripts Externos ---
         const loadScript = (src, id, callback) => {
-            if (document.getElementById(id)) {
-                if (callback) callback();
-                return;
-            }
+            if (document.getElementById(id)) { if (callback) callback(); return; }
             const script = document.createElement('script');
-            script.src = src;
-            script.id = id;
-            script.async = true;
+            script.src = src; script.id = id; script.async = true;
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
@@ -10843,7 +10831,6 @@ export default function App() {
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
         });
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
-
     }, []);
 
     return (
@@ -10851,7 +10838,9 @@ export default function App() {
             <NotificationProvider>
                 <ConfirmationProvider>
                     <ShopProvider>
-                        <AppContent deferredPrompt={deferredPrompt} />
+                        <ThemeProvider>
+                            <AppContent deferredPrompt={deferredPrompt} />
+                        </ThemeProvider>
                     </ShopProvider>
                 </ConfirmationProvider>
             </NotificationProvider>
