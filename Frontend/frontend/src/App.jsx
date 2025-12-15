@@ -400,6 +400,7 @@ const ShopProvider = ({ children }) => {
         accent: '#d97706'     // Dourado Escuro
     }), []);
 
+    
     // --- Lógica de Aplicação de Tema ---
     const applyTheme = useCallback((themeData) => {
         const root = document.documentElement;
