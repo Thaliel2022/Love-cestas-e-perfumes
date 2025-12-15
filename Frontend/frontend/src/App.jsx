@@ -1989,9 +1989,77 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     );
 });
 
+// Adicione estes componentes antes da função HomePage ou no início do arquivo se preferir organizar assim
+
+const BenefitsBar = () => (
+    <div className="bg-gray-900 border-b border-gray-800 py-8">
+        <div className="container mx-auto px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
+                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
+                        <TruckIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Frete Grátis</h3>
+                    <p className="text-xs text-gray-400 mt-1">Em compras acima de R$ 299 para todo o Brasil</p>
+                </div>
+                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
+                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
+                        <CreditCardIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Parcele Sem Juros</h3>
+                    <p className="text-xs text-gray-400 mt-1">Em até 4x no cartão de crédito</p>
+                </div>
+                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
+                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
+                        <ShieldCheckIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Compra 100% Segura</h3>
+                    <p className="text-xs text-gray-400 mt-1">Seus dados protegidos de ponta a ponta</p>
+                </div>
+                <div className="flex flex-col items-center text-center group p-4 rounded-lg hover:bg-gray-800/50 transition-colors">
+                    <div className="p-3 bg-gray-800 rounded-full mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
+                        <ArrowUturnLeftIcon className="h-6 w-6 text-amber-400 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <h3 className="font-bold text-white text-sm uppercase tracking-wide">Troca Fácil</h3>
+                    <p className="text-xs text-gray-400 mt-1">1ª troca grátis em até 7 dias corridos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+const NewsletterSection = () => (
+    <section className="bg-gradient-to-r from-amber-500 to-amber-600 py-16 mt-16 relative overflow-hidden">
+        {/* Padrão de fundo decorativo */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+        
+        <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-10 relative z-10">
+            <div className="text-center lg:text-left text-black max-w-xl">
+                <h2 className="text-3xl md:text-4xl font-extrabold flex flex-col md:flex-row items-center lg:items-start gap-3 mb-3 leading-tight">
+                    <span className="bg-black text-amber-500 p-2 rounded-lg shadow-lg"><SparklesIcon className="h-8 w-8" /></span>
+                    <span>Entre para o Clube VIP!</span>
+                </h2>
+                <p className="font-medium text-black/80 text-lg">Cadastre-se e receba <span className="font-bold border-b-2 border-black">ofertas exclusivas</span>, cupons surpresa e lançamentos em primeira mão.</p>
+            </div>
+            
+            <form className="w-full lg:w-auto flex flex-col sm:flex-row gap-4 flex-grow max-w-lg bg-white/20 p-2 rounded-xl backdrop-blur-sm" onSubmit={(e) => { e.preventDefault(); alert('Obrigado por se inscrever!'); }}>
+                <input 
+                    type="email" 
+                    placeholder="Digite seu melhor e-mail" 
+                    className="w-full px-6 py-4 rounded-lg border-0 focus:ring-4 focus:ring-black/20 text-gray-900 shadow-inner placeholder-gray-500 font-medium"
+                    required
+                />
+                <button type="submit" className="bg-black text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-900 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 whitespace-nowrap flex items-center justify-center gap-2">
+                    Cadastrar <CheckIcon className="h-5 w-5 text-amber-500"/>
+                </button>
+            </form>
+        </div>
+    </section>
+);
+
 // --- PÁGINAS DO CLIENTE ---
 const HomePage = ({ onNavigate }) => {
-const [products, setProducts] = useState({
+    const [products, setProducts] = useState({
         newArrivals: [],
         bestSellers: [],
         clothing: [],
@@ -2018,37 +2086,164 @@ const [products, setProducts] = useState({
     }, []);
 
     return (
-      <>
+      <div className="bg-black min-h-screen pb-0">
+        {/* Banner Principal Rotativo */}
         <BannerCarousel onNavigate={onNavigate} />
         
-        <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
+        {/* Barra de Benefícios (Confiança) */}
+        <BenefitsBar />
+        
+        {/* Carrossel de Categorias */}
+        <div className="py-12 bg-gradient-to-b from-black to-gray-900">
+             <CollectionsCarousel onNavigate={onNavigate} title="Nossas Coleções" />
+        </div>
 
-        <section className="bg-black text-white py-12 md:py-16">
+        {/* Destaque Visual: Campanha Promocional */}
+        <section className="container mx-auto px-4 mb-16 mt-8">
+            <div 
+                className="rounded-2xl overflow-hidden relative h-[450px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
+                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop)' }}
+                onClick={() => onNavigate('products?promo=true')}
+            >
+                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent group-hover:bg-black/60 transition-all duration-500"></div>
+                
+                <div className="relative z-10 w-full px-8 md:px-16 flex flex-col items-start max-w-2xl">
+                    <motion.span 
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        className="bg-red-600 text-white text-sm font-bold px-4 py-1.5 rounded-full uppercase tracking-wider mb-6 inline-flex items-center gap-2 shadow-lg"
+                    >
+                        <ClockIcon className="h-4 w-4" /> Oferta Limitada
+                    </motion.span>
+                    
+                    <motion.h2 
+                        initial={{ opacity: 0, x: -30 }}
+                        whileInView={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="text-5xl md:text-7xl font-extrabold mb-6 text-white drop-shadow-lg leading-none"
+                    >
+                        Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span>
+                    </motion.h2>
+                    
+                    <motion.p 
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                        className="text-xl text-gray-200 mb-10 max-w-lg font-light leading-relaxed"
+                    >
+                        Descontos imperdíveis de até <strong className="text-white font-bold">50% OFF</strong> em itens selecionados. Renove seu estilo com economia.
+                    </motion.p>
+                    
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bg-white text-black px-12 py-4 rounded-full font-bold text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-3"
+                    >
+                        Ver Ofertas <ArrowUturnLeftIcon className="h-5 w-5 rotate-180"/>
+                    </motion.button>
+                </div>
+            </div>
+        </section>
+
+        {/* Seção Lançamentos */}
+        <section className="bg-black text-white py-12">
           <div className="container mx-auto px-4">
-              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} title="Novidades"/>
+              <div className="flex items-end justify-between mb-10 border-b border-gray-800 pb-4">
+                  <div>
+                      <h2 className="text-3xl md:text-4xl font-bold flex items-center gap-3">
+                          <span className="w-2 h-10 bg-amber-500 rounded-full block"></span>
+                          Lançamentos
+                      </h2>
+                      <p className="text-gray-400 mt-2 text-sm md:text-base ml-5">As últimas novidades que acabaram de chegar.</p>
+                  </div>
+                  <button onClick={() => onNavigate('products')} className="text-amber-400 hover:text-white transition-colors text-sm font-bold flex items-center gap-2 group px-4 py-2 rounded-lg hover:bg-gray-900">
+                      Ver catálogo completo <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                  </button>
+              </div>
+              <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} />
           </div>
         </section>
         
-        <section className="bg-black text-white py-12 md:py-16">
-          <div className="container mx-auto px-4">
-             <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} title="Mais Vendidos"/>
-          </div>
-        </section>
-        
-        <section className="bg-black text-white py-12 md:py-16">
-          <div className="container mx-auto px-4">
-              <ProductCarousel products={products.clothing} onNavigate={onNavigate} title="Roupas"/>
+        {/* Seção Mais Vendidos - Design Premium */}
+        <section className="bg-gray-900/50 py-16 my-8 border-y border-gray-800 relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+          <div className="container mx-auto px-4 relative z-10">
+             <div className="text-center mb-12">
+                  <span className="text-amber-500 font-bold tracking-widest text-xs uppercase mb-2 block">Preferidos dos Clientes</span>
+                  <h2 className="text-3xl md:text-5xl font-extrabold text-white flex items-center justify-center gap-3">
+                      <SparklesIcon className="h-8 w-8 text-amber-400"/> Mais Vendidos
+                  </h2>
+              </div>
+             <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} />
           </div>
         </section>
 
-      {products.perfumes.length > 0 && (
-            <section className="bg-black text-white py-12 md:py-16">
+        {/* Grid de Categorias Visual (Estilo Magazine) */}
+        <section className="container mx-auto px-4 py-12 mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold mb-10 text-center">Navegue por Universo</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Card Moda */}
+                <div 
+                    onClick={() => onNavigate('products?category=Roupas')}
+                    className="relative h-[400px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl border border-gray-800"
+                >
+                    <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop" alt="Moda Feminina" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-10">
+                        <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                            <h3 className="text-4xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors">Moda & Estilo</h3>
+                            <p className="text-gray-300 text-lg mb-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">Descubra peças exclusivas que combinam com sua personalidade única.</p>
+                            <span className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-bold text-sm hover:bg-amber-400 transition-colors">
+                                Explorar Roupas <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Card Perfumes */}
+                <div 
+                    onClick={() => onNavigate('products?category=Perfumes')}
+                    className="relative h-[400px] rounded-3xl overflow-hidden cursor-pointer group shadow-2xl border border-gray-800"
+                >
+                    <img src="https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop" alt="Perfumaria" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent flex flex-col justify-end p-10">
+                        <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
+                            <h3 className="text-4xl font-bold text-white mb-3 group-hover:text-amber-400 transition-colors">Perfumaria de Luxo</h3>
+                            <p className="text-gray-300 text-lg mb-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">Fragrâncias marcantes importadas e nacionais para momentos inesquecíveis.</p>
+                            <span className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-bold text-sm hover:bg-amber-400 transition-colors">
+                                Ver Perfumes <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        {/* Vitrine Roupas */}
+        <section className="bg-black text-white py-10 border-t border-gray-800">
+          <div className="container mx-auto px-4">
+              <div className="flex items-center gap-4 mb-8">
+                  <div className="bg-gray-800 p-3 rounded-full"><ShirtIcon className="h-6 w-6 text-amber-400"/></div>
+                  <h2 className="text-2xl md:text-3xl font-bold">Roupas em Destaque</h2>
+              </div>
+              <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
+          </div>
+        </section>
+
+        {/* Vitrine Perfumes (Condicional) */}
+        {products.perfumes.length > 0 && (
+            <section className="bg-black text-white py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
-                    <ProductCarousel products={products.perfumes} onNavigate={onNavigate} title="Perfumes"/>
+                    <div className="flex items-center gap-4 mb-8">
+                        <div className="bg-gray-800 p-3 rounded-full"><SparklesIcon className="h-6 w-6 text-amber-400"/></div>
+                        <h2 className="text-2xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                    </div>
+                    <ProductCarousel products={products.perfumes} onNavigate={onNavigate} />
                 </div>
             </section>
         )}
-      </>
+
+        <NewsletterSection />
+      </div>
     );
 };
 
