@@ -6350,14 +6350,17 @@ const AdminThemes = () => {
     const [previewTheme, setPreviewTheme] = useState(null);
 
     const notification = useNotification();
-    const { fetchTheme } = useShop(); 
+    const { fetchTheme } = useShop(); // Importante para atualizar o site ao vivo
 
     const fetchThemes = useCallback(() => {
         setIsLoading(true);
         apiService('/themes')
             .then(data => {
-                // Ordena para que o Ativo Manual fique primeiro, depois por data
-                const sorted = data.sort((a, b) => b.is_active_manual - a.is_active_manual);
+                // Ordena: Ativo Manual primeiro, depois Padrão (ID 1), depois os outros
+                const sorted = data.sort((a, b) => {
+                    if (b.is_active_manual !== a.is_active_manual) return b.is_active_manual - a.is_active_manual;
+                    return a.id - b.id;
+                });
                 setThemes(sorted);
             })
             .catch(err => notification.show("Erro ao buscar temas", "error"))
@@ -6389,8 +6392,8 @@ const AdminThemes = () => {
             setIsModalOpen(false);
             setEditingTheme(null);
             setPreviewTheme(null);
-            fetchThemes();
-            fetchTheme(); 
+            fetchThemes(); // Recarrega lista
+            fetchTheme();  // Atualiza o visual do site
         } catch (err) {
             notification.show(err.message, "error");
         }
@@ -6398,10 +6401,17 @@ const AdminThemes = () => {
 
     const toggleManualActive = async (theme) => {
         try {
-            await apiService(`/themes/${theme.id}/activate`, 'PUT', { status: !theme.is_active_manual });
-            notification.show(`Tema ${!theme.is_active_manual ? 'ativado manualmente' : 'desativado (automático)'}.`);
-            fetchThemes();
-            fetchTheme();
+            // Se já está ativo, vamos desativar (status = false). Se não, ativar (status = true).
+            const newStatus = !theme.is_active_manual;
+            
+            await apiService(`/themes/${theme.id}/activate`, 'PUT', { status: newStatus });
+            
+            notification.show(newStatus ? `Tema "${theme.name}" ativado!` : `Tema "${theme.name}" desativado. Voltando ao automático.`);
+            
+            // Atualiza TUDO imediatamente
+            await fetchThemes(); // Atualiza a lista do painel
+            await fetchTheme();  // Atualiza as cores do site (sidebar, fundo, etc)
+            
         } catch (err) {
             notification.show("Erro ao alterar status.", "error");
         }
@@ -6470,59 +6480,71 @@ const AdminThemes = () => {
     // Card de Preview para a Lista
     const ThemeListCard = ({ rawTheme }) => {
         const t = getThemeData(rawTheme);
-        const isActiveDate = new Date() >= new Date(t.start_date) && new Date() <= new Date(t.end_date);
+        const isActiveDate = t.start_date && t.end_date && new Date() >= new Date(t.start_date) && new Date() <= new Date(t.end_date);
         
+        // Conversão explícita para booleano para evitar o erro do "0"
+        const isManual = !!t.is_active_manual; 
+
         return (
-            <div className={`bg-white rounded-xl border transition-all hover:shadow-lg flex flex-col overflow-hidden relative ${t.is_active_manual ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200'}`}>
-                {/* Status Badge */}
+            <div className={`bg-white rounded-xl border transition-all hover:shadow-lg flex flex-col overflow-hidden relative ${isManual ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200'}`}>
+                
+                {/* Status Badge - CORRIGIDO O BUG DO "0" */}
                 <div className="absolute top-3 right-3 z-10 flex gap-2">
-                    {t.is_active_manual && <span className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm">Ativo Manual</span>}
-                    {!t.is_active_manual && isActiveDate && <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm">Ativo (Data)</span>}
+                    {isManual && (
+                        <span className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm flex items-center gap-1">
+                            <CheckIcon className="h-3 w-3"/> Ativo Manual
+                        </span>
+                    )}
+                    {!isManual && isActiveDate && (
+                        <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm flex items-center gap-1">
+                            <ClockIcon className="h-3 w-3"/> Ativo (Data)
+                        </span>
+                    )}
                 </div>
 
                 {/* Área Visual (Preview das cores) */}
-                <div className="h-24 w-full flex relative" style={{ backgroundColor: t.colors.background }}>
+                <div className="h-28 w-full flex relative" style={{ backgroundColor: t.colors.background }}>
                     {/* Header Simulado */}
-                    <div className="absolute top-0 w-full h-6 flex items-center px-2 gap-1" style={{ backgroundColor: t.colors.secondary }}>
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.colors.primary }}></div>
+                    <div className="absolute top-0 w-full h-8 flex items-center px-3 gap-2" style={{ backgroundColor: t.colors.secondary }}>
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.colors.primary }}></div>
                     </div>
                     {/* Conteúdo Simulado */}
-                    <div className="w-full h-full flex items-center justify-center pt-4">
-                        <div className="px-3 py-1 rounded text-xs font-bold shadow-sm" style={{ backgroundColor: t.colors.primary, color: t.colors.text === '#FFFFFF' || t.colors.text === '#fff' ? '#fff' : '#000' }}>
-                            Botão
+                    <div className="w-full h-full flex items-center justify-center pt-6">
+                        <div className="px-4 py-1.5 rounded text-xs font-bold shadow-sm transform -rotate-2" style={{ backgroundColor: t.colors.primary, color: ['#FFFFFF', '#fff', '#ffffff'].includes(t.colors.text) ? '#fff' : '#000' }}>
+                            Visualização
                         </div>
                     </div>
                     {/* Ícone */}
-                    <div className="absolute bottom-2 right-2 text-2xl">{t.assets.decoration_icon}</div>
+                    <div className="absolute bottom-2 right-2 text-3xl drop-shadow-md">{t.assets.decoration_icon}</div>
                 </div>
 
                 <div className="p-4 flex-grow flex flex-col">
-                    <h3 className="font-bold text-gray-800 text-lg">{t.name}</h3>
+                    <h3 className="font-bold text-gray-800 text-lg mb-1">{t.name}</h3>
                     
-                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                    <div className="mt-2 text-xs text-gray-500 space-y-1.5 mb-4">
                         <div className="flex items-center gap-2">
-                            <ClockIcon className="h-3 w-3"/>
+                            <ClockIcon className="h-3.5 w-3.5 text-gray-400"/>
                             {t.start_date ? (
                                 <span>
                                     {new Date(t.start_date).toLocaleDateString()} até {new Date(t.end_date).toLocaleDateString()}
                                 </span>
-                            ) : <span>Sem data (Sempre disponível)</span>}
+                            ) : <span>Sem agendamento (Fixo)</span>}
                         </div>
                         <div className="flex items-center gap-2">
-                            <SparklesIcon className="h-3 w-3"/>
-                            <span>Efeito: {t.effect_type !== 'none' ? t.effect_type : 'Nenhum'}</span>
+                            <SparklesIcon className="h-3.5 w-3.5 text-gray-400"/>
+                            <span className="capitalize">{t.effect_type !== 'none' ? `Efeito: ${t.effect_type}` : 'Sem efeitos'}</span>
                         </div>
                     </div>
 
-                    <div className="mt-4 pt-3 border-t flex items-center gap-2">
+                    <div className="mt-auto pt-3 border-t flex items-center gap-2">
                         <button 
                             onClick={() => toggleManualActive(t)} 
-                            className={`flex-1 py-2 rounded-md text-xs font-bold uppercase tracking-wide transition-colors ${t.is_active_manual ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                            className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wide transition-colors shadow-sm ${isManual ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300' : 'bg-amber-400 text-black hover:bg-amber-300 border border-amber-500'}`}
                         >
-                            {t.is_active_manual ? 'Desativar' : 'Ativar Agora'}
+                            {isManual ? 'Desativar' : 'Ativar Agora'}
                         </button>
-                        <button onClick={() => openModal(rawTheme)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition"><EditIcon className="h-4 w-4"/></button>
-                        <button onClick={() => handleDelete(t.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"><TrashIcon className="h-4 w-4"/></button>
+                        <button onClick={() => openModal(rawTheme)} className="p-2.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition border border-transparent hover:border-blue-200"><EditIcon className="h-4 w-4"/></button>
+                        <button onClick={() => handleDelete(t.id)} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition border border-transparent hover:border-red-200"><TrashIcon className="h-4 w-4"/></button>
                     </div>
                 </div>
             </div>
@@ -6531,23 +6553,22 @@ const AdminThemes = () => {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Temas & Identidade Visual</h1>
                     <p className="text-gray-500 text-sm mt-1">Personalize a aparência da loja para datas especiais.</p>
                 </div>
-                <button onClick={() => openModal()} className="bg-gray-900 text-white px-5 py-2.5 rounded-lg hover:bg-black shadow-md flex items-center gap-2 font-semibold transition-all">
-                    <PlusIcon className="h-5 w-5"/> Criar Tema
+                <button onClick={() => openModal()} className="bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-black shadow-lg flex items-center gap-2 font-bold transition-all transform hover:-translate-y-0.5">
+                    <PlusIcon className="h-5 w-5"/> Criar Novo Tema
                 </button>
             </div>
 
-            {isLoading ? <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500"/></div> : (
+            {isLoading ? <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500 animate-spin"/></div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {themes.map(t => <ThemeListCard key={t.id} rawTheme={t} />)}
                 </div>
             )}
 
-            {/* Modal de Edição (Mantém o mesmo do passo anterior, ou posso reenviar se quiser) */}
             {isModalOpen && previewTheme && (
                 <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? `Editar: ${editingTheme.name}` : "Novo Tema Personalizado"} size="3xl">
                     <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
