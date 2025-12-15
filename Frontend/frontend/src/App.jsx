@@ -6346,7 +6346,7 @@ const AdminThemes = () => {
     const [editingTheme, setEditingTheme] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    // Estado temporário para Preview ao Vivo dentro do Modal
+    // Estado para Preview ao Vivo
     const [previewTheme, setPreviewTheme] = useState(null);
 
     const notification = useNotification();
@@ -6355,7 +6355,11 @@ const AdminThemes = () => {
     const fetchThemes = useCallback(() => {
         setIsLoading(true);
         apiService('/themes')
-            .then(setThemes)
+            .then(data => {
+                // Ordena para que o Ativo Manual fique primeiro, depois por data
+                const sorted = data.sort((a, b) => b.is_active_manual - a.is_active_manual);
+                setThemes(sorted);
+            })
             .catch(err => notification.show("Erro ao buscar temas", "error"))
             .finally(() => setIsLoading(false));
     }, [notification]);
@@ -6365,7 +6369,6 @@ const AdminThemes = () => {
     const handleSave = async (e) => {
         e.preventDefault();
         try {
-            // O objeto previewTheme já contém os dados do formulário atualizados
             const dataToSave = {
                 name: previewTheme.name,
                 start_date: previewTheme.start_date,
@@ -6378,10 +6381,10 @@ const AdminThemes = () => {
 
             if (editingTheme && editingTheme.id) {
                 await apiService(`/themes/${editingTheme.id}`, 'PUT', dataToSave);
-                notification.show("Tema atualizado!");
+                notification.show("Tema atualizado com sucesso!");
             } else {
                 await apiService('/themes', 'POST', dataToSave);
-                notification.show("Tema criado!");
+                notification.show("Novo tema criado com sucesso!");
             }
             setIsModalOpen(false);
             setEditingTheme(null);
@@ -6396,7 +6399,7 @@ const AdminThemes = () => {
     const toggleManualActive = async (theme) => {
         try {
             await apiService(`/themes/${theme.id}/activate`, 'PUT', { status: !theme.is_active_manual });
-            notification.show(`Tema ${!theme.is_active_manual ? 'ativado' : 'desativado'} manualmente.`);
+            notification.show(`Tema ${!theme.is_active_manual ? 'ativado manualmente' : 'desativado (automático)'}.`);
             fetchThemes();
             fetchTheme();
         } catch (err) {
@@ -6405,7 +6408,7 @@ const AdminThemes = () => {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm("Tem certeza que deseja remover este tema?")) return;
+        if (!window.confirm("Tem certeza que deseja remover este tema permanentemente?")) return;
         try {
             await apiService(`/themes/${id}`, 'DELETE');
             notification.show("Tema removido.");
@@ -6423,21 +6426,19 @@ const AdminThemes = () => {
             typography: 'sans-serif',
             effect_type: 'none',
             colors: {
-                primary: '#fbbf24',
-                secondary: '#111827',
-                background: '#000000',
-                text: '#ffffff',
-                accent: '#d97706',
+                primary: '#111827',
+                secondary: '#F3F4F6',
+                background: '#FFFFFF',
+                text: '#1F2937',
+                accent: '#D4AF37',
             },
             assets: { banner_url: '', decoration_icon: '' }
         };
 
         if (theme) {
-            // Parse seguro ao abrir edição
             const parsedColors = typeof theme.colors === 'string' ? JSON.parse(theme.colors) : theme.colors;
             const parsedAssets = typeof theme.assets === 'string' ? JSON.parse(theme.assets) : theme.assets;
             const loadedTheme = { ...theme, colors: parsedColors, assets: parsedAssets };
-            
             setEditingTheme(loadedTheme);
             setPreviewTheme(loadedTheme);
         } else {
@@ -6447,7 +6448,6 @@ const AdminThemes = () => {
         setIsModalOpen(true);
     };
 
-    // Atualiza o estado de preview conforme o usuário digita
     const handlePreviewChange = (field, value, nestedKey = null) => {
         setPreviewTheme(prev => {
             if (nestedKey) {
@@ -6457,7 +6457,6 @@ const AdminThemes = () => {
         });
     };
 
-    // Helper para o card da lista (parse rápido)
     const getThemeData = (t) => {
         try {
             return {
@@ -6468,39 +6467,63 @@ const AdminThemes = () => {
         } catch { return t; }
     };
 
-    // Componente Mini Preview (Card Visual)
-    const ThemePreviewCard = ({ themeData, isInteractive = false }) => {
-        const colors = themeData.colors || {};
+    // Card de Preview para a Lista
+    const ThemeListCard = ({ rawTheme }) => {
+        const t = getThemeData(rawTheme);
+        const isActiveDate = new Date() >= new Date(t.start_date) && new Date() <= new Date(t.end_date);
+        
         return (
-            <div className="w-full h-40 rounded-lg overflow-hidden relative shadow-md border border-gray-200 flex flex-col transition-all"
-                 style={{ backgroundColor: colors.background, color: colors.text, fontFamily: themeData.typography === 'serif' ? 'serif' : 'sans-serif' }}>
-                
-                {/* Header Simulado */}
-                <div className="h-8 w-full flex items-center px-3 justify-between" style={{ backgroundColor: colors.secondary }}>
-                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: colors.primary }}></div>
-                    <div className="text-[10px] opacity-70">Loja</div>
+            <div className={`bg-white rounded-xl border transition-all hover:shadow-lg flex flex-col overflow-hidden relative ${t.is_active_manual ? 'border-amber-500 ring-2 ring-amber-100' : 'border-gray-200'}`}>
+                {/* Status Badge */}
+                <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    {t.is_active_manual && <span className="bg-amber-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm">Ativo Manual</span>}
+                    {!t.is_active_manual && isActiveDate && <span className="bg-green-500 text-white text-[10px] px-2 py-1 rounded-full font-bold uppercase shadow-sm">Ativo (Data)</span>}
                 </div>
 
-                {/* Corpo Simulado */}
-                <div className="flex-grow p-3 flex flex-col justify-center items-center gap-2 relative">
-                    {/* Botão Simulado */}
-                    <div className="px-3 py-1 rounded text-xs font-bold shadow-sm" style={{ backgroundColor: colors.primary, color: '#000' }}>
-                        Botão Primário
+                {/* Área Visual (Preview das cores) */}
+                <div className="h-24 w-full flex relative" style={{ backgroundColor: t.colors.background }}>
+                    {/* Header Simulado */}
+                    <div className="absolute top-0 w-full h-6 flex items-center px-2 gap-1" style={{ backgroundColor: t.colors.secondary }}>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.colors.primary }}></div>
                     </div>
-                    {/* Texto Accent */}
-                    <div className="text-xs font-bold" style={{ color: colors.accent }}>Destaque Accent</div>
-                    
-                    {/* Ícone Decorativo (se houver) */}
-                    {themeData.assets?.decoration_icon && (
-                        <div className="absolute bottom-2 right-2 text-xl animate-bounce">{themeData.assets.decoration_icon}</div>
-                    )}
-                    
-                    {/* Efeito (Simulação textual) */}
-                    {themeData.effect_type !== 'none' && (
-                        <div className="absolute top-2 left-2 text-[10px] bg-white/20 px-1 rounded backdrop-blur-sm">
-                            ✨ {themeData.effect_type}
+                    {/* Conteúdo Simulado */}
+                    <div className="w-full h-full flex items-center justify-center pt-4">
+                        <div className="px-3 py-1 rounded text-xs font-bold shadow-sm" style={{ backgroundColor: t.colors.primary, color: t.colors.text === '#FFFFFF' || t.colors.text === '#fff' ? '#fff' : '#000' }}>
+                            Botão
                         </div>
-                    )}
+                    </div>
+                    {/* Ícone */}
+                    <div className="absolute bottom-2 right-2 text-2xl">{t.assets.decoration_icon}</div>
+                </div>
+
+                <div className="p-4 flex-grow flex flex-col">
+                    <h3 className="font-bold text-gray-800 text-lg">{t.name}</h3>
+                    
+                    <div className="mt-2 text-xs text-gray-500 space-y-1">
+                        <div className="flex items-center gap-2">
+                            <ClockIcon className="h-3 w-3"/>
+                            {t.start_date ? (
+                                <span>
+                                    {new Date(t.start_date).toLocaleDateString()} até {new Date(t.end_date).toLocaleDateString()}
+                                </span>
+                            ) : <span>Sem data (Sempre disponível)</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <SparklesIcon className="h-3 w-3"/>
+                            <span>Efeito: {t.effect_type !== 'none' ? t.effect_type : 'Nenhum'}</span>
+                        </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t flex items-center gap-2">
+                        <button 
+                            onClick={() => toggleManualActive(t)} 
+                            className={`flex-1 py-2 rounded-md text-xs font-bold uppercase tracking-wide transition-colors ${t.is_active_manual ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
+                        >
+                            {t.is_active_manual ? 'Desativar' : 'Ativar Agora'}
+                        </button>
+                        <button onClick={() => openModal(rawTheme)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition"><EditIcon className="h-4 w-4"/></button>
+                        <button onClick={() => handleDelete(t.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition"><TrashIcon className="h-4 w-4"/></button>
+                    </div>
                 </div>
             </div>
         );
@@ -6511,104 +6534,52 @@ const AdminThemes = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Temas & Identidade Visual</h1>
-                    <p className="text-gray-500 text-sm mt-1">Gerencie a aparência da sua loja para datas comemorativas.</p>
+                    <p className="text-gray-500 text-sm mt-1">Personalize a aparência da loja para datas especiais.</p>
                 </div>
-                <button onClick={() => openModal()} className="bg-amber-500 text-white px-5 py-2.5 rounded-lg hover:bg-amber-600 shadow-md flex items-center gap-2 font-semibold transition-all">
-                    <PlusIcon className="h-5 w-5"/> Criar Novo Tema
+                <button onClick={() => openModal()} className="bg-gray-900 text-white px-5 py-2.5 rounded-lg hover:bg-black shadow-md flex items-center gap-2 font-semibold transition-all">
+                    <PlusIcon className="h-5 w-5"/> Criar Tema
                 </button>
             </div>
 
             {isLoading ? <div className="flex justify-center py-20"><SpinnerIcon className="h-10 w-10 text-amber-500"/></div> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {themes.map(rawTheme => {
-                        const t = getThemeData(rawTheme);
-                        return (
-                            <div key={t.id} className={`bg-white rounded-xl shadow-sm border-2 overflow-hidden transition-all hover:shadow-md ${t.is_active_manual ? 'border-green-500 ring-2 ring-green-100' : 'border-gray-100'}`}>
-                                <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                    <h3 className="font-bold text-lg text-gray-800">{t.name}</h3>
-                                    {t.is_active_manual && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wide">Ativo Manual</span>}
-                                </div>
-                                
-                                {/* Preview Visual do Tema */}
-                                <div className="p-4 bg-gray-100">
-                                    <ThemePreviewCard themeData={t} />
-                                </div>
-
-                                <div className="p-4">
-                                    <div className="text-sm text-gray-500 mb-4 flex items-center gap-2">
-                                        <ClockIcon className="h-4 w-4"/>
-                                        {t.start_date ? (
-                                            <span>{new Date(t.start_date).toLocaleDateString()} até {new Date(t.end_date).toLocaleDateString()}</span>
-                                        ) : (
-                                            <span>Sem agendamento</span>
-                                        )}
-                                    </div>
-
-                                    <div className="flex gap-2">
-                                        <button 
-                                            onClick={() => toggleManualActive(t)} 
-                                            className={`flex-1 py-2 px-3 rounded-md text-sm font-bold transition-colors ${t.is_active_manual ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200'}`}
-                                        >
-                                            {t.is_active_manual ? 'Desativar' : 'Ativar'}
-                                        </button>
-                                        <button onClick={() => openModal(rawTheme)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-md"><EditIcon className="h-5 w-5"/></button>
-                                        <button onClick={() => handleDelete(t.id)} className="p-2 text-gray-500 hover:bg-red-50 hover:text-red-600 rounded-md"><TrashIcon className="h-5 w-5"/></button>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+                    {themes.map(t => <ThemeListCard key={t.id} rawTheme={t} />)}
                 </div>
             )}
 
+            {/* Modal de Edição (Mantém o mesmo do passo anterior, ou posso reenviar se quiser) */}
             {isModalOpen && previewTheme && (
                 <Modal isOpen={true} onClose={() => setIsModalOpen(false)} title={editingTheme ? `Editar: ${editingTheme.name}` : "Novo Tema Personalizado"} size="3xl">
                     <form onSubmit={handleSave} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        
-                        {/* Coluna da Esquerda: Controles */}
+                        {/* Coluna Esquerda: Form */}
                         <div className="space-y-5">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Tema</label>
                                 <input type="text" value={previewTheme.name} onChange={(e) => handlePreviewChange('name', e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md"/>
                             </div>
 
-                            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <h4 className="font-bold text-gray-700 mb-3 border-b pb-2">Paleta de Cores</h4>
-                                <div className="grid grid-cols-2 gap-3 text-sm">
-                                    <div>
-                                        <label className="block text-gray-500 mb-1">Primária (Botões)</label>
-                                        <div className="flex gap-2">
-                                            <input type="color" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
-                                            <input type="text" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="w-20 p-1 border rounded text-xs"/>
-                                        </div>
+                            <div className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                                <h4 className="font-bold text-gray-700 mb-3 border-b pb-2 text-xs uppercase">Cores</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.primary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'primary')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Cor Primária</label><span className="text-[10px] text-gray-400">Botões, Destaques</span></div>
                                     </div>
-                                    <div>
-                                        <label className="block text-gray-500 mb-1">Fundo (Site)</label>
-                                        <div className="flex gap-2">
-                                            <input type="color" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
-                                            <input type="text" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="w-20 p-1 border rounded text-xs"/>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.background} onChange={(e) => handlePreviewChange('colors', e.target.value, 'background')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Fundo (Background)</label><span className="text-[10px] text-gray-400">Cor principal da página</span></div>
                                     </div>
-                                    <div>
-                                        <label className="block text-gray-500 mb-1">Texto Principal</label>
-                                        <div className="flex gap-2">
-                                            <input type="color" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
-                                            <input type="text" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="w-20 p-1 border rounded text-xs"/>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.text} onChange={(e) => handlePreviewChange('colors', e.target.value, 'text')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Texto</label><span className="text-[10px] text-gray-400">Cor dos textos principais</span></div>
                                     </div>
-                                    <div>
-                                        <label className="block text-gray-500 mb-1">Secundária (Footer)</label>
-                                        <div className="flex gap-2">
-                                            <input type="color" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
-                                            <input type="text" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="w-20 p-1 border rounded text-xs"/>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.secondary} onChange={(e) => handlePreviewChange('colors', e.target.value, 'secondary')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Secundária</label><span className="text-[10px] text-gray-400">Footer, Barras</span></div>
                                     </div>
-                                    <div>
-                                        <label className="block text-gray-500 mb-1">Accent (Detalhes)</label>
-                                        <div className="flex gap-2">
-                                            <input type="color" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="h-8 w-8 cursor-pointer border-0 p-0 rounded"/>
-                                            <input type="text" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="w-20 p-1 border rounded text-xs"/>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={previewTheme.colors.accent} onChange={(e) => handlePreviewChange('colors', e.target.value, 'accent')} className="h-8 w-8 cursor-pointer rounded border-0"/>
+                                        <div className="flex-grow"><label className="block text-xs font-bold text-gray-600">Accent</label><span className="text-[10px] text-gray-400">Detalhes pequenos</span></div>
                                     </div>
                                 </div>
                             </div>
@@ -6617,107 +6588,98 @@ const AdminThemes = () => {
                                 <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Tipografia</label>
                                     <select value={previewTheme.typography} onChange={(e) => handlePreviewChange('typography', e.target.value)} className="w-full p-2 border rounded-md bg-white">
-                                        <option value="sans-serif">Padrão (Moderno)</option>
-                                        <option value="serif">Serif (Elegante)</option>
+                                        <option value="sans-serif">Padrão (Clean)</option>
+                                        <option value="serif">Serif (Luxo)</option>
                                         <option value="mono">Monospace (Tech)</option>
                                         <option value="cursive">Cursive (Divertido)</option>
-                                        <option value="modern">Montserrat (Clean)</option>
+                                        <option value="modern">Modern (Geometric)</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Efeitos Visuais</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Efeitos</label>
                                     <select value={previewTheme.effect_type} onChange={(e) => handlePreviewChange('effect_type', e.target.value)} className="w-full p-2 border rounded-md bg-white">
                                         <option value="none">Nenhum</option>
-                                        <option value="snow">Neve (Natal)</option>
-                                        <option value="hearts">Corações (Namorados)</option>
-                                        <option value="flowers">Flores (Primavera)</option>
-                                        <option value="confetti">Confete (Festa)</option>
-                                        <option value="halloween">Halloween</option>
-                                        <option value="stars">Estrelas (Noite)</option>
+                                        <option value="snow">Neve ❄️</option>
+                                        <option value="hearts">Corações ❤️</option>
+                                        <option value="flowers">Flores 🌸</option>
+                                        <option value="confetti">Confete 🎉</option>
+                                        <option value="money">Dinheiro 💸</option>
+                                        <option value="stars">Estrelas ✨</option>
+                                        <option value="halloween">Halloween 🎃</option>
+                                        <option value="easter">Coelhos 🐰</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Ícone Decorativo (Flutuante)</label>
-                                <input type="text" value={previewTheme.assets.decoration_icon} onChange={(e) => handlePreviewChange('assets', e.target.value, 'decoration_icon')} placeholder="Ex: 🎄, 🎁 ou URL de imagem" className="w-full p-2 border border-gray-300 rounded-md"/>
-                            </div>
-
                             <div className="p-4 bg-blue-50 border border-blue-100 rounded-lg">
-                                <h4 className="font-bold text-blue-800 text-sm mb-2">Agendamento Automático</h4>
+                                <h4 className="font-bold text-blue-800 text-sm mb-2">📅 Agendamento Automático</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs text-blue-600">Início</label>
+                                        <label className="block text-xs text-blue-600 font-bold">Data Início</label>
                                         <input type="date" value={previewTheme.start_date ? previewTheme.start_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('start_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
                                     </div>
                                     <div>
-                                        <label className="block text-xs text-blue-600">Fim</label>
+                                        <label className="block text-xs text-blue-600 font-bold">Data Fim</label>
                                         <input type="date" value={previewTheme.end_date ? previewTheme.end_date.split('T')[0] : ''} onChange={(e) => handlePreviewChange('end_date', e.target.value)} className="w-full p-1 border rounded text-sm"/>
                                     </div>
                                 </div>
                             </div>
+                            
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Ícone Decorativo</label>
+                                <input type="text" value={previewTheme.assets.decoration_icon} onChange={(e) => handlePreviewChange('assets', e.target.value, 'decoration_icon')} placeholder="Ex: 🎄" className="w-full p-2 border border-gray-300 rounded-md"/>
+                            </div>
                         </div>
 
-                        {/* Coluna da Direita: Preview em Tempo Real */}
-                        <div className="sticky top-0">
+                        {/* Coluna Direita: Preview */}
+                        <div className="sticky top-0 h-full flex flex-col">
                             <h3 className="font-bold text-gray-500 uppercase tracking-wide text-xs mb-3">Pré-visualização em Tempo Real</h3>
-                            <div className="border-4 border-gray-800 rounded-xl overflow-hidden shadow-2xl h-[500px] flex flex-col relative" style={{ backgroundColor: previewTheme.colors.background, fontFamily: previewTheme.typography === 'serif' ? 'serif' : 'sans-serif' }}>
-                                {/* Navbar Simulada */}
-                                <div className="h-12 flex items-center justify-between px-4 shadow-sm" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                                    <div className="font-bold" style={{ color: previewTheme.colors.primary }}>LoveCestas</div>
-                                    <div className="w-6 h-6 rounded-full" style={{ backgroundColor: previewTheme.colors.primary }}></div>
-                                </div>
-
-                                {/* Banner Simulado */}
-                                <div className="h-32 bg-gray-300 flex items-center justify-center relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-black/40"></div>
-                                    <h2 className="relative z-10 text-white font-bold text-xl drop-shadow-md">Promoção Especial</h2>
-                                </div>
-
-                                {/* Conteúdo Simulado */}
-                                <div className="p-4 flex-grow space-y-4">
-                                    <h3 className="text-lg font-bold" style={{ color: previewTheme.colors.text }}>Produtos em Destaque</h3>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {[1, 2].map(i => (
-                                            <div key={i} className="rounded-lg p-2 border" style={{ borderColor: previewTheme.colors.secondary, backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                                                <div className="h-20 bg-gray-200/20 rounded mb-2"></div>
-                                                <div className="h-3 w-3/4 rounded mb-1" style={{ backgroundColor: previewTheme.colors.text, opacity: 0.5 }}></div>
-                                                <div className="font-bold text-sm" style={{ color: previewTheme.colors.primary }}>R$ 99,90</div>
-                                            </div>
-                                        ))}
+                            <div className="border-4 border-gray-800 rounded-xl overflow-hidden shadow-2xl flex-grow flex flex-col relative" style={{ backgroundColor: previewTheme.colors.background, fontFamily: previewTheme.typography === 'serif' ? 'serif' : 'sans-serif' }}>
+                                
+                                {/* Header */}
+                                <div className="h-14 flex items-center justify-between px-4 shadow-sm" style={{ backgroundColor: 'rgba(0,0,0,0.05)' }}>
+                                    <div className="font-bold text-lg" style={{ color: previewTheme.colors.primary }}>LoveCestas</div>
+                                    <div className="flex gap-2">
+                                        <div className="w-6 h-6 rounded-full opacity-50" style={{ backgroundColor: previewTheme.colors.text }}></div>
+                                        <div className="w-6 h-6 rounded-full opacity-50" style={{ backgroundColor: previewTheme.colors.text }}></div>
                                     </div>
-                                    <button className="w-full py-2 rounded font-bold shadow-lg mt-4" style={{ backgroundColor: previewTheme.colors.primary, color: '#000' }}>
-                                        Ver Ofertas
-                                    </button>
                                 </div>
 
-                                {/* Ícone Decorativo Simulado */}
+                                {/* Conteúdo */}
+                                <div className="p-6 flex-grow flex flex-col items-center justify-center text-center space-y-6">
+                                    <h2 className="text-2xl font-bold" style={{ color: previewTheme.colors.text }}>Grande Oferta</h2>
+                                    <p className="opacity-80" style={{ color: previewTheme.colors.text }}>Este é um exemplo de como o texto e as cores ficarão na sua loja.</p>
+                                    
+                                    <button className="px-8 py-3 rounded-full font-bold shadow-lg transform hover:scale-105 transition" style={{ backgroundColor: previewTheme.colors.primary, color: '#FFFFFF' }}>
+                                        Comprar Agora
+                                    </button>
+
+                                    <div className="text-sm font-bold" style={{ color: previewTheme.colors.accent }}>
+                                        Destaque Especial
+                                    </div>
+                                </div>
+
+                                {/* Footer */}
+                                <div className="h-12 flex items-center justify-center text-xs opacity-70" style={{ backgroundColor: previewTheme.colors.secondary, color: previewTheme.colors.text }}>
+                                    © 2026 LoveCestas
+                                </div>
+
+                                {/* Elementos Flutuantes */}
                                 {previewTheme.assets.decoration_icon && (
-                                    <div className="absolute bottom-16 right-4 text-3xl animate-bounce">
+                                    <div className="absolute bottom-16 right-4 text-4xl animate-bounce">
                                         {previewTheme.assets.decoration_icon}
                                     </div>
                                 )}
-
-                                {/* Simulação de Partículas (Estática para performance) */}
                                 {previewTheme.effect_type !== 'none' && (
-                                    <div className="absolute top-2 left-2 bg-white/20 backdrop-blur px-2 py-1 rounded text-xs text-white">
-                                        Efeito: {previewTheme.effect_type} 
+                                    <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded backdrop-blur">
+                                        Efeito: {previewTheme.effect_type}
                                     </div>
                                 )}
-
-                                {/* Footer Simulado */}
-                                <div className="h-10 mt-auto flex items-center justify-center text-[10px]" style={{ backgroundColor: previewTheme.colors.secondary, color: previewTheme.colors.text }}>
-                                    © 2025 LoveCestas
-                                </div>
                             </div>
-                            
+
                             <div className="mt-6 flex gap-3">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition">
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="flex-1 py-3 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 shadow-lg transition">
-                                    Salvar Tema
-                                </button>
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 transition">Cancelar</button>
+                                <button type="submit" className="flex-1 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-black shadow-lg transition">Salvar Tema</button>
                             </div>
                         </div>
                     </form>
