@@ -6756,12 +6756,13 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         onNavigate('home');
     }
 
+   // --- AQUI ESTÁ A ATUALIZAÇÃO DO MENU ---
    const menuItems = [
         { key: 'dashboard', label: 'Dashboard', icon: <ChartIcon className="h-5 w-5"/> },
+        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // <--- NOVO ITEM ADICIONADO AQUI
         { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
         { key: 'products', label: 'Produtos', icon: <BoxIcon className="h-5 w-5"/> },
         { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/> },
-        { key: 'themes', label: 'Temas & Visual', icon: <SparklesIcon className="h-5 w-5"/> }, // MENU ITEM ADICIONADO
         { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
         { key: 'collections', label: 'Coleções', icon: <TagIcon className="h-5 w-5"/> },
         { key: 'users', label: 'Usuários', icon: <UsersIcon className="h-5 w-5"/> },
@@ -10171,7 +10172,7 @@ function AppContent({ deferredPrompt }) {
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'themes': <AdminThemes />,
+            'themes': <AdminThemes />, // <--- AQUI ESTÁ A ROTA PARA A PÁGINA
         };
 
         return (
