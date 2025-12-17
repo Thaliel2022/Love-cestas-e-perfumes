@@ -2056,8 +2056,6 @@ const HomePage = ({ onNavigate }) => {
         clothing: [],
         perfumes: []
     });
-    
-    // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
         promo: null,
@@ -2087,17 +2085,14 @@ const HomePage = ({ onNavigate }) => {
                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
             });
 
-        // --- BUSCA DE BANNERS ---
+        // --- BUSCA DE BANNERS (JÁ FILTRADOS PELO BACKEND) ---
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // SEPARAÇÃO POR ORDEM (CONVENÇÃO DO ADMIN):
-                    // < 50: Carrossel
-                    // 50: Promoção (Meio)
-                    // >= 60: Cards (Inferior)
-                    const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+                    // O backend já filtrou por data. Aqui só separamos visualmente.
+                    const carousel = data.filter(b => b.display_order < 50);
                     const promo = data.find(b => b.display_order === 50);
-                    const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
+                    const cards = data.filter(b => b.display_order >= 60).slice(0, 2);
 
                     setBanners({
                         carousel: carousel,
@@ -2114,232 +2109,27 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // --- LÓGICA DE DATAS COMEMORATIVAS ---
-    const getSeasonalData = () => {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-11
-        const currentDay = now.getDate();
-
-        // Helper para verificar intervalo de datas (Mês é 0-indexado: Jan=0, Dez=11)
-        const isBetween = (startMonth, startDay, endMonth, endDay) => {
-            const start = new Date(currentYear, startMonth, startDay);
-            const end = new Date(currentYear, endMonth, endDay);
-            // Ajuste para Ano Novo (período que cruza o ano)
-            if (end < start) {
-                return now >= start || now <= end;
-            }
-            return now >= start && now <= end;
-        };
-
-        // Funções para datas móveis
-        const getMotherDay = (year) => {
-            const date = new Date(year, 4, 1); // Maio
-            // Encontra o primeiro domingo
-            while (date.getDay() !== 0) date.setDate(date.getDate() + 1);
-            // Adiciona 7 dias para chegar ao segundo domingo
-            date.setDate(date.getDate() + 7);
-            return date;
-        };
-
-        const getFatherDay = (year) => {
-            const date = new Date(year, 7, 1); // Agosto
-            while (date.getDay() !== 0) date.setDate(date.getDate() + 1);
-            date.setDate(date.getDate() + 7);
-            return date;
-        };
-
-        const getBlackFriday = (year) => {
-            // Última sexta-feira de novembro
-            const date = new Date(year, 10, 1); // Novembro
-            const fridays = [];
-            while (date.getMonth() === 10) {
-                if (date.getDay() === 5) fridays.push(new Date(date));
-                date.setDate(date.getDate() + 1);
-            }
-            return fridays[fridays.length - 1]; // Retorna a última sexta (ou a 4ª, dependendo da regra, geralmente é a última)
-        };
-
-        // Cálculo da Páscoa (Algoritmo de Meeus/Jones/Butcher)
-        const getEasterDate = (year) => {
-            const a = year % 19;
-            const b = Math.floor(year / 100);
-            const c = year % 100;
-            const d = Math.floor(b / 4);
-            const e = b % 4;
-            const f = Math.floor((b + 8) / 25);
-            const g = Math.floor((b - f + 1) / 3);
-            const h = (19 * a + b - d - g + 15) % 30;
-            const i = Math.floor(c / 4);
-            const k = c % 4;
-            const l = (32 + 2 * e + 2 * i - h - k) % 7;
-            const m = Math.floor((a + 11 * h + 22 * l) / 451);
-            const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-indexado
-            const day = ((h + l - 7 * m + 114) % 31) + 1;
-            return new Date(year, month, day);
-        };
-
-        // Datas Móveis do Ano Atual
-        const easterDate = getEasterDate(currentYear);
-        const mothersDay = getMotherDay(currentYear);
-        const fathersDay = getFatherDay(currentYear);
-        const blackFridayDate = getBlackFriday(currentYear);
-
-        // Definição dos Períodos
-        // Dia da Mulher (Mar 1 - Mar 8)
-        if (isBetween(2, 1, 2, 8)) {
-            return {
-                theme: 'womens-day',
-                promo: {
-                    title: "Dia da Mulher",
-                    subtitle: "Celebre a força e a elegância feminina.",
-                    cta_text: "Presentes Especiais",
-                    image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop", // Placeholder temático
-                    link_url: "products?category=Perfumes Feminino",
-                    isFlashOffer: false
-                }
-            };
-        }
-
-        // Páscoa (2 semanas antes até o dia)
-        const easterStart = new Date(easterDate);
-        easterStart.setDate(easterStart.getDate() - 14);
-        if (now >= easterStart && now <= easterDate) {
-            return {
-                theme: 'easter',
-                promo: {
-                    title: "Páscoa Encantada",
-                    subtitle: "Fragrâncias doces para celebrar o renascimento.",
-                    cta_text: "Confira as Ofertas",
-                    image_url: "https://images.unsplash.com/photo-1587393855524-087f83d95bc9?q=80&w=1960&auto=format&fit=crop",
-                    link_url: "products",
-                    isFlashOffer: false
-                }
-            };
-        }
-
-        // Dia das Mães (20 de Abril até o 2º Domingo de Maio)
-        if (now >= new Date(currentYear, 3, 20) && now <= mothersDay) {
-            return {
-                theme: 'mothers-day',
-                promo: {
-                    title: "Amor de Mãe",
-                    subtitle: "O presente perfeito para quem sempre cuidou de você.",
-                    cta_text: "Presentes para Mãe",
-                    image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
-                    link_url: "products?category=Perfumes Feminino",
-                    isFlashOffer: false
-                }
-            };
-        }
-
-        // Dia dos Namorados (1 a 12 de Junho)
-        if (isBetween(5, 1, 5, 12)) {
-            return {
-                theme: 'valentines',
-                promo: {
-                    title: "Dia dos Namorados",
-                    subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
-                    cta_text: "Coleção Romântica",
-                    image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
-                    link_url: "products",
-                    isFlashOffer: true
-                }
-            };
-        }
-
-        // Dia dos Pais (20 de Julho até 2º Domingo de Agosto)
-        if (now >= new Date(currentYear, 6, 20) && now <= fathersDay) {
-            return {
-                theme: 'fathers-day',
-                promo: {
-                    title: "Dia dos Pais",
-                    subtitle: "Estilo e sofisticação para o seu herói.",
-                    cta_text: "Presentes para Pai",
-                    image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
-                    link_url: "products?category=Perfumes Masculino",
-                    isFlashOffer: false
-                }
-            };
-        }
-
-        // Black Friday (Novembro inteiro - Black November)
-        if (isBetween(10, 1, 10, 30)) {
-            return {
-                theme: 'black-friday',
-                promo: {
-                    title: "Black November",
-                    subtitle: "O mês inteiro com descontos imperdíveis!",
-                    cta_text: "Aproveitar Ofertas",
-                    image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
-                    link_url: "products?promo=true",
-                    isFlashOffer: true
-                }
-            };
-        }
-
-        // Natal (1 a 25 de Dezembro)
-        if (isBetween(11, 1, 11, 25)) {
-            return {
-                theme: 'christmas',
-                promo: {
-                    title: "Feliz Natal",
-                    subtitle: "Celebre a magia com presentes que encantam.",
-                    cta_text: "Presentes de Natal",
-                    image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
-                    link_url: "products",
-                    isFlashOffer: true
-                }
-            };
-        }
-
-        // Ano Novo (26 Dez a 2 Jan)
-        if (isBetween(11, 26, 0, 2)) {
-            return {
-                theme: 'new-year',
-                promo: {
-                    title: "Feliz Ano Novo",
-                    subtitle: "Comece o ano com renovação e estilo.",
-                    cta_text: "Ver Coleção",
-                    image_url: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2069&auto=format&fit=crop",
-                    link_url: "products",
-                    isFlashOffer: false
-                }
-            };
-        }
-
-        // Padrão (Semana do Consumidor ou Genérico)
-        return {
-            theme: 'default',
-            promo: {
-                title: "Semana do Consumidor",
-                subtitle: "Até 50% OFF em itens selecionados.",
-                cta_text: "Ver Ofertas",
-                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?promo=true",
-                isFlashOffer: true
-            }
-        };
-    };
-
-    const seasonalData = getSeasonalData();
-
-    // Sub-componente interno para renderizar o Banner Promocional
+    // Componente do Banner de Destaque
     const PromoBannerSection = ({ customBanner }) => {
-        // Usa o banner customizado do banco se existir, senão usa o sazonal automático
-        const activeBanner = customBanner || seasonalData.promo;
+        // Fallback apenas visual, caso o admin apague tudo do banco
+        const defaultBanner = {
+            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+            title: "Semana do Consumidor",
+            subtitle: "Até 50% OFF em itens selecionados.",
+            cta_text: "Ver Ofertas",
+            link_url: "products?promo=true",
+            isFlashOffer: true
+        };
+
+        const activeBanner = customBanner || defaultBanner;
         
         const isFlashOffer = activeBanner.isFlashOffer || 
                              activeBanner.title?.toLowerCase().includes('relâmpago') || 
                              activeBanner.subtitle?.toLowerCase().includes('relâmpago');
 
         const renderTitle = () => {
-            // Renderização especial para o título padrão
             if (!customBanner && activeBanner.title === "Semana do Consumidor") {
                 return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
-            }
-            if (!customBanner && activeBanner.title === "Black November") {
-                return (<>Black <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-200 to-gray-600">November</span></>);
             }
             return activeBanner.title;
         };
@@ -2352,43 +2142,22 @@ const HomePage = ({ onNavigate }) => {
                     onClick={() => onNavigate(activeBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                    
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span 
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
-                            >
+                            <motion.span initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        
-                        <motion.h2 
-                            initial={{ opacity: 0, x: -30 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-4xl md:text-6xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
-                        >
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
                             {renderTitle()}
                         </motion.h2>
-                        
                         {activeBanner.subtitle && (
-                            <motion.p 
-                                initial={{ opacity: 0 }}
-                                whileInView={{ opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                                className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
-                            >
+                            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
                                 {activeBanner.subtitle}
                             </motion.p>
                         )}
-                        
                         {activeBanner.cta_enabled !== 0 && (
-                            <motion.button 
-                                whileTap={{ scale: 0.95 }}
-                                className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
-                            >
+                            <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
                                 {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
                             </motion.button>
                         )}
@@ -2398,22 +2167,15 @@ const HomePage = ({ onNavigate }) => {
         );
     };
 
-    // Componente Cards Inferiores
     const CategoryCardsSection = ({ customCards }) => {
         const defaultCards = [
             {
                 image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
-                title: "Moda & Estilo",
-                subtitle: "Peças exclusivas para sua personalidade.",
-                cta_text: "Explorar Roupas",
-                link_url: "products?category=Roupas"
+                title: "Moda & Estilo", subtitle: "Peças exclusivas.", cta_text: "Explorar Roupas", link_url: "products?category=Roupas"
             },
             {
                 image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
-                title: "Perfumaria",
-                subtitle: "Fragrâncias marcantes importadas e nacionais.",
-                cta_text: "Ver Perfumes",
-                link_url: "products?category=Perfumes"
+                title: "Perfumaria", subtitle: "Fragrâncias marcantes.", cta_text: "Ver Perfumes", link_url: "products?category=Perfumes"
             }
         ];
 
@@ -2448,7 +2210,6 @@ const HomePage = ({ onNavigate }) => {
 
     return (
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
-        {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
             <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
@@ -2456,18 +2217,11 @@ const HomePage = ({ onNavigate }) => {
         ) : (
             banners.carousel.length > 0 && <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
         )}
-        
         <BenefitsBar />
-        
-        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
-
-        {/* Destaque Visual (Banner Promocional) */}
         <PromoBannerSection customBanner={banners.promo} />
-
-        {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
@@ -2485,8 +2239,6 @@ const HomePage = ({ onNavigate }) => {
               <ProductCarousel products={products.newArrivals} onNavigate={onNavigate} />
           </div>
         </section>
-        
-        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -2499,11 +2251,7 @@ const HomePage = ({ onNavigate }) => {
              <ProductCarousel products={products.bestSellers} onNavigate={onNavigate} />
           </div>
         </section>
-
-        {/* Cards de Categoria (Inferior) */}
         <CategoryCardsSection customCards={banners.cards} />
-        
-        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
@@ -2513,7 +2261,6 @@ const HomePage = ({ onNavigate }) => {
               <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
           </div>
         </section>
-
         {products.perfumes.length > 0 && (
             <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
@@ -2525,7 +2272,6 @@ const HomePage = ({ onNavigate }) => {
                 </div>
             </section>
         )}
-
         <NewsletterSection />
       </div>
     );
@@ -10193,6 +9939,11 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
     const mobileInputRef = useRef(null);
     const notification = useNotification();
 
+    // Garante atualização se o item mudar (ex: ao clicar num template)
+    useEffect(() => {
+        setFormData(item);
+    }, [item]);
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
@@ -10224,30 +9975,11 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
         onSave(formData);
     };
 
-    // Configurações visuais baseadas na seção
     const getHints = () => {
         switch(section) {
-            case 'promo':
-                return { 
-                    title: "Banner de Destaque (Meio)", 
-                    sizeDesktop: "1920 x 600 px (Wide)", 
-                    sizeMobile: "800 x 1000 px (Vertical)",
-                    showMobile: false // Oculta upload mobile se não for estritamente necessário, ou mantém opcional
-                };
-            case 'cards':
-                return { 
-                    title: "Card de Categoria (Inferior)", 
-                    sizeDesktop: "600 x 800 px (Vertical)", 
-                    sizeMobile: "Mesma imagem usada no desktop",
-                    showMobile: false // Cards geralmente usam a mesma imagem
-                };
-            default: // carousel
-                return { 
-                    title: "Banner do Carrossel (Topo)", 
-                    sizeDesktop: "1920 x 720 px (8:3)", 
-                    sizeMobile: "800 x 1200 px (2:3)",
-                    showMobile: true
-                };
+            case 'promo': return { title: "Destaque Agendável (Meio)", sizeDesktop: "1920 x 600 px", showMobile: false, showSchedule: true };
+            case 'cards': return { title: "Card de Categoria (Inferior)", sizeDesktop: "600 x 800 px", showMobile: false, showSchedule: false };
+            default: return { title: "Banner Rotativo (Topo)", sizeDesktop: "1920 x 720 px", showMobile: true, showSchedule: false };
         }
     };
 
@@ -10257,8 +9989,23 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
                 <h3 className="font-bold text-gray-800">{hints.title}</h3>
-                <p className="text-sm text-gray-500">Configure as imagens e textos para esta área específica.</p>
+                <p className="text-sm text-gray-500">Configure as imagens e textos para esta área.</p>
             </div>
+
+            {/* Agendamento (Apenas para Promoção) */}
+            {hints.showSchedule && (
+                <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <div>
+                        <label className="block text-xs font-bold text-blue-800 mb-1">Início (Opcional)</label>
+                        <input type="datetime-local" name="start_date" value={formData.start_date || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-blue-800 mb-1">Fim (Opcional)</label>
+                        <input type="datetime-local" name="end_date" value={formData.end_date || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded text-sm"/>
+                    </div>
+                    <p className="col-span-2 text-[10px] text-blue-600">*Deixe em branco para exibir imediatamente e sem prazo de validade.</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -10274,11 +10021,9 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
                     </div>
                 </div>
                 
-                {/* Mostra upload mobile apenas se necessário (Carrossel) ou opcional para outros */}
                 {hints.showMobile && (
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Imagem Mobile (Opcional)</label>
-                        <p className="text-xs text-gray-500 mt-1">Recomendado: {hints.sizeMobile}</p>
                         <div className="flex flex-col gap-2 mt-2">
                             <img src={formData.image_url_mobile || 'https://placehold.co/300x400/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-32 object-contain rounded-md border bg-white"/>
                             <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
@@ -10299,11 +10044,11 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Título</label>
-                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ex: Oferta de Verão"/>
+                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-700">Subtítulo</label>
-                    <input type="text" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ex: Até 50% OFF"/>
+                    <input type="text" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                 </div>
             </div>
 
@@ -10315,7 +10060,7 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
                 {!!formData.cta_enabled && (
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Texto do Botão</label>
-                        <input type="text" name="cta_text" value={formData.cta_text || ''} onChange={handleChange} placeholder="Ex: Comprar Agora" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="text" name="cta_text" value={formData.cta_text || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                     </div>
                 )}
             </div>
@@ -10327,7 +10072,7 @@ const BannerForm = ({ item, section, onSave, onCancel }) => {
 
             <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
                 <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-amber-500 text-black rounded-md hover:bg-amber-400 font-bold shadow-md">Salvar Alterações</button>
+                <button type="submit" className="px-6 py-2 bg-amber-500 text-black rounded-md hover:bg-amber-400 font-bold shadow-md">Salvar</button>
             </div>
         </form>
     );
@@ -10369,7 +10114,7 @@ const AdminBanners = () => {
     const [banners, setBanners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('carousel'); // 'carousel', 'promo', 'cards'
+    const [activeTab, setActiveTab] = useState('carousel'); 
     const [editingBanner, setEditingBanner] = useState(null);
     const notification = useNotification();
     const confirmation = useConfirmation();
@@ -10391,98 +10136,68 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    // --- LÓGICA DE DATAS COMEMORATIVAS (Replicada para o Admin) ---
-    const getSeasonalPromo = () => {
-        const now = new Date();
-        const currentYear = now.getFullYear();
-
-        // Helper para verificar intervalo
-        const isBetween = (startMonth, startDay, endMonth, endDay) => {
-            const start = new Date(currentYear, startMonth, startDay);
-            const end = new Date(currentYear, endMonth, endDay);
-            if (end < start) return now >= start || now <= end;
-            return now >= start && now <= end;
-        };
-
-        // Templates Sazonais
-        const templates = {
-            'womens-day': {
-                title: "Dia da Mulher", subtitle: "Celebre a força e a elegância feminina.",
-                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?category=Perfumes Feminino", cta_text: "Presentes Especiais", cta_enabled: 1, is_active: 1
-            },
-            'easter': {
-                title: "Páscoa Encantada", subtitle: "Fragrâncias doces para celebrar o renascimento.",
-                image_url: "https://images.unsplash.com/photo-1587393855524-087f83d95bc9?q=80&w=1960&auto=format&fit=crop",
-                link_url: "products", cta_text: "Confira as Ofertas", cta_enabled: 1, is_active: 1
-            },
-            'mothers-day': {
-                title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
-                image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe", cta_enabled: 1, is_active: 1
-            },
-            'valentines': {
-                title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
-                image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products", cta_text: "Coleção Romântica", cta_enabled: 1, is_active: 1
-            },
-            'fathers-day': {
-                title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
-                image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
-                link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai", cta_enabled: 1, is_active: 1
-            },
-            'black-friday': {
-                title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
-                image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?promo=true", cta_text: "Aproveitar Ofertas", cta_enabled: 1, is_active: 1
-            },
-            'christmas': {
-                title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
-                image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
-                link_url: "products", cta_text: "Presentes de Natal", cta_enabled: 1, is_active: 1
-            },
-            'new-year': {
-                title: "Feliz Ano Novo", subtitle: "Comece o ano com renovação e estilo.",
-                image_url: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2069&auto=format&fit=crop",
-                link_url: "products", cta_text: "Ver Coleção", cta_enabled: 1, is_active: 1
-            },
-            'default': {
-                title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
-                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-                link_url: "products?promo=true", cta_text: "Ver Ofertas", cta_enabled: 1, is_active: 1
-            }
-        };
-
-        // Lógica de Datas (Simplificada para Seleção)
-        if (isBetween(2, 1, 2, 8)) return { ...templates['womens-day'], activeTheme: 'Dia da Mulher' };
-        // ... (Outras datas aqui seguem a mesma lógica da Home)
-        // Por brevidade, retornamos o default se nada bater, mas o objeto templates está disponível para o Admin escolher
-        return { ...templates['default'], activeTheme: 'Padrão', availableTemplates: templates }; 
+    // --- TEMPLATES DE AGENDAMENTO ---
+    // Estes templates agora servem apenas para preencher o formulário rapidamente
+    const SEASONAL_TEMPLATES = {
+        'default': {
+            label: "Padrão (Semana Consumidor)",
+            title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
+            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?promo=true", cta_text: "Ver Ofertas", start_date: "", end_date: ""
+        },
+        'mothers-day': {
+            label: "Dia das Mães",
+            title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
+            image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe",
+            month: 4, dayStart: 20, dayEnd: 15 // Ex: Maio (mês 4 no JS)
+        },
+        'valentines': {
+            label: "Dia dos Namorados",
+            title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
+            image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products", cta_text: "Coleção Romântica",
+            month: 5, dayStart: 1, dayEnd: 12 // Junho (mês 5 no JS)
+        },
+        'fathers-day': {
+            label: "Dia dos Pais",
+            title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
+            image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
+            link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai",
+            month: 7, dayStart: 20, dayEnd: 15 // Agosto
+        },
+        'black-friday': {
+            label: "Black November",
+            title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
+            image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?promo=true", cta_text: "Aproveitar Ofertas",
+            month: 10, dayStart: 1, dayEnd: 30 // Novembro
+        },
+        'christmas': {
+            label: "Natal",
+            title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
+            image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
+            link_url: "products", cta_text: "Presentes de Natal",
+            month: 11, dayStart: 1, dayEnd: 25 // Dezembro
+        }
     };
 
-    const seasonalData = getSeasonalPromo();
-    const DEFAULT_PROMO = { ...seasonalData, display_order: 50 };
-
-    const DEFAULT_CARDS = [
-        {
-            title: "Moda & Estilo", subtitle: "Peças exclusivas para sua personalidade.",
-            image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
-            link_url: "products?category=Roupas", cta_text: "Explorar Roupas", cta_enabled: 1, is_active: 1, display_order: 60
-        },
-        {
-            title: "Perfumaria", subtitle: "Fragrâncias marcantes importadas e nacionais.",
-            image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
-            link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", cta_enabled: 1, is_active: 1, display_order: 61
-        }
-    ];
-
+    // Filtra os banners do banco
     const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+    
+    // Procura no banco ou usa o template padrão apenas para visualização inicial
     const dbPromoBanner = banners.find(b => b.display_order === 50);
-    // Usa o do banco se existir, senão usa o Sazonal calculado
-    const displayPromoBanner = dbPromoBanner || { ...DEFAULT_PROMO, id: null };
+    const displayPromoBanner = dbPromoBanner || { ...SEASONAL_TEMPLATES['default'], id: null, display_order: 50, is_active: 1, cta_enabled: 1 };
 
-    const card1 = banners.find(b => b.display_order === 60) || { ...DEFAULT_CARDS[0], id: null };
-    const card2 = banners.find(b => b.display_order === 61) || { ...DEFAULT_CARDS[1], id: null };
+    // Cards
+    const card1 = banners.find(b => b.display_order === 60) || { 
+        title: "Moda & Estilo", subtitle: "Peças exclusivas.", image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop", 
+        link_url: "products?category=Roupas", cta_text: "Explorar", cta_enabled: 1, is_active: 1, display_order: 60, id: null 
+    };
+    const card2 = banners.find(b => b.display_order === 61) || { 
+        title: "Perfumaria", subtitle: "Fragrâncias marcantes.", image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop", 
+        link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", cta_enabled: 1, is_active: 1, display_order: 61, id: null 
+    };
     const displayCards = [card1, card2];
 
     const handleOpenModal = (banner, section) => {
@@ -10496,34 +10211,67 @@ const AdminBanners = () => {
                     cta_enabled: 0, cta_text: 'Ver Mais', display_order: maxOrder + 1 
                 };
             } else if (section === 'promo') {
-                initialData = { ...DEFAULT_PROMO, id: null };
+                initialData = { ...SEASONAL_TEMPLATES['default'], id: null, display_order: 50, cta_enabled: 1, is_active: 1 };
             }
         }
         setEditingBanner(initialData);
         setIsModalOpen(true);
     };
 
-    // Função para aplicar template no modal
     const applyTemplate = (key) => {
-        const templates = seasonalData.availableTemplates;
-        if (templates && templates[key]) {
-            setEditingBanner(prev => ({
-                ...prev,
-                ...templates[key],
-                display_order: 50 // Garante que é Destaque
-            }));
+        const template = SEASONAL_TEMPLATES[key];
+        if (!template) return;
+
+        let startDate = '';
+        let endDate = '';
+
+        // Calcula as datas para o ano atual se o template tiver configuração de data
+        if (template.month !== undefined) {
+            const now = new Date();
+            const year = now.getFullYear();
+            
+            // Cria datas no fuso local para o input datetime-local
+            // Formato YYYY-MM-DDTHH:mm
+            const start = new Date(year, template.month, template.dayStart, 0, 0, 0);
+            const end = new Date(year, template.month, template.dayEnd, 23, 59, 59);
+
+            // Ajuste simples de timezone offset para exibir corretamente no input
+            const toLocalISO = (date) => {
+                const offset = date.getTimezoneOffset() * 60000;
+                return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+            };
+
+            startDate = toLocalISO(start);
+            endDate = toLocalISO(end);
         }
+
+        setEditingBanner(prev => ({
+            ...prev,
+            title: template.title,
+            subtitle: template.subtitle,
+            image_url: template.image_url,
+            link_url: template.link_url,
+            cta_text: template.cta_text,
+            start_date: startDate,
+            end_date: endDate,
+            display_order: 50 // Garante Destaque
+        }));
     };
 
     const handleSave = async (formData) => {
         try {
             const payload = { ...formData, display_order: parseInt(formData.display_order) };
+            
+            // Trata datas vazias para null
+            if (!payload.start_date) payload.start_date = null;
+            if (!payload.end_date) payload.end_date = null;
+
             if (formData.id) {
                 await apiService(`/banners/${formData.id}`, 'PUT', payload);
                 notification.show('Banner atualizado!');
             } else {
                 await apiService('/banners/admin', 'POST', payload);
-                notification.show('Banner criado e salvo!');
+                notification.show('Banner criado e agendado!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10534,10 +10282,10 @@ const AdminBanners = () => {
 
     const handleDelete = (id) => {
         if (!id) return;
-        confirmation.show("Restaurar para o padrão automático?", async () => {
+        confirmation.show("Excluir banner? O sistema voltará ao padrão até que um novo seja criado.", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Restaurado para o automático.');
+                notification.show('Banner excluído.');
                 fetchBanners();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
@@ -10545,13 +10293,18 @@ const AdminBanners = () => {
         });
     };
     
+    // Drag & Drop do Carrossel (mantido)
     const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
             const oldIndex = carouselBanners.findIndex((b) => b.id === active.id);
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
-            setBanners([...newOrder, ...banners.filter(b => b.display_order >= 50)]);
+            
+            // Mantém os fixos intactos e atualiza só o carrossel
+            const fixedBanners = banners.filter(b => b.display_order >= 50);
+            setBanners([...newOrder, ...fixedBanners]);
+
             const orderedIds = newOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
@@ -10563,25 +10316,30 @@ const AdminBanners = () => {
         }
     };
 
-    // Renderização do Modal com Seletor de Templates
+    // Modal Content
     const ModalContent = () => (
         <div className="space-y-4">
-            {/* Seletor de Templates para Destaque */}
             {activeTab === 'promo' && (
-                <div className="bg-amber-50 p-3 rounded-md border border-amber-200 mb-4">
-                    <label className="block text-xs font-bold text-amber-800 mb-2">Carregar Modelo Sazonal:</label>
+                <div className="bg-blue-50 p-4 rounded-md border border-blue-200 mb-4">
+                    <label className="block text-xs font-bold text-blue-800 mb-3">
+                        <SparklesIcon className="h-4 w-4 inline mr-1"/>
+                        Agendamento Rápido (Templates):
+                    </label>
                     <div className="flex flex-wrap gap-2">
-                        {['default', 'womens-day', 'mothers-day', 'valentines', 'fathers-day', 'black-friday', 'christmas', 'new-year'].map(key => (
+                        {Object.entries(SEASONAL_TEMPLATES).map(([key, tpl]) => (
                             <button 
                                 key={key}
                                 type="button"
                                 onClick={() => applyTemplate(key)}
-                                className="px-2 py-1 text-xs bg-white border border-amber-300 rounded hover:bg-amber-100 capitalize"
+                                className="px-3 py-1.5 text-xs bg-white border border-blue-300 rounded-full hover:bg-blue-100 transition-colors text-blue-700 font-medium"
                             >
-                                {key.replace('-', ' ')}
+                                {tpl.label}
                             </button>
                         ))}
                     </div>
+                    <p className="text-[10px] text-blue-600 mt-2">
+                        *Clique em um tema para preencher o banner e as datas automaticamente. Salve para ativar.
+                    </p>
                 </div>
             )}
             <BannerForm 
@@ -10605,33 +10363,31 @@ const AdminBanners = () => {
 
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Gestão Visual da Home</h1>
-                <p className="text-gray-500">
-                    Gerencie os banners. O destaque atual automático é: <strong>{seasonalData.activeTheme}</strong>.
-                </p>
+                <p className="text-gray-500">Agende suas campanhas e gerencie os destaques.</p>
             </div>
 
             <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
-                <button onClick={() => setActiveTab('carousel')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Carrossel (Topo)
-                </button>
-                <button onClick={() => setActiveTab('promo')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Destaque (Meio)
-                </button>
-                <button onClick={() => setActiveTab('cards')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Cards (Inferior)
-                </button>
+                {['carousel', 'promo', 'cards'].map(tab => (
+                    <button 
+                        key={tab}
+                        onClick={() => setActiveTab(tab)} 
+                        className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 capitalize ${activeTab === tab ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                    >
+                        {tab === 'promo' ? 'Destaque (Agendável)' : tab}
+                    </button>
+                ))}
             </div>
 
             {isLoading ? (
                 <div className="py-20 flex justify-center"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <>
-                    {/* --- ABA CARROSSEL --- */}
+                    {/* CARROSSEL */}
                     {activeTab === 'carousel' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                <div><h3 className="font-bold text-gray-800">Banners Rotativos</h3><p className="text-xs text-gray-500">Arraste para reordenar.</p></div>
-                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md"><PlusIcon className="h-4 w-4"/> Adicionar Novo</button>
+                                <div><h3 className="font-bold text-gray-800">Carrossel Principal</h3><p className="text-xs text-gray-500">Arraste para reordenar.</p></div>
+                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md"><PlusIcon className="h-4 w-4"/> Novo</button>
                             </div>
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
                                 <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
@@ -10646,17 +10402,23 @@ const AdminBanners = () => {
                         </div>
                     )}
 
-                    {/* --- ABA DESTAQUE --- */}
+                    {/* DESTAQUE */}
                     {activeTab === 'promo' && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div><h3 className="font-bold text-lg text-gray-800">Banner de Destaque</h3><p className="text-sm text-gray-500">Exibido logo abaixo das coleções.</p></div>
+                                    <div>
+                                        <h3 className="font-bold text-lg text-gray-800">Banner de Destaque</h3>
+                                        <p className="text-sm text-gray-500">Este banner obedece ao agendamento. Se expirado, não aparecerá na home.</p>
+                                    </div>
                                     <div className="flex gap-2">
                                         {displayPromoBanner.id ? (
-                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">Personalizado</span>
+                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200 flex items-center gap-1">
+                                                <ClockIcon className="h-3 w-3"/>
+                                                {displayPromoBanner.start_date ? 'Agendado' : 'Fixo'}
+                                            </span>
                                         ) : (
-                                            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold border border-blue-200">Automático ({seasonalData.activeTheme})</span>
+                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200">Não Configurado (Padrão)</span>
                                         )}
                                     </div>
                                 </div>
@@ -10664,9 +10426,14 @@ const AdminBanners = () => {
                                     <img src={displayPromoBanner.image_url} alt={displayPromoBanner.title} className="w-full h-full object-cover"/>
                                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
                                         <h4 className="text-xl font-bold mb-1">{displayPromoBanner.title}</h4>
+                                        {displayPromoBanner.start_date && (
+                                            <p className="text-xs bg-blue-600 px-2 py-1 rounded mb-2">
+                                                De: {new Date(displayPromoBanner.start_date).toLocaleDateString()} Até: {new Date(displayPromoBanner.end_date).toLocaleDateString()}
+                                            </p>
+                                        )}
                                         <div className="flex gap-3 mt-4">
-                                            <button onClick={() => handleOpenModal(displayPromoBanner, 'promo')} className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2"><EditIcon className="h-4 w-4"/> {displayPromoBanner.id ? 'Editar' : 'Personalizar/Fixar'}</button>
-                                            {displayPromoBanner.id && <button onClick={() => handleDelete(displayPromoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2"><TrashIcon className="h-4 w-4"/> Restaurar Automático</button>}
+                                            <button onClick={() => handleOpenModal(displayPromoBanner, 'promo')} className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2"><EditIcon className="h-4 w-4"/> Editar / Agendar</button>
+                                            {displayPromoBanner.id && <button onClick={() => handleDelete(displayPromoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2"><TrashIcon className="h-4 w-4"/> Excluir</button>}
                                         </div>
                                     </div>
                                 </div>
@@ -10674,14 +10441,14 @@ const AdminBanners = () => {
                         </div>
                     )}
 
-                    {/* --- ABA CARDS --- */}
+                    {/* CARDS */}
                     {activeTab === 'cards' && (
                         <div className="space-y-6 animate-fade-in">
                              <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4"><h3 className="font-bold text-gray-800">Cards Inferiores</h3><p className="text-sm text-gray-500">Exibidos em pares abaixo do banner de destaque.</p></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {displayCards.map((card, idx) => (
                                     <div key={idx} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative group">
-                                        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">{idx === 0 ? 'Card Esquerda' : 'Card Direita'}</div>
+                                        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">{idx === 0 ? 'Esquerda' : 'Direita'}</div>
                                         <div className="h-48 overflow-hidden bg-gray-100 relative">
                                             <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
