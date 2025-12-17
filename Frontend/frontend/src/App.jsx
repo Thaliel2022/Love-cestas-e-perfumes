@@ -2054,9 +2054,12 @@ const HomePage = ({ onNavigate }) => {
         perfumes: []
     });
     
-    // Estado separado para garantir que não haja conflito
-    const [carouselBanners, setCarouselBanners] = useState([]);
-    const [promoBanner, setPromoBanner] = useState(null); // Banner do meio (Destaque)
+    // Estado separado para cada seção
+    const [banners, setBanners] = useState({
+        carousel: [],
+        promo: null,
+        cards: []
+    });
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
@@ -2081,21 +2084,23 @@ const HomePage = ({ onNavigate }) => {
                 if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
             });
 
-        // --- BUSCA DE BANNERS COM LÓGICA DE SEPARAÇÃO ---
+        // --- BUSCA DE BANNERS ---
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // SEPARAÇÃO CLARA:
-                    // Ordem < 50: Carrossel Principal (Topo)
-                    // Ordem >= 50: Banner de Destaque (Meio da página - ex: use ordem 99 no admin)
+                    // SEPARAÇÃO POR ORDEM (CONVENÇÃO DO ADMIN):
+                    // < 50: Carrossel
+                    // 50: Promoção (Meio)
+                    // >= 60: Cards (Inferior)
                     const carousel = data.filter(b => b.display_order < 50);
-                    
-                    // Pega o primeiro banner com ordem alta para ser o destaque
-                    // Se não houver nenhum, promo será null e o fallback visual será usado
-                    const promo = data.find(b => b.display_order >= 50);
+                    const promo = data.find(b => b.display_order === 50);
+                    const cards = data.filter(b => b.display_order >= 60).slice(0, 2); // Pega até 2 cards
 
-                    setCarouselBanners(carousel);
-                    setPromoBanner(promo);
+                    setBanners({
+                        carousel: carousel,
+                        promo: promo,
+                        cards: cards
+                    });
                 }
             })
             .catch(err => {
@@ -2106,39 +2111,27 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Componente Interno do Banner de Destaque (Com Fallback para o Original)
+    // Componente do Banner de Destaque (Com Fallback Original)
     const PromoBannerSection = ({ customBanner }) => {
-        // DADOS PADRÃO (FALLBACK) - O banner original que você gosta
         const defaultBanner = {
             image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-            title: "Semana do Consumidor", // Título ajustado para quebra de linha visual via CSS se necessário
+            title: "Semana do Consumidor",
             subtitle: "Até 50% OFF em itens selecionados.",
             cta_text: "Ver Ofertas",
             link_url: "products?promo=true",
-            isFlashOffer: true // Flag interna para ativar o badge de relógio
+            isFlashOffer: true
         };
 
-        // Usa o banner do banco (customBanner) se existir, senão usa o defaultBanner
         const activeBanner = customBanner || defaultBanner;
-        
-        // Verifica se é oferta relâmpago (seja pelo banner customizado ou pelo padrão)
         const isFlashOffer = activeBanner.isFlashOffer || 
                              activeBanner.title?.toLowerCase().includes('relâmpago') || 
                              activeBanner.subtitle?.toLowerCase().includes('relâmpago');
 
-        // Tratamento para quebra de linha no título padrão (caso seja o default)
         const renderTitle = () => {
             if (!customBanner && activeBanner.title === "Semana do Consumidor") {
-                return (
-                    <>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>
-                );
+                return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
             }
             return activeBanner.title;
-        };
-
-        const handleNavigate = () => {
-            const link = activeBanner.link_url.replace(/^#/, '');
-            onNavigate(link);
         };
 
         return (
@@ -2146,50 +2139,76 @@ const HomePage = ({ onNavigate }) => {
                 <div 
                     className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
                     style={{ backgroundImage: `url(${activeBanner.image_url})` }}
-                    onClick={handleNavigate}
+                    onClick={() => onNavigate(activeBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                    
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span 
-                                initial={{ opacity: 0, y: 20 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
-                            >
+                            <motion.span initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        
-                        <motion.h2 
-                            initial={{ opacity: 0, x: -30 }}
-                            whileInView={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.1 }}
-                            className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
-                        >
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
                             {renderTitle()}
                         </motion.h2>
-                        
                         {activeBanner.subtitle && (
-                            <motion.p 
-                                initial={{ opacity: 0 }}
-                                whileInView={{ opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                                className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
-                            >
+                            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
                                 {activeBanner.subtitle}
                             </motion.p>
                         )}
-                        
-                        {(activeBanner.cta_text || activeBanner === defaultBanner) && (
-                            <motion.button 
-                                whileTap={{ scale: 0.95 }}
-                                className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
-                            >
-                                {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                            </motion.button>
-                        )}
+                        <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
+                            {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                        </motion.button>
                     </div>
+                </div>
+            </section>
+        );
+    };
+
+    // Componente dos Cards de Categoria (Com Fallback Original)
+    const CategoryCardsSection = ({ customCards }) => {
+        const defaultCards = [
+            {
+                image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+                title: "Moda & Estilo",
+                subtitle: "Peças exclusivas para sua personalidade.",
+                cta_text: "Explorar Roupas",
+                link_url: "products?category=Roupas"
+            },
+            {
+                image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+                title: "Perfumaria",
+                subtitle: "Fragrâncias marcantes importadas e nacionais.",
+                cta_text: "Ver Perfumes",
+                link_url: "products?category=Perfumes"
+            }
+        ];
+
+        // Se houver customCards, usa eles. Se faltar algum (ex: tem 1 custom), completa com o default.
+        const card1 = customCards && customCards[0] ? customCards[0] : defaultCards[0];
+        const card2 = customCards && customCards[1] ? customCards[1] : defaultCards[1];
+        const cardsToRender = [card1, card2];
+
+        return (
+            <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                    {cardsToRender.map((card, index) => (
+                        <div 
+                            key={index}
+                            onClick={() => onNavigate(card.link_url.replace(/^#/, ''))}
+                            className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
+                        >
+                            <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
+                                <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
+                                <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                                <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                                    {card.cta_text || 'Ver Mais'} &rarr;
+                                </span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </section>
         );
@@ -2197,25 +2216,23 @@ const HomePage = ({ onNavigate }) => {
 
     return (
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
-        {/* 1. Banner Carrossel (Topo) - Apenas banners com ordem < 50 */}
+        {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
             <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
-            <BannerCarousel banners={carouselBanners} onNavigate={onNavigate} />
+            <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
         )}
         
-        {/* Barra de Benefícios */}
         <BenefitsBar />
         
-        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-gradient-to-b from-black to-gray-900">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
-        {/* 2. Destaque Visual (Meio) - Banner com ordem >= 50 ou Fallback Original */}
-        <PromoBannerSection customBanner={promoBanner} />
+        {/* Destaque Visual (Banner Promocional) */}
+        <PromoBannerSection customBanner={banners.promo} />
 
         {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
@@ -2250,39 +2267,8 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Grid de Categorias */}
-        <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                <div 
-                    onClick={() => onNavigate('products?category=Roupas')}
-                    className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
-                >
-                    <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop" alt="Moda Feminina" className="w-full h-full object-cover"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                        <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">Moda & Estilo</h3>
-                        <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">Peças exclusivas para sua personalidade.</p>
-                        <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
-                            Explorar Roupas &rarr;
-                        </span>
-                    </div>
-                </div>
-
-                <div 
-                    onClick={() => onNavigate('products?category=Perfumes')}
-                    className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
-                >
-                    <img src="https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop" alt="Perfumaria" className="w-full h-full object-cover"/>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                        <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">Perfumaria</h3>
-                        <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">Fragrâncias marcantes importadas e nacionais.</p>
-                        <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
-                            Ver Perfumes &rarr;
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </section>
+        {/* Cards de Categoria (Moda / Perfumes) */}
+        <CategoryCardsSection customCards={banners.cards} />
         
         {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
@@ -10107,7 +10093,7 @@ const AdminBanners = () => {
     const [banners, setBanners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const [activeTab, setActiveTab] = useState('carousel'); // 'carousel', 'promo', 'cards'
     const [editingBanner, setEditingBanner] = useState(null);
     const notification = useNotification();
     const confirmation = useConfirmation();
@@ -10121,7 +10107,6 @@ const AdminBanners = () => {
                     setBanners(data);
                 } else {
                     setBanners([]);
-                    notification.show("Erro: A resposta da API para buscar banners é inválida.", 'error');
                 }
             })
             .catch(err => notification.show(`Erro ao buscar banners: ${err.message}`, 'error'))
@@ -10130,8 +10115,34 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    const handleOpenModal = (banner = null) => {
-        const initialData = banner ? {...banner} : { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 0, cta_text: 'Explorar Coleção' };
+    // Separa os banners por seção baseado na ordem
+    const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+    const promoBanner = banners.find(b => b.display_order === 50);
+    const cardBanners = banners.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order);
+
+    const handleOpenModal = (banner = null, section = 'carousel') => {
+        let initialOrder = 0;
+        
+        // Define a ordem baseado na seção se for um novo banner
+        if (!banner) {
+            if (section === 'carousel') {
+                const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
+                initialOrder = maxOrder + 1;
+            } else if (section === 'promo') {
+                initialOrder = 50;
+            } else if (section === 'cards') {
+                const maxOrder = cardBanners.length > 0 ? Math.max(...cardBanners.map(b => b.display_order)) : 59;
+                initialOrder = maxOrder + 1;
+            }
+        }
+
+        const initialData = banner ? {...banner} : { 
+            name: '', link_url: '', image_url: '', 
+            image_url_mobile: '', is_active: 1, 
+            cta_enabled: 0, cta_text: 'Ver Mais',
+            display_order: initialOrder 
+        };
+        
         setEditingBanner(initialData);
         setIsModalOpen(true);
     };
@@ -10140,10 +10151,10 @@ const AdminBanners = () => {
         try {
             if (editingBanner && editingBanner.id) {
                 await apiService(`/banners/${editingBanner.id}`, 'PUT', formData);
-                notification.show('Banner atualizado com sucesso!');
+                notification.show('Atualizado com sucesso!');
             } else {
                 await apiService('/banners/admin', 'POST', formData);
-                notification.show('Banner criado com sucesso!');
+                notification.show('Criado com sucesso!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10153,36 +10164,36 @@ const AdminBanners = () => {
     };
 
     const handleDelete = (id) => {
-        confirmation.show("Tem certeza que deseja excluir este banner?", async () => {
+        confirmation.show("Excluir este item?", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Banner deletado com sucesso.');
+                notification.show('Deletado com sucesso.');
                 fetchBanners();
             } catch (error) {
-                notification.show(`Erro ao deletar: ${error.message}`, 'error');
+                notification.show(`Erro: ${error.message}`, 'error');
             }
         });
     };
     
-    const handleDragEnd = async (event) => {
+    // Lógica específica para reordenar apenas o carrossel
+    const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
-            const oldIndex = banners.findIndex((b) => b.id === active.id);
-            const newIndex = banners.findIndex((b) => b.id === over.id);
-            const newOrder = arrayMove(banners, oldIndex, newIndex);
+            const oldIndex = carouselBanners.findIndex((b) => b.id === active.id);
+            const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
+            const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            setBanners(newOrder); // UI Otimista
+            // Atualiza UI localmente para evitar flick
+            const otherBanners = banners.filter(b => b.display_order >= 50);
+            setBanners([...newOrder, ...otherBanners]);
 
-            setIsSavingOrder(true);
             const orderedIds = newOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
-                notification.show('Ordem dos banners salva com sucesso!');
+                notification.show('Ordem do carrossel salva!');
             } catch (error) {
-                notification.show(`Erro ao salvar a ordem: ${error.message}`, 'error');
-                fetchBanners(); // Reverte em caso de erro
-            } finally {
-                setIsSavingOrder(false);
+                notification.show(`Erro ao salvar ordem: ${error.message}`, 'error');
+                fetchBanners();
             }
         }
     };
@@ -10191,43 +10202,120 @@ const AdminBanners = () => {
         <div>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingBanner && editingBanner.id ? 'Editar Banner' : 'Adicionar Novo Banner'}>
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingBanner && editingBanner.id ? 'Editar Item' : 'Adicionar Novo'}>
                         <BannerForm item={editingBanner} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
                     </Modal>
                 )}
             </AnimatePresence>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold">Gerenciar Banners</h1>
-                    <p className="text-sm text-gray-500 mt-1">Dica: O <strong>último banner da lista</strong> será exibido como destaque no meio da página inicial.</p>
-                </div>
-                <div className="flex items-center gap-4">
-                    {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
-                    <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
-                        <PlusIcon className="h-5 w-5"/> <span>Novo Banner</span>
-                    </button>
-                </div>
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-800">Gestão Visual da Home</h1>
+                <p className="text-gray-500">Gerencie todos os banners e destaques da página inicial em um só lugar.</p>
+            </div>
+
+            {/* Abas de Navegação */}
+            <div className="flex border-b border-gray-200 mb-6">
+                <button onClick={() => setActiveTab('carousel')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                    Carrossel (Topo)
+                </button>
+                <button onClick={() => setActiveTab('promo')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                    Destaque (Meio)
+                </button>
+                <button onClick={() => setActiveTab('cards')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                    Cards (Inferior)
+                </button>
             </div>
 
             {isLoading ? (
-                <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
+                <div className="py-20 flex justify-center"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={banners} strategy={rectSortingStrategy}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {banners.map((banner, index) => (
-                                <SortableBannerCard 
-                                    key={banner.id} 
-                                    banner={banner} 
-                                    onEdit={handleOpenModal} 
-                                    onDelete={handleDelete}
-                                    isLastItem={banners.length > 1 && index === banners.length - 1} // Marca o último item
-                                />
-                            ))}
+                <>
+                    {/* ABA CARROSSEL */}
+                    {activeTab === 'carousel' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                <p className="text-sm text-blue-800">Estes banners rotacionam no topo da página inicial. Arraste para reordenar.</p>
+                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center gap-2 text-sm font-bold">
+                                    <PlusIcon className="h-4 w-4"/> Adicionar ao Carrossel
+                                </button>
+                            </div>
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
+                                <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {carouselBanners.map((banner) => (
+                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                                        ))}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                            {carouselBanners.length === 0 && <p className="text-center text-gray-400 py-10">Nenhum banner no carrossel.</p>}
                         </div>
-                    </SortableContext>
-                </DndContext>
+                    )}
+
+                    {/* ABA PROMOÇÃO (MEIO) */}
+                    {activeTab === 'promo' && (
+                        <div className="space-y-6">
+                            <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
+                                <p className="text-sm text-amber-800">Este é o banner largo que aparece no meio da página (ex: Semana do Consumidor).</p>
+                            </div>
+                            
+                            {promoBanner ? (
+                                <div className="max-w-4xl mx-auto">
+                                    <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+                                        <div className="relative h-64 bg-gray-100">
+                                            <img src={promoBanner.image_url} alt={promoBanner.title} className="w-full h-full object-cover"/>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleOpenModal(promoBanner, 'promo')} className="bg-white p-2 rounded-full text-gray-800 hover:text-amber-600"><EditIcon className="h-6 w-6"/></button>
+                                                    <button onClick={() => handleDelete(promoBanner.id)} className="bg-white p-2 rounded-full text-gray-800 hover:text-red-600"><TrashIcon className="h-6 w-6"/></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-4 border-t">
+                                            <h3 className="font-bold text-lg">{promoBanner.title || "Sem Título"}</h3>
+                                            <p className="text-gray-600">{promoBanner.subtitle}</p>
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${promoBanner.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{promoBanner.is_active ? 'Ativo' : 'Inativo'}</span>
+                                                <span className="text-xs text-gray-400">Link: {promoBanner.link_url}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
+                                    <p className="text-gray-500 mb-4">Nenhum banner de destaque configurado. O site está usando o padrão.</p>
+                                    <button onClick={() => handleOpenModal(null, 'promo')} className="bg-amber-500 text-black px-6 py-2 rounded-md hover:bg-amber-400 font-bold">
+                                        Configurar Banner de Destaque
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ABA CARDS (INFERIOR) */}
+                    {activeTab === 'cards' && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                <p className="text-sm text-purple-800">Estes são os dois cards grandes (ex: Moda, Perfumaria) na parte inferior.</p>
+                                {cardBanners.length < 2 && (
+                                    <button onClick={() => handleOpenModal(null, 'cards')} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center gap-2 text-sm font-bold">
+                                        <PlusIcon className="h-4 w-4"/> Adicionar Card
+                                    </button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {cardBanners.map((banner) => (
+                                    <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                                ))}
+                            </div>
+                            {cardBanners.length === 0 && (
+                                <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
+                                    <p className="text-gray-500">Nenhum card configurado. O site está usando os padrões (Moda/Perfumes).</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
