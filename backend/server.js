@@ -3908,21 +3908,42 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // (Admin) Cria um novo banner
+// (Admin) Cria um novo banner - VERSÃO CORRIGIDA PARA RESPEITAR SLOTS FIXOS
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
-    if (!image_url || !link_url) {
-        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
-    }
-    try {
-        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) SELECT ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM banners";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0];
-        const [result] = await db.query(sql, params);
-        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Título: "${title}"`);
-        res.status(201).json({ message: "Banner criado com sucesso!", id: result.insertId });
-    } catch (err) {
-        console.error("Erro ao criar banner:", err);
-        res.status(500).json({ message: "Erro interno ao criar banner." });
-    }
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order } = req.body;
+    
+    if (!image_url || !link_url) {
+        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        let orderToUse = display_order;
+
+        // Se a ordem não for enviada (undefined), calcula o próximo para o carrossel (0-49)
+        if (orderToUse === undefined || orderToUse === null) {
+             const [rows] = await connection.query("SELECT COALESCE(MAX(display_order), -1) + 1 as nextOrder FROM banners WHERE display_order < 50");
+             orderToUse = rows[0].nextOrder;
+        } else {
+            // Se a ordem FOI enviada (ex: 50 ou 60), verifica se já existe um banner nessa posição e o remove/arquiva
+            // Isso garante que só exista UM banner na posição 50 (Destaque)
+            if (orderToUse >= 50) {
+                await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
+            }
+        }
+
+        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse];
+        
+        const [result] = await connection.query(sql, params);
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Posição: ${orderToUse}`);
+        res.status(201).json({ message: "Banner salvo com sucesso!", id: result.insertId });
+    } catch (err) {
+        console.error("Erro ao criar banner:", err);
+        res.status(500).json({ message: "Erro interno ao criar banner." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Admin) Atualiza a ORDEM de múltiplos banners (Drag & Drop)
@@ -3959,24 +3980,29 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active } = req.body;
-    if (!image_url || !link_url) {
-        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
-    }
-    try {
-        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ? WHERE id = ?";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, id];
-        const [result] = await db.query(sql, params);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Banner não encontrado." });
-        }
-        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}, Título: "${title}"`);
-        res.json({ message: "Banner atualizado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao atualizar banner:", err);
-        res.status(500).json({ message: "Erro ao atualizar banner." });
-    }
+    const { id } = req.params;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order } = req.body;
+    
+    if (!image_url || !link_url) {
+        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
+    }
+
+    try {
+        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ?, display_order = ? WHERE id = ?";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, display_order, id];
+        
+        const [result] = await db.query(sql, params);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Banner não encontrado." });
+        }
+        
+        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`);
+        res.json({ message: "Banner atualizado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao atualizar banner:", err);
+        res.status(500).json({ message: "Erro ao atualizar banner." });
+    }
 });
 
 // (Admin) Deleta um banner
