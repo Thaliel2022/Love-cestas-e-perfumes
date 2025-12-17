@@ -3899,7 +3899,8 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
 // (Admin) Pega todos os banners para o painel de gerenciamento
 app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     try {
-        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC");
+        // Traz tudo ordenado para o admin ver o calendário
+        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC, start_date DESC");
         res.json(banners);
     } catch (err) {
         console.error("Erro ao buscar banners (admin):", err);
@@ -3917,16 +3918,11 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     const connection = await db.getConnection();
     try {
         let orderToUse = display_order;
-        // Se não vier ordem, joga pro final do carrossel
         if (orderToUse === undefined || orderToUse === null) {
              const [rows] = await connection.query("SELECT COALESCE(MAX(display_order), -1) + 1 as nextOrder FROM banners WHERE display_order < 50");
              orderToUse = rows[0].nextOrder;
-        } else {
-            // Se for slot fixo (50, 60...), remove o anterior para substituir
-            if (orderToUse >= 50) await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
         }
 
-        // Tratamento de datas nulas
         const validStart = start_date ? new Date(start_date) : null;
         const validEnd = end_date ? new Date(end_date) : null;
 
@@ -3934,7 +3930,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
         const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd];
         
         const [result] = await connection.query(sql, params);
-        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Agendado: ${validStart ? 'Sim' : 'Não'}`);
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`);
         res.status(201).json({ message: "Banner salvo com sucesso!", id: result.insertId });
     } catch (err) {
         console.error("Erro ao criar banner:", err);
@@ -3982,8 +3978,6 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
     
-    if (!image_url || !link_url) return res.status(400).json({ message: "Dados obrigatórios faltando." });
-
     try {
         const validStart = start_date ? new Date(start_date) : null;
         const validEnd = end_date ? new Date(end_date) : null;
@@ -4021,14 +4015,19 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
 // (Público) Pega todos os banners ativos para a home page
 app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
     try {
-        // A mágica do "Padrão Amazon": O banco filtra pela data atual (NOW())
-        // Retorna apenas se is_active=1 E (data_inicio já passou OU é nula) E (data_fim não chegou OU é nula)
+        // Lógica "Padrão Amazon":
+        // 1. Traz todos os banners ativos que estão dentro do prazo (ou sem prazo)
+        // 2. Ordena por display_order (Topo < Destaque < Cards)
+        // 3. CRÍTICO: Para o mesmo display_order (ex: 50), prioriza quem tem data definida (Natal) sobre quem não tem (Padrão)
         const sql = `
             SELECT * FROM banners 
             WHERE is_active = 1 
             AND (start_date IS NULL OR start_date <= NOW()) 
             AND (end_date IS NULL OR end_date >= NOW())
-            ORDER BY display_order ASC
+            ORDER BY 
+                display_order ASC, 
+                CASE WHEN start_date IS NOT NULL THEN 1 ELSE 0 END DESC, -- Banner agendado ganha do padrão
+                start_date DESC -- O evento mais recente ganha
         `;
         const [banners] = await db.query(sql);
         res.json(banners);
