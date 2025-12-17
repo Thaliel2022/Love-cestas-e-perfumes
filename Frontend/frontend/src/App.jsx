@@ -10136,54 +10136,178 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    // Separa os banners vindos EXCLUSIVAMENTE do banco de dados
+    // --- LÓGICA INTELIGENTE DE DATAS (PADRÃO AMAZON) ---
+    // Calcula automaticamente a próxima ocorrência de uma data, considerando anos bissextos e datas móveis
+    const getNextOccurrence = (month, day, daysDuration = 15) => {
+        const now = new Date();
+        let targetYear = now.getFullYear();
+        
+        // Cria a data de início para este ano
+        let startDate = new Date(targetYear, month - 1, day, 0, 0, 0); // Mês é 0-indexado no JS
+        
+        // Se a data de início + duração já passou, joga para o próximo ano
+        const endDateThisYear = new Date(startDate);
+        endDateThisYear.setDate(endDateThisYear.getDate() + daysDuration);
+
+        if (now > endDateThisYear) {
+            targetYear++;
+            startDate = new Date(targetYear, month - 1, day, 0, 0, 0);
+        }
+
+        // Calcula data final
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + daysDuration);
+        endDate.setHours(23, 59, 59);
+
+        // Ajuste de fuso horário para inputs datetime-local
+        const toLocalISO = (date) => {
+            const offset = date.getTimezoneOffset() * 60000;
+            return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+        };
+
+        return {
+            start: toLocalISO(startDate),
+            end: toLocalISO(endDate),
+            year: targetYear
+        };
+    };
+
+    // --- BLUEPRINTS DE CAMPANHAS (DADOS DE MODELO) ---
+    // Estes dados servem apenas como base para preenchimento. 
+    // O que vale é o que for salvo no banco.
+    const CAMPAIGN_BLUEPRINTS = {
+        'default': {
+            label: "Semana do Consumidor (Padrão)",
+            title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
+            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?promo=true", cta_text: "Ver Ofertas", 
+            auto_schedule: false 
+        },
+        'mothers-day': {
+            label: "Dia das Mães",
+            title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
+            image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe",
+            auto_schedule: true, month: 5, day: 1, duration: 14 // Maio
+        },
+        'valentines': {
+            label: "Dia dos Namorados",
+            title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
+            image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products", cta_text: "Coleção Romântica",
+            auto_schedule: true, month: 6, day: 1, duration: 12 // Junho
+        },
+        'fathers-day': {
+            label: "Dia dos Pais",
+            title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
+            image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
+            link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai",
+            auto_schedule: true, month: 8, day: 1, duration: 14 // Agosto
+        },
+        'black-friday': {
+            label: "Black November",
+            title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
+            image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?promo=true", cta_text: "Aproveitar Ofertas",
+            auto_schedule: true, month: 11, day: 1, duration: 30 // Novembro
+        },
+        'christmas': {
+            label: "Natal",
+            title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
+            image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
+            link_url: "products", cta_text: "Presentes de Natal",
+            auto_schedule: true, month: 12, day: 1, duration: 25 // Dezembro
+        }
+    };
+
+    // --- CARDS PADRÃO (FALLBACK VISUAL APENAS) ---
+    // Se não houver nada no banco, o admin vê isso para saber o que preencher.
+    // Ao salvar, isso vai para o banco.
+    const DEFAULT_CARDS = [
+        {
+            title: "Moda & Estilo", subtitle: "Peças exclusivas para sua personalidade.",
+            image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?category=Roupas", cta_text: "Explorar Roupas", cta_enabled: 1, is_active: 1, display_order: 60
+        },
+        {
+            title: "Perfumaria", subtitle: "Fragrâncias marcantes importadas e nacionais.",
+            image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+            link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", cta_enabled: 1, is_active: 1, display_order: 61
+        }
+    ];
+
     const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
-    const promoBanner = banners.find(b => b.display_order === 50);
-    const card1 = banners.find(b => b.display_order === 60);
-    const card2 = banners.find(b => b.display_order === 61);
+    
+    // Procura no banco ou usa o template padrão
+    const dbPromoBanner = banners.find(b => b.display_order === 50);
+    const displayPromoBanner = dbPromoBanner || { ...CAMPAIGN_BLUEPRINTS['default'], id: null, display_order: 50, is_active: 1, cta_enabled: 1 };
+
+    const card1 = banners.find(b => b.display_order === 60) || { ...DEFAULT_CARDS[0], id: null };
+    const card2 = banners.find(b => b.display_order === 61) || { ...DEFAULT_CARDS[1], id: null };
+    const displayCards = [card1, card2];
 
     const handleOpenModal = (banner, section) => {
-        // Inicializa vazio para garantir que não haja dados "chumbados"
-        let initialData = banner ? { ...banner } : { 
-            name: '', link_url: '', image_url: '', 
-            image_url_mobile: '', is_active: 1, 
-            cta_enabled: 1, cta_text: 'Ver Mais',
-            start_date: '', end_date: ''
-        };
+        let initialData = { ...banner };
         
-        // Define a ordem correta para novos itens baseado na seção
         if (!banner) {
             if (section === 'carousel') {
                 const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
-                initialData.display_order = maxOrder + 1;
+                initialData = { 
+                    name: '', link_url: '', image_url: '', image_url_mobile: '', is_active: 1, 
+                    cta_enabled: 0, cta_text: 'Ver Mais', display_order: maxOrder + 1 
+                };
             } else if (section === 'promo') {
-                initialData.display_order = 50; // ID fixo para Destaque
-            } else if (section === 'cards') {
-                // Lógica simples para preencher slot 60 ou 61
-                if (!card1) initialData.display_order = 60;
-                else if (!card2) initialData.display_order = 61;
-                else initialData.display_order = 62; // Fallback
+                initialData = { ...CAMPAIGN_BLUEPRINTS['default'], id: null, display_order: 50, cta_enabled: 1, is_active: 1 };
             }
         }
-
         setEditingBanner(initialData);
         setIsModalOpen(true);
+    };
+
+    // Aplica o template e calcula a data automaticamente
+    const applyTemplate = (key) => {
+        const template = CAMPAIGN_BLUEPRINTS[key];
+        if (!template) return;
+
+        let startDate = '';
+        let endDate = '';
+
+        // AUTOMAÇÃO: Calcula a próxima data válida (ex: 2025 ou 2026)
+        if (template.auto_schedule) {
+            const schedule = getNextOccurrence(template.month, template.day, template.duration);
+            startDate = schedule.start;
+            endDate = schedule.end;
+            notification.show(`Agendado automaticamente para: ${new Date(startDate).toLocaleDateString()} a ${new Date(endDate).toLocaleDateString()}`);
+        } else {
+            notification.show("Template padrão carregado. Defina as datas se desejar.");
+        }
+
+        setEditingBanner(prev => ({
+            ...prev,
+            title: template.title,
+            subtitle: template.subtitle,
+            image_url: template.image_url,
+            link_url: template.link_url,
+            cta_text: template.cta_text,
+            start_date: startDate,
+            end_date: endDate,
+            display_order: 50 // Garante que é Destaque
+        }));
     };
 
     const handleSave = async (formData) => {
         try {
             const payload = { ...formData, display_order: parseInt(formData.display_order) };
             
-            // Trata datas vazias para null para o banco aceitar
             if (!payload.start_date) payload.start_date = null;
             if (!payload.end_date) payload.end_date = null;
 
             if (formData.id) {
                 await apiService(`/banners/${formData.id}`, 'PUT', payload);
-                notification.show('Banner atualizado com sucesso!');
+                notification.show('Banner atualizado!');
             } else {
                 await apiService('/banners/admin', 'POST', payload);
-                notification.show('Banner criado com sucesso!');
+                notification.show('Banner criado e agendado!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10194,10 +10318,10 @@ const AdminBanners = () => {
 
     const handleDelete = (id) => {
         if (!id) return;
-        confirmation.show("Tem certeza que deseja excluir este banner?", async () => {
+        confirmation.show("Remover configuração? O site voltará a exibir o padrão.", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Banner excluído.');
+                notification.show('Banner removido.');
                 fetchBanners();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
@@ -10212,14 +10336,11 @@ const AdminBanners = () => {
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            // Atualiza UI local
-            const otherBanners = banners.filter(b => b.display_order >= 50);
-            setBanners([...newOrder, ...otherBanners]);
-
+            setBanners([...newOrder, ...banners.filter(b => b.display_order >= 50)]);
             const orderedIds = newOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
-                notification.show('Nova ordem salva!');
+                notification.show('Ordem salva!');
             } catch (error) {
                 notification.show('Erro ao salvar ordem.', 'error');
                 fetchBanners();
@@ -10227,24 +10348,53 @@ const AdminBanners = () => {
         }
     };
 
+    const ModalContent = () => (
+        <div className="space-y-4">
+            {activeTab === 'promo' && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-md border border-blue-100 mb-4 shadow-sm">
+                    <label className="block text-xs font-bold text-blue-900 mb-3 flex items-center gap-2">
+                        <ClockIcon className="h-4 w-4"/>
+                        Agendamento Inteligente (Próxima Ocorrência):
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                        {Object.entries(CAMPAIGN_BLUEPRINTS).map(([key, tpl]) => (
+                            <button 
+                                key={key}
+                                type="button"
+                                onClick={() => applyTemplate(key)}
+                                className="px-3 py-1.5 text-xs bg-white border border-blue-200 rounded-full hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all text-blue-700 font-medium shadow-sm"
+                            >
+                                {tpl.label}
+                            </button>
+                        ))}
+                    </div>
+                    <p className="text-[10px] text-blue-600 mt-2 italic">
+                        *O sistema calculará automaticamente o ano correto (ex: se o Natal deste ano já passou, agendará para o próximo).
+                    </p>
+                </div>
+            )}
+            <BannerForm 
+                item={editingBanner} 
+                section={activeTab} 
+                onSave={handleSave} 
+                onCancel={() => setIsModalOpen(false)} 
+            />
+        </div>
+    );
+
     return (
         <div>
             <AnimatePresence>
                 {isModalOpen && (
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Editor de Banner">
-                        <BannerForm 
-                            item={editingBanner} 
-                            section={activeTab} 
-                            onSave={handleSave} 
-                            onCancel={() => setIsModalOpen(false)} 
-                        />
+                        <ModalContent />
                     </Modal>
                 )}
             </AnimatePresence>
 
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Gestão Visual da Home</h1>
-                <p className="text-gray-500">Gerencie os banners, destaques e cards da loja.</p>
+                <p className="text-gray-500">Agende campanhas sazonais e gerencie destaques.</p>
             </div>
 
             <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
@@ -10252,7 +10402,7 @@ const AdminBanners = () => {
                     Carrossel (Topo)
                 </button>
                 <button onClick={() => setActiveTab('promo')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Destaque (Meio)
+                    Destaque (Agendável)
                 </button>
                 <button onClick={() => setActiveTab('cards')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
                     Cards (Inferior)
@@ -10263,17 +10413,12 @@ const AdminBanners = () => {
                 <div className="py-20 flex justify-center"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <>
-                    {/* --- ABA CARROSSEL --- */}
+                    {/* CARROSSEL */}
                     {activeTab === 'carousel' && (
                         <div className="space-y-4 animate-fade-in">
                             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                <div>
-                                    <h3 className="font-bold text-gray-800">Banners Rotativos</h3>
-                                    <p className="text-xs text-gray-500">Exibidos no topo da página. Arraste para reordenar.</p>
-                                </div>
-                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md">
-                                    <PlusIcon className="h-4 w-4"/> Adicionar Novo
-                                </button>
+                                <div><h3 className="font-bold text-gray-800">Banners Rotativos</h3><p className="text-xs text-gray-500">Topo da página.</p></div>
+                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md"><PlusIcon className="h-4 w-4"/> Novo</button>
                             </div>
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
                                 <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
@@ -10284,108 +10429,67 @@ const AdminBanners = () => {
                                     </div>
                                 </SortableContext>
                             </DndContext>
-                            {carouselBanners.length === 0 && (
-                                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                                    <p className="text-gray-400">Nenhum banner configurado no carrossel.</p>
-                                </div>
-                            )}
+                            {carouselBanners.length === 0 && <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg"><p className="text-gray-400">Nenhum banner no topo.</p></div>}
                         </div>
                     )}
 
-                    {/* --- ABA DESTAQUE --- */}
+                    {/* DESTAQUE */}
                     {activeTab === 'promo' && (
                         <div className="space-y-6 animate-fade-in">
                             <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="font-bold text-lg text-gray-800">Banner de Destaque</h3>
-                                        <p className="text-sm text-gray-500">Banner largo exibido no meio da página. Ideal para promoções sazonais.</p>
+                                        <p className="text-sm text-gray-500">Este banner obedece ao agendamento. Se expirado, não aparecerá na home.</p>
                                     </div>
-                                    {promoBanner && (
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${promoBanner.start_date ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                            <ClockIcon className="h-3 w-3"/>
-                                            {promoBanner.start_date ? 'Agendado' : 'Exibição Permanente'}
-                                        </span>
-                                    )}
+                                    <div className="flex gap-2">
+                                        {displayPromoBanner.id ? (
+                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200 flex items-center gap-1">
+                                                <ClockIcon className="h-3 w-3"/>
+                                                {displayPromoBanner.start_date ? 'Configurado no Banco' : 'Fixo (Sem data)'}
+                                            </span>
+                                        ) : (
+                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200">Visualização Padrão (Não Salvo)</span>
+                                        )}
+                                    </div>
                                 </div>
-                                
-                                {promoBanner ? (
-                                    <div className="relative h-64 w-full rounded-lg overflow-hidden border-2 border-gray-100 group">
-                                        <img src={promoBanner.image_url} alt={promoBanner.title} className="w-full h-full object-cover"/>
-                                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <h4 className="text-xl font-bold mb-1">{promoBanner.title}</h4>
-                                            {promoBanner.start_date && (
-                                                <p className="text-xs bg-blue-600 px-2 py-1 rounded mb-2">
-                                                    {new Date(promoBanner.start_date).toLocaleDateString()} - {new Date(promoBanner.end_date).toLocaleDateString()}
-                                                </p>
-                                            )}
-                                            <div className="flex gap-3 mt-4">
-                                                <button onClick={() => handleOpenModal(promoBanner, 'promo')} className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2">
-                                                    <EditIcon className="h-4 w-4"/> Editar
-                                                </button>
-                                                <button onClick={() => handleDelete(promoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2">
-                                                    <TrashIcon className="h-4 w-4"/> Excluir
-                                                </button>
-                                            </div>
+                                <div className="relative h-64 w-full rounded-lg overflow-hidden border-2 border-gray-100 group">
+                                    <img src={displayPromoBanner.image_url} alt={displayPromoBanner.title} className="w-full h-full object-cover"/>
+                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <h4 className="text-xl font-bold mb-1">{displayPromoBanner.title}</h4>
+                                        {displayPromoBanner.start_date && (
+                                            <p className="text-xs bg-blue-600 px-2 py-1 rounded mb-2">
+                                                De: {new Date(displayPromoBanner.start_date).toLocaleDateString()} Até: {new Date(displayPromoBanner.end_date).toLocaleDateString()}
+                                            </p>
+                                        )}
+                                        <div className="flex gap-3 mt-4">
+                                            <button onClick={() => handleOpenModal(displayPromoBanner, 'promo')} className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2"><EditIcon className="h-4 w-4"/> {displayPromoBanner.id ? 'Editar Configuração' : 'Configurar Agora'}</button>
+                                            {displayPromoBanner.id && <button onClick={() => handleDelete(displayPromoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2"><TrashIcon className="h-4 w-4"/> Apagar</button>}
                                         </div>
                                     </div>
-                                ) : (
-                                    <div className="text-center py-16 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-                                        <p className="text-gray-500 mb-4">Nenhum banner de destaque configurado.</p>
-                                        <button onClick={() => handleOpenModal(null, 'promo')} className="bg-amber-500 text-black px-6 py-2 rounded-md hover:bg-amber-400 font-bold shadow-sm">
-                                            <PlusIcon className="h-5 w-5 inline mr-2"/>
-                                            Configurar Destaque
-                                        </button>
-                                    </div>
-                                )}
+                                </div>
                             </div>
                         </div>
                     )}
 
-                    {/* --- ABA CARDS --- */}
+                    {/* CARDS */}
                     {activeTab === 'cards' && (
                         <div className="space-y-6 animate-fade-in">
-                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
-                                <h3 className="font-bold text-gray-800">Cards Inferiores</h3>
-                                <p className="text-sm text-gray-500">Dois banners menores exibidos lado a lado na parte inferior.</p>
-                            </div>
-
+                             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4"><h3 className="font-bold text-gray-800">Cards Inferiores</h3><p className="text-sm text-gray-500">Exibidos em pares abaixo do banner de destaque.</p></div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* CARD 1 (ESQUERDA) */}
-                                {card1 ? (
-                                    <SortableBannerCard 
-                                        banner={card1} 
-                                        onEdit={() => handleOpenModal(card1, 'cards')} 
-                                        onDelete={handleDelete} 
-                                        customLabel="Esquerda (Pos. 60)"
-                                        customColor="bg-blue-600 text-white"
-                                    />
-                                ) : (
-                                    <div className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
-                                        <p className="text-sm mb-2 font-semibold">Slot Esquerdo Vazio</p>
-                                        <button onClick={() => handleOpenModal(null, 'cards')} className="text-amber-600 hover:underline text-sm font-bold flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4"/> Adicionar
-                                        </button>
+                                {displayCards.map((card, idx) => (
+                                    <div key={idx} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative group">
+                                        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">{idx === 0 ? 'Esquerda' : 'Direita'}</div>
+                                        <div className="h-48 overflow-hidden bg-gray-100 relative">
+                                            <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleOpenModal(card, 'cards')} className="bg-white text-gray-900 p-2 rounded-full hover:bg-amber-400 transition-colors shadow-lg flex items-center gap-2 font-bold px-4"><EditIcon className="h-4 w-4"/> {card.id ? 'Editar' : 'Salvar no Banco'}</button>
+                                                {card.id && <button onClick={() => handleDelete(card.id)} className="bg-white text-red-600 p-2 rounded-full hover:bg-red-100 transition-colors shadow-lg ml-2"><TrashIcon className="h-4 w-4"/></button>}
+                                            </div>
+                                        </div>
+                                        <div className="p-4"><h4 className="font-bold text-gray-800">{card.title}</h4></div>
                                     </div>
-                                )}
-
-                                {/* CARD 2 (DIREITA) */}
-                                {card2 ? (
-                                    <SortableBannerCard 
-                                        banner={card2} 
-                                        onEdit={() => handleOpenModal(card2, 'cards')} 
-                                        onDelete={handleDelete} 
-                                        customLabel="Direita (Pos. 61)"
-                                        customColor="bg-purple-600 text-white"
-                                    />
-                                ) : (
-                                    <div className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
-                                        <p className="text-sm mb-2 font-semibold">Slot Direito Vazio</p>
-                                        <button onClick={() => handleOpenModal(null, 'cards')} className="text-amber-600 hover:underline text-sm font-bold flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4"/> Adicionar
-                                        </button>
-                                    </div>
-                                )}
+                                ))}
                             </div>
                         </div>
                     )}
