@@ -2053,6 +2053,11 @@ const HomePage = ({ onNavigate }) => {
         clothing: [],
         perfumes: []
     });
+    const [banners, setBanners] = useState({
+        carousel: [],
+        promo: null
+    });
+    const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
         apiService('/products')
@@ -2071,68 +2076,112 @@ const HomePage = ({ onNavigate }) => {
                 });
             })
             .catch(err => console.error("Falha ao buscar produtos:", err));
+
+        apiService('/banners')
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    let carouselBanners = [];
+                    let promoBanner = null;
+
+                    // LÓGICA INTELIGENTE:
+                    // Se houver apenas 1 banner -> Vai para o Carrossel (Topo).
+                    // Se houver mais de 1 -> O ÚLTIMO vai para o Destaque (Meio), o resto fica no Topo.
+                    if (data.length > 1) {
+                        carouselBanners = data.slice(0, data.length - 1);
+                        promoBanner = data[data.length - 1];
+                    } else {
+                        carouselBanners = data;
+                        promoBanner = null;
+                    }
+
+                    setBanners({
+                        carousel: carouselBanners,
+                        promo: promoBanner
+                    });
+                }
+            })
+            .catch(err => console.error("Falha ao buscar banners:", err))
+            .finally(() => setIsLoadingBanners(false));
+
     }, []);
+
+    const PromoBannerSection = ({ banner }) => {
+        if (!banner) return null;
+
+        const isFlashOffer = banner.title?.toLowerCase().includes('relâmpago') || banner.subtitle?.toLowerCase().includes('relâmpago');
+        
+        return (
+            <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
+                <div 
+                    className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
+                    style={{ backgroundImage: `url(${banner.image_url})` }}
+                    onClick={() => onNavigate(banner.link_url.replace(/^#/, ''))}
+                >
+                    <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
+                    
+                    <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
+                        {isFlashOffer && (
+                            <motion.span 
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
+                            >
+                                <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
+                            </motion.span>
+                        )}
+                        
+                        <motion.h2 
+                            initial={{ opacity: 0, x: -30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="text-4xl md:text-6xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
+                        >
+                            {banner.title}
+                        </motion.h2>
+                        
+                        {banner.subtitle && (
+                            <motion.p 
+                                initial={{ opacity: 0 }}
+                                whileInView={{ opacity: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
+                            >
+                                {banner.subtitle}
+                            </motion.p>
+                        )}
+                        
+                        {banner.cta_enabled === 1 && (
+                            <motion.button 
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
+                            >
+                                {banner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                            </motion.button>
+                        )}
+                    </div>
+                </div>
+            </section>
+        );
+    };
 
     return (
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
-        {/* Banner Principal Rotativo */}
-        <BannerCarousel onNavigate={onNavigate} />
+        {isLoadingBanners ? (
+            <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
+                <SpinnerIcon className="h-10 w-10 text-amber-400" />
+            </div>
+        ) : (
+            <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
+        )}
         
-        {/* Barra de Benefícios (Confiança) */}
         <BenefitsBar />
         
-        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-gradient-to-b from-black to-gray-900">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
-        {/* Destaque Visual: Campanha Promocional */}
-        <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
-            <div 
-                className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
-                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop)' }}
-                onClick={() => onNavigate('products?promo=true')}
-            >
-                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                
-                <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
-                    <motion.span 
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
-                    >
-                        <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
-                    </motion.span>
-                    
-                    <motion.h2 
-                        initial={{ opacity: 0, x: -30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
-                    >
-                        Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span>
-                    </motion.h2>
-                    
-                    <motion.p 
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        transition={{ delay: 0.2 }}
-                        className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
-                    >
-                        Até <strong className="text-white font-bold">50% OFF</strong> em itens selecionados.
-                    </motion.p>
-                    
-                    <motion.button 
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
-                    >
-                        Ver Ofertas <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                    </motion.button>
-                </div>
-            </div>
-        </section>
+        <PromoBannerSection banner={banners.promo} />
 
-        {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
@@ -2151,7 +2200,6 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
         
-        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -2165,11 +2213,9 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Grid de Categorias (Cards otimizados para Mobile) */}
         <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
             <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                {/* Card Moda */}
                 <div 
                     onClick={() => onNavigate('products?category=Roupas')}
                     className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
@@ -2184,7 +2230,6 @@ const HomePage = ({ onNavigate }) => {
                     </div>
                 </div>
 
-                {/* Card Perfumes */}
                 <div 
                     onClick={() => onNavigate('products?category=Perfumes')}
                     className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
@@ -2201,7 +2246,6 @@ const HomePage = ({ onNavigate }) => {
             </div>
         </section>
         
-        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
@@ -2212,7 +2256,6 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Vitrine Perfumes (Condicional) */}
         {products.perfumes.length > 0 && (
             <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
@@ -9989,12 +10032,17 @@ const BannerForm = ({ item, onSave, onCancel }) => {
     );
 };
 
-const SortableBannerCard = ({ banner, onEdit, onDelete }) => {
+const SortableBannerCard = ({ banner, onEdit, onDelete, isLastItem }) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: banner.id });
     const style = { transform: CSS.Transform.toString(transform), transition, touchAction: 'none' };
 
     return (
-        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group relative ${!banner.is_active ? 'opacity-50' : ''}`}>
+        <div ref={setNodeRef} style={style} className={`bg-white border rounded-lg shadow-sm overflow-hidden group relative ${!banner.is_active ? 'opacity-50' : ''} ${isLastItem ? 'border-2 border-amber-500 ring-2 ring-amber-100' : ''}`}>
+             {isLastItem && (
+                 <div className="absolute top-0 left-0 bg-amber-500 text-black text-[10px] font-bold px-2 py-1 z-20 shadow-md">
+                     DESTAQUE (HOME)
+                 </div>
+             )}
              <div {...attributes} {...listeners} className="absolute top-2 right-2 p-2 bg-black/40 rounded-full cursor-grab active:cursor-grabbing text-white opacity-0 group-hover:opacity-100 transition-opacity z-10" title="Arraste para reordenar">
                 <BarsGripIcon className="h-5 w-5" />
             </div>
@@ -10111,7 +10159,10 @@ const AdminBanners = () => {
             </AnimatePresence>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h1 className="text-3xl font-bold">Gerenciar Banners</h1>
+                <div>
+                    <h1 className="text-3xl font-bold">Gerenciar Banners</h1>
+                    <p className="text-sm text-gray-500 mt-1">Dica: O <strong>último banner da lista</strong> será exibido como destaque no meio da página inicial.</p>
+                </div>
                 <div className="flex items-center gap-4">
                     {isSavingOrder && <div className="flex items-center gap-2 text-sm text-gray-500"><SpinnerIcon/> Salvando ordem...</div>}
                     <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0">
@@ -10126,8 +10177,14 @@ const AdminBanners = () => {
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                     <SortableContext items={banners} strategy={rectSortingStrategy}>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {banners.map(banner => (
-                                <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                            {banners.map((banner, index) => (
+                                <SortableBannerCard 
+                                    key={banner.id} 
+                                    banner={banner} 
+                                    onEdit={handleOpenModal} 
+                                    onDelete={handleDelete}
+                                    isLastItem={banners.length > 1 && index === banners.length - 1} // Marca o último item
+                                />
                             ))}
                         </div>
                     </SortableContext>
@@ -10672,46 +10729,37 @@ const InstallPWAButton = ({ deferredPrompt }) => {
     );
 };
 
-const BannerCarousel = memo(({ onNavigate }) => {
-    const [banners, setBanners] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+const BannerCarousel = memo(({ banners, onNavigate }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [touchStart, setTouchStart] = useState(null);
     const [touchEnd, setTouchEnd] = useState(null);
     const minSwipeDistance = 50;
 
     useEffect(() => {
-        apiService('/banners')
-            .then(data => {
-                if (Array.isArray(data) && data.length > 0) {
-                    setBanners(data);
-                }
-            })
-            .catch(err => {
-                console.error("Falha ao buscar banners:", err);
-            })
-            .finally(() => setIsLoading(false));
-    }, []);
+        setCurrentIndex(0);
+    }, [banners]);
 
     const goNext = useCallback(() => {
+        if (!banners || banners.length === 0) return;
         setCurrentIndex(prev => (prev === banners.length - 1 ? 0 : prev + 1));
-    }, [banners.length]);
+    }, [banners]);
 
     const goPrev = useCallback(() => {
+        if (!banners || banners.length === 0) return;
         setCurrentIndex(prev => (prev === 0 ? banners.length - 1 : prev - 1));
-    }, [banners.length]);
+    }, [banners]);
 
     useEffect(() => {
-        if (banners.length > 1) {
+        if (banners && banners.length > 1) {
             const timer = setTimeout(goNext, 5000);
             return () => clearTimeout(timer);
         }
-    }, [currentIndex, banners.length, goNext]);
+    }, [currentIndex, banners, goNext]);
     
     const handleTouchStart = (e) => { setTouchEnd(null); setTouchStart(e.targetTouches[0].clientX); };
     const handleTouchMove = (e) => { setTouchEnd(e.targetTouches[0].clientX); };
     const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd || banners.length <= 1) return;
+        if (!touchStart || !touchEnd || !banners || banners.length <= 1) return;
         const distance = touchStart - touchEnd;
         const isLeftSwipe = distance > minSwipeDistance;
         const isRightSwipe = distance < -minSwipeDistance;
@@ -10731,14 +10779,13 @@ const BannerCarousel = memo(({ onNavigate }) => {
         visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100 } }
     };
 
-    if (isLoading) {
-        return <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center"><SpinnerIcon className="h-10 w-10 text-amber-400" /></div>;
-    }
-    
-    if (banners.length === 0) return null;
+    if (!banners || banners.length === 0) return null;
     
     const isMobile = window.innerWidth < 640;
     const currentBanner = banners[currentIndex];
+    
+    if (!currentBanner) return null;
+
     const imageUrl = isMobile && currentBanner.image_url_mobile ? currentBanner.image_url_mobile : currentBanner.image_url;
 
     return (
@@ -10748,9 +10795,9 @@ const BannerCarousel = memo(({ onNavigate }) => {
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
                 <motion.div
-                    key={currentIndex}
+                    key={currentBanner.id || currentIndex}
                     className="absolute inset-0 cursor-pointer"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -10768,7 +10815,7 @@ const BannerCarousel = memo(({ onNavigate }) => {
                             initial="hidden"
                             animate="visible"
                             exit="hidden"
-                            key={`content-${currentIndex}`}
+                            key={`content-${currentBanner.id}`}
                          >
                             {currentBanner.title && (
                                 <motion.h1 
@@ -10800,15 +10847,15 @@ const BannerCarousel = memo(({ onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={goPrev} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={goNext} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={() => setCurrentIndex(index)} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
+                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
                         ))}
                     </div>
                 </>
