@@ -2095,6 +2095,7 @@ const HomePage = ({ onNavigate }) => {
                     const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
                     
                     // Pega TODOS os banners de destaque (ordem 50) para rotacionar
+                    // O backend já garante que só vêm os ativos e dentro da data
                     const promo = data.filter(b => b.display_order === 50);
                     
                     const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
@@ -2130,20 +2131,26 @@ const HomePage = ({ onNavigate }) => {
         }];
 
         // Usa os banners do banco se existirem, senão usa o padrão
+        // Se houver banners no banco (ex: Natal + Promoção Manual), eles estarão em customBanners
         const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
         
         // Lógica de Rotação Automática
         useEffect(() => {
+            // Só ativa o timer se houver mais de 1 banner para mostrar
             if (activeBanners.length > 1) {
                 const timer = setTimeout(() => {
                     setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-                }, 5000); // 5 segundos
+                }, 5000); // 5 segundos por slide
                 return () => clearTimeout(timer);
             }
         }, [currentIndex, activeBanners.length]);
 
-        const currentBanner = activeBanners[currentIndex];
+        // Garante que o índice não estoure se a lista mudar
+        const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
+        const currentBanner = activeBanners[safeIndex];
         
+        if (!currentBanner) return null;
+
         const isFlashOffer = currentBanner.isFlashOffer || 
                              currentBanner.title?.toLowerCase().includes('relâmpago') || 
                              currentBanner.subtitle?.toLowerCase().includes('relâmpago');
@@ -2159,7 +2166,7 @@ const HomePage = ({ onNavigate }) => {
             <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
                 <AnimatePresence mode="wait">
                     <motion.div 
-                        key={currentBanner.id || currentIndex}
+                        key={currentBanner.id || safeIndex} // Chave única para forçar animação na troca
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -2199,7 +2206,8 @@ const HomePage = ({ onNavigate }) => {
                             <button 
                                 key={idx}
                                 onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
-                                className={`w-2 h-2 rounded-full transition-all ${currentIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
+                                className={`w-2 h-2 rounded-full transition-all ${safeIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
+                                aria-label={`Ir para banner ${idx + 1}`}
                             />
                         ))}
                     </div>
