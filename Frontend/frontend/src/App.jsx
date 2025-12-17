@@ -10159,7 +10159,7 @@ const AdminBanners = () => {
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
     // --- DADOS PADRÃO (FALLBACKS) ---
-    // Estes dados aparecem no admin se não houver nada no banco, permitindo edição imediata
+    // Estes dados aparecem se não houver nada no banco para aquela posição
     const DEFAULT_PROMO = {
         title: "Semana do Consumidor",
         subtitle: "Até 50% OFF em itens selecionados.",
@@ -10171,45 +10171,42 @@ const AdminBanners = () => {
         display_order: 50 // ID fixo para Destaque
     };
 
-    const DEFAULT_CARDS = [
-        {
-            title: "Moda & Estilo",
-            subtitle: "Peças exclusivas para sua personalidade.",
-            image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
-            link_url: "products?category=Roupas",
-            cta_text: "Explorar Roupas",
-            cta_enabled: 1,
-            is_active: 1,
-            display_order: 60
-        },
-        {
-            title: "Perfumaria",
-            subtitle: "Fragrâncias marcantes importadas e nacionais.",
-            image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
-            link_url: "products?category=Perfumes",
-            cta_text: "Ver Perfumes",
-            cta_enabled: 1,
-            is_active: 1,
-            display_order: 61
-        }
-    ];
+    const DEFAULT_CARD_1 = {
+        title: "Moda & Estilo",
+        subtitle: "Peças exclusivas para sua personalidade.",
+        image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?category=Roupas",
+        cta_text: "Explorar Roupas",
+        cta_enabled: 1,
+        is_active: 1,
+        display_order: 60 // ID fixo para Card 1
+    };
 
-    // Separa os banners do banco
+    const DEFAULT_CARD_2 = {
+        title: "Perfumaria",
+        subtitle: "Fragrâncias marcantes importadas e nacionais.",
+        image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+        link_url: "products?category=Perfumes",
+        cta_text: "Ver Perfumes",
+        cta_enabled: 1,
+        is_active: 1,
+        display_order: 61 // ID fixo para Card 2
+    };
+
+    // Filtra os banners do banco
     const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
     
-    // Se existe no banco, usa. Se não, usa o padrão (fantasma)
-    const dbPromoBanner = banners.find(b => b.display_order === 50);
-    const displayPromoBanner = dbPromoBanner || { ...DEFAULT_PROMO, id: null }; // id: null indica que ainda não foi salvo
-
-    // Cards: Mescla banco com padrão
-    const card1 = banners.find(b => b.display_order === 60) || { ...DEFAULT_CARDS[0], id: null };
-    const card2 = banners.find(b => b.display_order === 61) || { ...DEFAULT_CARDS[1], id: null };
-    const displayCards = [card1, card2];
+    // Procura no banco ou usa o padrão
+    const displayPromoBanner = banners.find(b => b.display_order === 50) || { ...DEFAULT_PROMO, id: null };
+    const displayCard1 = banners.find(b => b.display_order === 60) || { ...DEFAULT_CARD_1, id: null };
+    const displayCard2 = banners.find(b => b.display_order === 61) || { ...DEFAULT_CARD_2, id: null };
+    
+    const displayCards = [displayCard1, displayCard2];
 
     const handleOpenModal = (banner, section) => {
         let initialData = { ...banner };
         
-        // Se for um banner novo no carrossel
+        // Se estiver criando um NOVO banner para o carrossel
         if (!banner && section === 'carousel') {
             const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
             initialData = { 
@@ -10226,14 +10223,18 @@ const AdminBanners = () => {
 
     const handleSave = async (formData) => {
         try {
+            // Garante que display_order seja um número inteiro
+            const payload = { ...formData, display_order: parseInt(formData.display_order) };
+
             if (formData.id) {
-                // Atualiza existente
-                await apiService(`/banners/${formData.id}`, 'PUT', formData);
-                notification.show('Banner atualizado!');
+                // Atualiza banner existente
+                await apiService(`/banners/${formData.id}`, 'PUT', payload);
+                notification.show('Atualizado com sucesso!');
             } else {
-                // Cria novo (isso acontece quando editamos um banner "Padrão" pela primeira vez)
-                await apiService('/banners/admin', 'POST', formData);
-                notification.show('Banner criado e salvo!');
+                // Cria novo (isso acontece ao editar um banner padrão pela primeira vez)
+                // O Backend agora vai ver o display_order (50, 60, etc) e respeitar
+                await apiService('/banners/admin', 'POST', payload);
+                notification.show('Salvo com sucesso!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10243,8 +10244,8 @@ const AdminBanners = () => {
     };
 
     const handleDelete = (id) => {
-        if (!id) return; // Não dá pra deletar banner padrão que não existe no banco
-        confirmation.show("Restaurar padrão? Isso excluirá sua personalização.", async () => {
+        if (!id) return;
+        confirmation.show("Restaurar para o padrão original?", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
                 notification.show('Restaurado para o padrão.');
@@ -10255,7 +10256,6 @@ const AdminBanners = () => {
         });
     };
     
-    // Reordenar Carrossel
     const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
@@ -10285,7 +10285,7 @@ const AdminBanners = () => {
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Editor de Banner">
                         <BannerForm 
                             item={editingBanner} 
-                            section={activeTab} // Passa a seção para o form mostrar dicas corretas
+                            section={activeTab} 
                             onSave={handleSave} 
                             onCancel={() => setIsModalOpen(false)} 
                         />
@@ -10320,7 +10320,7 @@ const AdminBanners = () => {
                             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                                 <div>
                                     <h3 className="font-bold text-gray-800">Banners Rotativos</h3>
-                                    <p className="text-xs text-gray-500">Arraste para mudar a ordem de exibição.</p>
+                                    <p className="text-xs text-gray-500">Arraste para mudar a ordem de exibição. (Máx recomendado: 5)</p>
                                 </div>
                                 <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">
                                     <PlusIcon className="h-4 w-4"/> Adicionar Novo
@@ -10391,24 +10391,23 @@ const AdminBanners = () => {
                         <div className="space-y-6 animate-fade-in">
                             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
                                 <h3 className="font-bold text-gray-800">Cards Inferiores</h3>
-                                <p className="text-sm text-gray-500">Exibidos em pares abaixo do banner de destaque.</p>
+                                <p className="text-sm text-gray-500">Dois cards fixos exibidos lado a lado.</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {displayCards.map((card, idx) => (
                                     <div key={idx} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative group">
                                         <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">
-                                            {idx === 0 ? 'Card Esquerda' : 'Card Direita'}
+                                            {idx === 0 ? 'Esquerda' : 'Direita'}
                                         </div>
                                         <div className="h-48 overflow-hidden bg-gray-100 relative">
                                             <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
                                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button 
                                                     onClick={() => handleOpenModal(card, 'cards')} 
-                                                    className="bg-white text-gray-900 p-2 rounded-full hover:bg-amber-400 transition-colors shadow-lg"
-                                                    title="Editar Card"
+                                                    className="bg-white text-gray-900 p-2 rounded-full hover:bg-amber-400 transition-colors shadow-lg flex items-center gap-2 font-bold px-4"
                                                 >
-                                                    <EditIcon className="h-5 w-5"/>
+                                                    <EditIcon className="h-4 w-4"/> Editar
                                                 </button>
                                                 {card.id && (
                                                     <button 
