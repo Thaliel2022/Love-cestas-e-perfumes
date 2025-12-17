@@ -2049,6 +2049,149 @@ const NewsletterSection = () => (
 );
 
 // --- PÁGINAS DO CLIENTE ---
+// Componente Interno do Banner de Destaque (Carrossel)
+// Movido para fora para evitar recriação a cada renderização da HomePage
+const PromoBannerSection = ({ customBanners, onNavigate }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    
+    // Dados Padrão (Fallback visual se o banco estiver vazio)
+    const defaultBanner = [{
+        image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+        title: "Semana do Consumidor",
+        subtitle: "Até 50% OFF em itens selecionados.",
+        cta_text: "Ver Ofertas",
+        link_url: "products?promo=true",
+        isFlashOffer: true,
+        id: 'default'
+    }];
+
+    // Usa os banners do banco se existirem, senão usa o padrão
+    const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
+    
+    // Lógica de Rotação Automática
+    useEffect(() => {
+        if (activeBanners.length > 1) {
+            const timer = setTimeout(() => {
+                setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
+            }, 5000); // 5 segundos por slide
+            return () => clearTimeout(timer);
+        }
+    }, [currentIndex, activeBanners.length]);
+
+    // Garante que o índice não estoure se a lista mudar
+    const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
+    const currentBanner = activeBanners[safeIndex];
+    
+    if (!currentBanner) return null;
+
+    const isFlashOffer = currentBanner.isFlashOffer || 
+                            currentBanner.title?.toLowerCase().includes('relâmpago') || 
+                            currentBanner.subtitle?.toLowerCase().includes('relâmpago');
+
+    const renderTitle = () => {
+        if (currentBanner.id === 'default' && currentBanner.title === "Semana do Consumidor") {
+            return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
+        }
+        return currentBanner.title;
+    };
+
+    return (
+        <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key={currentBanner.id || safeIndex} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
+                    style={{ backgroundImage: `url(${currentBanner.image_url})` }}
+                    onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
+                >
+                    <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
+                    <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
+                        {isFlashOffer && (
+                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                                <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
+                            </motion.span>
+                        )}
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
+                            {renderTitle()}
+                        </motion.h2>
+                        {currentBanner.subtitle && (
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                                {currentBanner.subtitle}
+                            </motion.p>
+                        )}
+                        {currentBanner.cta_enabled !== 0 && (
+                            <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
+                                {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                            </motion.button>
+                        )}
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+            
+            {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
+            {activeBanners.length > 1 && (
+                <div className="flex justify-center mt-4 gap-2">
+                    {activeBanners.map((_, idx) => (
+                        <button 
+                            key={idx}
+                            onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
+                            className={`w-2 h-2 rounded-full transition-all ${safeIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
+                            aria-label={`Ir para banner ${idx + 1}`}
+                        />
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
+// Componente Cards Inferiores
+// Movido para fora para evitar recriação a cada renderização da HomePage
+const CategoryCardsSection = ({ customCards, onNavigate }) => {
+    const defaultCards = [
+        {
+            image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+            title: "Moda & Estilo", subtitle: "Peças exclusivas.", cta_text: "Explorar Roupas", link_url: "products?category=Roupas"
+        },
+        {
+            image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+            title: "Perfumaria", subtitle: "Fragrâncias marcantes.", cta_text: "Ver Perfumes", link_url: "products?category=Perfumes"
+        }
+    ];
+
+    const card1 = (customCards && customCards.length > 0) ? customCards[0] : defaultCards[0];
+    const card2 = (customCards && customCards.length > 1) ? customCards[1] : defaultCards[1];
+    const cardsToRender = [card1, card2];
+
+    return (
+        <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                {cardsToRender.map((card, index) => (
+                    <div 
+                        key={index}
+                        onClick={() => onNavigate(card.link_url.replace(/^#/, ''))}
+                        className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
+                    >
+                        <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
+                            <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
+                            <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
+                            <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
+                                {card.cta_text || 'Ver Mais'} &rarr;
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+};
+
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({
         newArrivals: [],
@@ -2115,149 +2258,6 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Componente do Banner de Destaque (Carrossel)
-    const PromoBannerSection = ({ customBanners }) => {
-        const [currentIndex, setCurrentIndex] = useState(0);
-        
-        // Dados Padrão (Fallback visual se o banco estiver vazio)
-        const defaultBanner = [{
-            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-            title: "Semana do Consumidor",
-            subtitle: "Até 50% OFF em itens selecionados.",
-            cta_text: "Ver Ofertas",
-            link_url: "products?promo=true",
-            isFlashOffer: true,
-            id: 'default'
-        }];
-
-        // Usa os banners do banco se existirem, senão usa o padrão
-        // Se houver banners no banco (ex: Natal + Promoção Manual), eles estarão em customBanners
-        const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
-        
-        // Lógica de Rotação Automática
-        useEffect(() => {
-            // Só ativa o timer se houver mais de 1 banner para mostrar
-            if (activeBanners.length > 1) {
-                const timer = setTimeout(() => {
-                    setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
-                }, 5000); // 5 segundos por slide
-                return () => clearTimeout(timer);
-            }
-        }, [currentIndex, activeBanners.length]);
-
-        // Garante que o índice não estoure se a lista mudar
-        const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
-        const currentBanner = activeBanners[safeIndex];
-        
-        if (!currentBanner) return null;
-
-        const isFlashOffer = currentBanner.isFlashOffer || 
-                             currentBanner.title?.toLowerCase().includes('relâmpago') || 
-                             currentBanner.subtitle?.toLowerCase().includes('relâmpago');
-
-        const renderTitle = () => {
-            if (currentBanner.id === 'default' && currentBanner.title === "Semana do Consumidor") {
-                return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
-            }
-            return currentBanner.title;
-        };
-
-        return (
-            <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
-                <AnimatePresence mode="wait">
-                    <motion.div 
-                        key={currentBanner.id || safeIndex} // Chave única para forçar animação na troca
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
-                        style={{ backgroundImage: `url(${currentBanner.image_url})` }}
-                        onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
-                        <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
-                            {isFlashOffer && (
-                                <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
-                                    <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
-                                </motion.span>
-                            )}
-                            <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
-                                {renderTitle()}
-                            </motion.h2>
-                            {currentBanner.subtitle && (
-                                <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
-                                    {currentBanner.subtitle}
-                                </motion.p>
-                            )}
-                            {currentBanner.cta_enabled !== 0 && (
-                                <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
-                                    {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                                </motion.button>
-                            )}
-                        </div>
-                    </motion.div>
-                </AnimatePresence>
-                
-                {/* Indicadores de Slide (Dots) se houver mais de 1 banner */}
-                {activeBanners.length > 1 && (
-                    <div className="flex justify-center mt-4 gap-2">
-                        {activeBanners.map((_, idx) => (
-                            <button 
-                                key={idx}
-                                onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
-                                className={`w-2 h-2 rounded-full transition-all ${safeIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
-                                aria-label={`Ir para banner ${idx + 1}`}
-                            />
-                        ))}
-                    </div>
-                )}
-            </section>
-        );
-    };
-
-    // Componente Cards Inferiores
-    const CategoryCardsSection = ({ customCards }) => {
-        const defaultCards = [
-            {
-                image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
-                title: "Moda & Estilo", subtitle: "Peças exclusivas.", cta_text: "Explorar Roupas", link_url: "products?category=Roupas"
-            },
-            {
-                image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
-                title: "Perfumaria", subtitle: "Fragrâncias marcantes.", cta_text: "Ver Perfumes", link_url: "products?category=Perfumes"
-            }
-        ];
-
-        const card1 = (customCards && customCards.length > 0) ? customCards[0] : defaultCards[0];
-        const card2 = (customCards && customCards.length > 1) ? customCards[1] : defaultCards[1];
-        const cardsToRender = [card1, card2];
-
-        return (
-            <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
-                <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-                    {cardsToRender.map((card, index) => (
-                        <div 
-                            key={index}
-                            onClick={() => onNavigate(card.link_url.replace(/^#/, ''))}
-                            className="relative h-64 md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer group shadow-lg border border-gray-800"
-                        >
-                            <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-6 md:p-10">
-                                <h3 className="text-2xl md:text-4xl font-bold text-white mb-1 md:mb-3">{card.title}</h3>
-                                <p className="text-gray-300 text-sm md:text-lg mb-3 md:mb-6 line-clamp-1 md:line-clamp-none">{card.subtitle}</p>
-                                <span className="inline-flex items-center gap-2 text-white text-xs md:text-sm font-bold underline decoration-amber-500 underline-offset-4">
-                                    {card.cta_text || 'Ver Mais'} &rarr;
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
-        );
-    };
-
     return (
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
@@ -2277,7 +2277,7 @@ const HomePage = ({ onNavigate }) => {
         </div>
 
         {/* Destaque Visual (Carrossel de Campanhas) */}
-        <PromoBannerSection customBanners={banners.promo} />
+        <PromoBannerSection customBanners={banners.promo} onNavigate={onNavigate} />
 
         {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
@@ -2313,7 +2313,7 @@ const HomePage = ({ onNavigate }) => {
         </section>
 
         {/* Cards de Categoria (Inferior) */}
-        <CategoryCardsSection customCards={banners.cards} />
+        <CategoryCardsSection customCards={banners.cards} onNavigate={onNavigate} />
         
         {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
