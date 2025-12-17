@@ -2091,17 +2091,18 @@ const HomePage = ({ onNavigate }) => {
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    const sorted = data.sort((a, b) => a.display_order - b.display_order);
-
-                    const promo = sorted.find(b => b.display_order === 50) || null;
-                    const card1 = sorted.find(b => b.display_order === 60) || null;
-                    const card2 = sorted.find(b => b.display_order === 61) || null;
-                    const carousel = sorted.filter(b => b.display_order < 50);
+                    // SEPARAÇÃO POR ORDEM (CONVENÇÃO DO ADMIN):
+                    // < 50: Carrossel
+                    // 50: Promoção (Meio)
+                    // >= 60: Cards (Inferior)
+                    const carousel = data.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+                    const promo = data.find(b => b.display_order === 50);
+                    const cards = data.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order).slice(0, 2);
 
                     setBanners({
                         carousel: carousel,
                         promo: promo,
-                        cards: [card1, card2].filter(Boolean)
+                        cards: cards
                     });
                 }
             })
@@ -2113,25 +2114,232 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Componente Interno do Banner de Destaque
-    const PromoBannerSection = ({ customBanner }) => {
-        const defaultBanner = {
-            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
-            title: "Semana do Consumidor",
-            subtitle: "Até 50% OFF em itens selecionados.",
-            cta_text: "Ver Ofertas",
-            link_url: "products?promo=true",
-            isFlashOffer: true
+    // --- LÓGICA DE DATAS COMEMORATIVAS ---
+    const getSeasonalData = () => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth(); // 0-11
+        const currentDay = now.getDate();
+
+        // Helper para verificar intervalo de datas (Mês é 0-indexado: Jan=0, Dez=11)
+        const isBetween = (startMonth, startDay, endMonth, endDay) => {
+            const start = new Date(currentYear, startMonth, startDay);
+            const end = new Date(currentYear, endMonth, endDay);
+            // Ajuste para Ano Novo (período que cruza o ano)
+            if (end < start) {
+                return now >= start || now <= end;
+            }
+            return now >= start && now <= end;
         };
 
-        const activeBanner = customBanner || defaultBanner;
+        // Funções para datas móveis
+        const getMotherDay = (year) => {
+            const date = new Date(year, 4, 1); // Maio
+            // Encontra o primeiro domingo
+            while (date.getDay() !== 0) date.setDate(date.getDate() + 1);
+            // Adiciona 7 dias para chegar ao segundo domingo
+            date.setDate(date.getDate() + 7);
+            return date;
+        };
+
+        const getFatherDay = (year) => {
+            const date = new Date(year, 7, 1); // Agosto
+            while (date.getDay() !== 0) date.setDate(date.getDate() + 1);
+            date.setDate(date.getDate() + 7);
+            return date;
+        };
+
+        const getBlackFriday = (year) => {
+            // Última sexta-feira de novembro
+            const date = new Date(year, 10, 1); // Novembro
+            const fridays = [];
+            while (date.getMonth() === 10) {
+                if (date.getDay() === 5) fridays.push(new Date(date));
+                date.setDate(date.getDate() + 1);
+            }
+            return fridays[fridays.length - 1]; // Retorna a última sexta (ou a 4ª, dependendo da regra, geralmente é a última)
+        };
+
+        // Cálculo da Páscoa (Algoritmo de Meeus/Jones/Butcher)
+        const getEasterDate = (year) => {
+            const a = year % 19;
+            const b = Math.floor(year / 100);
+            const c = year % 100;
+            const d = Math.floor(b / 4);
+            const e = b % 4;
+            const f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3);
+            const h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4);
+            const k = c % 4;
+            const l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const month = Math.floor((h + l - 7 * m + 114) / 31) - 1; // 0-indexado
+            const day = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(year, month, day);
+        };
+
+        // Datas Móveis do Ano Atual
+        const easterDate = getEasterDate(currentYear);
+        const mothersDay = getMotherDay(currentYear);
+        const fathersDay = getFatherDay(currentYear);
+        const blackFridayDate = getBlackFriday(currentYear);
+
+        // Definição dos Períodos
+        // Dia da Mulher (Mar 1 - Mar 8)
+        if (isBetween(2, 1, 2, 8)) {
+            return {
+                theme: 'womens-day',
+                promo: {
+                    title: "Dia da Mulher",
+                    subtitle: "Celebre a força e a elegância feminina.",
+                    cta_text: "Presentes Especiais",
+                    image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop", // Placeholder temático
+                    link_url: "products?category=Perfumes Feminino",
+                    isFlashOffer: false
+                }
+            };
+        }
+
+        // Páscoa (2 semanas antes até o dia)
+        const easterStart = new Date(easterDate);
+        easterStart.setDate(easterStart.getDate() - 14);
+        if (now >= easterStart && now <= easterDate) {
+            return {
+                theme: 'easter',
+                promo: {
+                    title: "Páscoa Encantada",
+                    subtitle: "Fragrâncias doces para celebrar o renascimento.",
+                    cta_text: "Confira as Ofertas",
+                    image_url: "https://images.unsplash.com/photo-1587393855524-087f83d95bc9?q=80&w=1960&auto=format&fit=crop",
+                    link_url: "products",
+                    isFlashOffer: false
+                }
+            };
+        }
+
+        // Dia das Mães (20 de Abril até o 2º Domingo de Maio)
+        if (now >= new Date(currentYear, 3, 20) && now <= mothersDay) {
+            return {
+                theme: 'mothers-day',
+                promo: {
+                    title: "Amor de Mãe",
+                    subtitle: "O presente perfeito para quem sempre cuidou de você.",
+                    cta_text: "Presentes para Mãe",
+                    image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
+                    link_url: "products?category=Perfumes Feminino",
+                    isFlashOffer: false
+                }
+            };
+        }
+
+        // Dia dos Namorados (1 a 12 de Junho)
+        if (isBetween(5, 1, 5, 12)) {
+            return {
+                theme: 'valentines',
+                promo: {
+                    title: "Dia dos Namorados",
+                    subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
+                    cta_text: "Coleção Romântica",
+                    image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
+                    link_url: "products",
+                    isFlashOffer: true
+                }
+            };
+        }
+
+        // Dia dos Pais (20 de Julho até 2º Domingo de Agosto)
+        if (now >= new Date(currentYear, 6, 20) && now <= fathersDay) {
+            return {
+                theme: 'fathers-day',
+                promo: {
+                    title: "Dia dos Pais",
+                    subtitle: "Estilo e sofisticação para o seu herói.",
+                    cta_text: "Presentes para Pai",
+                    image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
+                    link_url: "products?category=Perfumes Masculino",
+                    isFlashOffer: false
+                }
+            };
+        }
+
+        // Black Friday (Novembro inteiro - Black November)
+        if (isBetween(10, 1, 10, 30)) {
+            return {
+                theme: 'black-friday',
+                promo: {
+                    title: "Black November",
+                    subtitle: "O mês inteiro com descontos imperdíveis!",
+                    cta_text: "Aproveitar Ofertas",
+                    image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
+                    link_url: "products?promo=true",
+                    isFlashOffer: true
+                }
+            };
+        }
+
+        // Natal (1 a 25 de Dezembro)
+        if (isBetween(11, 1, 11, 25)) {
+            return {
+                theme: 'christmas',
+                promo: {
+                    title: "Feliz Natal",
+                    subtitle: "Celebre a magia com presentes que encantam.",
+                    cta_text: "Presentes de Natal",
+                    image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
+                    link_url: "products",
+                    isFlashOffer: true
+                }
+            };
+        }
+
+        // Ano Novo (26 Dez a 2 Jan)
+        if (isBetween(11, 26, 0, 2)) {
+            return {
+                theme: 'new-year',
+                promo: {
+                    title: "Feliz Ano Novo",
+                    subtitle: "Comece o ano com renovação e estilo.",
+                    cta_text: "Ver Coleção",
+                    image_url: "https://images.unsplash.com/photo-1467810563316-b5476525c0f9?q=80&w=2069&auto=format&fit=crop",
+                    link_url: "products",
+                    isFlashOffer: false
+                }
+            };
+        }
+
+        // Padrão (Semana do Consumidor ou Genérico)
+        return {
+            theme: 'default',
+            promo: {
+                title: "Semana do Consumidor",
+                subtitle: "Até 50% OFF em itens selecionados.",
+                cta_text: "Ver Ofertas",
+                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products?promo=true",
+                isFlashOffer: true
+            }
+        };
+    };
+
+    const seasonalData = getSeasonalData();
+
+    // Sub-componente interno para renderizar o Banner Promocional
+    const PromoBannerSection = ({ customBanner }) => {
+        // Usa o banner customizado do banco se existir, senão usa o sazonal automático
+        const activeBanner = customBanner || seasonalData.promo;
+        
         const isFlashOffer = activeBanner.isFlashOffer || 
                              activeBanner.title?.toLowerCase().includes('relâmpago') || 
                              activeBanner.subtitle?.toLowerCase().includes('relâmpago');
 
         const renderTitle = () => {
+            // Renderização especial para o título padrão
             if (!customBanner && activeBanner.title === "Semana do Consumidor") {
                 return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
+            }
+            if (!customBanner && activeBanner.title === "Black November") {
+                return (<>Black <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-200 to-gray-600">November</span></>);
             }
             return activeBanner.title;
         };
@@ -2144,23 +2352,46 @@ const HomePage = ({ onNavigate }) => {
                     onClick={() => onNavigate(activeBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
+                    
                     <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
                         {isFlashOffer && (
-                            <motion.span initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                            <motion.span 
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                className="bg-red-600 text-white text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg"
+                            >
                                 <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
                             </motion.span>
                         )}
-                        <motion.h2 initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight">
+                        
+                        <motion.h2 
+                            initial={{ opacity: 0, x: -30 }}
+                            whileInView={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.1 }}
+                            className="text-4xl md:text-6xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
+                        >
                             {renderTitle()}
                         </motion.h2>
+                        
                         {activeBanner.subtitle && (
-                            <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                            <motion.p 
+                                initial={{ opacity: 0 }}
+                                whileInView={{ opacity: 1 }}
+                                transition={{ delay: 0.2 }}
+                                className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
+                            >
                                 {activeBanner.subtitle}
                             </motion.p>
                         )}
-                        <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
-                            {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
-                        </motion.button>
+                        
+                        {activeBanner.cta_enabled !== 0 && (
+                            <motion.button 
+                                whileTap={{ scale: 0.95 }}
+                                className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
+                            >
+                                {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                            </motion.button>
+                        )}
                     </div>
                 </div>
             </section>
@@ -2228,7 +2459,7 @@ const HomePage = ({ onNavigate }) => {
         
         <BenefitsBar />
         
-        {/* Carrossel de Categorias - CORREÇÃO: Gradiente removido para eliminar a linha divisória */}
+        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
