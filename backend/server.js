@@ -3925,32 +3925,36 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Admin) Atualiza a ORDEM de múltiplos banners
+// (Admin) Atualiza a ORDEM de múltiplos banners (Drag & Drop)
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
-    const { orderedIds } = req.body; 
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        return res.status(400).json({ message: "É necessário fornecer um array de IDs de banners ordenados." });
-    }
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        const updatePromises = orderedIds.map((id, index) => {
-            return connection.query("UPDATE banners SET display_order = ? WHERE id = ?", [index, id]);
-        });
+    const { orderedIds } = req.body; 
+    
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs de banners ordenados." });
+    }
 
-        await Promise.all(updatePromises);
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        // Atualiza a ordem sequencialmente (0, 1, 2, 3...)
+        // Isso garante que o Index 0 seja sempre o Destaque, 1 e 2 os Cards, etc.
+        const updatePromises = orderedIds.map((id, index) => {
+            return connection.query("UPDATE banners SET display_order = ? WHERE id = ?", [index, id]);
+        });
 
-        await connection.commit();
-        logAdminAction(req.user, 'REORDENOU BANNERS');
-        res.json({ message: "Ordem dos banners atualizada com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao reordenar banners:", err);
-        res.status(500).json({ message: "Erro ao reordenar banners." });
-    } finally {
-        connection.release();
-    }
+        await Promise.all(updatePromises);
+
+        await connection.commit();
+        logAdminAction(req.user, 'REORDENOU BANNERS', `Nova ordem salva.`);
+        res.json({ message: "Ordem dos banners atualizada com sucesso." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao reordenar banners:", err);
+        res.status(500).json({ message: "Erro ao reordenar banners." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Admin) Atualiza os detalhes de um banner
