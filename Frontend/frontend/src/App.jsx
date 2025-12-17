@@ -2053,14 +2053,16 @@ const HomePage = ({ onNavigate }) => {
         clothing: [],
         perfumes: []
     });
-    const [banners, setBanners] = useState({
-        carousel: [],
-        promo: null
-    });
+    
+    // Estado separado para garantir que não haja conflito
+    const [carouselBanners, setCarouselBanners] = useState([]);
+    const [promoBanner, setPromoBanner] = useState(null); // Banner do meio (Destaque)
     const [isLoadingBanners, setIsLoadingBanners] = useState(true);
 
     useEffect(() => {
-        apiService('/products')
+        // --- BUSCA DE PRODUTOS ---
+        const controller = new AbortController();
+        apiService('/products', 'GET', null, { signal: controller.signal })
             .then(data => {
                 const sortedByDate = [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                 const sortedBySales = [...data].sort((a, b) => (b.sales || 0) - (a.sales || 0));
@@ -2075,47 +2077,76 @@ const HomePage = ({ onNavigate }) => {
                     perfumes: perfumeProducts
                 });
             })
-            .catch(err => console.error("Falha ao buscar produtos:", err));
+            .catch(err => {
+                if (err.name !== 'AbortError') console.error("Falha ao buscar produtos:", err);
+            });
 
-        apiService('/banners')
+        // --- BUSCA DE BANNERS COM LÓGICA DE SEPARAÇÃO ---
+        apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
-                if (Array.isArray(data) && data.length > 0) {
-                    let carouselBanners = [];
-                    let promoBanner = null;
+                if (Array.isArray(data)) {
+                    // SEPARAÇÃO CLARA:
+                    // Ordem < 50: Carrossel Principal (Topo)
+                    // Ordem >= 50: Banner de Destaque (Meio da página - ex: use ordem 99 no admin)
+                    const carousel = data.filter(b => b.display_order < 50);
+                    
+                    // Pega o primeiro banner com ordem alta para ser o destaque
+                    // Se não houver nenhum, promo será null e o fallback visual será usado
+                    const promo = data.find(b => b.display_order >= 50);
 
-                    // LÓGICA INTELIGENTE:
-                    // Se houver apenas 1 banner -> Vai para o Carrossel (Topo).
-                    // Se houver mais de 1 -> O ÚLTIMO vai para o Destaque (Meio), o resto fica no Topo.
-                    if (data.length > 1) {
-                        carouselBanners = data.slice(0, data.length - 1);
-                        promoBanner = data[data.length - 1];
-                    } else {
-                        carouselBanners = data;
-                        promoBanner = null;
-                    }
-
-                    setBanners({
-                        carousel: carouselBanners,
-                        promo: promoBanner
-                    });
+                    setCarouselBanners(carousel);
+                    setPromoBanner(promo);
                 }
             })
-            .catch(err => console.error("Falha ao buscar banners:", err))
+            .catch(err => {
+                if (err.name !== 'AbortError') console.error("Falha ao buscar banners:", err);
+            })
             .finally(() => setIsLoadingBanners(false));
 
+        return () => controller.abort();
     }, []);
 
-    const PromoBannerSection = ({ banner }) => {
-        if (!banner) return null;
+    // Componente Interno do Banner de Destaque (Com Fallback para o Original)
+    const PromoBannerSection = ({ customBanner }) => {
+        // DADOS PADRÃO (FALLBACK) - O banner original que você gosta
+        const defaultBanner = {
+            image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+            title: "Semana do Consumidor", // Título ajustado para quebra de linha visual via CSS se necessário
+            subtitle: "Até 50% OFF em itens selecionados.",
+            cta_text: "Ver Ofertas",
+            link_url: "products?promo=true",
+            isFlashOffer: true // Flag interna para ativar o badge de relógio
+        };
 
-        const isFlashOffer = banner.title?.toLowerCase().includes('relâmpago') || banner.subtitle?.toLowerCase().includes('relâmpago');
+        // Usa o banner do banco (customBanner) se existir, senão usa o defaultBanner
+        const activeBanner = customBanner || defaultBanner;
         
+        // Verifica se é oferta relâmpago (seja pelo banner customizado ou pelo padrão)
+        const isFlashOffer = activeBanner.isFlashOffer || 
+                             activeBanner.title?.toLowerCase().includes('relâmpago') || 
+                             activeBanner.subtitle?.toLowerCase().includes('relâmpago');
+
+        // Tratamento para quebra de linha no título padrão (caso seja o default)
+        const renderTitle = () => {
+            if (!customBanner && activeBanner.title === "Semana do Consumidor") {
+                return (
+                    <>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>
+                );
+            }
+            return activeBanner.title;
+        };
+
+        const handleNavigate = () => {
+            const link = activeBanner.link_url.replace(/^#/, '');
+            onNavigate(link);
+        };
+
         return (
             <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
                 <div 
                     className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
-                    style={{ backgroundImage: `url(${banner.image_url})` }}
-                    onClick={() => onNavigate(banner.link_url.replace(/^#/, ''))}
+                    style={{ backgroundImage: `url(${activeBanner.image_url})` }}
+                    onClick={handleNavigate}
                 >
                     <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
                     
@@ -2134,28 +2165,28 @@ const HomePage = ({ onNavigate }) => {
                             initial={{ opacity: 0, x: -30 }}
                             whileInView={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="text-4xl md:text-6xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
+                            className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-white drop-shadow-lg leading-tight"
                         >
-                            {banner.title}
+                            {renderTitle()}
                         </motion.h2>
                         
-                        {banner.subtitle && (
+                        {activeBanner.subtitle && (
                             <motion.p 
                                 initial={{ opacity: 0 }}
                                 whileInView={{ opacity: 1 }}
                                 transition={{ delay: 0.2 }}
                                 className="text-base md:text-xl text-gray-200 mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug"
                             >
-                                {banner.subtitle}
+                                {activeBanner.subtitle}
                             </motion.p>
                         )}
                         
-                        {banner.cta_enabled === 1 && (
+                        {(activeBanner.cta_text || activeBanner === defaultBanner) && (
                             <motion.button 
                                 whileTap={{ scale: 0.95 }}
                                 className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3"
                             >
-                                {banner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                                {activeBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
                             </motion.button>
                         )}
                     </div>
@@ -2166,22 +2197,27 @@ const HomePage = ({ onNavigate }) => {
 
     return (
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
+        {/* 1. Banner Carrossel (Topo) - Apenas banners com ordem < 50 */}
         {isLoadingBanners ? (
             <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
-            <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
+            <BannerCarousel banners={carouselBanners} onNavigate={onNavigate} />
         )}
         
+        {/* Barra de Benefícios */}
         <BenefitsBar />
         
+        {/* Carrossel de Categorias */}
         <div className="py-8 md:py-12 bg-gradient-to-b from-black to-gray-900">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
-        <PromoBannerSection banner={banners.promo} />
+        {/* 2. Destaque Visual (Meio) - Banner com ordem >= 50 ou Fallback Original */}
+        <PromoBannerSection customBanner={promoBanner} />
 
+        {/* Seção Lançamentos */}
         <section className="bg-black text-white py-8 md:py-12">
           <div className="container mx-auto px-4">
               <div className="flex items-end justify-between mb-6 md:mb-10 border-b border-gray-800 pb-4">
@@ -2200,6 +2236,7 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
         
+        {/* Seção Mais Vendidos */}
         <section className="bg-gray-900/50 py-10 md:py-16 my-4 md:my-8 border-y border-gray-800 relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
           <div className="container mx-auto px-4 relative z-10">
@@ -2213,6 +2250,7 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
+        {/* Grid de Categorias */}
         <section className="container mx-auto px-4 py-8 md:py-12 mb-8">
             <h2 className="text-2xl md:text-3xl font-bold mb-6 md:mb-10 text-center">Navegue por Universo</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
@@ -2246,6 +2284,7 @@ const HomePage = ({ onNavigate }) => {
             </div>
         </section>
         
+        {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
               <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
