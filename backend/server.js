@@ -3896,7 +3896,7 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
 
 // --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
 
-// (Admin) Pega todos os banners para o painel de gerenciamento
+// (Admin) Pega TODOS os banners (incluindo futuros e expirados) para gestão
 app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     try {
         // Traz tudo ordenado para o admin ver o calendário
@@ -3921,6 +3921,13 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
         if (orderToUse === undefined || orderToUse === null) {
              const [rows] = await connection.query("SELECT COALESCE(MAX(display_order), -1) + 1 as nextOrder FROM banners WHERE display_order < 50");
              orderToUse = rows[0].nextOrder;
+        } else {
+            // LÓGICA ATUALIZADA:
+            // Se for Card (60 ou 61), remove o anterior para substituir (mantém fixo)
+            // Para Destaque (50), NÃO DELETA MAIS, permitindo múltiplos banners rotativos
+            if (orderToUse >= 60) {
+                await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
+            }
         }
 
         const validStart = start_date ? new Date(start_date) : null;
@@ -4012,7 +4019,7 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Público) Pega todos os banners ativos para a home page
+// (Público) Pega Banners Ativos e Válidos (Priorizando Eventos Sazonais)
 app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
     try {
         // Lógica "Padrão Amazon":
