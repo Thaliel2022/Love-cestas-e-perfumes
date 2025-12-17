@@ -10114,8 +10114,9 @@ const AdminBanners = () => {
     const [banners, setBanners] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [activeTab, setActiveTab] = useState('carousel'); // 'carousel', 'promo', 'cards'
+    const [activeTab, setActiveTab] = useState('promo'); 
     const [editingBanner, setEditingBanner] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
     const notification = useNotification();
     const confirmation = useConfirmation();
     const sensors = useSensors(useSensor(PointerSensor));
@@ -10136,36 +10137,55 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    // Separa os banners vindos EXCLUSIVAMENTE do banco de dados
+    // --- POPULAR BANCO DE DADOS (ACIONA O BACKEND) ---
+    const handleInitializeDefaults = async () => {
+        confirmation.show("Deseja popular o banco com as campanhas sazonais padrão? (Não duplicará existentes)", async () => {
+            setIsGenerating(true);
+            try {
+                // Chama a nova rota do backend que contém a inteligência e os dados
+                const response = await apiService('/banners/seed-defaults', 'POST');
+                notification.show(response.message);
+                fetchBanners();
+            } catch (error) {
+                notification.show(`Erro ao popular: ${error.message}`, 'error');
+            } finally {
+                setIsGenerating(false);
+            }
+        });
+    };
+
+    // Separação dos banners vindos do Banco
     const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
-    const promoBanner = banners.find(b => b.display_order === 50);
+    
+    // Lista de Destaques (Ordem 50)
+    const promoBanners = banners.filter(b => b.display_order === 50).sort((a, b) => {
+        if (!a.start_date) return -1;
+        if (!b.start_date) return 1;
+        return new Date(a.start_date) - new Date(b.start_date);
+    });
+
     const card1 = banners.find(b => b.display_order === 60);
     const card2 = banners.find(b => b.display_order === 61);
+    const displayCards = [card1, card2];
 
     const handleOpenModal = (banner, section) => {
-        // Inicializa vazio para garantir que não haja dados "chumbados"
-        let initialData = banner ? { ...banner } : { 
-            name: '', link_url: '', image_url: '', 
-            image_url_mobile: '', is_active: 1, 
-            cta_enabled: 1, cta_text: 'Ver Mais',
-            start_date: '', end_date: ''
-        };
+        let initialData = banner ? { ...banner } : {};
         
-        // Define a ordem correta para novos itens baseado na seção
         if (!banner) {
             if (section === 'carousel') {
                 const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
-                initialData.display_order = maxOrder + 1;
+                initialData = { 
+                    name: '', link_url: '', image_url: '', image_url_mobile: '', is_active: 1, 
+                    cta_enabled: 1, cta_text: 'Ver Mais', display_order: maxOrder + 1 
+                };
             } else if (section === 'promo') {
-                initialData.display_order = 50; // ID fixo para Destaque
+                initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: 50 };
             } else if (section === 'cards') {
-                // Lógica simples para preencher slot 60 ou 61
-                if (!card1) initialData.display_order = 60;
-                else if (!card2) initialData.display_order = 61;
-                else initialData.display_order = 62; // Fallback
+                // Tenta preencher o slot vazio (60 ou 61)
+                const nextSlot = !card1 ? 60 : 61;
+                initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: nextSlot };
             }
         }
-
         setEditingBanner(initialData);
         setIsModalOpen(true);
     };
@@ -10173,31 +10193,29 @@ const AdminBanners = () => {
     const handleSave = async (formData) => {
         try {
             const payload = { ...formData, display_order: parseInt(formData.display_order) };
-            
-            // Trata datas vazias para null para o banco aceitar
             if (!payload.start_date) payload.start_date = null;
             if (!payload.end_date) payload.end_date = null;
 
             if (formData.id) {
                 await apiService(`/banners/${formData.id}`, 'PUT', payload);
-                notification.show('Banner atualizado com sucesso!');
+                notification.show('Atualizado!');
             } else {
                 await apiService('/banners/admin', 'POST', payload);
-                notification.show('Banner criado com sucesso!');
+                notification.show('Criado!');
             }
             fetchBanners();
             setIsModalOpen(false);
         } catch (error) {
-            notification.show(`Erro ao salvar: ${error.message}`, 'error');
+            notification.show(`Erro: ${error.message}`, 'error');
         }
     };
 
     const handleDelete = (id) => {
         if (!id) return;
-        confirmation.show("Tem certeza que deseja excluir este banner?", async () => {
+        confirmation.show("Excluir este banner permanentemente?", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Banner excluído.');
+                notification.show('Excluído.');
                 fetchBanners();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
@@ -10212,14 +10230,14 @@ const AdminBanners = () => {
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            // Atualiza UI local
-            const otherBanners = banners.filter(b => b.display_order >= 50);
-            setBanners([...newOrder, ...otherBanners]);
+            // Atualiza UI localmente para evitar flick
+            const others = banners.filter(b => b.display_order >= 50);
+            setBanners([...newOrder, ...others]);
 
             const orderedIds = newOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
-                notification.show('Nova ordem salva!');
+                notification.show('Ordem salva!');
             } catch (error) {
                 notification.show('Erro ao salvar ordem.', 'error');
                 fetchBanners();
@@ -10232,161 +10250,152 @@ const AdminBanners = () => {
             <AnimatePresence>
                 {isModalOpen && (
                     <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Editor de Banner">
-                        <BannerForm 
-                            item={editingBanner} 
-                            section={activeTab} 
-                            onSave={handleSave} 
-                            onCancel={() => setIsModalOpen(false)} 
-                        />
+                         <BannerForm item={editingBanner} section={activeTab} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
                     </Modal>
                 )}
             </AnimatePresence>
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">Gestão Visual da Home</h1>
-                <p className="text-gray-500">Gerencie os banners, destaques e cards da loja.</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Gestão Visual</h1>
+                    <p className="text-gray-500">Controle total via Banco de Dados.</p>
+                </div>
+                
+                {/* Botão de Inicialização (Seed) - Visível se não houver destaques */}
+                {promoBanners.length === 0 && (
+                    <button 
+                        onClick={handleInitializeDefaults} 
+                        disabled={isGenerating}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-md animate-pulse"
+                    >
+                        {isGenerating ? <SpinnerIcon/> : <SparklesIcon className="h-5 w-5"/>}
+                        Inicializar Banco com Padrões
+                    </button>
+                )}
             </div>
 
             <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
-                <button onClick={() => setActiveTab('carousel')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Carrossel (Topo)
-                </button>
-                <button onClick={() => setActiveTab('promo')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Destaque (Meio)
-                </button>
-                <button onClick={() => setActiveTab('cards')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
-                    Cards (Inferior)
-                </button>
+                {['promo', 'cards', 'carousel'].map(tab => (
+                    <button 
+                        key={tab}
+                        onClick={() => setActiveTab(tab)} 
+                        className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 capitalize ${activeTab === tab ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                    >
+                        {tab === 'promo' ? 'Destaques Agendados' : (tab === 'cards' ? 'Cards Inferiores' : 'Carrossel Topo')}
+                    </button>
+                ))}
             </div>
 
             {isLoading ? (
                 <div className="py-20 flex justify-center"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <>
-                    {/* --- ABA CARROSSEL --- */}
-                    {activeTab === 'carousel' && (
-                        <div className="space-y-4 animate-fade-in">
-                            <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                                <div>
-                                    <h3 className="font-bold text-gray-800">Banners Rotativos</h3>
-                                    <p className="text-xs text-gray-500">Exibidos no topo da página. Arraste para reordenar.</p>
-                                </div>
-                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md">
-                                    <PlusIcon className="h-4 w-4"/> Adicionar Novo
-                                </button>
-                            </div>
-                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
-                                <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {carouselBanners.map((banner) => (
-                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={(b) => handleOpenModal(b, 'carousel')} onDelete={handleDelete} />
-                                        ))}
-                                    </div>
-                                </SortableContext>
-                            </DndContext>
-                            {carouselBanners.length === 0 && (
-                                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                                    <p className="text-gray-400">Nenhum banner configurado no carrossel.</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* --- ABA DESTAQUE --- */}
+                    {/* --- ABA DESTAQUES (CAMPANHAS) --- */}
                     {activeTab === 'promo' && (
                         <div className="space-y-6 animate-fade-in">
-                            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-lg text-gray-800">Banner de Destaque</h3>
-                                        <p className="text-sm text-gray-500">Banner largo exibido no meio da página. Ideal para promoções sazonais.</p>
-                                    </div>
-                                    {promoBanner && (
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1 ${promoBanner.start_date ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                                            <ClockIcon className="h-3 w-3"/>
-                                            {promoBanner.start_date ? 'Agendado' : 'Exibição Permanente'}
-                                        </span>
-                                    )}
+                            <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                <div>
+                                    <h3 className="font-bold text-blue-900">Campanhas de Destaque</h3>
+                                    <p className="text-xs text-blue-700">Listagem direta do banco. Apenas 1 banner (o com data válida mais próxima) aparecerá na Home.</p>
                                 </div>
-                                
-                                {promoBanner ? (
-                                    <div className="relative h-64 w-full rounded-lg overflow-hidden border-2 border-gray-100 group">
-                                        <img src={promoBanner.image_url} alt={promoBanner.title} className="w-full h-full object-cover"/>
-                                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <h4 className="text-xl font-bold mb-1">{promoBanner.title}</h4>
-                                            {promoBanner.start_date && (
-                                                <p className="text-xs bg-blue-600 px-2 py-1 rounded mb-2">
-                                                    {new Date(promoBanner.start_date).toLocaleDateString()} - {new Date(promoBanner.end_date).toLocaleDateString()}
-                                                </p>
-                                            )}
-                                            <div className="flex gap-3 mt-4">
-                                                <button onClick={() => handleOpenModal(promoBanner, 'promo')} className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2">
-                                                    <EditIcon className="h-4 w-4"/> Editar
-                                                </button>
-                                                <button onClick={() => handleDelete(promoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2">
-                                                    <TrashIcon className="h-4 w-4"/> Excluir
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-16 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-                                        <p className="text-gray-500 mb-4">Nenhum banner de destaque configurado.</p>
-                                        <button onClick={() => handleOpenModal(null, 'promo')} className="bg-amber-500 text-black px-6 py-2 rounded-md hover:bg-amber-400 font-bold shadow-sm">
-                                            <PlusIcon className="h-5 w-5 inline mr-2"/>
-                                            Configurar Destaque
-                                        </button>
-                                    </div>
-                                )}
+                                <button onClick={() => handleOpenModal(null, 'promo')} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm">
+                                    <PlusIcon className="h-4 w-4"/> Criar Campanha
+                                </button>
                             </div>
+
+                            {promoBanners.length > 0 ? (
+                                <div className="grid grid-cols-1 gap-4">
+                                    {promoBanners.map(banner => {
+                                        const now = new Date();
+                                        const start = banner.start_date ? new Date(banner.start_date) : null;
+                                        const end = banner.end_date ? new Date(banner.end_date) : null;
+                                        // Lógica simples de "No Ar": (Sem data OU Data válida) E Ativo
+                                        const isActiveNow = banner.is_active && (!start || now >= start) && (!end || now <= end);
+                                        
+                                        return (
+                                            <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
+                                                <div className="w-full md:w-48 h-32 bg-gray-100 relative">
+                                                    <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
+                                                    {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
+                                                </div>
+                                                <div className="p-4 flex-grow flex flex-col justify-center">
+                                                    <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
+                                                    <p className="text-sm text-gray-500">{banner.subtitle}</p>
+                                                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Início: {start ? start.toLocaleDateString() : 'Imediato'}</span>
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Fim: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l bg-gray-50">
+                                                    <button onClick={() => handleOpenModal(banner, 'promo')} className="px-3 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-amber-50 hover:text-amber-600 hover:border-amber-300 font-bold text-xs flex items-center justify-center gap-1">
+                                                        <EditIcon className="h-4 w-4"/> Editar
+                                                    </button>
+                                                    <button onClick={() => handleDelete(banner.id)} className="px-3 py-2 bg-white border border-gray-300 rounded text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-300 font-bold text-xs flex items-center justify-center gap-1">
+                                                        <TrashIcon className="h-4 w-4"/> Excluir
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                                    <p className="text-gray-400 mb-4">Nenhuma campanha encontrada no banco.</p>
+                                    <p className="text-sm text-gray-500">Clique em "Inicializar Banco com Padrões" para carregar as datas sazonais.</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {/* --- ABA CARDS --- */}
                     {activeTab === 'cards' && (
                         <div className="space-y-6 animate-fade-in">
-                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
-                                <h3 className="font-bold text-gray-800">Cards Inferiores</h3>
-                                <p className="text-sm text-gray-500">Dois banners menores exibidos lado a lado na parte inferior.</p>
+                            <div className="flex justify-between items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                <p className="text-sm text-purple-800">Cards fixos inferiores (Posições 60 e 61).</p>
+                                {(!card1 || !card2) && <button onClick={() => handleOpenModal(null, 'cards')} className="bg-purple-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm">Adicionar Card</button>}
                             </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* CARD 1 (ESQUERDA) */}
-                                {card1 ? (
-                                    <SortableBannerCard 
-                                        banner={card1} 
-                                        onEdit={() => handleOpenModal(card1, 'cards')} 
-                                        onDelete={handleDelete} 
-                                        customLabel="Esquerda (Pos. 60)"
-                                        customColor="bg-blue-600 text-white"
-                                    />
-                                ) : (
-                                    <div className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
-                                        <p className="text-sm mb-2 font-semibold">Slot Esquerdo Vazio</p>
-                                        <button onClick={() => handleOpenModal(null, 'cards')} className="text-amber-600 hover:underline text-sm font-bold flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4"/> Adicionar
-                                        </button>
-                                    </div>
-                                )}
-
-                                {/* CARD 2 (DIREITA) */}
-                                {card2 ? (
-                                    <SortableBannerCard 
-                                        banner={card2} 
-                                        onEdit={() => handleOpenModal(card2, 'cards')} 
-                                        onDelete={handleDelete} 
-                                        customLabel="Direita (Pos. 61)"
-                                        customColor="bg-purple-600 text-white"
-                                    />
-                                ) : (
-                                    <div className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
-                                        <p className="text-sm mb-2 font-semibold">Slot Direito Vazio</p>
-                                        <button onClick={() => handleOpenModal(null, 'cards')} className="text-amber-600 hover:underline text-sm font-bold flex items-center gap-1">
-                                            <PlusIcon className="h-4 w-4"/> Adicionar
-                                        </button>
-                                    </div>
-                                )}
+                                {[card1, card2].map((card, idx) => (
+                                    card ? (
+                                        <SortableBannerCard 
+                                            key={card.id} 
+                                            banner={card} 
+                                            onEdit={() => handleOpenModal(card, 'cards')} 
+                                            onDelete={handleDelete} 
+                                            customLabel={idx === 0 ? "Esquerda (Fixo)" : "Direita (Fixo)"}
+                                            customColor="bg-purple-600 text-white"
+                                            description={card.subtitle}
+                                        />
+                                    ) : (
+                                        <div key={idx} className="h-48 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 text-gray-400">
+                                            <p className="text-sm font-bold">Slot {idx === 0 ? 'Esquerdo' : 'Direito'} Vazio</p>
+                                            <button onClick={() => handleOpenModal(null, 'cards')} className="text-amber-600 hover:underline text-sm font-bold flex items-center gap-1 mt-2">
+                                                <PlusIcon className="h-4 w-4"/> Adicionar Manualmente
+                                            </button>
+                                        </div>
+                                    )
+                                ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* --- ABA CARROSSEL --- */}
+                    {activeTab === 'carousel' && (
+                         <div className="space-y-4 animate-fade-in">
+                            <div className="flex justify-between items-center bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <p className="text-sm text-gray-600">Banners do topo. Arraste para ordenar.</p>
+                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-800 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm">Novo Banner</button>
+                            </div>
+                            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
+                                <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {carouselBanners.map((banner) => (
+                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={(b) => handleOpenModal(b, 'carousel')} onDelete={handleDelete} />
+                                        ))}
+                                    </div>
+                                </SortableContext>
+                            </DndContext>
+                            {carouselBanners.length === 0 && <p className="text-center text-gray-400 py-10">Carrossel vazio.</p>}
                         </div>
                     )}
                 </>

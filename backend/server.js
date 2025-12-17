@@ -4037,6 +4037,114 @@ app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
         res.status(500).json({ message: "Erro ao buscar banners." });
     }
 });
+
+app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // Dados padrão (Ficam seguros no servidor)
+        const CAMPAIGN_BLUEPRINTS = [
+            {
+                title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
+                image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products?promo=true", cta_text: "Ver Ofertas", display_order: 50
+            },
+            {
+                title: "Amor de Mãe", subtitle: "O presente perfeito para quem sempre cuidou de você.",
+                image_url: "https://images.unsplash.com/photo-1599309927876-241f87b320e8?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products?category=Perfumes Feminino", cta_text: "Presentes para Mãe",
+                month: 5, day: 1, duration: 14, display_order: 50
+            },
+            {
+                title: "Dia dos Namorados", subtitle: "Surpreenda seu amor com presentes inesquecíveis.",
+                image_url: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products", cta_text: "Coleção Romântica",
+                month: 6, day: 1, duration: 12, display_order: 50
+            },
+            {
+                title: "Dia dos Pais", subtitle: "Estilo e sofisticação para o seu herói.",
+                image_url: "https://images.unsplash.com/photo-1617325247661-675ab4b64ae8?q=80&w=2071&auto=format&fit=crop",
+                link_url: "products?category=Perfumes Masculino", cta_text: "Presentes para Pai",
+                month: 8, day: 1, duration: 14, display_order: 50
+            },
+            {
+                title: "Black November", subtitle: "O mês inteiro com descontos imperdíveis!",
+                image_url: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products?promo=true", cta_text: "Aproveitar Ofertas",
+                month: 11, day: 1, duration: 30, display_order: 50
+            },
+            {
+                title: "Feliz Natal", subtitle: "Celebre a magia com presentes que encantam.",
+                image_url: "https://images.unsplash.com/photo-1512389142860-9c449e58a543?q=80&w=2069&auto=format&fit=crop",
+                link_url: "products", cta_text: "Presentes de Natal",
+                month: 12, day: 1, duration: 25, display_order: 50
+            },
+            // Cards Fixos
+            {
+                title: "Moda & Estilo", subtitle: "Peças exclusivas.",
+                image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+                link_url: "products?category=Roupas", cta_text: "Explorar", display_order: 60
+            },
+            {
+                title: "Perfumaria", subtitle: "Fragrâncias marcantes.",
+                image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+                link_url: "products?category=Perfumes", cta_text: "Ver Perfumes", display_order: 61
+            }
+        ];
+
+        // Lógica de Data (Backend)
+        const getNextOccurrence = (month, day, duration) => {
+            if (!month || !day) return { start: null, end: null };
+            const now = new Date();
+            let year = now.getFullYear();
+            let start = new Date(year, month - 1, day, 0, 0, 0);
+            let end = new Date(start);
+            end.setDate(end.getDate() + duration);
+            end.setHours(23, 59, 59);
+
+            if (now > end) {
+                year++;
+                start = new Date(year, month - 1, day, 0, 0, 0);
+                end = new Date(start);
+                end.setDate(end.getDate() + duration);
+                end.setHours(23, 59, 59);
+            }
+            return { start, end };
+        };
+
+        let insertedCount = 0;
+
+        for (const bp of CAMPAIGN_BLUEPRINTS) {
+            // Verifica duplicidade básica pelo título E ordem (evita duplicar se já existir)
+            const [existing] = await connection.query(
+                "SELECT id FROM banners WHERE title = ? AND display_order = ?", 
+                [bp.title, bp.display_order]
+            );
+
+            if (existing.length === 0) {
+                const dates = getNextOccurrence(bp.month, bp.day, bp.duration);
+                
+                await connection.query(
+                    "INSERT INTO banners (image_url, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [bp.image_url, bp.title, bp.subtitle, bp.link_url, bp.cta_text, 1, 1, bp.display_order, dates.start, dates.end]
+                );
+                insertedCount++;
+            }
+        }
+
+        await connection.commit();
+        logAdminAction(req.user, 'SEED_BANNERS', `Inseriu ${insertedCount} banners padrão.`);
+        res.json({ message: `Banco atualizado! ${insertedCount} novos banners inseridos.` });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao popular banners:", err);
+        res.status(500).json({ message: "Erro interno ao popular banco." });
+    } finally {
+        connection.release();
+    }
+});
 // --- ROTAS DE GERENCIAMENTO DE CONFIGURAÇÕES DO SITE ---
 
 // (Público) Rota para o frontend verificar rapidamente se o modo manutenção está ativo
