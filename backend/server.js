@@ -4810,6 +4810,95 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
     }
 });
 
+app.get('/api/newsletter/subscribers', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [subscribers] = await db.query("SELECT * FROM newsletter_subscribers ORDER BY created_at DESC");
+        res.json(subscribers);
+    } catch (err) {
+        console.error("Erro ao listar inscritos:", err);
+        res.status(500).json({ message: "Erro ao buscar lista de e-mails." });
+    }
+});
+
+// (Admin) Enviar Campanha (Broadcast)
+app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res) => {
+    const { subject, message, ctaLink, ctaText } = req.body;
+
+    if (!subject || !message) {
+        return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        // Busca todos os inscritos ativos
+        const [subscribers] = await connection.query("SELECT email FROM newsletter_subscribers WHERE is_active = 1");
+
+        if (subscribers.length === 0) {
+            return res.status(400).json({ message: "Não há inscritos ativos para enviar." });
+        }
+
+        console.log(`[Newsletter] Iniciando envio para ${subscribers.length} contatos...`);
+
+        // Função para gerar o HTML do e-mail de campanha
+        const createCampaignEmail = (msg, link, text) => {
+            let buttonHtml = '';
+            if (link && text) {
+                buttonHtml = `
+                    <div style="text-align: center; margin-top: 30px;">
+                        <a href="${link}" style="background-color: #D4AF37; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif; display: inline-block;">
+                            ${text}
+                        </a>
+                    </div>
+                `;
+            }
+
+            const content = `
+                <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin-bottom: 20px;">${subject}</h1>
+                <div style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; white-space: pre-line;">
+                    ${msg}
+                </div>
+                ${buttonHtml}
+                <hr style="border: 0; border-top: 1px solid #374151; margin: 40px 0 20px;" />
+                <p style="text-align: center; color: #6B7280; font-size: 12px;">
+                    Você recebeu este e-mail porque se inscreveu no Clube VIP da Love Cestas e Perfumes.
+                </p>
+            `;
+            return createEmailBase(content);
+        };
+
+        const emailHtml = createCampaignEmail(message, ctaLink, ctaText);
+        
+        // Envio em lotes (Promises) para não bloquear, mas garantindo execução
+        // Nota: Em produção massiva (milhares), ideal usar filas (Bull/Redis). Para PME, isso atende bem.
+        const emailPromises = subscribers.map(sub => 
+            sendEmailAsync({
+                from: process.env.FROM_EMAIL,
+                to: sub.email,
+                subject: subject,
+                html: emailHtml
+            })
+        );
+
+        // Não aguarda todos os promises terminarem para responder ao Admin (evita timeout)
+        // O log registrará o término.
+        Promise.allSettled(emailPromises).then(results => {
+            const successCount = results.filter(r => r.status === 'fulfilled').length;
+            console.log(`[Newsletter] Envio concluído. Sucesso: ${successCount}/${subscribers.length}`);
+            
+            // Opcional: Registrar no log do admin
+            logAdminAction(req.user, 'ENVIOU NEWSLETTER', `Assunto: "${subject}" para ${successCount} inscritos.`);
+        });
+
+        res.json({ message: `Campanha iniciada! Enviando para ${subscribers.length} inscritos.` });
+
+    } catch (err) {
+        console.error("Erro no envio da newsletter:", err);
+        res.status(500).json({ message: "Erro interno ao processar o envio." });
+    } finally {
+        connection.release();
+    }
+});
+
 // Middleware Global de Tratamento de Erros
 app.use((err, req, res, next) => {
     console.error("Erro não tratado capturado:", err.stack);

@@ -2019,34 +2019,97 @@ const BenefitsBar = () => (
     </div>
 );
 
-const NewsletterSection = () => (
-    <section className="bg-gradient-to-r from-amber-500 to-amber-600 py-10 md:py-16 mt-8 md:mt-16 relative overflow-hidden">
-        {/* Padrão de fundo decorativo */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        
-        <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-10 relative z-10">
-            <div className="text-center lg:text-left text-black max-w-xl">
-                <h2 className="text-2xl md:text-4xl font-extrabold flex flex-col md:flex-row items-center lg:items-start gap-2 md:gap-3 mb-2 md:mb-3 leading-tight">
-                    <span className="bg-black text-amber-500 p-1.5 md:p-2 rounded-lg shadow-lg transform -rotate-3"><SparklesIcon className="h-6 w-6 md:h-8 md:w-8" /></span>
-                    <span>Clube VIP</span>
-                </h2>
-                <p className="font-medium text-black/80 text-sm md:text-lg px-2 md:px-0">Cadastre-se e receba <span className="font-bold border-b-2 border-black">ofertas exclusivas</span> e cupons surpresa.</p>
-            </div>
+const NewsletterSection = () => {
+    const [email, setEmail] = useState('');
+    const [status, setStatus] = useState('idle'); // idle, loading, success, error
+    const [message, setMessage] = useState('');
+    const notification = useNotification();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!email) return;
+
+        setStatus('loading');
+        setMessage('');
+
+        try {
+            const response = await apiService('/newsletter/subscribe', 'POST', { email });
+            setStatus('success');
+            setMessage(response.message);
+            setEmail('');
+            notification.show("Bem-vindo ao Clube VIP!", "success");
+        } catch (error) {
+            setStatus('error');
+            setMessage(error.message || "Erro ao se inscrever. Tente novamente.");
+            // Não mostramos notificação flutuante aqui para manter o feedback contextual na seção
+        }
+    };
+
+    return (
+        <section className="bg-gradient-to-r from-amber-500 to-amber-600 py-10 md:py-16 mt-8 md:mt-16 relative overflow-hidden">
+            {/* Padrão de fundo decorativo */}
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
             
-            <form className="w-full lg:w-auto flex flex-col sm:flex-row gap-3 flex-grow max-w-lg bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-sm" onSubmit={(e) => { e.preventDefault(); alert('Obrigado por se inscrever!'); }}>
-                <input 
-                    type="email" 
-                    placeholder="Seu melhor e-mail" 
-                    className="w-full px-4 py-3 md:px-6 md:py-4 rounded-lg border-0 focus:ring-4 focus:ring-black/20 text-gray-900 shadow-inner placeholder-gray-600 font-medium text-sm md:text-base"
-                    required
-                />
-                <button type="submit" className="bg-black text-white px-6 py-3 md:px-8 md:py-4 rounded-lg font-bold text-sm md:text-lg hover:bg-gray-900 transition-all shadow-lg hover:shadow-xl transform active:scale-95 whitespace-nowrap flex items-center justify-center gap-2">
-                    Cadastrar <CheckIcon className="h-4 w-4 md:h-5 md:w-5 text-amber-500"/>
-                </button>
-            </form>
-        </div>
-    </section>
-);
+            <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center justify-between gap-6 md:gap-10 relative z-10">
+                <div className="text-center lg:text-left text-black max-w-xl">
+                    <h2 className="text-2xl md:text-4xl font-extrabold flex flex-col md:flex-row items-center lg:items-start gap-2 md:gap-3 mb-2 md:mb-3 leading-tight">
+                        <span className="bg-black text-amber-500 p-1.5 md:p-2 rounded-lg shadow-lg transform -rotate-3"><SparklesIcon className="h-6 w-6 md:h-8 md:w-8" /></span>
+                        <span>Clube VIP</span>
+                    </h2>
+                    <p className="font-medium text-black/90 text-sm md:text-lg px-2 md:px-0">
+                        Cadastre-se e receba <span className="font-bold border-b-2 border-black">ofertas exclusivas</span> e cupons surpresa diretamente no seu e-mail.
+                    </p>
+                </div>
+                
+                <div className="w-full lg:w-auto max-w-lg">
+                    <form className="flex flex-col sm:flex-row gap-3 bg-white/20 p-2 rounded-xl backdrop-blur-sm shadow-sm transition-all focus-within:ring-2 focus-within:ring-black/20" onSubmit={handleSubmit}>
+                        <input 
+                            type="email" 
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Seu melhor e-mail" 
+                            className="w-full px-4 py-3 md:px-6 md:py-4 rounded-lg border-0 focus:ring-0 text-gray-900 placeholder-gray-600 font-medium text-sm md:text-base outline-none bg-white/90 focus:bg-white transition-colors"
+                            required
+                            disabled={status === 'loading' || status === 'success'}
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={status === 'loading' || status === 'success'}
+                            className={`px-6 py-3 md:px-8 md:py-4 rounded-lg font-bold text-sm md:text-lg transition-all shadow-lg flex items-center justify-center gap-2 whitespace-nowrap
+                                ${status === 'success' 
+                                    ? 'bg-green-600 text-white cursor-default' 
+                                    : 'bg-black text-white hover:bg-gray-900 active:scale-95'
+                                } disabled:opacity-80`}
+                        >
+                            {status === 'loading' ? (
+                                <SpinnerIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-500"/>
+                            ) : status === 'success' ? (
+                                <>Inscrito <CheckIcon className="h-5 w-5 md:h-6 md:w-6"/></>
+                            ) : (
+                                <>Cadastrar <CheckIcon className="h-4 w-4 md:h-5 md:w-5 text-amber-500"/></>
+                            )}
+                        </button>
+                    </form>
+                    
+                    {/* Mensagens de Feedback */}
+                    <AnimatePresence>
+                        {message && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: -10 }} 
+                                animate={{ opacity: 1, y: 0 }} 
+                                exit={{ opacity: 0 }}
+                                className={`mt-3 text-sm font-bold text-center lg:text-left px-2 py-1 rounded ${status === 'error' ? 'text-red-800 bg-red-100/80 inline-block' : 'text-black'}`}
+                            >
+                                {status === 'success' && <span className="mr-1">🎉</span>}
+                                {message}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+        </section>
+    );
+};
 
 // --- PÁGINAS DO CLIENTE ---
 // Componente Interno do Banner de Destaque (Carrossel)
@@ -6520,6 +6583,205 @@ const TermsOfServicePage = () => {
                     <p>Em nenhuma circunstância a LovecestasePerfumes será responsável por quaisquer danos (incluindo, sem limitação, danos por perda de dados ou lucro, ou devido a interrupção dos negócios) decorrentes do uso ou da incapacidade de usar os materiais no site da LovecestasePerfumes.</p>
                 </div>
             </div>
+        </div>
+    );
+};
+
+const AdminNewsletter = () => {
+    const [subscribers, setSubscribers] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('compose'); // 'compose' ou 'list'
+    
+    // Estados do Formulário
+    const [subject, setSubject] = useState('');
+    const [message, setMessage] = useState('');
+    const [ctaLink, setCtaLink] = useState('');
+    const [ctaText, setCtaText] = useState('');
+    const [isSending, setIsSending] = useState(false);
+    
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    const fetchSubscribers = useCallback(() => {
+        setIsLoading(true);
+        apiService('/newsletter/subscribers')
+            .then(data => setSubscribers(data))
+            .catch(err => notification.show('Erro ao carregar lista.', 'error'))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    useEffect(() => { fetchSubscribers() }, [fetchSubscribers]);
+
+    const handleSend = (e) => {
+        e.preventDefault();
+        
+        if (subscribers.length === 0) {
+            notification.show("Sua lista de e-mails está vazia.", "error");
+            return;
+        }
+
+        confirmation.show(
+            `Confirmar envio para ${subscribers.length} pessoas? Esta ação não pode ser desfeita.`,
+            async () => {
+                setIsSending(true);
+                try {
+                    const response = await apiService('/newsletter/broadcast', 'POST', {
+                        subject,
+                        message,
+                        ctaLink,
+                        ctaText
+                    });
+                    notification.show(response.message, 'success');
+                    // Limpar formulário
+                    setSubject('');
+                    setMessage('');
+                    setCtaLink('');
+                    setCtaText('');
+                } catch (error) {
+                    notification.show(error.message, 'error');
+                } finally {
+                    setIsSending(false);
+                }
+            },
+            { confirmText: "ENVIAR CAMPANHA", confirmColor: "bg-green-600 hover:bg-green-700" }
+        );
+    };
+
+    return (
+        <div>
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-gray-800">Marketing & Clube VIP</h1>
+                <p className="text-gray-500">Gerencie sua lista e envie ofertas exclusivas.</p>
+            </div>
+
+            {/* Cards de Resumo */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider">Total de Inscritos</h3>
+                    <p className="text-3xl font-bold text-gray-800 mt-2">{subscribers.length}</p>
+                </div>
+                <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-6 rounded-lg shadow-md text-white">
+                    <h3 className="text-white/80 text-xs font-bold uppercase tracking-wider">Potencial de Venda</h3>
+                    <p className="text-3xl font-bold mt-2 flex items-center gap-2">
+                        <SparklesIcon className="h-6 w-6"/> Alto
+                    </p>
+                    <p className="text-xs text-white/80 mt-1">Sua lista é seu maior ativo.</p>
+                </div>
+            </div>
+
+            {/* Abas */}
+            <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
+                <button 
+                    onClick={() => setActiveTab('compose')} 
+                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'compose' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                    Nova Campanha
+                </button>
+                <button 
+                    onClick={() => setActiveTab('list')} 
+                    className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'list' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                >
+                    Ver Lista ({subscribers.length})
+                </button>
+            </div>
+
+            {activeTab === 'compose' && (
+                <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm animate-fade-in">
+                    <form onSubmit={handleSend} className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Assunto do E-mail</label>
+                            <input 
+                                type="text" 
+                                value={subject}
+                                onChange={(e) => setSubject(e.target.value)}
+                                placeholder="Ex: 🔥 Oferta Relâmpago: 20% OFF só hoje!" 
+                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                required
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Mensagem</label>
+                            <textarea 
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                                placeholder="Escreva sua mensagem aqui... Dica: Seja breve e direto." 
+                                rows="6"
+                                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                required
+                            />
+                            <p className="text-xs text-gray-500 mt-1">Quebras de linha serão respeitadas no e-mail.</p>
+                        </div>
+
+                        <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                            <h4 className="font-bold text-gray-700 text-sm mb-3">Botão de Ação (Opcional)</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Texto do Botão</label>
+                                    <input 
+                                        type="text" 
+                                        value={ctaText}
+                                        onChange={(e) => setCtaText(e.target.value)}
+                                        placeholder="Ex: Ver Promoção" 
+                                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Link de Destino (URL completa)</label>
+                                    <input 
+                                        type="text" 
+                                        value={ctaLink}
+                                        onChange={(e) => setCtaLink(e.target.value)}
+                                        placeholder="Ex: https://loja.com.br/#products?promo=true" 
+                                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-end pt-4 border-t">
+                            <button 
+                                type="submit" 
+                                disabled={isSending}
+                                className="bg-green-600 text-white px-8 py-3 rounded-md font-bold hover:bg-green-700 transition-all shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                            >
+                                {isSending ? <SpinnerIcon className="h-5 w-5"/> : <PaperAirplaneIcon className="h-5 w-5"/>}
+                                {isSending ? 'Enviando...' : 'Enviar para Todos'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {activeTab === 'list' && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden animate-fade-in">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-gray-100 border-b border-gray-200">
+                            <tr>
+                                <th className="p-4 font-bold text-gray-600">Email</th>
+                                <th className="p-4 font-bold text-gray-600">Data de Inscrição</th>
+                                <th className="p-4 font-bold text-gray-600">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {subscribers.map((sub) => (
+                                <tr key={sub.id} className="hover:bg-gray-50">
+                                    <td className="p-4 font-medium text-gray-800">{sub.email}</td>
+                                    <td className="p-4 text-gray-500">{new Date(sub.created_at).toLocaleDateString()}</td>
+                                    <td className="p-4">
+                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold">Ativo</span>
+                                    </td>
+                                </tr>
+                            ))}
+                            {subscribers.length === 0 && (
+                                <tr>
+                                    <td colSpan="3" className="p-8 text-center text-gray-400">Nenhum inscrito ainda.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };
