@@ -1995,15 +1995,16 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
 const BenefitsBar = () => (
     <div className="bg-gray-900 border-b border-gray-800 py-4 md:py-8">
         <div className="container mx-auto px-4">
-            {/* Mobile: Scroll Horizontal com Snap / Desktop: Grid */}
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-2 md:pb-0 md:grid md:grid-cols-4 md:gap-6 scrollbar-hide">
+            {/* CORREÇÃO MOBILE: Alterado de 'flex overflow-x-auto' para 'grid grid-cols-2' */}
+            {/* Isso remove a barra de rolagem e mostra os itens organizados em 2 colunas no celular */}
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
                 {[
                     { icon: TruckIcon, title: "Frete Grátis", desc: "Acima de R$ 299" },
                     { icon: CreditCardIcon, title: "4x Sem Juros", desc: "No cartão de crédito" },
                     { icon: ShieldCheckIcon, title: "Compra Segura", desc: "Proteção de dados" },
                     { icon: ArrowUturnLeftIcon, title: "Troca Fácil", desc: "1ª troca grátis" },
                 ].map((item, index) => (
-                    <div key={index} className="snap-center shrink-0 w-36 md:w-auto flex flex-col items-center text-center group p-3 md:p-4 rounded-lg bg-gray-800/30 md:bg-transparent md:hover:bg-gray-800/50 transition-all border border-gray-800 md:border-transparent">
+                    <div key={index} className="flex flex-col items-center text-center group p-3 rounded-lg bg-gray-800/30 md:bg-transparent md:hover:bg-gray-800/50 transition-all border border-gray-800 md:border-transparent">
                         <div className="p-2 md:p-3 bg-gray-800 rounded-full mb-2 md:mb-3 group-hover:bg-gray-700 transition-colors shadow-lg">
                             <item.icon className="h-5 w-5 md:h-6 md:w-6 text-amber-400 group-hover:scale-110 transition-transform" />
                         </div>
@@ -2054,7 +2055,7 @@ const HomePage = ({ onNavigate }) => {
         perfumes: []
     });
     
-    // Estado separado para cada seção
+    // Estado unificado para banners
     const [banners, setBanners] = useState({
         carousel: [],
         promo: null,
@@ -2088,18 +2089,17 @@ const HomePage = ({ onNavigate }) => {
         apiService('/banners', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // SEPARAÇÃO POR ORDEM (CONVENÇÃO DO ADMIN):
-                    // < 50: Carrossel
-                    // 50: Promoção (Meio)
-                    // >= 60: Cards (Inferior)
-                    const carousel = data.filter(b => b.display_order < 50);
-                    const promo = data.find(b => b.display_order === 50);
-                    const cards = data.filter(b => b.display_order >= 60).slice(0, 2); // Pega até 2 cards
+                    const sorted = data.sort((a, b) => a.display_order - b.display_order);
+
+                    const promo = sorted.find(b => b.display_order === 50) || null;
+                    const card1 = sorted.find(b => b.display_order === 60) || null;
+                    const card2 = sorted.find(b => b.display_order === 61) || null;
+                    const carousel = sorted.filter(b => b.display_order < 50);
 
                     setBanners({
                         carousel: carousel,
                         promo: promo,
-                        cards: cards
+                        cards: [card1, card2].filter(Boolean)
                     });
                 }
             })
@@ -2111,7 +2111,7 @@ const HomePage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Componente do Banner de Destaque (Com Fallback Original)
+    // Componente Interno do Banner de Destaque
     const PromoBannerSection = ({ customBanner }) => {
         const defaultBanner = {
             image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
@@ -2165,7 +2165,7 @@ const HomePage = ({ onNavigate }) => {
         );
     };
 
-    // Componente dos Cards de Categoria (Com Fallback Original)
+    // Componente Cards Inferiores
     const CategoryCardsSection = ({ customCards }) => {
         const defaultCards = [
             {
@@ -2184,9 +2184,8 @@ const HomePage = ({ onNavigate }) => {
             }
         ];
 
-        // Se houver customCards, usa eles. Se faltar algum (ex: tem 1 custom), completa com o default.
-        const card1 = customCards && customCards[0] ? customCards[0] : defaultCards[0];
-        const card2 = customCards && customCards[1] ? customCards[1] : defaultCards[1];
+        const card1 = (customCards && customCards.length > 0) ? customCards[0] : defaultCards[0];
+        const card2 = (customCards && customCards.length > 1) ? customCards[1] : defaultCards[1];
         const cardsToRender = [card1, card2];
 
         return (
@@ -2222,12 +2221,13 @@ const HomePage = ({ onNavigate }) => {
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
-            <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
+            banners.carousel.length > 0 && <BannerCarousel banners={banners.carousel} onNavigate={onNavigate} />
         )}
         
         <BenefitsBar />
         
-        <div className="py-8 md:py-12 bg-gradient-to-b from-black to-gray-900">
+        {/* Carrossel de Categorias - CORREÇÃO: Gradiente removido para eliminar a linha divisória */}
+        <div className="py-8 md:py-12 bg-black">
              <CollectionsCarousel onNavigate={onNavigate} title="Coleções" />
         </div>
 
@@ -2267,7 +2267,7 @@ const HomePage = ({ onNavigate }) => {
           </div>
         </section>
 
-        {/* Cards de Categoria (Moda / Perfumes) */}
+        {/* Cards de Categoria (Inferior) */}
         <CategoryCardsSection customCards={banners.cards} />
         
         {/* Vitrine Roupas */}
