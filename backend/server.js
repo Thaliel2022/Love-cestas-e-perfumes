@@ -3898,53 +3898,52 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
 
 // (Admin) Pega todos os banners para o painel de gerenciamento
 app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC");
-        res.json(banners);
-    } catch (err) {
-        console.error("Erro ao buscar banners (admin):", err);
-        res.status(500).json({ message: "Erro ao buscar banners." });
-    }
+    try {
+        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC");
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
 });
 
 // (Admin) Cria um novo banner
 // (Admin) Cria um novo banner - VERSÃO CORRIGIDA PARA RESPEITAR SLOTS FIXOS
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
     
-    if (!image_url || !link_url) {
-        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
-    }
+    if (!image_url || !link_url) return res.status(400).json({ message: "Dados obrigatórios faltando." });
 
     const connection = await db.getConnection();
     try {
         let orderToUse = display_order;
-
-        // Se a ordem não for enviada (undefined), calcula o próximo para o carrossel (0-49)
+        // Se não vier ordem, joga pro final do carrossel
         if (orderToUse === undefined || orderToUse === null) {
              const [rows] = await connection.query("SELECT COALESCE(MAX(display_order), -1) + 1 as nextOrder FROM banners WHERE display_order < 50");
              orderToUse = rows[0].nextOrder;
         } else {
-            // Se a ordem FOI enviada (ex: 50 ou 60), verifica se já existe um banner nessa posição e o remove/arquiva
-            // Isso garante que só exista UM banner na posição 50 (Destaque)
-            if (orderToUse >= 50) {
-                await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
-            }
+            // Se for slot fixo (50, 60...), remove o anterior para substituir
+            if (orderToUse >= 50) await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
         }
 
-        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse];
+        // Tratamento de datas nulas
+        const validStart = start_date ? new Date(start_date) : null;
+        const validEnd = end_date ? new Date(end_date) : null;
+
+        const sql = "INSERT INTO banners (image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd];
         
         const [result] = await connection.query(sql, params);
-        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Posição: ${orderToUse}`);
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Agendado: ${validStart ? 'Sim' : 'Não'}`);
         res.status(201).json({ message: "Banner salvo com sucesso!", id: result.insertId });
     } catch (err) {
         console.error("Erro ao criar banner:", err);
-        res.status(500).json({ message: "Erro interno ao criar banner." });
+        res.status(500).json({ message: "Erro interno." });
     } finally {
         connection.release();
     }
 });
+
 
 // (Admin) Atualiza a ORDEM de múltiplos banners (Drag & Drop)
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
@@ -3981,27 +3980,25 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
 // (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order } = req.body;
+    const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
     
-    if (!image_url || !link_url) {
-        return res.status(400).json({ message: "URL da Imagem e Link de Destino são obrigatórios." });
-    }
+    if (!image_url || !link_url) return res.status(400).json({ message: "Dados obrigatórios faltando." });
 
     try {
-        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ?, display_order = ? WHERE id = ?";
-        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, display_order, id];
+        const validStart = start_date ? new Date(start_date) : null;
+        const validEnd = end_date ? new Date(end_date) : null;
+
+        const sql = "UPDATE banners SET image_url = ?, image_url_mobile = ?, title = ?, subtitle = ?, link_url = ?, cta_text = ?, cta_enabled = ?, is_active = ?, display_order = ?, start_date = ?, end_date = ? WHERE id = ?";
+        const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, display_order, validStart, validEnd, id];
         
         const [result] = await db.query(sql, params);
-        
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Banner não encontrado." });
-        }
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Banner não encontrado." });
         
         logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`);
         res.json({ message: "Banner atualizado com sucesso." });
     } catch (err) {
         console.error("Erro ao atualizar banner:", err);
-        res.status(500).json({ message: "Erro ao atualizar banner." });
+        res.status(500).json({ message: "Erro interno." });
     }
 });
 
@@ -4023,15 +4020,23 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Público) Pega todos os banners ativos para a home page
 app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
-    try {
-        const [banners] = await db.query("SELECT * FROM banners WHERE is_active = 1 ORDER BY display_order ASC");
-        res.json(banners);
-    } catch (err) {
-        console.error("Erro ao buscar banners:", err);
-        res.status(500).json({ message: "Erro ao buscar banners." });
-    }
+    try {
+        // A mágica do "Padrão Amazon": O banco filtra pela data atual (NOW())
+        // Retorna apenas se is_active=1 E (data_inicio já passou OU é nula) E (data_fim não chegou OU é nula)
+        const sql = `
+            SELECT * FROM banners 
+            WHERE is_active = 1 
+            AND (start_date IS NULL OR start_date <= NOW()) 
+            AND (end_date IS NULL OR end_date >= NOW())
+            ORDER BY display_order ASC
+        `;
+        const [banners] = await db.query(sql);
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners:", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
 });
-
 // --- ROTAS DE GERENCIAMENTO DE CONFIGURAÇÕES DO SITE ---
 
 // (Público) Rota para o frontend verificar rapidamente se o modo manutenção está ativo
