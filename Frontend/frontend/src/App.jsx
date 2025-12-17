@@ -9953,7 +9953,7 @@ const MaintenanceModeToggle = () => {
     );
 };
 
-const BannerForm = ({ item, onSave, onCancel }) => {
+const BannerForm = ({ item, section, onSave, onCancel }) => {
     const [formData, setFormData] = useState(item);
     const [uploading, setUploading] = useState({ desktop: false, mobile: false });
     const desktopInputRef = useRef(null);
@@ -9977,7 +9977,7 @@ const BannerForm = ({ item, onSave, onCancel }) => {
             const uploadResult = await apiImageUploadService('/upload/image', file);
             const fieldName = type === 'desktop' ? 'image_url' : 'image_url_mobile';
             setFormData(prev => ({ ...prev, [fieldName]: uploadResult.imageUrl }));
-            notification.show(`Upload da imagem de ${type} concluído!`);
+            notification.show(`Upload concluído!`);
         } catch (error) {
             notification.show(`Erro no upload: ${error.message}`, 'error');
         } finally {
@@ -9991,67 +9991,110 @@ const BannerForm = ({ item, onSave, onCancel }) => {
         onSave(formData);
     };
 
+    // Configurações visuais baseadas na seção
+    const getHints = () => {
+        switch(section) {
+            case 'promo':
+                return { 
+                    title: "Banner de Destaque (Meio)", 
+                    sizeDesktop: "1920 x 600 px (Wide)", 
+                    sizeMobile: "800 x 1000 px (Vertical)",
+                    showMobile: false // Oculta upload mobile se não for estritamente necessário, ou mantém opcional
+                };
+            case 'cards':
+                return { 
+                    title: "Card de Categoria (Inferior)", 
+                    sizeDesktop: "600 x 800 px (Vertical)", 
+                    sizeMobile: "Mesma imagem usada no desktop",
+                    showMobile: false // Cards geralmente usam a mesma imagem
+                };
+            default: // carousel
+                return { 
+                    title: "Banner do Carrossel (Topo)", 
+                    sizeDesktop: "1920 x 720 px (8:3)", 
+                    sizeMobile: "800 x 1200 px (2:3)",
+                    showMobile: true
+                };
+        }
+    };
+
+    const hints = getHints();
+
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4">
+                <h3 className="font-bold text-gray-800">{hints.title}</h3>
+                <p className="text-sm text-gray-500">Configure as imagens e textos para esta área específica.</p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Desktop)</label>
-                    <p className="text-xs text-gray-500 mt-1">Tamanho recomendado: **1920 x 720 pixels** (proporção 8:3).</p>
+                    <label className="block text-sm font-medium text-gray-700">Imagem Principal</label>
+                    <p className="text-xs text-amber-600 mt-1 font-semibold">Recomendado: {hints.sizeDesktop}</p>
                     <div className="flex flex-col gap-2 mt-2">
-                        <img src={formData.image_url || 'https://placehold.co/200x100/eee/ccc?text=Desktop'} alt="Preview Desktop" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
-                        <input type="text" name="image_url" value={formData.image_url} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                        <img src={formData.image_url || 'https://placehold.co/600x300/eee/ccc?text=Sem+Imagem'} alt="Preview" className="w-full h-32 object-cover rounded-md border bg-white"/>
+                        <input type="text" name="image_url" value={formData.image_url || ''} onChange={handleChange} required placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
                         <input type="file" ref={desktopInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'desktop')} />
                         <button type="button" onClick={() => desktopInputRef.current.click()} disabled={uploading.desktop} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
-                            {uploading.desktop ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Desktop</>}
+                            {uploading.desktop ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Imagem</>}
                         </button>
                     </div>
                 </div>
-                <div>
-                    <label className="block text-sm font-medium text-gray-700">Imagem do Banner (Mobile)</label>
-                    <p className="text-xs text-gray-500 mt-1">Tamanho recomendado: **800 x 1200 pixels** (proporção 2:3, vertical).</p>
-                    <div className="flex flex-col gap-2 mt-2">
-                        <img src={formData.image_url_mobile || 'https://placehold.co/100x100/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-24 object-cover rounded-md border bg-gray-100"/>
-                        <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="Opcional: https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
-                        <input type="file" ref={mobileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'mobile')} />
-                        <button type="button" onClick={() => mobileInputRef.current.click()} disabled={uploading.mobile} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
-                            {uploading.mobile ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Mobile</>}
-                        </button>
+                
+                {/* Mostra upload mobile apenas se necessário (Carrossel) ou opcional para outros */}
+                {hints.showMobile && (
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Imagem Mobile (Opcional)</label>
+                        <p className="text-xs text-gray-500 mt-1">Recomendado: {hints.sizeMobile}</p>
+                        <div className="flex flex-col gap-2 mt-2">
+                            <img src={formData.image_url_mobile || 'https://placehold.co/300x400/eee/ccc?text=Mobile'} alt="Preview Mobile" className="w-full h-32 object-contain rounded-md border bg-white"/>
+                            <input type="text" name="image_url_mobile" value={formData.image_url_mobile || ''} onChange={handleChange} placeholder="https://..." className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm"/>
+                            <input type="file" ref={mobileInputRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, 'mobile')} />
+                            <button type="button" onClick={() => mobileInputRef.current.click()} disabled={uploading.mobile} className="text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-md flex items-center justify-center gap-2 disabled:opacity-50">
+                                {uploading.mobile ? <><SpinnerIcon className="h-4 w-4"/> Enviando...</> : <><UploadIcon className="h-4 w-4"/> Upload Mobile</>}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
+
              <div>
                 <label className="block text-sm font-medium text-gray-700">Link de Destino</label>
-                <input type="text" name="link_url" value={formData.link_url} onChange={handleChange} required placeholder="Ex: #products?category=Blusas" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                <input type="text" name="link_url" value={formData.link_url} onChange={handleChange} required placeholder="Ex: products?category=Blusas" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
             </div>
+
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Título (Opcional)</label>
-                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                    <label className="block text-sm font-medium text-gray-700">Título</label>
+                    <input type="text" name="title" value={formData.title || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ex: Oferta de Verão"/>
                 </div>
                 <div>
-                    <label className="block text-sm font-medium text-gray-700">Subtítulo (Opcional)</label>
-                    <input type="text" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                    <label className="block text-sm font-medium text-gray-700">Subtítulo</label>
+                    <input type="text" name="subtitle" value={formData.subtitle || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Ex: Até 50% OFF"/>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg">
                  <div className="flex items-center pt-2">
                     <input type="checkbox" name="cta_enabled" id="cta_enabled_form" checked={!!formData.cta_enabled} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
-                    <label htmlFor="cta_enabled_form" className="ml-2 block text-sm font-medium text-gray-700">Ativar Botão de Ação?</label>
+                    <label htmlFor="cta_enabled_form" className="ml-2 block text-sm font-medium text-gray-700">Exibir Botão?</label>
                 </div>
                 {!!formData.cta_enabled && (
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Texto do Botão</label>
-                        <input type="text" name="cta_text" value={formData.cta_text || ''} onChange={handleChange} placeholder="Ex: Ver Oferta" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                        <input type="text" name="cta_text" value={formData.cta_text || ''} onChange={handleChange} placeholder="Ex: Comprar Agora" className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
                     </div>
                 )}
             </div>
+
              <div className="flex items-center">
                 <input type="checkbox" name="is_active" id="is_active_form" checked={!!formData.is_active} onChange={handleChange} className="h-4 w-4 text-amber-600 border-gray-300 rounded"/>
-                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700">Ativo (visível no carrossel)</label>
+                <label htmlFor="is_active_form" className="ml-2 block text-sm text-gray-700 font-bold">Banner Ativo</label>
             </div>
+
             <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
                 <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+                <button type="submit" className="px-6 py-2 bg-amber-500 text-black rounded-md hover:bg-amber-400 font-bold shadow-md">Salvar Alterações</button>
             </div>
         </form>
     );
@@ -10115,46 +10158,82 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    // Separa os banners por seção baseado na ordem
-    const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
-    const promoBanner = banners.find(b => b.display_order === 50);
-    const cardBanners = banners.filter(b => b.display_order >= 60).sort((a, b) => a.display_order - b.display_order);
+    // --- DADOS PADRÃO (FALLBACKS) ---
+    // Estes dados aparecem no admin se não houver nada no banco, permitindo edição imediata
+    const DEFAULT_PROMO = {
+        title: "Semana do Consumidor",
+        subtitle: "Até 50% OFF em itens selecionados.",
+        image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+        link_url: "products?promo=true",
+        cta_text: "Ver Ofertas",
+        cta_enabled: 1,
+        is_active: 1,
+        display_order: 50 // ID fixo para Destaque
+    };
 
-    const handleOpenModal = (banner = null, section = 'carousel') => {
-        let initialOrder = 0;
+    const DEFAULT_CARDS = [
+        {
+            title: "Moda & Estilo",
+            subtitle: "Peças exclusivas para sua personalidade.",
+            image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
+            link_url: "products?category=Roupas",
+            cta_text: "Explorar Roupas",
+            cta_enabled: 1,
+            is_active: 1,
+            display_order: 60
+        },
+        {
+            title: "Perfumaria",
+            subtitle: "Fragrâncias marcantes importadas e nacionais.",
+            image_url: "https://images.unsplash.com/photo-1615634260167-c8cdede054de?q=80&w=1974&auto=format&fit=crop",
+            link_url: "products?category=Perfumes",
+            cta_text: "Ver Perfumes",
+            cta_enabled: 1,
+            is_active: 1,
+            display_order: 61
+        }
+    ];
+
+    // Separa os banners do banco
+    const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
+    
+    // Se existe no banco, usa. Se não, usa o padrão (fantasma)
+    const dbPromoBanner = banners.find(b => b.display_order === 50);
+    const displayPromoBanner = dbPromoBanner || { ...DEFAULT_PROMO, id: null }; // id: null indica que ainda não foi salvo
+
+    // Cards: Mescla banco com padrão
+    const card1 = banners.find(b => b.display_order === 60) || { ...DEFAULT_CARDS[0], id: null };
+    const card2 = banners.find(b => b.display_order === 61) || { ...DEFAULT_CARDS[1], id: null };
+    const displayCards = [card1, card2];
+
+    const handleOpenModal = (banner, section) => {
+        let initialData = { ...banner };
         
-        // Define a ordem baseado na seção se for um novo banner
-        if (!banner) {
-            if (section === 'carousel') {
-                const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
-                initialOrder = maxOrder + 1;
-            } else if (section === 'promo') {
-                initialOrder = 50;
-            } else if (section === 'cards') {
-                const maxOrder = cardBanners.length > 0 ? Math.max(...cardBanners.map(b => b.display_order)) : 59;
-                initialOrder = maxOrder + 1;
-            }
+        // Se for um banner novo no carrossel
+        if (!banner && section === 'carousel') {
+            const maxOrder = carouselBanners.length > 0 ? Math.max(...carouselBanners.map(b => b.display_order)) : -1;
+            initialData = { 
+                name: '', link_url: '', image_url: '', 
+                image_url_mobile: '', is_active: 1, 
+                cta_enabled: 0, cta_text: 'Ver Mais',
+                display_order: maxOrder + 1 
+            };
         }
 
-        const initialData = banner ? {...banner} : { 
-            name: '', link_url: '', image_url: '', 
-            image_url_mobile: '', is_active: 1, 
-            cta_enabled: 0, cta_text: 'Ver Mais',
-            display_order: initialOrder 
-        };
-        
         setEditingBanner(initialData);
         setIsModalOpen(true);
     };
 
     const handleSave = async (formData) => {
         try {
-            if (editingBanner && editingBanner.id) {
-                await apiService(`/banners/${editingBanner.id}`, 'PUT', formData);
-                notification.show('Atualizado com sucesso!');
+            if (formData.id) {
+                // Atualiza existente
+                await apiService(`/banners/${formData.id}`, 'PUT', formData);
+                notification.show('Banner atualizado!');
             } else {
+                // Cria novo (isso acontece quando editamos um banner "Padrão" pela primeira vez)
                 await apiService('/banners/admin', 'POST', formData);
-                notification.show('Criado com sucesso!');
+                notification.show('Banner criado e salvo!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10164,10 +10243,11 @@ const AdminBanners = () => {
     };
 
     const handleDelete = (id) => {
-        confirmation.show("Excluir este item?", async () => {
+        if (!id) return; // Não dá pra deletar banner padrão que não existe no banco
+        confirmation.show("Restaurar padrão? Isso excluirá sua personalização.", async () => {
             try {
                 await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Deletado com sucesso.');
+                notification.show('Restaurado para o padrão.');
                 fetchBanners();
             } catch (error) {
                 notification.show(`Erro: ${error.message}`, 'error');
@@ -10175,7 +10255,7 @@ const AdminBanners = () => {
         });
     };
     
-    // Lógica específica para reordenar apenas o carrossel
+    // Reordenar Carrossel
     const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
@@ -10183,16 +10263,16 @@ const AdminBanners = () => {
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            // Atualiza UI localmente para evitar flick
+            // Atualiza UI local
             const otherBanners = banners.filter(b => b.display_order >= 50);
             setBanners([...newOrder, ...otherBanners]);
 
             const orderedIds = newOrder.map(b => b.id);
             try {
                 await apiService('/banners/order', 'PUT', { orderedIds });
-                notification.show('Ordem do carrossel salva!');
+                notification.show('Ordem salva!');
             } catch (error) {
-                notification.show(`Erro ao salvar ordem: ${error.message}`, 'error');
+                notification.show('Erro ao salvar ordem.', 'error');
                 fetchBanners();
             }
         }
@@ -10202,26 +10282,30 @@ const AdminBanners = () => {
         <div>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingBanner && editingBanner.id ? 'Editar Item' : 'Adicionar Novo'}>
-                        <BannerForm item={editingBanner} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Editor de Banner">
+                        <BannerForm 
+                            item={editingBanner} 
+                            section={activeTab} // Passa a seção para o form mostrar dicas corretas
+                            onSave={handleSave} 
+                            onCancel={() => setIsModalOpen(false)} 
+                        />
                     </Modal>
                 )}
             </AnimatePresence>
 
             <div className="mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">Gestão Visual da Home</h1>
-                <p className="text-gray-500">Gerencie todos os banners e destaques da página inicial em um só lugar.</p>
+                <p className="text-gray-500">Personalize os banners de todas as áreas do site.</p>
             </div>
 
-            {/* Abas de Navegação */}
-            <div className="flex border-b border-gray-200 mb-6">
-                <button onClick={() => setActiveTab('carousel')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
+                <button onClick={() => setActiveTab('carousel')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
                     Carrossel (Topo)
                 </button>
-                <button onClick={() => setActiveTab('promo')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                <button onClick={() => setActiveTab('promo')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
                     Destaque (Meio)
                 </button>
-                <button onClick={() => setActiveTab('cards')} className={`px-6 py-3 font-bold text-sm transition-colors border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                <button onClick={() => setActiveTab('cards')} className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}>
                     Cards (Inferior)
                 </button>
             </div>
@@ -10230,89 +10314,126 @@ const AdminBanners = () => {
                 <div className="py-20 flex justify-center"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
                 <>
-                    {/* ABA CARROSSEL */}
+                    {/* --- ABA CARROSSEL --- */}
                     {activeTab === 'carousel' && (
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                <p className="text-sm text-blue-800">Estes banners rotacionam no topo da página inicial. Arraste para reordenar.</p>
-                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center gap-2 text-sm font-bold">
-                                    <PlusIcon className="h-4 w-4"/> Adicionar ao Carrossel
+                        <div className="space-y-4 animate-fade-in">
+                            <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                                <div>
+                                    <h3 className="font-bold text-gray-800">Banners Rotativos</h3>
+                                    <p className="text-xs text-gray-500">Arraste para mudar a ordem de exibição.</p>
+                                </div>
+                                <button onClick={() => handleOpenModal(null, 'carousel')} className="bg-gray-900 text-white px-4 py-2 rounded-md hover:bg-black flex items-center gap-2 text-sm font-bold shadow-md transition-transform hover:-translate-y-0.5">
+                                    <PlusIcon className="h-4 w-4"/> Adicionar Novo
                                 </button>
                             </div>
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndCarousel}>
                                 <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {carouselBanners.map((banner) => (
-                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={(b) => handleOpenModal(b, 'carousel')} onDelete={handleDelete} />
                                         ))}
                                     </div>
                                 </SortableContext>
                             </DndContext>
-                            {carouselBanners.length === 0 && <p className="text-center text-gray-400 py-10">Nenhum banner no carrossel.</p>}
+                            {carouselBanners.length === 0 && (
+                                <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                                    <p className="text-gray-400">Nenhum banner no topo. Adicione um para começar.</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* ABA PROMOÇÃO (MEIO) */}
+                    {/* --- ABA DESTAQUE --- */}
                     {activeTab === 'promo' && (
-                        <div className="space-y-6">
-                            <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
-                                <p className="text-sm text-amber-800">Este é o banner largo que aparece no meio da página (ex: Semana do Consumidor).</p>
-                            </div>
-                            
-                            {promoBanner ? (
-                                <div className="max-w-4xl mx-auto">
-                                    <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
-                                        <div className="relative h-64 bg-gray-100">
-                                            <img src={promoBanner.image_url} alt={promoBanner.title} className="w-full h-full object-cover"/>
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity">
-                                                <div className="flex gap-2">
-                                                    <button onClick={() => handleOpenModal(promoBanner, 'promo')} className="bg-white p-2 rounded-full text-gray-800 hover:text-amber-600"><EditIcon className="h-6 w-6"/></button>
-                                                    <button onClick={() => handleDelete(promoBanner.id)} className="bg-white p-2 rounded-full text-gray-800 hover:text-red-600"><TrashIcon className="h-6 w-6"/></button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="p-4 border-t">
-                                            <h3 className="font-bold text-lg">{promoBanner.title || "Sem Título"}</h3>
-                                            <p className="text-gray-600">{promoBanner.subtitle}</p>
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${promoBanner.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>{promoBanner.is_active ? 'Ativo' : 'Inativo'}</span>
-                                                <span className="text-xs text-gray-400">Link: {promoBanner.link_url}</span>
-                                            </div>
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-lg text-gray-800">Banner de Destaque</h3>
+                                        <p className="text-sm text-gray-500">Exibido logo abaixo das coleções.</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {displayPromoBanner.id ? (
+                                            <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">Personalizado</span>
+                                        ) : (
+                                            <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-xs font-bold border border-gray-200">Padrão do Sistema</span>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="relative h-64 w-full rounded-lg overflow-hidden border-2 border-gray-100 group">
+                                    <img src={displayPromoBanner.image_url} alt={displayPromoBanner.title} className="w-full h-full object-cover"/>
+                                    
+                                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <h4 className="text-xl font-bold mb-1">{displayPromoBanner.title}</h4>
+                                        <p className="text-sm text-gray-300 mb-4">{displayPromoBanner.subtitle}</p>
+                                        <div className="flex gap-3">
+                                            <button 
+                                                onClick={() => handleOpenModal(displayPromoBanner, 'promo')} 
+                                                className="bg-amber-500 text-black px-4 py-2 rounded-full font-bold hover:bg-amber-400 flex items-center gap-2"
+                                            >
+                                                <EditIcon className="h-4 w-4"/> {displayPromoBanner.id ? 'Editar' : 'Personalizar'}
+                                            </button>
+                                            {displayPromoBanner.id && (
+                                                <button onClick={() => handleDelete(displayPromoBanner.id)} className="bg-white text-red-600 px-4 py-2 rounded-full font-bold hover:bg-red-50 flex items-center gap-2">
+                                                    <TrashIcon className="h-4 w-4"/> Restaurar Padrão
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
-                                    <p className="text-gray-500 mb-4">Nenhum banner de destaque configurado. O site está usando o padrão.</p>
-                                    <button onClick={() => handleOpenModal(null, 'promo')} className="bg-amber-500 text-black px-6 py-2 rounded-md hover:bg-amber-400 font-bold">
-                                        Configurar Banner de Destaque
-                                    </button>
-                                </div>
-                            )}
+                            </div>
                         </div>
                     )}
 
-                    {/* ABA CARDS (INFERIOR) */}
+                    {/* --- ABA CARDS --- */}
                     {activeTab === 'cards' && (
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center bg-purple-50 p-4 rounded-lg border border-purple-100">
-                                <p className="text-sm text-purple-800">Estes são os dois cards grandes (ex: Moda, Perfumaria) na parte inferior.</p>
-                                {cardBanners.length < 2 && (
-                                    <button onClick={() => handleOpenModal(null, 'cards')} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center gap-2 text-sm font-bold">
-                                        <PlusIcon className="h-4 w-4"/> Adicionar Card
-                                    </button>
-                                )}
+                        <div className="space-y-6 animate-fade-in">
+                            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm mb-4">
+                                <h3 className="font-bold text-gray-800">Cards Inferiores</h3>
+                                <p className="text-sm text-gray-500">Exibidos em pares abaixo do banner de destaque.</p>
                             </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {cardBanners.map((banner) => (
-                                    <SortableBannerCard key={banner.id} banner={banner} onEdit={handleOpenModal} onDelete={handleDelete} />
+                                {displayCards.map((card, idx) => (
+                                    <div key={idx} className="bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow relative group">
+                                        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm z-10">
+                                            {idx === 0 ? 'Card Esquerda' : 'Card Direita'}
+                                        </div>
+                                        <div className="h-48 overflow-hidden bg-gray-100 relative">
+                                            <img src={card.image_url} alt={card.title} className="w-full h-full object-cover"/>
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button 
+                                                    onClick={() => handleOpenModal(card, 'cards')} 
+                                                    className="bg-white text-gray-900 p-2 rounded-full hover:bg-amber-400 transition-colors shadow-lg"
+                                                    title="Editar Card"
+                                                >
+                                                    <EditIcon className="h-5 w-5"/>
+                                                </button>
+                                                {card.id && (
+                                                    <button 
+                                                        onClick={() => handleDelete(card.id)} 
+                                                        className="bg-white text-red-600 p-2 rounded-full hover:bg-red-100 transition-colors shadow-lg ml-2"
+                                                        title="Restaurar Padrão"
+                                                    >
+                                                        <TrashIcon className="h-5 w-5"/>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="p-4">
+                                            <h4 className="font-bold text-gray-800">{card.title}</h4>
+                                            <p className="text-xs text-gray-500 mt-1 truncate">{card.subtitle}</p>
+                                            <div className="mt-3 pt-3 border-t flex justify-between items-center">
+                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${card.id ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {card.id ? 'Editado' : 'Padrão'}
+                                                </span>
+                                                <span className="text-xs text-amber-600 font-semibold">{card.cta_text} &rarr;</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
-                            {cardBanners.length === 0 && (
-                                <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
-                                    <p className="text-gray-500">Nenhum card configurado. O site está usando os padrões (Moda/Perfumes).</p>
-                                </div>
-                            )}
                         </div>
                     )}
                 </>
