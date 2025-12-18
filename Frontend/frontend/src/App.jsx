@@ -9335,14 +9335,23 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Busca cupons e dados auxiliares (Marcas/Categorias)
+    // Helper para evitar quebra no JSON.parse
+    const tryParse = (data) => {
+        try {
+            return typeof data === 'string' ? JSON.parse(data) : (data || []);
+        } catch (e) {
+            return [];
+        }
+    };
+
     useEffect(() => {
         fetchCoupons();
         apiService('/products/all').then(products => {
+            // Garante listas únicas e limpas
             const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
             const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
             setProductsData({ brands, categories });
-        });
+        }).catch(() => {}); // Falha silenciosa em dados auxiliares não deve travar
     }, []);
 
     const fetchCoupons = () => {
@@ -9375,7 +9384,6 @@ const AdminCoupons = () => {
         });
     };
 
-    // Componente de Contagem Regressiva Restaurado
     const CouponCountdown = ({ createdAt, validityDays }) => {
         const [timeLeft, setTimeLeft] = useState('');
 
@@ -9384,7 +9392,6 @@ const AdminCoupons = () => {
                 setTimeLeft('Permanente');
                 return;
             }
-
             const calculate = () => {
                 const expirationDate = new Date(new Date(createdAt).getTime() + validityDays * 24 * 60 * 60 * 1000);
                 const now = new Date();
@@ -9394,34 +9401,24 @@ const AdminCoupons = () => {
                     setTimeLeft('Expirado');
                     return;
                 }
-
                 const days = Math.floor(difference / (1000 * 60 * 60 * 24));
                 const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                
-                let displayString = '';
-                if (days > 0) displayString += `${days}d `;
-                displayString += `${hours}h`;
-                
-                setTimeLeft(displayString);
+                setTimeLeft(days > 0 ? `${days}d ${hours}h` : `${hours}h`);
             };
-
             calculate();
             const interval = setInterval(calculate, 60000); 
-
             return () => clearInterval(interval);
         }, [createdAt, validityDays]);
 
         const colorClass = timeLeft === 'Expirado' ? 'text-red-500 font-bold' : (timeLeft === 'Permanente' ? 'text-green-600' : 'text-amber-600 font-mono');
-
         return <span className={`text-xs ${colorClass}`}>{timeLeft}</span>;
     };
 
-    // Componente Interno do Formulário
     const CouponForm = ({ item, onSave, onCancel }) => {
         const [form, setForm] = useState(item || {
             code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
             allowed_categories: [], allowed_brands: [], validity_days: '',
-            is_first_purchase: 0, is_single_use_per_user: 0 // RESTAURADOS
+            is_first_purchase: 0, is_single_use_per_user: 0
         });
 
         const toggleSelection = (field, value) => {
@@ -9433,8 +9430,8 @@ const AdminCoupons = () => {
         };
 
         return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4 max-h-[75vh] overflow-y-auto px-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-bold text-gray-700">Código</label>
                         <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full p-2 border rounded uppercase" required />
@@ -9449,7 +9446,7 @@ const AdminCoupons = () => {
                     </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {form.type !== 'free_shipping' && (
                         <div>
                             <label className="block text-sm font-bold text-gray-700">Valor do Desconto</label>
@@ -9462,23 +9459,22 @@ const AdminCoupons = () => {
                     </div>
                 </div>
 
-                {/* Seção de Restrições Globais (Nova Funcionalidade) */}
                 <div className="border-t pt-4 mt-4">
-                    <label className="flex items-center space-x-2 cursor-pointer mb-4">
+                    <label className="flex items-center space-x-2 cursor-pointer mb-4 bg-gray-50 p-2 rounded border border-gray-200">
                         <input type="checkbox" checked={!!form.is_global} onChange={e => setForm({...form, is_global: e.target.checked ? 1 : 0})} className="h-5 w-5 text-green-600 rounded" />
-                        <span className="font-bold text-gray-800">Cupom Global (Válido para todo o site)</span>
+                        <span className="font-bold text-gray-800 text-sm">Cupom Global (Todo o site)</span>
                     </label>
 
                     {!form.is_global && (
-                        <div className="bg-gray-50 p-4 rounded border animate-fade-in">
-                            <p className="text-sm text-red-600 mb-2 font-semibold">Selecione as restrições (pelo menos uma):</p>
+                        <div className="bg-white p-3 rounded border border-gray-300 animate-fade-in">
+                            <p className="text-xs text-red-600 mb-2 font-semibold">*Selecione pelo menos uma categoria ou marca.</p>
                             
                             <div className="mb-4">
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Categorias Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Categorias</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 border rounded bg-gray-50">
                                     {productsData.categories.map(cat => (
                                         <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
+                                            className={`px-2 py-1 text-[10px] rounded-full border transition-colors ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
                                         >
                                             {cat}
                                         </button>
@@ -9487,11 +9483,11 @@ const AdminCoupons = () => {
                             </div>
 
                             <div>
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Marcas Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Marcas</span>
+                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1 border rounded bg-gray-50">
                                     {productsData.brands.map(brand => (
                                         <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700'}`}
+                                            className={`px-2 py-1 text-[10px] rounded-full border transition-colors ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700 hover:bg-gray-100'}`}
                                         >
                                             {brand}
                                         </button>
@@ -9502,28 +9498,27 @@ const AdminCoupons = () => {
                     )}
                 </div>
 
-                {/* Seção de Restrições de Uso (RESTAURADA) */}
-                <div className="border-t pt-4 mt-4 space-y-3 bg-yellow-50 p-4 rounded">
+                <div className="border-t pt-4 mt-4 space-y-3 bg-yellow-50 p-4 rounded border border-yellow-100">
                      <label className="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" checked={!!form.is_first_purchase} onChange={e => setForm({...form, is_first_purchase: e.target.checked ? 1 : 0})} className="h-4 w-4 text-amber-600 rounded" />
-                        <span className="text-sm text-gray-800">Válido apenas para a <strong className="text-amber-800">Primeira Compra</strong></span>
+                        <span className="text-xs sm:text-sm text-gray-800">Apenas <strong className="text-amber-800">1ª Compra</strong></span>
                     </label>
                     <label className="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" checked={!!form.is_single_use_per_user} onChange={e => setForm({...form, is_single_use_per_user: e.target.checked ? 1 : 0})} className="h-4 w-4 text-amber-600 rounded" />
-                        <span className="text-sm text-gray-800">Uso <strong className="text-amber-800">Único</strong> por usuário (1x por CPF)</span>
+                        <span className="text-xs sm:text-sm text-gray-800">Uso <strong className="text-amber-800">Único</strong> por cliente</span>
                     </label>
                 </div>
                 
                 <div className="flex items-center pt-2">
                     <label className="flex items-center space-x-2 cursor-pointer">
                         <input type="checkbox" checked={!!form.is_active} onChange={e => setForm({...form, is_active: e.target.checked ? 1 : 0})} className="h-5 w-5 text-green-600 rounded" />
-                        <span className="text-sm text-gray-700 font-bold">Cupom Ativo</span>
+                        <span className="text-sm text-gray-700 font-bold">Ativo</span>
                     </label>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4">
-                    <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar Cupom</button>
+                <div className="flex justify-end gap-3 pt-4 sticky bottom-0 bg-white border-t p-2 -mx-1">
+                    <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded text-sm font-bold text-gray-700 hover:bg-gray-300">Cancelar</button>
+                    <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded text-sm font-bold hover:bg-gray-900">Salvar</button>
                 </div>
             </form>
         );
@@ -9539,56 +9534,100 @@ const AdminCoupons = () => {
                 )}
             </AnimatePresence>
 
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded-md flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Gerenciar Cupons</h1>
+                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="w-full sm:w-auto bg-gray-800 text-white px-4 py-2 rounded-md flex items-center justify-center gap-2 hover:bg-gray-900 transition-colors shadow-sm">
                     <PlusIcon className="h-5 w-5"/> Novo Cupom
                 </button>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            {/* --- VISUALIZAÇÃO DESKTOP (TABELA) --- */}
+            <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden border border-gray-200">
                 <table className="w-full text-left">
-                    <thead className="bg-gray-100">
+                    <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            <th className="p-4">Código</th>
-                            <th className="p-4">Regra</th>
-                            <th className="p-4">Desconto</th>
-                            <th className="p-4">Restrições</th>
-                            <th className="p-4">Validade</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Ações</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Código</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Regra</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Desconto</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Restrições</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Validade</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Status</th>
+                            <th className="p-4 font-bold text-gray-600 text-sm">Ações</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="divide-y divide-gray-100">
                         {coupons.map(c => (
-                            <tr key={c.id} className="border-b hover:bg-gray-50">
+                            <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-4 text-sm">
-                                    {c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}
+                                    {c.is_global ? <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold">Global</span> : <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-xs font-bold">Restrito</span>}
                                 </td>
-                                <td className="p-4">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
-                                {/* Coluna Visual de Restrições */}
+                                <td className="p-4 text-sm font-medium">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
                                 <td className="p-4 text-xs text-gray-500">
-                                    {c.is_first_purchase ? <div className="text-amber-600">1ª Compra</div> : null}
-                                    {c.is_single_use_per_user ? <div>Uso Único</div> : null}
-                                    {!c.is_first_purchase && !c.is_single_use_per_user && <span>-</span>}
+                                    {c.is_first_purchase ? <div className="text-amber-700 font-semibold">• 1ª Compra</div> : null}
+                                    {c.is_single_use_per_user ? <div className="text-blue-700 font-semibold">• Uso Único</div> : null}
+                                    {!c.is_first_purchase && !c.is_single_use_per_user && <span className="text-gray-400">-</span>}
                                 </td>
                                 <td className="p-4">
                                     <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} />
                                 </td>
-                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full font-bold ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
                                 <td className="p-4 flex gap-2">
                                     <button onClick={() => { setEditingCoupon({
                                         ...c, 
-                                        allowed_categories: typeof c.allowed_categories === 'string' ? JSON.parse(c.allowed_categories || '[]') : c.allowed_categories,
-                                        allowed_brands: typeof c.allowed_brands === 'string' ? JSON.parse(c.allowed_brands || '[]') : c.allowed_brands
-                                    }); setIsModalOpen(true); }}><EditIcon className="h-5 w-5 text-gray-500"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5 text-red-500"/></button>
+                                        allowed_categories: tryParse(c.allowed_categories),
+                                        allowed_brands: tryParse(c.allowed_brands)
+                                    }); setIsModalOpen(true); }} className="p-1.5 hover:bg-gray-200 rounded text-gray-600"><EditIcon className="h-5 w-5"/></button>
+                                    <button onClick={() => handleDelete(c.id)} className="p-1.5 hover:bg-red-100 rounded text-red-600"><TrashIcon className="h-5 w-5"/></button>
                                 </td>
                             </tr>
                         ))}
+                         {coupons.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cupom cadastrado.</td></tr>}
                     </tbody>
                 </table>
+            </div>
+
+            {/* --- VISUALIZAÇÃO MOBILE (CARDS) --- */}
+            <div className="md:hidden space-y-4">
+                {coupons.map(c => (
+                    <div key={c.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative overflow-hidden">
+                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${c.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <div className="flex justify-between items-start mb-2 pl-3">
+                            <div>
+                                <h3 className="text-lg font-bold font-mono text-blue-700">{c.code}</h3>
+                                <p className="text-sm font-medium text-gray-800">
+                                    {c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}% OFF` : `R$ ${Number(c.value).toFixed(2)} OFF`)}
+                                </p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => { setEditingCoupon({
+                                    ...c, 
+                                    allowed_categories: tryParse(c.allowed_categories),
+                                    allowed_brands: tryParse(c.allowed_brands)
+                                }); setIsModalOpen(true); }} className="p-2 bg-gray-100 rounded text-gray-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(c.id)} className="p-2 bg-red-50 rounded text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                        
+                        <div className="pl-3 space-y-1 text-xs text-gray-600 border-t pt-2 mt-2 border-gray-100">
+                            <div className="flex justify-between">
+                                <span>Regra:</span>
+                                {c.is_global ? <span className="text-green-700 font-bold">Global</span> : <span className="text-amber-700 font-bold">Restrito</span>}
+                            </div>
+                            <div className="flex justify-between">
+                                <span>Validade:</span>
+                                <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} />
+                            </div>
+                            {(c.is_first_purchase || c.is_single_use_per_user) && (
+                                <div className="pt-1 mt-1 border-t border-dashed border-gray-200">
+                                    {c.is_first_purchase && <span className="block text-amber-700">• 1ª Compra</span>}
+                                    {c.is_single_use_per_user && <span className="block text-blue-700">• Uso Único</span>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+                 {coupons.length === 0 && <div className="text-center py-10 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">Nenhum cupom cadastrado.</div>}
             </div>
         </div>
     );
