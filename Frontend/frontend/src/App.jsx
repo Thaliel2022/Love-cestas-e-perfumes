@@ -560,10 +560,7 @@ const ShopProvider = ({ children }) => {
 
         let eligibleTotal = 0;
         
-        // Converte para Número e booleano explicitamente para evitar erros de tipo ("1" vs 1)
-        const isGlobalRaw = appliedCoupon.is_global;
-        const isGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
-        
+        // Parsing seguro das regras
         const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
         const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
 
@@ -571,6 +568,16 @@ const ShopProvider = ({ children }) => {
         const normalize = (str) => String(str || '').toLowerCase().trim();
         const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+
+        // CORREÇÃO DE SEGURANÇA:
+        // Se houver restrições de categoria ou marca, ignoramos a flag is_global para forçar a verificação.
+        // Isso corrige casos onde o cupom foi salvo incorretamente como global mas tem restrições.
+        const isGlobalRaw = appliedCoupon.is_global;
+        const isExplicitlyGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
+        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+        
+        // Lógica final: Só é global se tiver a flag E NÃO tiver restrições listadas
+        const isGlobal = isExplicitlyGlobal && !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
@@ -610,9 +617,14 @@ const ShopProvider = ({ children }) => {
     // Mensagem de Feedback Atualizada
     useEffect(() => {
         if (appliedCoupon) {
-            // Recalcula isGlobal para uso na mensagem
+            // Recalcula isGlobal para uso na mensagem com a mesma lógica segura
+            const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
+            const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+            
             const isGlobalRaw = appliedCoupon.is_global;
-            const isGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
+            const isExplicitlyGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
+            const hasRestrictions = allowedCats.length > 0 || allowedBrands.length > 0;
+            const isGlobal = isExplicitlyGlobal && !hasRestrictions;
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
                 setCouponMessage("Nenhum produto do carrinho é elegível para este cupom.");
