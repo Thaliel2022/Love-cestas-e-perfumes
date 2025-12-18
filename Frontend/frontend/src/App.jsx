@@ -2267,6 +2267,7 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
+    const { user, isAuthenticated } = useAuth(); // Acesso ao contexto de autenticação
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2374,6 +2375,41 @@ const CategoriesPage = ({ onNavigate }) => {
         );
     }
 
+    // Atalhos Rápidos (Estilo Amazon)
+    const QuickShortcuts = () => (
+        <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
+            {isAuthenticated ? (
+                <>
+                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
+                        <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
+                        <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
+                    </button>
+                    <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
+                        <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
+                        <span className="text-sm font-bold text-gray-200">Minha Conta</span>
+                    </button>
+                    {user?.role === 'admin' && (
+                        <button onClick={() => onNavigate('admin/dashboard')} className="col-span-2 bg-gradient-to-r from-gray-800 to-gray-700 border border-gray-600 p-3 rounded-lg flex items-center justify-center gap-3 hover:from-gray-700 hover:to-gray-600 active:scale-95 transition-all shadow-md">
+                            <AdminIcon className="h-5 w-5 text-amber-400"/>
+                            <span className="text-sm font-bold text-white uppercase tracking-wide">Acessar Painel Admin</span>
+                        </button>
+                    )}
+                </>
+            ) : (
+                <div className="col-span-2 bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center text-center">
+                    <p className="text-sm text-gray-400 mb-3">Faça login para ver seus pedidos e conta.</p>
+                    <button onClick={() => onNavigate('login')} className="w-full bg-amber-500 text-black font-bold py-2 rounded hover:bg-amber-400 transition-colors">
+                        Fazer Login / Criar Conta
+                    </button>
+                </div>
+            )}
+             <button onClick={() => onNavigate('ajuda')} className="col-span-2 bg-black border border-gray-700 p-3 rounded-lg flex items-center justify-between px-4 hover:bg-gray-800 active:scale-95 transition-all">
+                <span className="text-sm font-bold text-gray-200 flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
+                <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
+            </button>
+        </div>
+    );
+
     return (
         <div className="bg-black min-h-screen pt-2 pb-24 text-white"> {/* Fundo Preto Global */}
             <AnimatePresence>
@@ -2386,10 +2422,36 @@ const CategoriesPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4">
-                <h1 className="text-2xl font-bold text-white mb-6 px-1 mt-4 border-l-4 border-amber-500 pl-3">Departamentos</h1>
+                {/* Atalhos Rápidos no Topo */}
+                <h1 className="text-xl font-bold text-white mb-3 px-1 mt-4">Acesso Rápido</h1>
+                <QuickShortcuts />
+
+                <h1 className="text-xl font-bold text-white mb-4 px-1 mt-2 border-l-4 border-amber-500 pl-3">Departamentos</h1>
                 
                 {/* Grade Principal (Nível 1) - Dark Mode */}
                 <div className="grid grid-cols-2 gap-3"> 
+                    {/* Card Especial: Promoções (Antigo Ofertas do Dia) */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0 }}
+                        onClick={() => onNavigate('products?promo=true')}
+                        className="col-span-2 bg-gradient-to-r from-red-900 via-red-800 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
+                    >
+                        <div className="flex items-center gap-4 relative z-10">
+                            <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 group-hover:bg-red-600/40 transition-colors">
+                                <SaleIcon className="h-6 w-6 text-red-500 group-hover:text-red-400" />
+                            </div>
+                            <div className="text-left">
+                                <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
+                                <p className="text-red-300 text-xs font-medium">Ver todos os produtos em oferta</p>
+                            </div>
+                        </div>
+                        <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
+                         {/* Padrão de fundo sutil */}
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                    </motion.div>
+
                     {groupedCategories.map((group, idx) => (
                         <motion.div
                             key={group.title}
@@ -2419,28 +2481,11 @@ const CategoriesPage = ({ onNavigate }) => {
                             </div>
                         </motion.div>
                     ))}
-
-                    {/* Card Especial: Todas as Ofertas */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: groupedCategories.length * 0.05 }}
-                        onClick={() => onNavigate('products?promo=true')}
-                        className="bg-gradient-to-br from-red-900 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-col items-center justify-center p-4 text-center min-h-[160px] group relative"
-                    >
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
-                        <div className="w-14 h-14 bg-red-600/20 rounded-full flex items-center justify-center mb-2 border border-red-500/30 group-hover:bg-red-600/40 transition-colors relative z-10">
-                            <SaleIcon className="h-7 w-7 text-red-500 group-hover:text-red-400" />
-                        </div>
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wide relative z-10">Ofertas do Dia</h3>
-                        <p className="text-red-400 text-xs mt-1 font-bold relative z-10">Até 50% OFF</p>
-                    </motion.div>
                 </div>
             </div>
         </div>
     );
 };
-
 const HomePage = ({ onNavigate }) => {
     const [products, setProducts] = useState({
         newArrivals: [],
