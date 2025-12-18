@@ -555,21 +555,22 @@ const ShopProvider = ({ children }) => {
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         
-        // Se for frete grátis, o desconto no subtotal é 0
+        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
         // Converte para Número e booleano explicitamente para evitar erros de tipo ("1" vs 1)
-        const isGlobal = Number(appliedCoupon.is_global) === 1;
+        const isGlobalRaw = appliedCoupon.is_global;
+        const isGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
         
         const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
         const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
 
         // Normalização para comparação (Remove espaços e deixa minúsculo)
         const normalize = (str) => String(str || '').toLowerCase().trim();
-        const safeAllowedCats = allowedCats.map(normalize);
-        const safeAllowedBrands = allowedBrands.map(normalize);
+        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
+        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
 
         cart.forEach(item => {
             let isEligible = false;
@@ -609,11 +610,19 @@ const ShopProvider = ({ children }) => {
     // Mensagem de Feedback Atualizada
     useEffect(() => {
         if (appliedCoupon) {
+            // Recalcula isGlobal para uso na mensagem
+            const isGlobalRaw = appliedCoupon.is_global;
+            const isGlobal = isGlobalRaw == 1 || String(isGlobalRaw).toLowerCase() === 'true';
+
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                setCouponMessage("Este cupom não se aplica aos itens do seu carrinho.");
+                setCouponMessage("Nenhum produto do carrinho é elegível para este cupom.");
+            } else if (!isGlobal) {
+                setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado aos itens elegíveis!`);
             } else {
                 setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
             }
+        } else {
+            setCouponMessage("");
         }
     }, [discount, appliedCoupon]);
 
