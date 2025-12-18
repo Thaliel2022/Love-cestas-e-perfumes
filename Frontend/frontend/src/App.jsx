@@ -6589,28 +6589,40 @@ const TermsOfServicePage = () => {
 
 const AdminNewsletter = () => {
     const [subscribers, setSubscribers] = useState([]);
+    const [products, setProducts] = useState([]); // Lista de produtos para o select
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('compose'); // 'compose' ou 'list'
+    const [activeTab, setActiveTab] = useState('compose');
     
     // Estados do Formulário
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [ctaLink, setCtaLink] = useState('');
     const [ctaText, setCtaText] = useState('');
+    
+    // Novos Estados para Produto
+    const [selectedProductId, setSelectedProductId] = useState('');
+    const [discountText, setDiscountText] = useState('');
+
     const [isSending, setIsSending] = useState(false);
     
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    const fetchSubscribers = useCallback(() => {
+    const fetchData = useCallback(() => {
         setIsLoading(true);
-        apiService('/newsletter/subscribers')
-            .then(data => setSubscribers(data))
-            .catch(err => notification.show('Erro ao carregar lista.', 'error'))
-            .finally(() => setIsLoading(false));
+        Promise.all([
+            apiService('/newsletter/subscribers'),
+            apiService('/products') // Busca produtos para o dropdown
+        ])
+        .then(([subsData, productsData]) => {
+            setSubscribers(subsData || []);
+            setProducts(productsData || []);
+        })
+        .catch(err => notification.show('Erro ao carregar dados.', 'error'))
+        .finally(() => setIsLoading(false));
     }, [notification]);
 
-    useEffect(() => { fetchSubscribers() }, [fetchSubscribers]);
+    useEffect(() => { fetchData() }, [fetchData]);
 
     const handleSend = (e) => {
         e.preventDefault();
@@ -6629,14 +6641,19 @@ const AdminNewsletter = () => {
                         subject,
                         message,
                         ctaLink,
-                        ctaText
+                        ctaText,
+                        productId: selectedProductId || null, // Envia o ID se selecionado
+                        discountText
                     });
                     notification.show(response.message, 'success');
+                    
                     // Limpar formulário
                     setSubject('');
                     setMessage('');
                     setCtaLink('');
                     setCtaText('');
+                    setSelectedProductId('');
+                    setDiscountText('');
                 } catch (error) {
                     notification.show(error.message, 'error');
                 } finally {
@@ -6701,7 +6718,7 @@ const AdminNewsletter = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Mensagem</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Mensagem Principal</label>
                             <textarea 
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
@@ -6710,11 +6727,47 @@ const AdminNewsletter = () => {
                                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                                 required
                             />
-                            <p className="text-xs text-gray-500 mt-1">Quebras de linha serão respeitadas no e-mail.</p>
+                        </div>
+
+                        {/* --- NOVO BLOCO: DESTAQUE DE PRODUTO --- */}
+                        <div className="bg-blue-50 p-4 rounded-md border border-blue-200">
+                            <h4 className="font-bold text-blue-800 text-sm mb-3 flex items-center gap-2">
+                                <TagIcon className="h-4 w-4"/> Destaque de Produto (Opcional)
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-blue-700 mb-1">Selecionar Produto</label>
+                                    <select 
+                                        value={selectedProductId}
+                                        onChange={(e) => setSelectedProductId(e.target.value)}
+                                        className="w-full p-2 border border-blue-300 rounded-md text-sm bg-white"
+                                    >
+                                        <option value="">-- Nenhum Produto Selecionado --</option>
+                                        {products.map(p => (
+                                            <option key={p.id} value={p.id}>{p.name} - R$ {Number(p.sale_price || p.price).toFixed(2)}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {selectedProductId && (
+                                    <div>
+                                        <label className="block text-xs font-bold text-blue-700 mb-1">Texto do Desconto/Chamada</label>
+                                        <input 
+                                            type="text" 
+                                            value={discountText}
+                                            onChange={(e) => setDiscountText(e.target.value)}
+                                            placeholder="Ex: 20% OFF SOMENTE HOJE" 
+                                            className="w-full p-2 border border-blue-300 rounded-md text-sm"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-blue-600 mt-2">
+                                *Se selecionado, um card com a foto, nome e preço do produto será inserido automaticamente no meio do e-mail.
+                            </p>
                         </div>
 
                         <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                            <h4 className="font-bold text-gray-700 text-sm mb-3">Botão de Ação (Opcional)</h4>
+                            <h4 className="font-bold text-gray-700 text-sm mb-3">Botão de Ação Extra (Opcional)</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-gray-500 mb-1">Texto do Botão</label>
@@ -6722,17 +6775,17 @@ const AdminNewsletter = () => {
                                         type="text" 
                                         value={ctaText}
                                         onChange={(e) => setCtaText(e.target.value)}
-                                        placeholder="Ex: Ver Promoção" 
+                                        placeholder="Ex: Ver Toda a Loja" 
                                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-500 mb-1">Link de Destino (URL completa)</label>
+                                    <label className="block text-xs font-bold text-gray-500 mb-1">Link de Destino</label>
                                     <input 
                                         type="text" 
                                         value={ctaLink}
                                         onChange={(e) => setCtaLink(e.target.value)}
-                                        placeholder="Ex: https://loja.com.br/#products?promo=true" 
+                                        placeholder="Ex: https://loja.com.br" 
                                         className="w-full p-2 border border-gray-300 rounded-md text-sm"
                                     />
                                 </div>
