@@ -6660,7 +6660,11 @@ const AdminNewsletter = () => {
                     setIsSending(false);
                 }
             },
-            { confirmText: "ENVIAR CAMPANHA", confirmColor: "bg-green-600 hover:bg-green-700" }
+            { 
+                confirmText: "ENVIAR CAMPANHA", 
+                confirmColor: "bg-green-600 hover:bg-green-700",
+                requiresAuth: true // Exige Senha/2FA para enviar
+            }
         );
     };
 
@@ -10498,6 +10502,7 @@ const AdminBanners = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('promo'); 
     const [editingBanner, setEditingBanner] = useState(null);
+    const [isGenerating, setIsGenerating] = useState(false);
     const notification = useNotification();
     const confirmation = useConfirmation();
     const sensors = useSensors(useSensor(PointerSensor));
@@ -10518,14 +10523,36 @@ const AdminBanners = () => {
 
     useEffect(() => { fetchBanners() }, [fetchBanners]);
 
-    // Separação dos banners
+    // --- POPULAR BANCO DE DADOS (ACIONA O BACKEND) ---
+    const handleInitializeDefaults = async () => {
+        confirmation.show("Deseja popular o banco com as campanhas sazonais padrão? (Não duplicará existentes)", async () => {
+            setIsGenerating(true);
+            try {
+                // Chama a nova rota do backend que contém a inteligência e os dados
+                const response = await apiService('/banners/seed-defaults', 'POST');
+                notification.show(response.message);
+                fetchBanners();
+            } catch (error) {
+                notification.show(`Erro ao popular: ${error.message}`, 'error');
+            } finally {
+                setIsGenerating(false);
+            }
+        });
+    };
+
+    // Separação dos banners vindos do Banco
     const carouselBanners = banners.filter(b => b.display_order < 50).sort((a, b) => a.display_order - b.display_order);
     
-    // Agora pegamos TODOS os banners de destaque (ordem 50) para listar no admin
-    const promoBanners = banners.filter(b => b.display_order === 50);
+    // Lista de Destaques (Ordem 50)
+    const promoBanners = banners.filter(b => b.display_order === 50).sort((a, b) => {
+        if (!a.start_date) return -1;
+        if (!b.start_date) return 1;
+        return new Date(a.start_date) - new Date(b.start_date);
+    });
 
     const card1 = banners.find(b => b.display_order === 60);
     const card2 = banners.find(b => b.display_order === 61);
+    const displayCards = [card1, card2];
 
     const handleOpenModal = (banner, section) => {
         let initialData = banner ? { ...banner } : {};
@@ -10540,7 +10567,9 @@ const AdminBanners = () => {
             } else if (section === 'promo') {
                 initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: 50 };
             } else if (section === 'cards') {
-                initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: !card1 ? 60 : 61 };
+                // Tenta preencher o slot vazio (60 ou 61)
+                const nextSlot = !card1 ? 60 : 61;
+                initialData = { name: '', link_url: '', image_url: '', is_active: 1, cta_enabled: 1, display_order: nextSlot };
             }
         }
         setEditingBanner(initialData);
@@ -10555,10 +10584,10 @@ const AdminBanners = () => {
 
             if (formData.id) {
                 await apiService(`/banners/${formData.id}`, 'PUT', payload);
-                notification.show('Banner atualizado!');
+                notification.show('Atualizado!');
             } else {
                 await apiService('/banners/admin', 'POST', payload);
-                notification.show('Banner criado!');
+                notification.show('Criado!');
             }
             fetchBanners();
             setIsModalOpen(false);
@@ -10569,18 +10598,26 @@ const AdminBanners = () => {
 
     const handleDelete = (id) => {
         if (!id) return;
-        confirmation.show("Excluir este banner permanentemente?", async () => {
-            try {
-                await apiService(`/banners/${id}`, 'DELETE');
-                notification.show('Excluído.');
-                fetchBanners();
-            } catch (error) {
-                notification.show(`Erro: ${error.message}`, 'error');
+        confirmation.show(
+            "Excluir este banner permanentemente?", 
+            async () => {
+                try {
+                    await apiService(`/banners/${id}`, 'DELETE');
+                    notification.show('Excluído.');
+                    fetchBanners();
+                } catch (error) {
+                    notification.show(`Erro: ${error.message}`, 'error');
+                }
+            },
+            { 
+                confirmText: "Excluir", 
+                confirmColor: "bg-red-600 hover:bg-red-700",
+                requiresAuth: true // Segurança adicionada: requer senha/2FA
             }
-        });
+        );
     };
     
-    // Drag & Drop (Carrossel)
+    // Drag & Drop do Carrossel (Topo)
     const handleDragEndCarousel = async (event) => {
         const { active, over } = event;
         if (active.id !== over.id) {
@@ -10588,7 +10625,7 @@ const AdminBanners = () => {
             const newIndex = carouselBanners.findIndex((b) => b.id === over.id);
             const newOrder = arrayMove(carouselBanners, oldIndex, newIndex);
             
-            // Atualiza UI
+            // Atualiza UI localmente para evitar flick
             const others = banners.filter(b => b.display_order >= 50);
             setBanners([...newOrder, ...others]);
 
@@ -10613,15 +10650,35 @@ const AdminBanners = () => {
                 )}
             </AnimatePresence>
 
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">Gestão Visual</h1>
-                <p className="text-gray-500">Controle total dos banners via Banco de Dados.</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-800">Gestão Visual</h1>
+                    <p className="text-gray-500">Controle total via Banco de Dados.</p>
+                </div>
+                
+                {/* Botão de Inicialização (Seed) - Visível se não houver destaques */}
+                {promoBanners.length === 0 && (
+                    <button 
+                        onClick={handleInitializeDefaults} 
+                        disabled={isGenerating}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-md animate-pulse"
+                    >
+                        {isGenerating ? <SpinnerIcon/> : <SparklesIcon className="h-5 w-5"/>}
+                        Inicializar Banco com Padrões
+                    </button>
+                )}
             </div>
 
             <div className="flex border-b border-gray-200 mb-6 bg-white rounded-t-lg shadow-sm">
-                <button onClick={() => setActiveTab('promo')} className={`flex-1 px-6 py-4 font-bold text-sm border-b-2 ${activeTab === 'promo' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500'}`}>Destaques (Campanhas)</button>
-                <button onClick={() => setActiveTab('cards')} className={`flex-1 px-6 py-4 font-bold text-sm border-b-2 ${activeTab === 'cards' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500'}`}>Cards Inferiores</button>
-                <button onClick={() => setActiveTab('carousel')} className={`flex-1 px-6 py-4 font-bold text-sm border-b-2 ${activeTab === 'carousel' ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500'}`}>Carrossel Topo</button>
+                {['promo', 'cards', 'carousel'].map(tab => (
+                    <button 
+                        key={tab}
+                        onClick={() => setActiveTab(tab)} 
+                        className={`flex-1 px-6 py-4 font-bold text-sm transition-all border-b-2 capitalize ${activeTab === tab ? 'border-amber-500 text-amber-600 bg-amber-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                    >
+                        {tab === 'promo' ? 'Destaques Agendados' : (tab === 'cards' ? 'Cards Inferiores' : 'Carrossel Topo')}
+                    </button>
+                ))}
             </div>
 
             {isLoading ? (
@@ -10634,10 +10691,10 @@ const AdminBanners = () => {
                             <div className="flex justify-between items-center bg-blue-50 p-4 rounded-lg border border-blue-100">
                                 <div>
                                     <h3 className="font-bold text-blue-900">Campanhas de Destaque</h3>
-                                    <p className="text-xs text-blue-700">Abaixo estão todas as campanhas cadastradas. A Home exibirá automaticamente a que estiver dentro da data.</p>
+                                    <p className="text-xs text-blue-700">Listagem direta do banco. Apenas 1 banner (o com data válida mais próxima) aparecerá na Home.</p>
                                 </div>
                                 <button onClick={() => handleOpenModal(null, 'promo')} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm">
-                                    <PlusIcon className="h-4 w-4"/> Nova Campanha
+                                    <PlusIcon className="h-4 w-4"/> Criar Campanha
                                 </button>
                             </div>
 
@@ -10647,30 +10704,21 @@ const AdminBanners = () => {
                                         const now = new Date();
                                         const start = banner.start_date ? new Date(banner.start_date) : null;
                                         const end = banner.end_date ? new Date(banner.end_date) : null;
-                                        // Verifica se está ativo AGORA
+                                        // Lógica simples de "No Ar": (Sem data OU Data válida) E Ativo
                                         const isActiveNow = banner.is_active && (!start || now >= start) && (!end || now <= end);
-                                        // Verifica se é o Padrão (sem datas)
-                                        const isDefault = !start && !end;
                                         
                                         return (
-                                            <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-2 ring-green-100' : 'border-gray-200'}`}>
+                                            <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
-                                                    {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
                                                 <div className="p-4 flex-grow flex flex-col justify-center">
                                                     <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
                                                     <p className="text-sm text-gray-500">{banner.subtitle}</p>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                                        {start ? (
-                                                            <>
-                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> De: {start.toLocaleDateString()}</span>
-                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Até: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="bg-gray-100 px-2 py-1 rounded border">Sem agendamento (Exibido se nenhum outro estiver ativo)</span>
-                                                        )}
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Início: {start ? start.toLocaleDateString() : 'Imediato'}</span>
+                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Fim: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
                                                     </div>
                                                 </div>
                                                 <div className="p-4 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l bg-gray-50">
@@ -10687,7 +10735,7 @@ const AdminBanners = () => {
                                 </div>
                             ) : (
                                 <div className="text-center py-10 border-2 border-dashed border-gray-300 rounded-lg">
-                                    <p className="text-gray-400">Nenhuma campanha cadastrada no banco.</p>
+                                    <p className="text-gray-400 mb-4">Nenhuma campanha no banco. Clique em "Inicializar Banco" acima.</p>
                                 </div>
                             )}
                         </div>
@@ -10707,8 +10755,8 @@ const AdminBanners = () => {
                                             key={card.id} 
                                             banner={card} 
                                             onEdit={() => handleOpenModal(card, 'cards')} 
-                                            onDelete={handleDelete} 
-                                            customLabel={idx === 0 ? "Esquerda" : "Direita"}
+                                            onDelete={() => handleDelete(card.id)} // Adicionada deleção com segurança
+                                            customLabel={idx === 0 ? "Esquerda (Fixo)" : "Direita (Fixo)"}
                                             customColor="bg-purple-600 text-white"
                                             description={card.subtitle}
                                         />
@@ -10736,7 +10784,12 @@ const AdminBanners = () => {
                                 <SortableContext items={carouselBanners} strategy={rectSortingStrategy}>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                         {carouselBanners.map((banner) => (
-                                            <SortableBannerCard key={banner.id} banner={banner} onEdit={(b) => handleOpenModal(b, 'carousel')} onDelete={handleDelete} />
+                                            <SortableBannerCard 
+                                                key={banner.id} 
+                                                banner={banner} 
+                                                onEdit={(b) => handleOpenModal(b, 'carousel')} 
+                                                onDelete={() => handleDelete(banner.id)} // Adicionada deleção com segurança
+                                            />
                                         ))}
                                     </div>
                                 </SortableContext>
