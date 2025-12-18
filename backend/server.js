@@ -2602,6 +2602,7 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// Atualização da rota POST /api/orders para validar regras de cupom no servidor
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details } = req.body;
     
@@ -3718,6 +3719,7 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Público/Logado) Valida Cupom e Retorna Regras - CORREÇÃO DO LOGOUT (403 -> 400)
 app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
     const { code } = req.body;
     const authHeader = req.headers['authorization'];
@@ -3753,25 +3755,27 @@ app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
         
         if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
             if (!user) {
-                return res.status(403).json({ message: "Faça login para usar este cupom." });
+                // Aqui mantemos 401 pois realmente exige login, o frontend deve tratar isso pedindo login, não deslogando
+                return res.status(401).json({ message: "Faça login para usar este cupom." });
             }
         }
         
         if (user && coupon.is_first_purchase) {
             const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
             if (orders.length > 0) {
-                return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
+                // CORREÇÃO: Mudado de 403 para 400 para evitar logout
+                return res.status(400).json({ message: "Este cupom é válido apenas para a primeira compra." });
             }
         }
         
         if (user && coupon.is_single_use_per_user) {
             const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
             if (usage.length > 0) {
-                return res.status(403).json({ message: "Você já utilizou este cupom." });
+                // CORREÇÃO: Mudado de 403 para 400 para evitar logout
+                return res.status(400).json({ message: "Você já utilizou este cupom." });
             }
         }
         
-        // Retorna o cupom com as novas regras para o frontend calcular visualmente
         res.json({ coupon });
 
     } catch (err) {
