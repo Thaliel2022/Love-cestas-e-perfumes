@@ -636,6 +636,7 @@ const ShopProvider = ({ children }) => {
         </ShopContext.Provider>
     );
 };
+
 const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
 
