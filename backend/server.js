@@ -3722,15 +3722,19 @@ app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
 // (Público/Logado) Valida Cupom e Retorna Regras - CORREÇÃO DO LOGOUT (403 -> 400)
 app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
     const { code } = req.body;
+    
+    // CORREÇÃO CRÍTICA: Tenta pegar o token do Header OU do Cookie
+    // Isso impede que o usuário logado seja tratado como visitante (e tome erro 401)
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.accessToken;
+    
     let user = null;
 
     if (token) {
         try {
             user = jwt.verify(token, JWT_SECRET);
         } catch (err) {
-            console.log("Token de validação de cupom inválido, tratando como visitante.");
+            console.log("Token de validação de cupom inválido ou expirado.");
         }
     }
     
@@ -3755,7 +3759,7 @@ app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
         
         if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
             if (!user) {
-                // Aqui mantemos 401 pois realmente exige login, o frontend deve tratar isso pedindo login, não deslogando
+                // Se realmente não tiver token (nem no cookie), aí sim pede login
                 return res.status(401).json({ message: "Faça login para usar este cupom." });
             }
         }
@@ -3763,7 +3767,6 @@ app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
         if (user && coupon.is_first_purchase) {
             const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
             if (orders.length > 0) {
-                // CORREÇÃO: Mudado de 403 para 400 para evitar logout
                 return res.status(400).json({ message: "Este cupom é válido apenas para a primeira compra." });
             }
         }
@@ -3771,7 +3774,6 @@ app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
         if (user && coupon.is_single_use_per_user) {
             const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
             if (usage.length > 0) {
-                // CORREÇÃO: Mudado de 403 para 400 para evitar logout
                 return res.status(400).json({ message: "Você já utilizou este cupom." });
             }
         }
@@ -3783,6 +3785,7 @@ app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao validar cupom." });
     }
 });
+
 
 
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
