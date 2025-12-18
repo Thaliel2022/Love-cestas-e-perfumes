@@ -2267,7 +2267,7 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated } = useAuth(); // Acesso ao contexto de autenticação
+    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2407,6 +2407,13 @@ const CategoriesPage = ({ onNavigate }) => {
                 <span className="text-sm font-bold text-gray-200 flex items-center gap-2"><SparklesIcon className="h-4 w-4 text-amber-400"/> Central de Ajuda e Atendimento</span>
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
+            
+            {/* Botão de Logout adicionado */}
+            {isAuthenticated && (
+                <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-400 font-bold text-sm">
+                    Sair da Conta
+                </button>
+            )}
         </div>
     );
 
