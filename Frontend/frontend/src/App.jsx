@@ -1668,48 +1668,48 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-// Componente da Barra de Navegação Inferior (Mobile Only)
+// Componente da Barra de Navegação Inferior (Mobile)
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
+        // Animação simples para a barra
         const navVariants = {
-            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
-            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
+            visible: { y: 0 },
+            hidden: { y: "100%" }
         };
 
         return (
             <motion.div
                 className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden"
-                initial={false}
+                initial="visible"
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
             >
-                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Início</span>
                 </button>
                 
-                {/* --- AQUI: Botão MENU leva para a nova página de Categorias --- */}
-                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <BarsGripIcon className="h-6 w-6 mb-1"/> {/* Ícone de Grade/Blocos */}
+                {/* --- BOTÃO MENU AGORA VAI PARA 'CATEGORIES' --- */}
+                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400'}`}>
+                    <BarsGripIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Menu</span>
                 </button>
 
-                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <motion.div animate={cartAnimationControls}>
-                        <CartIcon className="h-6 w-6 mb-1"/>
-                    </motion.div>
+                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400'}`}>
+                    <CartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                    {totalCartItems > 0 && <span className="absolute top-1 right-[20%] bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
 
-                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                    {wishlistCount > 0 && <span className="absolute top-1 right-[20%] bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
                 
-                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Conta</span>
                 </button>
@@ -11677,89 +11677,6 @@ function AppContent({ deferredPrompt }) {
         apiService('/settings/maintenance-status')
             .then(data => {
                 const isNowInMaintenance = data.maintenanceMode === 'on';
-                // Apenas atualiza o estado se o status mudou, para evitar re-renderizações desnecessárias
-                setIsInMaintenance(prevStatus => {
-                    if (prevStatus !== isNowInMaintenance) {
-                        return isNowInMaintenance;
-                    }
-                    return prevStatus;
-                });
-            })
-            .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
-                setIsInMaintenance(false);
-            })
-            .finally(() => {
-                // Garante que a tela de carregamento só desapareça na primeira vez
-                if (isStatusLoading) {
-                    setIsStatusLoading(false);
-                }
-            });
-    };
-
-    checkStatus(); // Verifica imediatamente quando o componente monta
-
-    const intervalId = setInterval(checkStatus, 30000); // E repete a verificação a cada 30 segundos
-
-    return () => clearInterval(intervalId); // Limpa o intervalo quando o componente é desmontado
-  }, [isStatusLoading]); // Dependência para garantir que o `finally` funcione corretamente na primeira vez
-
-  const navigate = useCallback((path) => {
-    window.location.hash = path;
-  }, []);
-  
-  useEffect(() => {
-    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
-    if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
-      navigate(`order-success/${pendingOrderId}`);
-    } else if (currentPath.startsWith('order-success')) {
-        sessionStorage.removeItem('pendingOrderId');
-    }
-  }, [currentPath, navigate]); 
-  
-  useEffect(() => {
-    const handleHashChange = () => {
-      setCurrentPath(window.location.hash.slice(1) || 'home');
-    };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [currentPath]);
-  
-  if (isLoading || isStatusLoading) {
-      return (
-        <div className="h-screen flex items-center justify-center bg-black">
-            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
-        </div>
-      );
-  }
-
-  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
-  const isAdminDomain = window.location.hostname.includes('vercel.app');
-
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
-      return <MaintenancePage />;
-  }
-
- // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-function AppContent({ deferredPrompt }) {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
-  const [isInMaintenance, setIsInMaintenance] = useState(false);
-  const [isStatusLoading, setIsStatusLoading] = useState(true);
-
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
-  useEffect(() => {
-    const checkStatus = () => {
-        apiService('/settings/maintenance-status')
-            .then(data => {
-                const isNowInMaintenance = data.maintenanceMode === 'on';
                 setIsInMaintenance(prevStatus => {
                     if (prevStatus !== isNowInMaintenance) {
                         return isNowInMaintenance;
@@ -11938,83 +11855,6 @@ function AppContent({ deferredPrompt }) {
                         </ul>
                     </div>
 
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
-                        </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
-                    </div>
-                </div>
-            </div>
-            <div className="bg-black py-4 border-t border-gray-800">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-      )}
-      
-      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
-    </div>
-  );
-}
-
-  const showHeaderFooter = !currentPath.startsWith('admin');
-  
-  return (
-    <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} />}
-      <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
-            <div className="container mx-auto px-4 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
-                    {/* Coluna 1: Sobre a Loja */}
-                    <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
-                        <p className="text-sm text-gray-400">
-                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
-                        </p>
-                    </div>
-
-                    {/* Coluna 2: Institucional */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
-                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
-                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 3: Atendimento */}
-                    <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
-                        <ul className="space-y-2 text-sm">
-                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
-                            <li>
-                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
-                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Coluna 4: Formas de Pagamento */}
                     <div className="space-y-4">
                         <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
                         <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
