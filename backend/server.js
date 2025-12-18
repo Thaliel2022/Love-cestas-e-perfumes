@@ -2952,6 +2952,8 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- ROTA DE NEWSLETTER (CLUBE VIP) ---
 
+// --- ROTA DE NEWSLETTER (CLUBE VIP) ---
+
 // Template de E-mail para Boas-vindas da Newsletter
 const createNewsletterWelcomeEmail = () => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -3037,7 +3039,7 @@ app.get('/api/newsletter/subscribers', verifyToken, verifyAdmin, async (req, res
 
 // (Admin) Enviar Campanha (Broadcast)
 app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res) => {
-    const { subject, message, ctaLink, ctaText } = req.body;
+    const { subject, message, ctaLink, ctaText, productId, discountText } = req.body;
 
     if (!subject || !message) {
         return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
@@ -3052,10 +3054,43 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
             return res.status(400).json({ message: "Não há inscritos ativos para enviar." });
         }
 
+        let productHtml = '';
+        if (productId) {
+            const [products] = await connection.query("SELECT * FROM products WHERE id = ?", [productId]);
+            if (products.length > 0) {
+                const product = products[0];
+                const imageUrl = getFirstImage(product.images); // Usando a função auxiliar existente
+                const productUrl = `${process.env.APP_URL || 'http://localhost:3000'}/#product/${product.id}`;
+                
+                productHtml = `
+                    <div style="background-color: #2D3748; border: 1px solid #4A5568; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
+                        <p style="color: #F6E05E; font-weight: bold; text-transform: uppercase; font-size: 14px; margin-bottom: 15px; letter-spacing: 1px;">
+                            ${discountText || 'Oferta Especial para Você'}
+                        </p>
+                        <img src="${imageUrl}" alt="${product.name}" style="max-width: 200px; max-height: 200px; border-radius: 4px; margin-bottom: 15px; object-fit: contain;">
+                        <h3 style="color: #fff; font-size: 18px; margin: 0 0 5px;">${product.name}</h3>
+                        <p style="color: #CBD5E0; font-size: 14px; margin: 0 0 15px;">${product.brand}</p>
+                        
+                        <div style="margin-bottom: 20px;">
+                            ${product.is_on_sale 
+                                ? `<span style="text-decoration: line-through; color: #718096; margin-right: 10px;">R$ ${Number(product.price).toFixed(2)}</span>
+                                   <span style="color: #F6E05E; font-size: 20px; font-weight: bold;">R$ ${Number(product.sale_price).toFixed(2)}</span>`
+                                : `<span style="color: #fff; font-size: 20px; font-weight: bold;">R$ ${Number(product.price).toFixed(2)}</span>`
+                            }
+                        </div>
+                        
+                        <a href="${productUrl}" style="background-color: #F6E05E; color: #1A202C; padding: 10px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif; display: inline-block;">
+                            Comprar Agora
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
         console.log(`[Newsletter] Iniciando envio para ${subscribers.length} contatos...`);
 
         // Função para gerar o HTML do e-mail de campanha
-        const createCampaignEmail = (msg, link, text) => {
+        const createCampaignEmail = (msg, link, text, prodHtml) => {
             let buttonHtml = '';
             if (link && text) {
                 buttonHtml = `
@@ -3072,6 +3107,7 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
                 <div style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; white-space: pre-line;">
                     ${msg}
                 </div>
+                ${prodHtml}
                 ${buttonHtml}
                 <hr style="border: 0; border-top: 1px solid #374151; margin: 40px 0 20px;" />
                 <p style="text-align: center; color: #6B7280; font-size: 12px;">
@@ -3081,7 +3117,7 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
             return createEmailBase(content);
         };
 
-        const emailHtml = createCampaignEmail(message, ctaLink, ctaText);
+        const emailHtml = createCampaignEmail(message, ctaLink, ctaText, productHtml);
         
         // Envio em lotes (Promises) para não bloquear, mas garantindo execução
         const emailPromises = subscribers.map(sub => 
