@@ -9332,6 +9332,7 @@ const AdminCoupons = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
+    const [searchTerm, setSearchTerm] = useState(''); // Estado para a barra de pesquisa
     const notification = useNotification();
     const confirmation = useConfirmation();
 
@@ -9357,6 +9358,21 @@ const AdminCoupons = () => {
     const fetchCoupons = () => {
         apiService('/coupons').then(setCoupons).catch(console.error);
     };
+
+    // Lógica de Filtragem Inteligente
+    const filteredCoupons = coupons.filter(coupon => {
+        const term = searchTerm.toLowerCase();
+        const codeMatch = coupon.code.toLowerCase().includes(term);
+        
+        let typeLabel = '';
+        if (coupon.type === 'percentage') typeLabel = 'porcentagem';
+        else if (coupon.type === 'fixed') typeLabel = 'valor fixo';
+        else if (coupon.type === 'free_shipping') typeLabel = 'frete grátis';
+        
+        const typeMatch = typeLabel.includes(term);
+
+        return codeMatch || typeMatch;
+    });
 
     const handleSave = async (formData) => {
         try {
@@ -9562,6 +9578,20 @@ const AdminCoupons = () => {
                 </button>
             </div>
 
+            {/* Barra de Pesquisa */}
+            <div className="mb-6 relative">
+                <input
+                    type="text"
+                    placeholder="Pesquisar por código, valor fixo, porcentagem..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+                <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400">
+                    <SearchIcon className="h-5 w-5" />
+                </div>
+            </div>
+
             {/* --- VISUALIZAÇÃO DESKTOP (TABELA) --- */}
             <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden border border-gray-200">
                 <table className="w-full text-left">
@@ -9577,7 +9607,7 @@ const AdminCoupons = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {coupons.map(c => (
+                        {filteredCoupons.map(c => (
                             <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-4 text-sm">
@@ -9585,8 +9615,8 @@ const AdminCoupons = () => {
                                 </td>
                                 <td className="p-4 text-sm font-medium">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
                                 <td className="p-4 text-xs text-gray-500">
-                                    {c.is_first_purchase ? <div className="text-amber-700 font-semibold">• 1ª Compra</div> : null}
-                                    {c.is_single_use_per_user ? <div className="text-blue-700 font-semibold">• Uso Único</div> : null}
+                                    {!!c.is_first_purchase ? <div className="text-amber-700 font-semibold">• 1ª Compra</div> : null}
+                                    {!!c.is_single_use_per_user ? <div className="text-blue-700 font-semibold">• Uso Único</div> : null}
                                     {!c.is_first_purchase && !c.is_single_use_per_user && <span className="text-gray-400">-</span>}
                                 </td>
                                 <td className="p-4">
@@ -9603,14 +9633,14 @@ const AdminCoupons = () => {
                                 </td>
                             </tr>
                         ))}
-                         {coupons.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cupom cadastrado.</td></tr>}
+                         {filteredCoupons.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cupom encontrado.</td></tr>}
                     </tbody>
                 </table>
             </div>
 
             {/* --- VISUALIZAÇÃO MOBILE (CARDS) --- */}
             <div className="md:hidden space-y-4">
-                {coupons.map(c => (
+                {filteredCoupons.map(c => (
                     <div key={c.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative overflow-hidden">
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${c.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         <div className="flex justify-between items-start mb-2 pl-3">
@@ -9639,16 +9669,17 @@ const AdminCoupons = () => {
                                 <span>Validade:</span>
                                 <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} />
                             </div>
-                            {(c.is_first_purchase || c.is_single_use_per_user) && (
+                            {/* CORREÇÃO DO ZERO AQUI: Usando conversão booleana explicita (!!) */}
+                            {(!!c.is_first_purchase || !!c.is_single_use_per_user) && (
                                 <div className="pt-1 mt-1 border-t border-dashed border-gray-200">
-                                    {c.is_first_purchase && <span className="block text-amber-700">• 1ª Compra</span>}
-                                    {c.is_single_use_per_user && <span className="block text-blue-700">• Uso Único</span>}
+                                    {!!c.is_first_purchase && <span className="block text-amber-700">• 1ª Compra</span>}
+                                    {!!c.is_single_use_per_user && <span className="block text-blue-700">• Uso Único</span>}
                                 </div>
                             )}
                         </div>
                     </div>
                 ))}
-                 {coupons.length === 0 && <div className="text-center py-10 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">Nenhum cupom cadastrado.</div>}
+                 {filteredCoupons.length === 0 && <div className="text-center py-10 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">Nenhum cupom encontrado.</div>}
             </div>
         </div>
     );
