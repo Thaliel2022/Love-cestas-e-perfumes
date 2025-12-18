@@ -2620,7 +2620,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             const product = productResult[0];
             if (!product) throw new Error(`Produto ID ${item.id} não encontrado.`);
 
-            // Validação de Estoque (Mantida a original)
+            // Validação de Estoque
             if (product.product_type === 'clothing') {
                 if (!item.variation?.color || !item.variation?.size) throw new Error(`Variação inválida para ${item.name}.`);
                 const variations = JSON.parse(product.variations || '[]');
@@ -2634,7 +2634,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             const unitPrice = (product.is_on_sale && product.sale_price) ? parseFloat(product.sale_price) : parseFloat(product.price);
             calculatedSubtotal += unitPrice * item.qty;
             
-            // Guarda dados para cálculo do cupom
             verifiedItems.push({
                 ...item,
                 dbCategory: product.category,
@@ -2644,7 +2643,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             });
         }
 
-        // 2. Calcular Desconto do Cupom (Servidor)
+        // 2. Calcular Desconto do Cupom (Servidor - Validação Rigorosa)
         let serverDiscountAmount = 0;
         let couponIdToLog = null;
 
@@ -2652,16 +2651,37 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ?", [coupon_code]);
             if (coupons.length > 0) {
                 const coupon = coupons[0];
-                // Validações básicas (ativo, validade, uso único) devem ser checadas aqui também para segurança máxima
-                // ... (código abreviado: assumindo que frontend validou, mas idealmente re-validar is_active e datas aqui)
+                let isValid = true;
+                let errorMsg = "";
 
-                if (coupon.is_active) {
+                // A. Validação Básica
+                if (!coupon.is_active) { isValid = false; errorMsg = "Cupom inativo."; }
+                
+                // B. Validação de Prazo
+                if (coupon.validity_days) {
+                    const createdAt = new Date(coupon.created_at);
+                    const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
+                    if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
+                }
+
+                // C. Validação de Primeira Compra (RESTAURADO)
+                if (coupon.is_first_purchase) {
+                    const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
+                    if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
+                }
+
+                // D. Validação de Uso Único (RESTAURADO)
+                if (coupon.is_single_use_per_user) {
+                    const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
+                    if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
+                }
+
+                if (isValid) {
                     couponIdToLog = coupon.id;
                     
                     if (coupon.type === 'free_shipping') {
-                        serverDiscountAmount = parseFloat(shipping_cost || 0); // Desconto é o valor do frete
+                        serverDiscountAmount = parseFloat(shipping_cost || 0);
                     } else {
-                        // Lógica de Elegibilidade
                         let eligibleTotal = 0;
                         const isGlobal = coupon.is_global === 1;
                         const allowedCats = coupon.allowed_categories ? JSON.parse(coupon.allowed_categories) : [];
@@ -2672,7 +2692,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                             if (isGlobal) {
                                 isEligible = true;
                             } else {
-                                // Verifica se bate com categoria OU marca
                                 const catMatch = allowedCats.includes(item.dbCategory);
                                 const brandMatch = allowedBrands.includes(item.dbBrand);
                                 if (catMatch || brandMatch) isEligible = true;
@@ -2683,23 +2702,24 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                             }
                         });
 
-                        // Aplica desconto sobre o total elegível
                         if (eligibleTotal > 0) {
                             if (coupon.type === 'percentage') {
                                 serverDiscountAmount = eligibleTotal * (parseFloat(coupon.value) / 100);
                             } else if (coupon.type === 'fixed') {
-                                // Se for valor fixo, não pode exceder o total dos itens elegíveis
                                 serverDiscountAmount = Math.min(parseFloat(coupon.value), eligibleTotal);
                             }
                         }
                     }
+                } else {
+                    console.log(`[Checkout] Cupom ${coupon_code} inválido no servidor: ${errorMsg}`);
+                    // Opcional: Lançar erro se quiser bloquear a compra em caso de cupom inválido
+                    // throw new Error(errorMsg); 
                 }
             }
         }
 
         // 3. Finalizar Valores
         const shipping = parseFloat(shipping_cost || 0);
-        // Garante que o total não seja negativo
         const finalTotal = Math.max(0, calculatedSubtotal + shipping - serverDiscountAmount);
 
         // 4. Inserir Pedido
@@ -2718,7 +2738,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             const varJson = item.variation ? JSON.stringify(item.variation) : null;
             await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.unitPrice, varJson]);
             
-            // Baixa de estoque (Simplificada aqui, usar lógica completa do bloco anterior se necessário)
             if (item.variation) {
                 const [p] = await connection.query("SELECT variations FROM products WHERE id = ?", [item.id]);
                 let vars = JSON.parse(p[0].variations);
@@ -2735,17 +2754,12 @@ app.post('/api/orders', verifyToken, async (req, res) => {
 
         // Registrar uso do cupom único
         if (couponIdToLog) {
-            const [c] = await connection.query("SELECT is_single_use_per_user FROM coupons WHERE id = ?", [couponIdToLog]);
-            if (c[0].is_single_use_per_user) {
-                await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, couponIdToLog, orderId]);
-            }
+            await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, couponIdToLog, orderId]);
         }
 
         await connection.query("DELETE FROM user_carts WHERE user_id = ?", [req.user.id]);
         await connection.commit();
 
-        // Notificações de estoque baixo (omitidas para brevidade, manter lógica original)
-        
         res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
 
     } catch (err) {
