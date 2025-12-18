@@ -6842,6 +6842,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'banners', label: 'Banners', icon: <PhotoIcon className="h-5 w-5"/> },
                 { key: 'users', label: 'Clientes', icon: <UsersIcon className="h-5 w-5"/> },
+                { key: 'newsletter', label: 'Newsletter VIP', icon: <SparklesIcon className="h-5 w-5"/> },
             ]
         },
         {
@@ -11474,6 +11475,7 @@ function AppContent({ deferredPrompt }) {
             'orders': <AdminOrders />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
+            'newsletter': <AdminNewsletter />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
