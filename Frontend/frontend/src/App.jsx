@@ -358,6 +358,7 @@ const ShopProvider = ({ children }) => {
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
         try {
+            // A chamada correta é apenas '/addresses'
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
@@ -547,70 +548,10 @@ const ShopProvider = ({ children }) => {
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             setAppliedCoupon(response.coupon);
-            // Mensagem de sucesso será setada pelo useEffect abaixo após cálculo
+            setCouponMessage(`Cupom "${response.coupon.code}" aplicado!`);
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- Lógica de Desconto Atualizada (Suporte a Regras Globais/Restritas) ---
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        
-        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
-        if (appliedCoupon.type === 'free_shipping') return 0;
-
-        let eligibleTotal = 0;
-        
-        // Parsing seguro das regras
-        const isGlobal = appliedCoupon.is_global === 1 || appliedCoupon.is_global === true;
-        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
-
-        cart.forEach(item => {
-            let isEligible = false;
-            
-            if (isGlobal) {
-                isEligible = true;
-            } else {
-                // Lógica de "OU": Se bater categoria OU marca, é elegível
-                const itemCategory = item.category || "";
-                const itemBrand = item.brand || "";
-                
-                const catMatch = allowedCats.includes(itemCategory);
-                const brandMatch = allowedBrands.includes(itemBrand);
-                
-                if (catMatch || brandMatch) isEligible = true;
-            }
-
-            if (isEligible) {
-                const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
-                eligibleTotal += price * item.qty;
-            }
-        });
-
-        if (eligibleTotal === 0) return 0;
-
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            // Valor fixo não pode exceder o total dos itens elegíveis
-            discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
-        }
-
-        return discountValue;
-    }, [appliedCoupon, cart]);
-
-    // Mensagem de Feedback Atualizada
-    useEffect(() => {
-        if (appliedCoupon) {
-            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                setCouponMessage("Este cupom não se aplica aos itens do seu carrinho.");
-            } else {
-                setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
-            }
-        }
-    }, [discount, appliedCoupon]);
-
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
     return (
@@ -629,8 +570,7 @@ const ShopProvider = ({ children }) => {
             setSelectedShippingName,
             isGeolocating,
             couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            discount // Disponibiliza o valor calculado do desconto
+            couponMessage, applyCoupon, appliedCoupon, removeCoupon
         }}>
             {children}
         </ShopContext.Provider>
