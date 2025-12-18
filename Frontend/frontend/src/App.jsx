@@ -9331,28 +9331,26 @@ const AdminCoupons = () => {
     const [coupons, setCoupons] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState(null);
-    const [productsData, setProductsData] = useState({ brands: [], categories: [] });
-    const notification = useNotification();
     const confirmation = useConfirmation();
+    const notification = useNotification();
 
-    // Busca cupons e dados auxiliares (Marcas/Categorias)
-    useEffect(() => {
-        fetchCoupons();
-        apiService('/products/all').then(products => {
-            const brands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
-            const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
-            setProductsData({ brands, categories });
-        });
+    const fetchCoupons = useCallback(() => {
+        apiService('/coupons').then(data => {
+            setCoupons(data.sort((a,b) => b.id - a.id));
+        }).catch(err=>console.error(err));
     }, []);
 
-    const fetchCoupons = () => {
-        apiService('/coupons').then(setCoupons).catch(console.error);
+    useEffect(() => { fetchCoupons() }, [fetchCoupons]);
+
+    const handleOpenModal = (coupon = null) => {
+        setEditingCoupon(coupon);
+        setIsModalOpen(true);
     };
 
     const handleSave = async (formData) => {
         try {
-            if (formData.id) {
-                await apiService(`/coupons/${formData.id}`, 'PUT', formData);
+            if (editingCoupon) {
+                await apiService(`/coupons/${editingCoupon.id}`, 'PUT', formData);
                 notification.show('Cupom atualizado!');
             } else {
                 await apiService('/coupons', 'POST', formData);
@@ -9361,159 +9359,102 @@ const AdminCoupons = () => {
             fetchCoupons();
             setIsModalOpen(false);
         } catch (error) {
-            notification.show(error.message, 'error');
+            notification.show(`Erro: ${error.message}`, 'error');
         }
     };
-
+    
     const handleDelete = (id) => {
-        confirmation.show("Excluir este cupom?", async () => {
+        confirmation.show("Tem certeza que deseja deletar este cupom?", async () => {
             try {
                 await apiService(`/coupons/${id}`, 'DELETE');
                 fetchCoupons();
-                notification.show('Cupom excluído.');
-            } catch(e) { notification.show(e.message, 'error'); }
+                notification.show('Cupom deletado.');
+            } catch(error) {
+                notification.show(`Erro: ${error.message}`, 'error');
+            }
         });
-    };
+    }
 
-    // Componente Interno do Formulário
-    const CouponForm = ({ item, onSave, onCancel }) => {
-        const [form, setForm] = useState(item || {
-            code: '', type: 'percentage', value: '', is_active: 1, is_global: 1,
-            allowed_categories: [], allowed_brands: []
-        });
-
-        const toggleSelection = (field, value) => {
-            setForm(prev => {
-                const list = prev[field] || [];
-                if (list.includes(value)) return { ...prev, [field]: list.filter(v => v !== value) };
-                return { ...prev, [field]: [...list, value] };
-            });
-        };
-
-        return (
-            <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700">Código</label>
-                        <input type="text" value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} className="w-full p-2 border rounded uppercase" required />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700">Tipo</label>
-                        <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="w-full p-2 border rounded">
-                            <option value="percentage">Porcentagem (%)</option>
-                            <option value="fixed">Valor Fixo (R$)</option>
-                            <option value="free_shipping">Frete Grátis</option>
-                        </select>
-                    </div>
-                </div>
-                
-                {form.type !== 'free_shipping' && (
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700">Valor do Desconto</label>
-                        <input type="number" value={form.value} onChange={e => setForm({...form, value: e.target.value})} className="w-full p-2 border rounded" required />
-                    </div>
-                )}
-
-                <div className="border-t pt-4 mt-4">
-                    <label className="flex items-center space-x-2 cursor-pointer mb-4">
-                        <input type="checkbox" checked={!!form.is_global} onChange={e => setForm({...form, is_global: e.target.checked ? 1 : 0})} className="h-5 w-5 text-green-600 rounded" />
-                        <span className="font-bold text-gray-800">Cupom Global (Válido para todo o site)</span>
-                    </label>
-
-                    {!form.is_global && (
-                        <div className="bg-gray-50 p-4 rounded border animate-fade-in">
-                            <p className="text-sm text-red-600 mb-2 font-semibold">Selecione as restrições (pelo menos uma):</p>
-                            
-                            <div className="mb-4">
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Categorias Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                                    {productsData.categories.map(cat => (
-                                        <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700'}`}
-                                        >
-                                            {cat}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Marcas Permitidas</span>
-                                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                                    {productsData.brands.map(brand => (
-                                        <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)}
-                                            className={`px-3 py-1 text-xs rounded-full border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-700'}`}
-                                        >
-                                            {brand}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4">
-                    <button type="button" onClick={onCancel} className="px-4 py-2 bg-gray-200 rounded">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded font-bold">Salvar Cupom</button>
-                </div>
-            </form>
-        );
-    };
-
+    const couponFields = [
+        { name: 'code', label: 'Código do Cupom', type: 'text', required: true, placeholder: 'Ex: PROMO10' },
+        { name: 'type', label: 'Tipo de Desconto', type: 'select', options: [{value: 'percentage', label: 'Porcentagem (%)'}, {value: 'fixed', label: 'Valor Fixo (R$)'}, {value: 'free_shipping', label: 'Frete Grátis'}]},
+        { name: 'value', label: 'Valor do Desconto', type: 'number', step: '0.01', required: false, placeholder: 'Ex: 10 para 10% ou R$10.00' },
+        { name: 'validity_days', label: 'Dias de Validade', type: 'number', required: false, placeholder: 'Deixe em branco para ser permanente' },
+        { name: 'is_first_purchase', label: 'Apenas para a primeira compra?', type: 'checkbox' },
+        { name: 'is_single_use_per_user', label: 'Uso único por usuário?', type: 'checkbox' },
+        { name: 'is_active', label: 'Ativo (pronto para uso)', type: 'checkbox' },
+    ];
+    
     return (
         <div>
             <AnimatePresence>
                 {isModalOpen && (
-                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Novo Cupom'}>
-                        <CouponForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} />
+                    <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingCoupon ? 'Editar Cupom' : 'Adicionar Cupom'}>
+                        <AdminCrudForm item={editingCoupon} onSave={handleSave} onCancel={() => setIsModalOpen(false)} fieldsConfig={couponFields} />
                     </Modal>
                 )}
             </AnimatePresence>
-
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold">Gerenciar Cupons</h1>
-                <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded-md flex items-center gap-2">
-                    <PlusIcon className="h-5 w-5"/> Novo Cupom
-                </button>
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 flex-shrink-0"><PlusIcon className="h-5 w-5"/> <span>Novo Cupom</span></button>
             </div>
 
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="w-full text-left">
-                    <thead className="bg-gray-100">
-                        <tr>
-                            <th className="p-4">Código</th>
-                            <th className="p-4">Regra</th>
-                            <th className="p-4">Desconto</th>
-                            <th className="p-4">Status</th>
-                            <th className="p-4">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {coupons.map(c => (
-                            <tr key={c.id} className="border-b hover:bg-gray-50">
-                                <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
-                                <td className="p-4 text-sm">
-                                    {c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}
-                                </td>
-                                <td className="p-4">{c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
-                                <td className="p-4"><span className={`px-2 py-1 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
-                                <td className="p-4 flex gap-2">
-                                    <button onClick={() => { setEditingCoupon({
-                                        ...c, 
-                                        allowed_categories: JSON.parse(c.allowed_categories || '[]'),
-                                        allowed_brands: JSON.parse(c.allowed_brands || '[]')
-                                    }); setIsModalOpen(true); }}><EditIcon className="h-5 w-5 text-gray-500"/></button>
-                                    <button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5 text-red-500"/></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="hidden md:block">
+                    <table className="w-full text-left">
+                         <thead className="bg-gray-100">
+                             <tr>
+                                <th className="p-4">Código</th>
+                                <th className="p-4">Tipo</th>
+                                <th className="p-4">Valor</th>
+                                <th className="p-4">1ª Compra</th>
+                                <th className="p-4">Uso Único</th>
+                                <th className="p-4">Validade</th>
+                                <th className="p-4">Status</th>
+                                <th className="p-4">Ações</th>
+                             </tr>
+                        </thead>
+                         <tbody>
+                            {coupons.map(c => (
+                                <tr key={c.id} className="border-b">
+                                    <td className="p-4 font-mono text-sm font-semibold">{c.code}</td>
+                                    <td className="p-4 capitalize">{c.type.replace('_', ' ')}</td>
+                                    <td className="p-4">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</td>
+                                    <td className="p-4">{c.is_first_purchase ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4">{c.is_single_use_per_user ? 'Sim' : 'Não'}</td>
+                                    <td className="p-4"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></td>
+                                    <td className="p-4"><span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
+                                    <td className="p-4 space-x-2"><button onClick={() => handleOpenModal(c)}><EditIcon className="h-5 w-5"/></button><button onClick={() => handleDelete(c.id)}><TrashIcon className="h-5 w-5"/></button></td>
+                                </tr>
+                            ))}
+                         </tbody>
+                    </table>
+                </div>
+                 <div className="md:hidden space-y-4 p-4">
+                    {coupons.map(c => (
+                         <div key={c.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                            <div className="flex justify-between items-start">
+                                <span className="font-mono font-bold">{c.code}</span>
+                                <span className={`px-2 py-1 text-xs rounded-full ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                 <div><strong className="text-gray-500 block">Tipo</strong> <span className="capitalize">{c.type.replace('_', ' ')}</span></div>
+                                 <div><strong className="text-gray-500 block">Valor</strong> {c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$ ${Number(c.value).toFixed(2)}`)}</div>
+                                 <div><strong className="text-gray-500 block">1ª Compra</strong> {c.is_first_purchase ? 'Sim' : 'Não'}</div>
+                                 <div><strong className="text-gray-500 block">Uso Único</strong> {c.is_single_use_per_user ? 'Sim' : 'Não'}</div>
+                                 <div className="col-span-2"><strong className="text-gray-500 block">Validade Restante</strong> <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} /></div>
+                            </div>
+                             <div className="flex justify-end space-x-2 mt-4 pt-2 border-t">
+                                <button onClick={() => handleOpenModal(c)} className="p-2 text-blue-600"><EditIcon className="h-5 w-5"/></button>
+                                <button onClick={() => handleDelete(c.id)} className="p-2 text-red-600"><TrashIcon className="h-5 w-5"/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
-};;
+};
 
 const AdminRefunds = ({ onNavigate }) => {
     const [refunds, setRefunds] = useState([]);
