@@ -9333,6 +9333,7 @@ const AdminCoupons = () => {
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
     const [searchTerm, setSearchTerm] = useState(''); // Estado para a barra de pesquisa
+    const [selectedCoupons, setSelectedCoupons] = useState([]); // Estado para seleção múltipla
     const notification = useNotification();
     const confirmation = useConfirmation();
 
@@ -9373,6 +9374,58 @@ const AdminCoupons = () => {
 
         return codeMatch || typeMatch;
     });
+
+    // Funções de Seleção Múltipla
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedCoupons(filteredCoupons.map(c => c.id));
+        } else {
+            setSelectedCoupons([]);
+        }
+    };
+
+    const handleSelectCoupon = (id) => {
+        setSelectedCoupons(prev => 
+            prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkAction = (action) => {
+        if (selectedCoupons.length === 0) return;
+
+        const actionText = action === 'delete' ? 'excluir' : (action === 'deactivate' ? 'desativar' : 'ativar');
+        
+        confirmation.show(`Tem certeza que deseja ${actionText} ${selectedCoupons.length} cupom(ns)?`, async () => {
+            try {
+                // Como não há rota de bulk no backend original, fazemos loop (para MVP é ok, para prod ideal seria rota bulk)
+                const promises = selectedCoupons.map(id => {
+                    if (action === 'delete') {
+                        return apiService(`/coupons/${id}`, 'DELETE');
+                    } else {
+                        // Para ativar/desativar precisamos dos dados originais ou criar rota especifica.
+                        // Assumindo que a rota de PUT precisa de todos os dados, vamos buscar o cupom localmente
+                        const originalCoupon = coupons.find(c => c.id === id);
+                        if (!originalCoupon) return Promise.resolve();
+                        
+                        return apiService(`/coupons/${id}`, 'PUT', {
+                            ...originalCoupon,
+                            is_active: action === 'activate' ? 1 : 0,
+                            // Garante envio correto dos campos JSON
+                            allowed_categories: tryParse(originalCoupon.allowed_categories),
+                            allowed_brands: tryParse(originalCoupon.allowed_brands)
+                        });
+                    }
+                });
+
+                await Promise.all(promises);
+                notification.show(`Ação de ${actionText} concluída com sucesso!`);
+                setSelectedCoupons([]);
+                fetchCoupons();
+            } catch (error) {
+                notification.show(`Erro na ação em massa: ${error.message}`, 'error');
+            }
+        });
+    };
 
     const handleSave = async (formData) => {
         try {
@@ -9578,6 +9631,28 @@ const AdminCoupons = () => {
                 </button>
             </div>
 
+            {/* Barra de Ações em Massa (Visível apenas se houver seleção) */}
+            <AnimatePresence>
+                {selectedCoupons.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }}
+                        className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                    >
+                        <div className="text-sm font-bold text-blue-800">
+                            {selectedCoupons.length} cupom(ns) selecionado(s)
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleBulkAction('activate')} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700">Ativar</button>
+                            <button onClick={() => handleBulkAction('deactivate')} className="px-3 py-1.5 bg-yellow-500 text-white text-xs font-bold rounded hover:bg-yellow-600">Desativar</button>
+                            <button onClick={() => handleBulkAction('delete')} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1"><TrashIcon className="h-3 w-3"/> Excluir</button>
+                            <button onClick={() => setSelectedCoupons([])} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">Cancelar</button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {/* Barra de Pesquisa */}
             <div className="mb-6 relative">
                 <input
@@ -9597,6 +9672,14 @@ const AdminCoupons = () => {
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
+                            <th className="p-4 w-10">
+                                <input 
+                                    type="checkbox" 
+                                    onChange={handleSelectAll} 
+                                    checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                            </th>
                             <th className="p-4 font-bold text-gray-600 text-sm">Código</th>
                             <th className="p-4 font-bold text-gray-600 text-sm">Regra</th>
                             <th className="p-4 font-bold text-gray-600 text-sm">Desconto</th>
@@ -9608,7 +9691,15 @@ const AdminCoupons = () => {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {filteredCoupons.map(c => (
-                            <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${selectedCoupons.includes(c.id) ? 'bg-blue-50' : ''}`}>
+                                <td className="p-4">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedCoupons.includes(c.id)} 
+                                        onChange={() => handleSelectCoupon(c.id)}
+                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                </td>
                                 <td className="p-4 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-4 text-sm">
                                     {c.is_global ? <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold">Global</span> : <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-xs font-bold">Restrito</span>}
@@ -9633,7 +9724,7 @@ const AdminCoupons = () => {
                                 </td>
                             </tr>
                         ))}
-                         {filteredCoupons.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-500">Nenhum cupom encontrado.</td></tr>}
+                         {filteredCoupons.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-gray-500">Nenhum cupom encontrado.</td></tr>}
                     </tbody>
                 </table>
             </div>
@@ -9641,22 +9732,25 @@ const AdminCoupons = () => {
             {/* --- VISUALIZAÇÃO MOBILE (CARDS) --- */}
             <div className="md:hidden space-y-4">
                 {filteredCoupons.map(c => (
-                    <div key={c.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm relative overflow-hidden">
+                    <div key={c.id} className={`bg-white border rounded-lg p-4 shadow-sm relative overflow-hidden ${selectedCoupons.includes(c.id) ? 'border-blue-400 ring-1 ring-blue-400' : 'border-gray-200'}`}>
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${c.is_active ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <div className="flex justify-between items-start mb-2 pl-3">
+                        
+                        {/* Checkbox Mobile */}
+                        <div className="absolute top-2 right-2 z-10">
+                            <input 
+                                type="checkbox" 
+                                checked={selectedCoupons.includes(c.id)} 
+                                onChange={() => handleSelectCoupon(c.id)}
+                                className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div className="flex justify-between items-start mb-2 pl-3 pr-8">
                             <div>
                                 <h3 className="text-lg font-bold font-mono text-blue-700">{c.code}</h3>
                                 <p className="text-sm font-medium text-gray-800">
                                     {c.type === 'free_shipping' ? 'Frete Grátis' : (c.type === 'percentage' ? `${c.value}% OFF` : `R$ ${Number(c.value).toFixed(2)} OFF`)}
                                 </p>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => { setEditingCoupon({
-                                    ...c, 
-                                    allowed_categories: tryParse(c.allowed_categories),
-                                    allowed_brands: tryParse(c.allowed_brands)
-                                }); setIsModalOpen(true); }} className="p-2 bg-gray-100 rounded text-gray-600"><EditIcon className="h-5 w-5"/></button>
-                                <button onClick={() => handleDelete(c.id)} className="p-2 bg-red-50 rounded text-red-600"><TrashIcon className="h-5 w-5"/></button>
                             </div>
                         </div>
                         
@@ -9669,13 +9763,21 @@ const AdminCoupons = () => {
                                 <span>Validade:</span>
                                 <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days} />
                             </div>
-                            {/* CORREÇÃO DO ZERO AQUI: Usando conversão booleana explicita (!!) */}
                             {(!!c.is_first_purchase || !!c.is_single_use_per_user) && (
                                 <div className="pt-1 mt-1 border-t border-dashed border-gray-200">
                                     {!!c.is_first_purchase && <span className="block text-amber-700">• 1ª Compra</span>}
                                     {!!c.is_single_use_per_user && <span className="block text-blue-700">• Uso Único</span>}
                                 </div>
                             )}
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-3 pl-3 pt-2 border-t border-gray-100">
+                            <button onClick={() => { setEditingCoupon({
+                                ...c, 
+                                allowed_categories: tryParse(c.allowed_categories),
+                                allowed_brands: tryParse(c.allowed_brands)
+                            }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex items-center gap-1"><EditIcon className="h-4 w-4"/> Editar</button>
+                            <button onClick={() => handleDelete(c.id)} className="text-red-600 text-xs font-bold flex items-center gap-1"><TrashIcon className="h-4 w-4"/> Excluir</button>
                         </div>
                     </div>
                 ))}
