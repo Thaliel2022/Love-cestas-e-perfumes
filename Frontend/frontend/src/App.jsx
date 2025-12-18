@@ -1668,8 +1668,7 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-
-    // Componente da Barra de Navegação Inferior (Mobile)
+// Componente da Barra de Navegação Inferior (Mobile Only)
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
@@ -1685,29 +1684,34 @@ const Header = memo(({ onNavigate }) => {
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
             >
-                <button onClick={() => { onNavigate('home'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Início</span>
+                    <span className="text-[10px]">Início</span>
                 </button>
-                <button onClick={() => { isAuthenticated ? onNavigate('account') : onNavigate('login'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <UserIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Conta</span>
+                
+                {/* --- AQUI: Botão MENU leva para a nova página de Categorias --- */}
+                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <BarsGripIcon className="h-6 w-6 mb-1"/> {/* Ícone de Grade/Blocos */}
+                    <span className="text-[10px]">Menu</span>
                 </button>
-                <button onClick={() => { onNavigate('wishlist'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HeartIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
-                </button>
-                <button onClick={() => { onNavigate('cart'); setIsMobileMenuOpen(false); }} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+
+                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
                     </motion.div>
-                    <span className="text-xs">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                    <span className="text-[10px]">Carrinho</span>
+                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
-                <button onClick={() => setIsMobileMenuOpen(true)} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${isMobileMenuOpen ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <MenuIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-xs">Menu</span>
+
+                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HeartIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Lista</span>
+                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                </button>
+                
+                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <UserIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Conta</span>
                 </button>
             </motion.div>
         );
@@ -2252,6 +2256,193 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
                 ))}
             </div>
         </section>
+    );
+};
+
+const CategoriesPage = ({ onNavigate }) => {
+    const [categories, setCategories] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    // Estado local para controlar navegação interna (Seção -> Subcategorias)
+    const [selectedGroup, setSelectedGroup] = useState(null);
+
+    // Agrupa as subcategorias por seção principal (ex: Roupas -> [Vestidos, Calças...])
+    const groupedCategories = useMemo(() => {
+        const groups = {};
+        
+        // Ordem desejada para as seções principais (Padrão Amazon)
+        const sectionOrder = ['Roupas', 'Perfumaria', 'Calçados', 'Moda Íntima', 'Conjuntos', 'Acessórios'];
+
+        categories.forEach(cat => {
+            const section = cat.menu_section || 'Outros';
+            if (!groups[section]) {
+                groups[section] = {
+                    title: section,
+                    items: [],
+                    // Pega a imagem da primeira categoria da seção como "capa" se não tiver imagem específica da seção
+                    image: cat.image 
+                };
+            }
+            groups[section].items.push(cat);
+        });
+
+        // Retorna array ordenado conforme a lista de prioridade
+        return Object.values(groups).sort((a, b) => {
+            const indexA = sectionOrder.indexOf(a.title);
+            const indexB = sectionOrder.indexOf(b.title);
+            // Se não estiver na lista, vai para o final
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+    }, [categories]);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setIsLoading(true);
+        
+        // Busca todas as coleções ativas do banco de dados
+        apiService('/collections', 'GET', null, { signal: controller.signal })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    // Ordena pela ordem definida no admin
+                    setCategories(data.sort((a, b) => a.display_order - b.display_order));
+                }
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') console.error("Erro ao buscar categorias:", err);
+            })
+            .finally(() => setIsLoading(false));
+
+        return () => controller.abort();
+    }, []);
+
+    // Renderiza a lista de subcategorias (tela nível 2)
+    const SubCategoryView = ({ group, onBack }) => (
+        <motion.div 
+            initial={{ x: '100%' }} 
+            animate={{ x: 0 }} 
+            exit={{ x: '100%' }} 
+            transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
+            className="fixed inset-0 bg-gray-50 z-50 overflow-y-auto pb-20"
+        >
+            {/* Cabeçalho da Subcategoria estilo App */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 z-10 px-4 py-3 flex items-center shadow-sm">
+                <button onClick={onBack} className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors mr-2">
+                    <ArrowUturnLeftIcon className="h-6 w-6" />
+                </button>
+                <h2 className="text-lg font-bold text-gray-900">{group.title}</h2>
+            </div>
+
+            {/* Lista de Subcategorias */}
+            <div className="p-4">
+                <h3 className="text-xs font-bold text-gray-500 mb-4 uppercase tracking-wider px-1">
+                    Explorar {group.title}
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    {group.items.map(item => (
+                        <div 
+                            key={item.id}
+                            onClick={() => onNavigate(`products?category=${item.filter}`)}
+                            className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 cursor-pointer active:opacity-90 transition-opacity flex flex-col"
+                        >
+                            <div className="aspect-square bg-gray-100 relative">
+                                <img 
+                                    src={item.image} 
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover mix-blend-multiply"
+                                    loading="lazy"
+                                />
+                            </div>
+                            <div className="p-3 bg-white flex-grow flex items-center justify-center text-center">
+                                <span className="text-sm font-medium text-gray-900 leading-tight line-clamp-2">
+                                    {item.name}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                
+                {/* Botão "Ver Tudo" desta seção */}
+                <button 
+                    onClick={() => onNavigate(`products?search=${group.title}`)}
+                    className="w-full mt-6 py-3.5 bg-white border border-gray-300 text-gray-800 font-semibold rounded-lg shadow-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                    Ver todos em {group.title}
+                </button>
+            </div>
+        </motion.div>
+    );
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-white pt-20 flex justify-center">
+                <SpinnerIcon className="h-8 w-8 text-amber-500" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-white min-h-screen pt-2 pb-24">
+            <AnimatePresence>
+                {selectedGroup && (
+                    <SubCategoryView 
+                        group={selectedGroup} 
+                        onBack={() => setSelectedGroup(null)} 
+                    />
+                )}
+            </AnimatePresence>
+
+            <div className="container mx-auto px-4">
+                <h1 className="text-xl font-bold text-gray-900 mb-4 px-1 mt-2">Navegar por Seção</h1>
+                
+                {/* Grade Principal (Nível 1) - Estilo Amazon Cards */}
+                <div className="grid grid-cols-2 gap-3"> 
+                    {groupedCategories.map((group, idx) => (
+                        <motion.div
+                            key={group.title}
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.03 }}
+                            onClick={() => setSelectedGroup(group)}
+                            className="bg-white rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] border border-gray-200 overflow-hidden cursor-pointer active:ring-2 active:ring-amber-200 transition-all"
+                        >
+                            <div className="aspect-[5/4] bg-gray-50 relative p-4 flex items-center justify-center">
+                                <img 
+                                    src={group.items[0]?.image || 'https://placehold.co/400x300/eee/ccc?text=Sem+Imagem'} 
+                                    alt={group.title} 
+                                    className="w-full h-full object-contain mix-blend-multiply" // object-contain para não cortar o produto
+                                    loading="lazy"
+                                />
+                            </div>
+                            <div className="p-3 border-t border-gray-100 bg-white">
+                                <h3 className="text-gray-900 font-bold text-sm leading-tight mb-0.5">
+                                    {group.title}
+                                </h3>
+                                <p className="text-xs text-gray-500">
+                                    {group.items.length} opções
+                                </p>
+                            </div>
+                        </motion.div>
+                    ))}
+
+                    {/* Card Especial: Todas as Ofertas */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: groupedCategories.length * 0.05 }}
+                        onClick={() => onNavigate('products?promo=true')}
+                        className="bg-white rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] border border-gray-200 overflow-hidden cursor-pointer flex flex-col items-center justify-center p-4 text-center min-h-[160px]"
+                    >
+                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-3">
+                            <SaleIcon className="h-8 w-8 text-red-600" />
+                        </div>
+                        <h3 className="text-red-700 font-bold text-sm uppercase tracking-wide">Ofertas do Dia</h3>
+                        <p className="text-gray-500 text-xs mt-1">Até 50% OFF</p>
+                    </motion.div>
+                </div>
+            </div>
+        </div>
     );
 };
 
@@ -11556,6 +11747,85 @@ function AppContent({ deferredPrompt }) {
       return <MaintenancePage />;
   }
 
+ // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+function AppContent({ deferredPrompt }) {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
+  const [isInMaintenance, setIsInMaintenance] = useState(false);
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
+
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  useEffect(() => {
+    const checkStatus = () => {
+        apiService('/settings/maintenance-status')
+            .then(data => {
+                const isNowInMaintenance = data.maintenanceMode === 'on';
+                setIsInMaintenance(prevStatus => {
+                    if (prevStatus !== isNowInMaintenance) {
+                        return isNowInMaintenance;
+                    }
+                    return prevStatus;
+                });
+            })
+            .catch(err => {
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                setIsInMaintenance(false);
+            })
+            .finally(() => {
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
+            });
+    };
+
+    checkStatus(); 
+    const intervalId = setInterval(checkStatus, 30000); 
+    return () => clearInterval(intervalId); 
+  }, [isStatusLoading]); 
+
+  const navigate = useCallback((path) => {
+    window.location.hash = path;
+  }, []);
+  
+  useEffect(() => {
+    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+    
+    if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
+      sessionStorage.removeItem('pendingOrderId'); 
+      navigate(`order-success/${pendingOrderId}`);
+    } else if (currentPath.startsWith('order-success')) {
+        sessionStorage.removeItem('pendingOrderId');
+    }
+  }, [currentPath, navigate]); 
+  
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentPath(window.location.hash.slice(1) || 'home');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPath]);
+  
+  if (isLoading || isStatusLoading) {
+      return (
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        </div>
+      );
+  }
+
+  const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
+  const isAdminDomain = window.location.hostname.includes('vercel.app');
+
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
+
   const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
     const searchParams = new URLSearchParams(queryString);
@@ -11581,11 +11851,11 @@ function AppContent({ deferredPrompt }) {
             'orders': <AdminOrders />,
             'refunds': <AdminRefunds onNavigate={navigate} />,
             'collections': <AdminCollections />,
-            'newsletter': <AdminNewsletter />,
             'users': <AdminUsers />,
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
+            'newsletter': <AdminNewsletter />, // Rota para gestão de Newsletter
         };
 
         return (
@@ -11614,6 +11884,7 @@ function AppContent({ deferredPrompt }) {
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
+        'categories': <CategoriesPage onNavigate={navigate} />, // Rota para o novo menu mobile
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
@@ -11627,6 +11898,79 @@ function AppContent({ deferredPrompt }) {
     };
     return pages[mainPage] || <HomePage onNavigate={navigate} />;
   };
+
+  const showHeaderFooter = !currentPath.startsWith('admin');
+  
+  return (
+    <div className="bg-black min-h-screen flex flex-col">
+      {showHeaderFooter && <Header onNavigate={navigate} />}
+      <main className="flex-grow">{renderPage()}</main>
+      {showHeaderFooter && !currentPath.startsWith('order-success') && (
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
+            <div className="container mx-auto px-4 py-12">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
+                    <div className="space-y-4">
+                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
+                        <p className="text-sm text-gray-400">
+                            Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Institucional</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#about" onClick={(e) => { e.preventDefault(); navigate('about'); }} className="hover:text-amber-400 transition-colors">Sobre Nós</a></li>
+                            <li><a href="#privacy" onClick={(e) => { e.preventDefault(); navigate('privacy'); }} className="hover:text-amber-400 transition-colors">Política de Privacidade</a></li>
+                            <li><a href="#terms" onClick={(e) => { e.preventDefault(); navigate('terms'); }} className="hover:text-amber-400 transition-colors">Termos de Serviço</a></li>
+                        </ul>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Atendimento</h3>
+                        <ul className="space-y-2 text-sm">
+                            <li><a href="#ajuda" onClick={(e) => { e.preventDefault(); navigate('ajuda'); }} className="hover:text-amber-400 transition-colors">Central de Ajuda</a></li>
+                            <li>
+                                <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
+                                    <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
+                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
+                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <PixIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <VisaIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <MastercardIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <EloIcon className="h-full w-auto"/>
+                            </div>
+                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
+                                <BoletoIcon className="h-6 w-auto text-black"/>
+                            </div>
+                        </div>
+                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-black py-4 border-t border-gray-800">
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
+            </div>
+        </footer>
+      )}
+      
+      {deferredPrompt && <InstallPWAButton deferredPrompt={deferredPrompt} />}
+    </div>
+  );
+}
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
