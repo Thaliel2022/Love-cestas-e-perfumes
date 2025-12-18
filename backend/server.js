@@ -2603,155 +2603,132 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.post('/api/orders', verifyToken, async (req, res) => {
-    const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details } = req.body;
-    
-    if (!req.user.id || !items || items.length === 0) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
+    const { items, total, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details } = req.body;
+    if (!req.user.id || !items || items.length === 0 || total === undefined) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
 
-        // 1. Recalcular Subtotal e Validar Estoque
-        let calculatedSubtotal = 0;
-        let verifiedItems = [];
-
         for (const item of items) {
-            const [productResult] = await connection.query("SELECT id, name, price, sale_price, is_on_sale, product_type, variations, stock, category, brand FROM products WHERE id = ? FOR UPDATE", [item.id]);
+            const [productResult] = await connection.query("SELECT product_type, variations, stock FROM products WHERE id = ? FOR UPDATE", [item.id]);
             const product = productResult[0];
-            if (!product) throw new Error(`Produto ID ${item.id} não encontrado.`);
+            if (!product) throw new Error(`Produto com ID ${item.id} não encontrado.`);
 
-            // Validação de Estoque (Mantida a original)
             if (product.product_type === 'clothing') {
-                if (!item.variation?.color || !item.variation?.size) throw new Error(`Variação inválida para ${item.name}.`);
-                const variations = JSON.parse(product.variations || '[]');
-                const vIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
-                if (vIndex === -1 || variations[vIndex].stock < item.qty) throw new Error(`Estoque insuficiente para ${item.name} (${item.variation.color}).`);
-            } else {
-                if (product.stock < item.qty) throw new Error(`Estoque insuficiente para ${product.name}.`);
-            }
-
-            // Preço Oficial do Banco
-            const unitPrice = (product.is_on_sale && product.sale_price) ? parseFloat(product.sale_price) : parseFloat(product.price);
-            calculatedSubtotal += unitPrice * item.qty;
-            
-            // Guarda dados para cálculo do cupom
-            verifiedItems.push({
-                ...item,
-                dbCategory: product.category,
-                dbBrand: product.brand,
-                unitPrice: unitPrice,
-                totalPrice: unitPrice * item.qty
-            });
-        }
-
-        // 2. Calcular Desconto do Cupom (Servidor)
-        let serverDiscountAmount = 0;
-        let couponIdToLog = null;
-
-        if (coupon_code) {
-            const [coupons] = await connection.query("SELECT * FROM coupons WHERE code = ?", [coupon_code]);
-            if (coupons.length > 0) {
-                const coupon = coupons[0];
-                // Validações básicas (ativo, validade, uso único) devem ser checadas aqui também para segurança máxima
-                // ... (código abreviado: assumindo que frontend validou, mas idealmente re-validar is_active e datas aqui)
-
-                if (coupon.is_active) {
-                    couponIdToLog = coupon.id;
-                    
-                    if (coupon.type === 'free_shipping') {
-                        serverDiscountAmount = parseFloat(shipping_cost || 0); // Desconto é o valor do frete
-                    } else {
-                        // Lógica de Elegibilidade
-                        let eligibleTotal = 0;
-                        const isGlobal = coupon.is_global === 1;
-                        const allowedCats = coupon.allowed_categories ? JSON.parse(coupon.allowed_categories) : [];
-                        const allowedBrands = coupon.allowed_brands ? JSON.parse(coupon.allowed_brands) : [];
-
-                        verifiedItems.forEach(item => {
-                            let isEligible = false;
-                            if (isGlobal) {
-                                isEligible = true;
-                            } else {
-                                // Verifica se bate com categoria OU marca
-                                const catMatch = allowedCats.includes(item.dbCategory);
-                                const brandMatch = allowedBrands.includes(item.dbBrand);
-                                if (catMatch || brandMatch) isEligible = true;
-                            }
-
-                            if (isEligible) {
-                                eligibleTotal += item.totalPrice;
-                            }
-                        });
-
-                        // Aplica desconto sobre o total elegível
-                        if (eligibleTotal > 0) {
-                            if (coupon.type === 'percentage') {
-                                serverDiscountAmount = eligibleTotal * (parseFloat(coupon.value) / 100);
-                            } else if (coupon.type === 'fixed') {
-                                // Se for valor fixo, não pode exceder o total dos itens elegíveis
-                                serverDiscountAmount = Math.min(parseFloat(coupon.value), eligibleTotal);
-                            }
-                        }
-                    }
+                if (!item.variation || !item.variation.color || !item.variation.size) {
+                    throw new Error(`Variação não especificada para o produto ${item.name}.`);
+                }
+                let variations = JSON.parse(product.variations || '[]');
+                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
+                
+                if (variationIndex === -1) throw new Error(`Variação ${item.variation.color}/${item.variation.size} não encontrada para ${item.name}.`);
+                if (variations[variationIndex].stock < item.qty) throw new Error(`Estoque insuficiente para ${item.name} (${item.variation.color}/${item.variation.size}).`);
+                
+            } else { // perfume
+                if (product.stock < item.qty) {
+                    throw new Error(`Produto "${item.name || item.id}" não tem estoque suficiente.`);
                 }
             }
         }
-
-        // 3. Finalizar Valores
-        const shipping = parseFloat(shipping_cost || 0);
-        // Garante que o total não seja negativo
-        const finalTotal = Math.max(0, calculatedSubtotal + shipping - serverDiscountAmount);
-
-        // 4. Inserir Pedido
-        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const [orderResult] = await connection.query(orderSql, [
-            req.user.id, finalTotal, ORDER_STATUS.PENDING, 
-            shipping_method === 'Retirar na loja' ? null : JSON.stringify(shippingAddress),
-            paymentMethod, shipping_method, shipping, coupon_code || null, serverDiscountAmount, pickup_details || null
-        ]);
         
+        const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        const orderParams = [
+            req.user.id, 
+            total, 
+            ORDER_STATUS.PENDING, 
+            shipping_method === 'Retirar na loja' ? null : JSON.stringify(shippingAddress), 
+            paymentMethod, 
+            shipping_method, 
+            shipping_cost, 
+            coupon_code || null, 
+            discount_amount || 0,
+            pickup_details || null
+        ];
+        const [orderResult] = await connection.query(orderSql, orderParams);
         const orderId = orderResult.insertId;
-        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado.");
 
-        // 5. Baixar Estoque e Itens
-        for (const item of verifiedItems) {
-            const varJson = item.variation ? JSON.stringify(item.variation) : null;
-            await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.unitPrice, varJson]);
+        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado pelo cliente.");
+        
+        for (const item of items) {
+            const variationDetailsString = item.variation ? JSON.stringify(item.variation) : null;
+            await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.price, variationDetailsString]);
             
-            // Baixa de estoque (Simplificada aqui, usar lógica completa do bloco anterior se necessário)
-            if (item.variation) {
-                const [p] = await connection.query("SELECT variations FROM products WHERE id = ?", [item.id]);
-                let vars = JSON.parse(p[0].variations);
-                const idx = vars.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
-                if (idx !== -1) {
-                    vars[idx].stock -= item.qty;
-                    const newStock = vars.reduce((a,b)=>a+b.stock,0);
-                    await connection.query("UPDATE products SET variations = ?, stock = ?, sales = sales + ? WHERE id = ?", [JSON.stringify(vars), newStock, item.qty, item.id]);
+            const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.id]);
+            const product = productResult[0];
+
+            if (product.product_type === 'clothing') {
+                let variations = JSON.parse(product.variations || '[]');
+                const variationIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
+                if (variationIndex !== -1) {
+                    variations[variationIndex].stock -= item.qty;
+                    const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                    await connection.query("UPDATE products SET variations = ?, stock = ?, sales = sales + ? WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.qty, item.id]);
                 }
             } else {
                 await connection.query("UPDATE products SET stock = stock - ?, sales = sales + ? WHERE id = ?", [item.qty, item.qty, item.id]);
             }
         }
-
-        // Registrar uso do cupom único
-        if (couponIdToLog) {
-            const [c] = await connection.query("SELECT is_single_use_per_user FROM coupons WHERE id = ?", [couponIdToLog]);
-            if (c[0].is_single_use_per_user) {
-                await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, couponIdToLog, orderId]);
-            }
+        
+        if (coupon_code) {
+             const [coupons] = await connection.query("SELECT id, is_single_use_per_user FROM coupons WHERE code = ?", [coupon_code]);
+             if (coupons.length > 0 && coupons[0].is_single_use_per_user) {
+                 await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, coupons[0].id, orderId]);
+             }
         }
-
+        
         await connection.query("DELETE FROM user_carts WHERE user_id = ?", [req.user.id]);
+        
         await connection.commit();
 
-        // Notificações de estoque baixo (omitidas para brevidade, manter lógica original)
-        
-        res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
+        // --- VERIFICAÇÃO DE ESTOQUE PARA E-MAIL DE ADMIN ---
+        // Executado após o commit para garantir dados reais
+        try {
+            const LOW_STOCK_THRESHOLD = 5;
+            const [allProducts] = await db.query("SELECT name, stock, product_type, variations FROM products WHERE is_active = 1");
+            
+            let zeroStockList = [];
+            let lowStockList = [];
 
+            allProducts.forEach(p => {
+                if (p.product_type === 'clothing') {
+                    const vars = JSON.parse(p.variations || '[]');
+                    vars.forEach(v => {
+                        if (v.stock <= 0) {
+                            zeroStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: 0 });
+                        } else if (v.stock <= LOW_STOCK_THRESHOLD) {
+                            lowStockList.push({ name: p.name, variation: `${v.color} - ${v.size}`, stock: v.stock });
+                        }
+                    });
+                } else {
+                    if (p.stock <= 0) {
+                        zeroStockList.push({ name: p.name, variation: null, stock: 0 });
+                    } else if (p.stock <= LOW_STOCK_THRESHOLD) {
+                        lowStockList.push({ name: p.name, variation: null, stock: p.stock });
+                    }
+                }
+            });
+
+            if (zeroStockList.length > 0 || lowStockList.length > 0) {
+                const adminEmail = process.env.ADMIN_EMAIL || process.env.FROM_EMAIL;
+                const emailHtml = createAdminStockAlertEmail(zeroStockList, lowStockList);
+                await sendEmailAsync({
+                    from: FROM_EMAIL,
+                    to: adminEmail,
+                    subject: `⚠️ Alerta de Estoque: ${zeroStockList.length} Esgotados / ${lowStockList.length} Baixos`,
+                    html: emailHtml
+                });
+            }
+        } catch (stockErr) {
+            console.error("Erro ao verificar estoque para notificação do admin:", stockErr);
+        }
+        // --- FIM DA VERIFICAÇÃO ---
+
+        res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
     } catch (err) {
         await connection.rollback();
         console.error("Erro ao criar pedido:", err);
-        res.status(500).json({ message: err.message || "Falha ao criar o pedido." });
+        res.status(500).json({ message: "Falha ao criar o pedido. Verifique o estoque e os dados enviados." });
     } finally {
         connection.release();
     }
@@ -3695,155 +3672,131 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 // --- ROTAS DE CUPONS ---
 app.get('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
-        res.json(coupons);
-    } catch (err) {
-        console.error("Erro ao buscar cupons:", err);
-        res.status(500).json({ message: "Erro ao buscar cupons." });
-    }
+    try {
+        const [coupons] = await db.query("SELECT * FROM coupons ORDER BY id DESC");
+        res.json(coupons);
+    } catch (err) {
+        console.error("Erro ao buscar cupons:", err);
+        res.status(500).json({ message: "Erro ao buscar cupons." });
+    }
 });
 
 app.post('/api/coupons/validate', checkMaintenanceMode, async (req, res) => {
-    const { code } = req.body;
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    let user = null;
+    const { code } = req.body;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    let user = null;
 
-    if (token) {
-        try {
-            user = jwt.verify(token, JWT_SECRET);
-        } catch (err) {
-            console.log("Token de validação de cupom inválido, tratando como visitante.");
-        }
-    }
-    
-    try {
-        const [coupons] = await db.query("SELECT * FROM coupons WHERE code = ?", [code.toUpperCase()]);
-        if (coupons.length === 0) {
-            return res.status(404).json({ message: "Cupom inválido ou não existe." });
-        }
-        const coupon = coupons[0];
+    if (token) {
+        try {
+            user = jwt.verify(token, JWT_SECRET);
+        } catch (err) {
+            console.log("Token de validação de cupom inválido ou expirado, tratando como deslogado.");
+        }
+    }
+    
+    try {
+        const [coupons] = await db.query("SELECT * FROM coupons WHERE code = ?", [code.toUpperCase()]);
+        if (coupons.length === 0) {
+            return res.status(404).json({ message: "Cupom inválido ou não existe." });
+        }
+        const coupon = coupons[0];
 
-        if (!coupon.is_active) {
-            return res.status(400).json({ message: "Este cupom não está mais ativo." });
-        }
+        if (!coupon.is_active) {
+            return res.status(400).json({ message: "Este cupom não está mais ativo." });
+        }
 
-        if (coupon.validity_days) {
-            const createdAt = new Date(coupon.created_at);
-            const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
-            if (new Date() > expiryDate) {
-                return res.status(400).json({ message: "Este cupom expirou." });
-            }
-        }
-        
-        if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
-            if (!user) {
-                return res.status(403).json({ message: "Faça login para usar este cupom." });
-            }
-        }
-        
-        if (user && coupon.is_first_purchase) {
-            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
-            if (orders.length > 0) {
-                return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
-            }
-        }
-        
-        if (user && coupon.is_single_use_per_user) {
-            const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
-            if (usage.length > 0) {
-                return res.status(403).json({ message: "Você já utilizou este cupom." });
-            }
-        }
-        
-        // Retorna o cupom com as novas regras para o frontend calcular visualmente
-        res.json({ coupon });
+        if (coupon.validity_days) {
+            const createdAt = new Date(coupon.created_at);
+            const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
+            if (new Date() > expiryDate) {
+                return res.status(400).json({ message: "Este cupom expirou." });
+            }
+        }
+        
+        if (coupon.is_first_purchase || coupon.is_single_use_per_user) {
+            if (!user) {
+                return res.status(403).json({ message: "Você precisa estar logado para usar este cupom." });
+            }
+        }
+        
+        if (user && coupon.is_first_purchase) {
+            const [orders] = await db.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [user.id]);
+            if (orders.length > 0) {
+                return res.status(403).json({ message: "Este cupom é válido apenas para a primeira compra." });
+            }
+        }
+        
+        if (user && coupon.is_single_use_per_user) {
+            const [usage] = await db.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [user.id, coupon.id]);
+            if (usage.length > 0) {
+                return res.status(403).json({ message: "Você já utilizou este cupom." });
+            }
+        }
+        
+        res.json({ coupon });
 
-    } catch (err) {
-        console.error("Erro ao validar cupom:", err);
-        res.status(500).json({ message: "Erro interno ao validar cupom." });
-    }
+    } catch (err) {
+        console.error("Erro ao validar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao validar cupom." });
+    }
 });
 
 
 app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
-    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user, is_global, allowed_categories, allowed_brands } = req.body;
-    
-    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
-        return res.status(400).json({ message: "Código, tipo e valor são obrigatórios." });
-    }
-    
-    // Se não for global, exige pelo menos uma categoria ou marca
-    if (!is_global && (!allowed_categories?.length && !allowed_brands?.length)) {
-        return res.status(400).json({ message: "Se o cupom não for global, selecione ao menos uma categoria ou marca." });
-    }
-
-    try {
-        const sql = "INSERT INTO coupons (code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user, is_global, allowed_categories, allowed_brands) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        const params = [
-            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
-            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0,
-            is_single_use_per_user ? 1 : 0,
-            is_global ? 1 : 0,
-            JSON.stringify(allowed_categories || []),
-            JSON.stringify(allowed_brands || [])
-        ];
-        
-        const [result] = await db.query(sql, params);
-        logAdminAction(req.user, 'CRIOU CUPOM', `Código: ${code.toUpperCase()}`);
-        res.status(201).json({ message: "Cupom criado com sucesso!", couponId: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este código de cupom já existe." });
-        }
-        console.error("Erro ao criar cupom:", err);
-        res.status(500).json({ message: "Erro interno ao criar cupom." });
-    }
+    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
+        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
+    }
+    try {
+        const sql = "INSERT INTO coupons (code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        const params = [
+            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
+            is_active ? 1 : 0, validity_days || null, is_first_purchase ? 1 : 0,
+            is_single_use_per_user ? 1 : 0
+        ];
+        const [result] = await db.query(sql, params);
+        logAdminAction(req.user, 'CRIOU CUPOM', `Código: ${code.toUpperCase()}`);
+        res.status(201).json({ message: "Cupom criado com sucesso!", couponId: result.insertId });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Este código de cupom já existe." });
+        }
+        console.error("Erro ao criar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao criar cupom." });
+    }
 });
 
 app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user, is_global, allowed_categories, allowed_brands } = req.body;
-    
-    if (!code || !type) {
-        return res.status(400).json({ message: "Dados inválidos." });
-    }
-    
-    if (!is_global && (!allowed_categories?.length && !allowed_brands?.length)) {
-        return res.status(400).json({ message: "Se o cupom não for global, selecione ao menos uma categoria ou marca." });
-    }
-
-    try {
-        const numericValidityDays = validity_days ? Number(validity_days) : null;
-        const sql = `
-            UPDATE coupons SET 
-                code = ?, type = ?, value = ?, is_active = ?, 
-                validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ?,
-                is_global = ?, allowed_categories = ?, allowed_brands = ?,
-                created_at = IF(? IS NOT NULL AND ? > 0, NOW(), created_at)
-            WHERE id = ?`;
-        
-        const params = [
-            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
-            is_active ? 1 : 0, numericValidityDays, is_first_purchase ? 1 : 0,
-            is_single_use_per_user ? 1 : 0,
-            is_global ? 1 : 0,
-            JSON.stringify(allowed_categories || []),
-            JSON.stringify(allowed_brands || []),
-            numericValidityDays, numericValidityDays, id
-        ];
-        
-        await db.query(sql, params);
-        logAdminAction(req.user, 'EDITOU CUPOM', `ID: ${id}, Código: ${code.toUpperCase()}`);
-        res.json({ message: "Cupom atualizado com sucesso." });
-    } catch (err) {
-         if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este código já existe." });
-         }
-        console.error("Erro ao atualizar cupom:", err);
-        res.status(500).json({ message: "Erro interno." });
-    }
+    const { id } = req.params;
+    const { code, type, value, is_active, validity_days, is_first_purchase, is_single_use_per_user } = req.body;
+    if (!code || !type || (type !== 'free_shipping' && (value === undefined || value === null || value === ''))) {
+        return res.status(400).json({ message: "Código, tipo e valor (exceto para frete grátis) são obrigatórios." });
+    }
+    try {
+        const numericValidityDays = validity_days ? Number(validity_days) : null;
+        const sql = `
+            UPDATE coupons SET 
+                code = ?, type = ?, value = ?, is_active = ?, 
+                validity_days = ?, is_first_purchase = ?, is_single_use_per_user = ?,
+                created_at = IF(? IS NOT NULL AND ? > 0, NOW(), created_at)
+            WHERE id = ?`;
+        const params = [
+            code.toUpperCase(), type, type === 'free_shipping' ? null : value,
+            is_active ? 1 : 0, numericValidityDays, is_first_purchase ? 1 : 0,
+            is_single_use_per_user ? 1 : 0, 
+            numericValidityDays, numericValidityDays, id
+        ];
+        await db.query(sql, params);
+        logAdminAction(req.user, 'EDITOU CUPOM', `ID: ${id}, Código: ${code.toUpperCase()}`);
+        res.json({ message: "Cupom atualizado com sucesso." });
+    } catch (err) {
+         if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Este código de cupom já existe." });
+         }
+        console.error("Erro ao atualizar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar cupom." });
+    }
 });
 
 app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
