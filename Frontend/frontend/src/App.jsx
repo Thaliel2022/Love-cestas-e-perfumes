@@ -9385,33 +9385,54 @@ const AdminCoupons = () => {
     };
 
     const CouponCountdown = ({ createdAt, validityDays }) => {
-        const [timeLeft, setTimeLeft] = useState('');
+        const [timeLeft, setTimeLeft] = useState('Carregando...');
 
         useEffect(() => {
-            if (!validityDays || !createdAt) {
+            // Se validityDays for nulo, undefined ou 0, considera Permanente
+            if (!validityDays || Number(validityDays) === 0) {
                 setTimeLeft('Permanente');
                 return;
             }
+
             const calculate = () => {
-                const expirationDate = new Date(new Date(createdAt).getTime() + validityDays * 24 * 60 * 60 * 1000);
-                const now = new Date();
+                const createdTime = new Date(createdAt).getTime();
+                // Converte validityDays para milissegundos
+                const validityMs = Number(validityDays) * 24 * 60 * 60 * 1000;
+                const expirationDate = createdTime + validityMs;
+                const now = new Date().getTime();
                 const difference = expirationDate - now;
 
                 if (difference <= 0) {
                     setTimeLeft('Expirado');
                     return;
                 }
-                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                setTimeLeft(days > 0 ? `${days}d ${hours}h` : `${hours}h`);
+
+                const d = Math.floor(difference / (1000 * 60 * 60 * 24));
+                const h = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const m = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+                const s = Math.floor((difference % (1000 * 60)) / 1000);
+                
+                // Formato: 2d 10h 30m 15s
+                let display = '';
+                if (d > 0) display += `${d}d `;
+                display += `${h.toString().padStart(2, '0')}h `;
+                display += `${m.toString().padStart(2, '0')}m `;
+                display += `${s.toString().padStart(2, '0')}s`;
+                
+                setTimeLeft(display);
             };
-            calculate();
-            const interval = setInterval(calculate, 60000); 
+
+            calculate(); // Executa imediatamente
+            const interval = setInterval(calculate, 1000); // Atualiza a cada segundo
             return () => clearInterval(interval);
         }, [createdAt, validityDays]);
 
-        const colorClass = timeLeft === 'Expirado' ? 'text-red-500 font-bold' : (timeLeft === 'Permanente' ? 'text-green-600' : 'text-amber-600 font-mono');
-        return <span className={`text-xs ${colorClass}`}>{timeLeft}</span>;
+        let colorClass = 'text-gray-500';
+        if (timeLeft === 'Expirado') colorClass = 'text-red-600 font-bold bg-red-100 px-2 py-0.5 rounded';
+        else if (timeLeft === 'Permanente') colorClass = 'text-green-600 font-bold bg-green-100 px-2 py-0.5 rounded';
+        else colorClass = 'text-amber-600 font-mono font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200';
+
+        return <span className={`text-xs whitespace-nowrap ${colorClass}`}>{timeLeft}</span>;
     };
 
     const CouponForm = ({ item, onSave, onCancel }) => {
