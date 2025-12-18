@@ -9429,11 +9429,23 @@ const AdminCoupons = () => {
 
     const handleSave = async (formData) => {
         try {
+            // Garante que os arrays de restrição sejam enviados corretamente como JSON string se necessário pelo backend,
+            // mas o axios/fetch geralmente envia arrays como JSON no corpo.
+            // O backend deve esperar arrays ou fazer JSON.parse.
+            // Aqui garantimos que enviamos os dados corretos.
+            
+            const payload = {
+                ...formData,
+                // Se for global, limpa as restrições para evitar confusão no backend
+                allowed_categories: formData.is_global ? [] : formData.allowed_categories,
+                allowed_brands: formData.is_global ? [] : formData.allowed_brands
+            };
+
             if (formData.id) {
-                await apiService(`/coupons/${formData.id}`, 'PUT', formData);
+                await apiService(`/coupons/${formData.id}`, 'PUT', payload);
                 notification.show('Cupom atualizado!');
             } else {
-                await apiService('/coupons', 'POST', formData);
+                await apiService('/coupons', 'POST', payload);
                 notification.show('Cupom criado!');
             }
             fetchCoupons();
