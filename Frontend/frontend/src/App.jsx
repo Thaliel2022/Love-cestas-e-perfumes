@@ -551,19 +551,25 @@ const ShopProvider = ({ children }) => {
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- Lógica de Desconto Atualizada (Suporte a Regras Globais/Restritas) ---
+    // --- Lógica de Desconto Atualizada (Normalizada e Rigorosa) ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         
-        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
+        // Se for frete grátis, o desconto no subtotal é 0
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
-        // Parsing seguro das regras
-        const isGlobal = appliedCoupon.is_global === 1 || appliedCoupon.is_global === true;
+        // Converte para Número e booleano explicitamente para evitar erros de tipo ("1" vs 1)
+        const isGlobal = Number(appliedCoupon.is_global) === 1;
+        
         const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
         const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+
+        // Normalização para comparação (Remove espaços e deixa minúsculo)
+        const normalize = (str) => String(str || '').toLowerCase().trim();
+        const safeAllowedCats = allowedCats.map(normalize);
+        const safeAllowedBrands = allowedBrands.map(normalize);
 
         cart.forEach(item => {
             let isEligible = false;
@@ -571,12 +577,12 @@ const ShopProvider = ({ children }) => {
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Lógica de "OU": Se bater categoria OU marca, é elegível
-                const itemCategory = item.category || "";
-                const itemBrand = item.brand || "";
+                // Compara normalizado para evitar problemas de maiúsculas/espaços
+                const itemCategory = normalize(item.category);
+                const itemBrand = normalize(item.brand);
                 
-                const catMatch = allowedCats.includes(itemCategory);
-                const brandMatch = allowedBrands.includes(itemBrand);
+                const catMatch = safeAllowedCats.includes(itemCategory);
+                const brandMatch = safeAllowedBrands.includes(itemBrand);
                 
                 if (catMatch || brandMatch) isEligible = true;
             }
