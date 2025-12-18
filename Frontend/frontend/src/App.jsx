@@ -1668,50 +1668,54 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-// Componente da Barra de Navegação Inferior (Mobile)
+// Componente da Barra de Navegação Inferior (Mobile Only)
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
-        // Animação simples para a barra
         const navVariants = {
-            visible: { y: 0 },
-            hidden: { y: "100%" }
+            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
+            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
         };
 
         return (
             <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-40 md:hidden"
-                initial="visible"
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" // Adicionado pb-safe para iOS
+                initial={false}
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
             >
-                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400'}`}>
+                {/* 1. Início */}
+                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Início</span>
                 </button>
                 
-                {/* --- BOTÃO MENU AGORA VAI PARA 'CATEGORIES' --- */}
-                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400'}`}>
-                    <BarsGripIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-[10px]">Menu</span>
-                </button>
-
-                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400'}`}>
-                    <CartIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-[10px]">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-1 right-[20%] bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                </button>
-
-                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400'}`}>
+                {/* 2. Lista de Desejos */}
+                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-1 right-[20%] bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                </button>
+
+                {/* 3. Carrinho */}
+                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <motion.div animate={cartAnimationControls}>
+                        <CartIcon className="h-6 w-6 mb-1"/>
+                    </motion.div>
+                    <span className="text-[10px]">Carrinho</span>
+                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
                 
-                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400'}`}>
+                {/* 4. Conta */}
+                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Conta</span>
+                </button>
+
+                {/* 5. Menu (Categorias) - Agora na posição final */}
+                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <BarsGripIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Menu</span>
                 </button>
             </motion.div>
         );
@@ -2262,14 +2266,10 @@ const CategoryCardsSection = ({ customCards, onNavigate }) => {
 const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    // Estado local para controlar navegação interna (Seção -> Subcategorias)
     const [selectedGroup, setSelectedGroup] = useState(null);
 
-    // Agrupa as subcategorias por seção principal (ex: Roupas -> [Vestidos, Calças...])
     const groupedCategories = useMemo(() => {
         const groups = {};
-        
-        // Ordem desejada para as seções principais (Padrão Amazon)
         const sectionOrder = ['Roupas', 'Perfumaria', 'Calçados', 'Moda Íntima', 'Conjuntos', 'Acessórios'];
 
         categories.forEach(cat => {
@@ -2278,18 +2278,15 @@ const CategoriesPage = ({ onNavigate }) => {
                 groups[section] = {
                     title: section,
                     items: [],
-                    // Pega a imagem da primeira categoria da seção como "capa" se não tiver imagem específica da seção
                     image: cat.image 
                 };
             }
             groups[section].items.push(cat);
         });
 
-        // Retorna array ordenado conforme a lista de prioridade
         return Object.values(groups).sort((a, b) => {
             const indexA = sectionOrder.indexOf(a.title);
             const indexB = sectionOrder.indexOf(b.title);
-            // Se não estiver na lista, vai para o final
             if (indexA === -1) return 1;
             if (indexB === -1) return -1;
             return indexA - indexB;
@@ -2300,11 +2297,9 @@ const CategoriesPage = ({ onNavigate }) => {
         const controller = new AbortController();
         setIsLoading(true);
         
-        // Busca todas as coleções ativas do banco de dados
         apiService('/collections', 'GET', null, { signal: controller.signal })
             .then(data => {
                 if (Array.isArray(data)) {
-                    // Ordena pela ordem definida no admin
                     setCategories(data.sort((a, b) => a.display_order - b.display_order));
                 }
             })
@@ -2316,26 +2311,24 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Renderiza a lista de subcategorias (tela nível 2)
+    // Sub-tela (Nível 2) - Estilo Dark
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-gray-50 z-50 overflow-y-auto pb-20"
+            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
         >
-            {/* Cabeçalho da Subcategoria estilo App */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 z-10 px-4 py-3 flex items-center shadow-sm">
-                <button onClick={onBack} className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors mr-2">
+            <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+                <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
                     <ArrowUturnLeftIcon className="h-6 w-6" />
                 </button>
-                <h2 className="text-lg font-bold text-gray-900">{group.title}</h2>
+                <h2 className="text-lg font-bold text-white tracking-wide">{group.title}</h2>
             </div>
 
-            {/* Lista de Subcategorias */}
             <div className="p-4">
-                <h3 className="text-xs font-bold text-gray-500 mb-4 uppercase tracking-wider px-1">
+                <h3 className="text-xs font-bold text-gray-500 mb-4 uppercase tracking-wider px-1 border-l-2 border-amber-500 pl-2">
                     Explorar {group.title}
                 </h3>
                 
@@ -2344,18 +2337,18 @@ const CategoriesPage = ({ onNavigate }) => {
                         <div 
                             key={item.id}
                             onClick={() => onNavigate(`products?category=${item.filter}`)}
-                            className="bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 cursor-pointer active:opacity-90 transition-opacity flex flex-col"
+                            className="bg-gray-900 rounded-lg overflow-hidden shadow-sm border border-gray-800 cursor-pointer active:scale-95 transition-transform flex flex-col group"
                         >
-                            <div className="aspect-square bg-gray-100 relative">
+                            <div className="aspect-square bg-white relative p-2 overflow-hidden">
                                 <img 
                                     src={item.image} 
                                     alt={item.name} 
-                                    className="w-full h-full object-cover mix-blend-multiply"
+                                    className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-110"
                                     loading="lazy"
                                 />
                             </div>
-                            <div className="p-3 bg-white flex-grow flex items-center justify-center text-center">
-                                <span className="text-sm font-medium text-gray-900 leading-tight line-clamp-2">
+                            <div className="p-3 bg-gray-900 flex-grow flex items-center justify-center text-center border-t border-gray-800">
+                                <span className="text-sm font-medium text-gray-200 leading-tight line-clamp-2 group-hover:text-amber-400 transition-colors">
                                     {item.name}
                                 </span>
                             </div>
@@ -2363,12 +2356,11 @@ const CategoriesPage = ({ onNavigate }) => {
                     ))}
                 </div>
                 
-                {/* Botão "Ver Tudo" desta seção */}
                 <button 
                     onClick={() => onNavigate(`products?search=${group.title}`)}
-                    className="w-full mt-6 py-3.5 bg-white border border-gray-300 text-gray-800 font-semibold rounded-lg shadow-sm hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 text-sm"
+                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 hover:border-amber-500/50 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title}
+                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 text-amber-500"/>
                 </button>
             </div>
         </motion.div>
@@ -2376,14 +2368,14 @@ const CategoriesPage = ({ onNavigate }) => {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-white pt-20 flex justify-center">
-                <SpinnerIcon className="h-8 w-8 text-amber-500" />
+            <div className="min-h-screen bg-black pt-20 flex justify-center">
+                <SpinnerIcon className="h-8 w-8 text-amber-400" />
             </div>
         );
     }
 
     return (
-        <div className="bg-white min-h-screen pt-2 pb-24">
+        <div className="bg-black min-h-screen pt-2 pb-24 text-white"> {/* Fundo Preto Global */}
             <AnimatePresence>
                 {selectedGroup && (
                     <SubCategoryView 
@@ -2394,9 +2386,9 @@ const CategoriesPage = ({ onNavigate }) => {
             </AnimatePresence>
 
             <div className="container mx-auto px-4">
-                <h1 className="text-xl font-bold text-gray-900 mb-4 px-1 mt-2">Navegar por Seção</h1>
+                <h1 className="text-2xl font-bold text-white mb-6 px-1 mt-4 border-l-4 border-amber-500 pl-3">Departamentos</h1>
                 
-                {/* Grade Principal (Nível 1) - Estilo Amazon Cards */}
+                {/* Grade Principal (Nível 1) - Dark Mode */}
                 <div className="grid grid-cols-2 gap-3"> 
                     {groupedCategories.map((group, idx) => (
                         <motion.div
@@ -2405,21 +2397,23 @@ const CategoriesPage = ({ onNavigate }) => {
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: idx * 0.03 }}
                             onClick={() => setSelectedGroup(group)}
-                            className="bg-white rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] border border-gray-200 overflow-hidden cursor-pointer active:ring-2 active:ring-amber-200 transition-all"
+                            className="bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden cursor-pointer active:scale-95 transition-transform group"
                         >
-                            <div className="aspect-[5/4] bg-gray-50 relative p-4 flex items-center justify-center">
+                            <div className="aspect-[5/4] bg-white relative p-4 flex items-center justify-center overflow-hidden">
                                 <img 
                                     src={group.items[0]?.image || 'https://placehold.co/400x300/eee/ccc?text=Sem+Imagem'} 
                                     alt={group.title} 
-                                    className="w-full h-full object-contain mix-blend-multiply" // object-contain para não cortar o produto
+                                    className="w-full h-full object-contain mix-blend-multiply transition-transform duration-500 group-hover:scale-105"
                                     loading="lazy"
                                 />
+                                {/* Gradiente sutil para profundidade */}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
-                            <div className="p-3 border-t border-gray-100 bg-white">
-                                <h3 className="text-gray-900 font-bold text-sm leading-tight mb-0.5">
+                            <div className="p-3 border-t border-gray-800 bg-gray-900">
+                                <h3 className="text-gray-100 font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
-                                <p className="text-xs text-gray-500">
+                                <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
                                     {group.items.length} opções
                                 </p>
                             </div>
@@ -2432,13 +2426,14 @@ const CategoriesPage = ({ onNavigate }) => {
                         animate={{ opacity: 1 }}
                         transition={{ delay: groupedCategories.length * 0.05 }}
                         onClick={() => onNavigate('products?promo=true')}
-                        className="bg-white rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.12)] border border-gray-200 overflow-hidden cursor-pointer flex flex-col items-center justify-center p-4 text-center min-h-[160px]"
+                        className="bg-gradient-to-br from-red-900 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-col items-center justify-center p-4 text-center min-h-[160px] group relative"
                     >
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-3">
-                            <SaleIcon className="h-8 w-8 text-red-600" />
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20"></div>
+                        <div className="w-14 h-14 bg-red-600/20 rounded-full flex items-center justify-center mb-2 border border-red-500/30 group-hover:bg-red-600/40 transition-colors relative z-10">
+                            <SaleIcon className="h-7 w-7 text-red-500 group-hover:text-red-400" />
                         </div>
-                        <h3 className="text-red-700 font-bold text-sm uppercase tracking-wide">Ofertas do Dia</h3>
-                        <p className="text-gray-500 text-xs mt-1">Até 50% OFF</p>
+                        <h3 className="text-white font-bold text-sm uppercase tracking-wide relative z-10">Ofertas do Dia</h3>
+                        <p className="text-red-400 text-xs mt-1 font-bold relative z-10">Até 50% OFF</p>
                     </motion.div>
                 </div>
             </div>
