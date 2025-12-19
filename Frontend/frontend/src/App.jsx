@@ -9323,16 +9323,20 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
+    // Helper robusto para JSON
     const tryParse = (data) => {
         if (Array.isArray(data)) return data;
         try {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
             return Array.isArray(parsed) ? parsed : [];
-        } catch (e) { return []; }
+        } catch (e) {
+            return [];
+        }
     };
 
     useEffect(() => {
         fetchCoupons();
+        
         Promise.all([
             apiService('/products/all'),
             apiService('/collections/admin')
@@ -9340,8 +9344,10 @@ const AdminCoupons = () => {
             const productBrands = products.map(p => p.brand).filter(b => b && b.trim() !== "");
             const productCats = products.map(p => p.category).filter(c => c && c.trim() !== "");
             const collectionCats = collections.map(c => c.filter || c.name).filter(c => c && c.trim() !== "");
+
             const uniqueBrands = [...new Set(productBrands)].sort();
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
+
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
         }).catch(() => {});
     }, []);
@@ -9352,7 +9358,8 @@ const AdminCoupons = () => {
 
     const filteredCoupons = coupons.filter(coupon => {
         const term = searchTerm.toLowerCase();
-        return coupon.code.toLowerCase().includes(term);
+        const codeMatch = coupon.code.toLowerCase().includes(term);
+        return codeMatch;
     });
 
     const handleSelectAll = (e) => {
@@ -9388,7 +9395,6 @@ const AdminCoupons = () => {
             const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
                                     (formData.allowed_brands && formData.allowed_brands.length > 0);
             
-            // Força is_global para 0 se houver restrições
             const payload = {
                 ...formData,
                 is_global: hasRestrictions ? 0 : (formData.is_global ? 1 : 0),
@@ -9493,16 +9499,20 @@ const AdminCoupons = () => {
 
                 <div className="border-t pt-4">
                      <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
-                        <input type="checkbox" checked={!!form.is_global} onChange={e => {
+                        <input 
+                            type="checkbox" 
+                            checked={!!form.is_global} 
+                            onChange={e => {
                                 const checked = e.target.checked;
                                 setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
-                            }} />
+                            }} 
+                        />
                         <span className="font-bold">Cupom Global</span>
                     </label>
 
                     {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
                         <div className="bg-white p-3 border rounded">
-                             <p className="text-xs text-red-600 font-bold mb-2">*Selecione as restrições (Obrigatório):</p>
+                             <p className="text-xs text-red-600 font-bold mb-2">*Restrições (Selecione para ativar):</p>
                              <div className="mb-2">
                                 <span className="block text-xs font-bold uppercase">Categorias</span>
                                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
@@ -9547,29 +9557,52 @@ const AdminCoupons = () => {
                 <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
             </div>
             
+            {/* Barra de Pesquisa */}
             <div className="mb-6 relative">
                 <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 border rounded shadow-sm" />
                 <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400"><SearchIcon className="h-5 w-5" /></div>
             </div>
 
-            {selectedCoupons.length > 0 && (
-                <div className="bg-blue-50 p-3 rounded mb-4 flex justify-between items-center">
-                    <span className="text-sm font-bold text-blue-800">{selectedCoupons.length} selecionado(s)</span>
-                    <div className="flex gap-2">
-                        <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs rounded">Ativar</button>
-                        <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs rounded">Desativar</button>
-                        <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs rounded">Excluir</button>
-                        <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white text-gray-600 text-xs rounded border">Cancelar</button>
-                    </div>
-                </div>
-            )}
+            {/* Barra de Ações em Massa (Visível apenas se houver seleção) */}
+            <AnimatePresence>
+                {selectedCoupons.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: -10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        exit={{ opacity: 0, y: -10 }}
+                        className="bg-blue-50 border border-blue-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                    >
+                        <div className="text-sm font-bold text-blue-800">
+                            {selectedCoupons.length} selecionado(s)
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700">Ativar</button>
+                            <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded hover:bg-yellow-600">Desativar</button>
+                            <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1"><TrashIcon className="h-3 w-3"/> Excluir</button>
+                            <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100">Cancelar</button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Seleção Múltipla Mobile (Apenas Checkbox) */}
+            <div className="md:hidden flex items-center mb-4 px-1">
+                <input 
+                    type="checkbox" 
+                    id="mobile-select-all"
+                    onChange={handleSelectAll} 
+                    checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-5 w-5 mr-2"
+                />
+                <label htmlFor="mobile-select-all" className="text-sm font-bold text-gray-700">Selecionar Todos</label>
+            </div>
 
             <div className="hidden md:block bg-white rounded shadow overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
                         <tr>
                             <th className="p-3 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}/></th>
-                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições (Confirmadas)</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
+                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -9580,7 +9613,6 @@ const AdminCoupons = () => {
                                 <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
                                 <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
                                 <td className="p-3 text-xs text-gray-500">
-                                    {/* CORREÇÃO VISUAL: Usa !! para evitar o '0' */}
                                     {!c.is_global && (
                                         <div className="flex flex-col gap-1">
                                             {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">M: {tryParse(c.allowed_brands).join(', ')}</span>}
@@ -9604,15 +9636,20 @@ const AdminCoupons = () => {
             
             <div className="md:hidden space-y-3">
                  {filteredCoupons.map(c => (
-                    <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400' : ''}`}>
+                    <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400 ring-1 ring-blue-400' : ''}`}>
                          <div className="flex justify-between">
                             <div><h3 className="font-bold text-blue-700">{c.code}</h3><p className="text-xs">{c.type === 'free_shipping' ? 'Frete Grátis' : `${c.value}${c.type==='percentage'?'%':'R$'}`}</p></div>
                             <input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/>
                          </div>
-                         <div className="flex justify-between mt-2 text-xs text-gray-500">
-                            <span>{c.is_global ? 'Global' : 'Restrito'}</span>
+                         
+                         <div className="flex justify-between mt-2 text-xs text-gray-500 items-center">
+                            <span className="bg-gray-100 px-2 py-0.5 rounded">{c.is_global ? 'Global' : 'Restrito'}</span>
+                            <span className={`font-bold px-2 py-0.5 rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {c.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
                             <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
                          </div>
+
                          <div className="text-xs mt-2">
                             {!c.is_global && (
                                 <div className="flex flex-col gap-1 text-gray-600 bg-gray-50 p-1 rounded">
