@@ -547,37 +547,29 @@ const ShopProvider = ({ children }) => {
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             setAppliedCoupon(response.coupon);
-            // Mensagem de sucesso será setada pelo useEffect abaixo após cálculo
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- Lógica de Desconto Atualizada (Normalizada e Rigorosa) ---
+    // --- LÓGICA DE DESCONTO REESCRITA (Prioridade para Restrições) ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-        
-        // Se for frete grátis, o desconto no subtotal é 0 (será aplicado no shippingCost visualmente ou no total final)
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
-        // Parsing seguro das regras
-        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+        // 1. Parsing seguro das restrições
+        const allowedCatsRaw = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
+        const allowedBrandsRaw = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
 
-        // Normalização para comparação (Remove espaços e deixa minúsculo)
+        // 2. Normalização rigorosa (tudo minúsculo, sem espaços)
         const normalize = (str) => String(str || '').toLowerCase().trim();
-        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
-        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+        const safeAllowedCats = Array.isArray(allowedCatsRaw) ? allowedCatsRaw.map(normalize).filter(s => s.length > 0) : [];
+        const safeAllowedBrands = Array.isArray(allowedBrandsRaw) ? allowedBrandsRaw.map(normalize).filter(s => s.length > 0) : [];
 
-        // CORREÇÃO CRÍTICA: Se a lista de restrições NÃO for vazia, ignoramos a flag is_global do banco
-        // Isso impede que um cupom com categorias selecionadas seja tratado como global por erro de cadastro
+        // 3. Definição do Escopo (Global ou Restrito)
+        // Se houver qualquer item nas listas de restrição, o cupom É RESTRITO, não importa o que diz a flag 'is_global'
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        
-        // Flag do banco
-        const isDbGlobal = Number(appliedCoupon.is_global) === 1;
-
-        // Regra final: Só é global se o banco disser que é E não houver restrições específicas
-        const isGlobal = isDbGlobal && !hasRestrictions;
+        const isGlobal = !hasRestrictions; 
 
         cart.forEach(item => {
             let isEligible = false;
@@ -585,11 +577,10 @@ const ShopProvider = ({ children }) => {
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Compara normalizado
+                // Comparação segura
                 const itemCategory = normalize(item.category);
                 const itemBrand = normalize(item.brand);
                 
-                // Verifica pertinência
                 const catMatch = safeAllowedCats.includes(itemCategory);
                 const brandMatch = safeAllowedBrands.includes(itemBrand);
                 
@@ -608,22 +599,21 @@ const ShopProvider = ({ children }) => {
         if (appliedCoupon.type === 'percentage') {
             discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
-            // Valor fixo não pode exceder o total dos itens elegíveis
+            // Garante que o desconto fixo não ultrapasse o valor dos itens elegíveis
             discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
 
         return discountValue;
     }, [appliedCoupon, cart]);
 
-    // Mensagem de Feedback Atualizada
+    // Mensagem de Feedback
     useEffect(() => {
         if (appliedCoupon) {
-            const isGlobalRaw = appliedCoupon.is_global;
-            // Verifica restrições novamente para a mensagem
+             // Mesma lógica de verificação para consistência da mensagem
             const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
             const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
-            const hasRestrictions = allowedCats.length > 0 || allowedBrands.length > 0;
-            const isGlobal = (isGlobalRaw == 1) && !hasRestrictions;
+            const hasRestrictions = (allowedCats && allowedCats.length > 0) || (allowedBrands && allowedBrands.length > 0);
+            const isGlobal = !hasRestrictions;
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
                 setCouponMessage("Nenhum produto do carrinho é elegível para este cupom.");
