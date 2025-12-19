@@ -11125,7 +11125,7 @@ const AdminBanners = () => {
             { 
                 confirmText: "Excluir", 
                 confirmColor: "bg-red-600 hover:bg-red-700",
-                requiresAuth: true // Segurança adicionada: requer senha/2FA
+                requiresAuth: true // Segurança adicionada
             }
         );
     };
@@ -11217,21 +11217,33 @@ const AdminBanners = () => {
                                         const now = new Date();
                                         const start = banner.start_date ? new Date(banner.start_date) : null;
                                         const end = banner.end_date ? new Date(banner.end_date) : null;
-                                        // Lógica simples de "No Ar": (Sem data OU Data válida) E Ativo
-                                        const isActiveNow = banner.is_active && (!start || now >= start) && (!end || now <= end);
+                                        
+                                        // CORREÇÃO CRÍTICA DO "0": Usar !! para converter para booleano real
+                                        const isActiveNow = !!banner.is_active && (!start || now >= start) && (!end || now <= end);
+                                        // Verifica se é o Padrão (sem datas)
+                                        const isDefault = !start && !end;
                                         
                                         return (
                                             <div key={banner.id} className={`flex flex-col md:flex-row bg-white border rounded-lg overflow-hidden shadow-sm ${isActiveNow ? 'border-green-500 ring-1 ring-green-500' : 'border-gray-200 opacity-80'}`}>
                                                 <div className="w-full md:w-48 h-32 bg-gray-100 relative">
                                                     <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover"/>
+                                                    
+                                                    {/* Renderização Condicional Corrigida */}
                                                     {isActiveNow && <span className="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold shadow">NO AR</span>}
+                                                    {isDefault && <span className="absolute bottom-2 left-2 bg-gray-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow">PADRÃO</span>}
                                                 </div>
                                                 <div className="p-4 flex-grow flex flex-col justify-center">
                                                     <h4 className="font-bold text-gray-800 text-lg">{banner.title}</h4>
                                                     <p className="text-sm text-gray-500">{banner.subtitle}</p>
                                                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
-                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Início: {start ? start.toLocaleDateString() : 'Imediato'}</span>
-                                                        <span className="bg-gray-100 px-2 py-1 rounded border flex items-center gap-1"><ClockIcon className="h-3 w-3"/> Fim: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
+                                                        {start ? (
+                                                            <>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100"><ClockIcon className="h-3 w-3 inline mr-1"/> De: {start.toLocaleDateString()}</span>
+                                                                <span className="bg-blue-50 px-2 py-1 rounded border border-blue-100">Até: {end ? end.toLocaleDateString() : 'Indefinido'}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="bg-gray-100 px-2 py-1 rounded border">Sem agendamento (Exibido se nenhum outro estiver ativo)</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="p-4 flex md:flex-col justify-center gap-2 border-t md:border-t-0 md:border-l bg-gray-50">
@@ -11268,8 +11280,8 @@ const AdminBanners = () => {
                                             key={card.id} 
                                             banner={card} 
                                             onEdit={() => handleOpenModal(card, 'cards')} 
-                                            onDelete={() => handleDelete(card.id)} // Adicionada deleção com segurança
-                                            customLabel={idx === 0 ? "Esquerda (Fixo)" : "Direita (Fixo)"}
+                                            onDelete={() => handleDelete(card.id)} 
+                                            customLabel={idx === 0 ? "Esquerda" : "Direita"}
                                             customColor="bg-purple-600 text-white"
                                             description={card.subtitle}
                                         />
@@ -11301,7 +11313,7 @@ const AdminBanners = () => {
                                                 key={banner.id} 
                                                 banner={banner} 
                                                 onEdit={(b) => handleOpenModal(b, 'carousel')} 
-                                                onDelete={() => handleDelete(banner.id)} // Adicionada deleção com segurança
+                                                onDelete={() => handleDelete(banner.id)}
                                             />
                                         ))}
                                     </div>
