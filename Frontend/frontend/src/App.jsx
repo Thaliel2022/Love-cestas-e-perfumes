@@ -536,7 +536,7 @@ const ShopProvider = ({ children }) => {
 
         let eligibleTotal = 0;
         
-        // Parsing seguro
+        // Parsing seguro - garante que seja um array mesmo se vier nulo/invalido
         const safeParse = (data) => {
             if (Array.isArray(data)) return data;
             try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
@@ -545,7 +545,7 @@ const ShopProvider = ({ children }) => {
         const allowedCats = safeParse(appliedCoupon.allowed_categories);
         const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        // Normalização
+        // Normalização robusta
         const normalize = (str) => {
             if (!str) return "";
             return String(str).toLowerCase().trim()
@@ -555,10 +555,13 @@ const ShopProvider = ({ children }) => {
         const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
 
-        // REGRA DE OURO: Se is_global não for explicitamente 1, ou se houver restrições, é Restrito.
-        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
+        // REGRA DE OURO: Verifica is_global de forma segura (aceita 1, true, "1")
+        const dbIsGlobal = Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true;
+        // Se houver itens nas listas de restrição, AUTOMATICAMENTE deixa de ser global
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
         const isGlobal = dbIsGlobal && !hasRestrictions;
+
+        console.log(`[CUPOM DEBUG] Code: ${appliedCoupon.code} | Global: ${isGlobal} | Restricted Cats: ${safeAllowedCats} | Restricted Brands: ${safeAllowedBrands}`);
 
         cart.forEach(item => {
             let isEligible = false;
@@ -571,8 +574,16 @@ const ShopProvider = ({ children }) => {
                 const itemBrand = normalize(item.brand || "");
                 
                 // Só marca como elegível se tiver dados E bater com as regras
-                if (itemCategory && safeAllowedCats.includes(itemCategory)) isEligible = true;
-                if (itemBrand && safeAllowedBrands.includes(itemBrand)) isEligible = true;
+                // Adicionado includes reverso para garantir match parcial se necessário (ex: "Blazers" vs "Blazers de Inverno")
+                const catMatch = itemCategory && safeAllowedCats.some(c => itemCategory === c || itemCategory.includes(c));
+                const brandMatch = itemBrand && safeAllowedBrands.some(b => itemBrand === b || itemBrand.includes(b));
+                
+                if (catMatch || brandMatch) {
+                    isEligible = true;
+                    console.log(`[CUPOM DEBUG] Item ELEGÍVEL: ${item.name} (${itemCategory} / ${itemBrand})`);
+                } else {
+                    console.log(`[CUPOM DEBUG] Item INELIGÍVEL: ${item.name} (${itemCategory} / ${itemBrand})`);
+                }
             }
 
             if (isEligible) {
@@ -597,7 +608,7 @@ const ShopProvider = ({ children }) => {
         if (appliedCoupon) {
             const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
             const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
-            const isGlobal = (Number(appliedCoupon.is_global) === 1) && !hasRestr;
+            const isGlobal = (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true) && !hasRestr;
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
                 setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
