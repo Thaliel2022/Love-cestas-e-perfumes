@@ -518,9 +518,13 @@ const ShopProvider = ({ children }) => {
         if (!appliedCoupon) return 0;
         if (appliedCoupon.type === 'free_shipping') return 0;
 
-        let eligibleTotal = 0;
+        // 1. Definição Explícita de Global vs Restrito
+        // Se is_global for explicitamente 1, é global.
+        // Se for 0, é restrito.
+        // Se houver listas de restrição (categorias/marcas), FORÇA o modo restrito como medida de segurança.
+        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
         
-        // 1. Parsing seguro das restrições
+        // Parsing seguro
         const safeParse = (data) => {
             try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
             catch { return []; }
@@ -528,40 +532,40 @@ const ShopProvider = ({ children }) => {
         const allowedCats = safeParse(appliedCoupon.allowed_categories);
         const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        // 2. Normalização rigorosa (remove acentos, espaços, minúsculo)
+        const hasRestrictions = allowedCats.length > 0 || allowedBrands.length > 0;
+        
+        // A regra final: É global APENAS se o banco disser que é E não houver listas de restrição.
+        // Isso previne que um cupom com marcas salvas funcione como global por erro de flag.
+        const isGlobal = dbIsGlobal && !hasRestrictions;
+
+        // Normalização
         const normalize = (str) => {
             if (!str) return "";
             return String(str).toLowerCase().trim()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove acentos
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
         };
-        
-        const safeAllowedCats = Array.isArray(allowedCats) ? allowedCats.map(normalize).filter(s => s.length > 0) : [];
-        const safeAllowedBrands = Array.isArray(allowedBrands) ? allowedBrands.map(normalize).filter(s => s.length > 0) : [];
 
-        // 3. Definição do Escopo (Global ou Restrito)
-        // Se is_global for explicitamente 1 E não houver listas, é global.
-        // Se for 0, ou se houver listas, é restrito.
-        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
-        const hasRestrictionsLists = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        const isGlobal = dbIsGlobal && !hasRestrictionsLists;
+        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
+        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+
+        let eligibleTotal = 0;
 
         cart.forEach(item => {
             let isEligible = false;
-            
+
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Comparação Segura
+                // Modo Restrito: O item PRECISA bater com uma das listas
                 const itemCategory = normalize(item.category);
                 const itemBrand = normalize(item.brand);
                 
-                // Debug: descomente se necessário para ver o que está sendo comparado no console
-                // console.log(`Comparando: Cat[${itemCategory}] Marca[${itemBrand}] com Restrições`, safeAllowedCats, safeAllowedBrands);
-
                 const catMatch = safeAllowedCats.includes(itemCategory);
                 const brandMatch = safeAllowedBrands.includes(itemBrand);
-                
-                if (catMatch || brandMatch) isEligible = true;
+
+                if (catMatch || brandMatch) {
+                    isEligible = true;
+                }
             }
 
             if (isEligible) {
@@ -570,6 +574,7 @@ const ShopProvider = ({ children }) => {
             }
         });
 
+        // Se nenhum item for elegível (eligibleTotal = 0), o desconto é 0.
         if (eligibleTotal === 0) return 0;
 
         let discountValue = 0;
@@ -584,12 +589,13 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (appliedCoupon) {
+            // Mesma lógica para a mensagem
             const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
             const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
             const isGlobal = (Number(appliedCoupon.is_global) === 1) && !hasRestr;
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                setCouponMessage("Cupom válido apenas para produtos selecionados (Marca/Categoria).");
+                setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
             } else if (!isGlobal) {
                 setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado aos itens elegíveis!`);
             } else {
