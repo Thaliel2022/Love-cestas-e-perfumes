@@ -9303,20 +9303,16 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Helper robusto para JSON
     const tryParse = (data) => {
         if (Array.isArray(data)) return data;
         try {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
             return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            return [];
-        }
+        } catch (e) { return []; }
     };
 
     useEffect(() => {
         fetchCoupons();
-        
         Promise.all([
             apiService('/products/all'),
             apiService('/collections/admin')
@@ -9324,10 +9320,8 @@ const AdminCoupons = () => {
             const productBrands = products.map(p => p.brand).filter(b => b && b.trim() !== "");
             const productCats = products.map(p => p.category).filter(c => c && c.trim() !== "");
             const collectionCats = collections.map(c => c.filter || c.name).filter(c => c && c.trim() !== "");
-
             const uniqueBrands = [...new Set(productBrands)].sort();
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
-
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
         }).catch(() => {});
     }, []);
@@ -9338,8 +9332,7 @@ const AdminCoupons = () => {
 
     const filteredCoupons = coupons.filter(coupon => {
         const term = searchTerm.toLowerCase();
-        const codeMatch = coupon.code.toLowerCase().includes(term);
-        return codeMatch;
+        return coupon.code.toLowerCase().includes(term);
     });
 
     const handleSelectAll = (e) => {
@@ -9372,24 +9365,15 @@ const AdminCoupons = () => {
     
     const handleSave = async (formData) => {
         try {
-            // Verifica se é global baseado no checkbox
-            const isGlobal = !!formData.is_global;
+            const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
+                                    (formData.allowed_brands && formData.allowed_brands.length > 0);
             
-            // Limpa arrays (remove strings vazias)
-            const cleanCats = (formData.allowed_categories || []).filter(c => c && c.trim() !== "");
-            const cleanBrands = (formData.allowed_brands || []).filter(b => b && b.trim() !== "");
-
-            // VALIDAÇÃO CRÍTICA: Se não for global, DEVE ter restrições
-            if (!isGlobal && cleanCats.length === 0 && cleanBrands.length === 0) {
-                throw new Error("Para um cupom restrito, você DEVE selecionar pelo menos uma Categoria ou Marca.");
-            }
-
+            // Força is_global para 0 se houver restrições
             const payload = {
                 ...formData,
-                is_global: isGlobal ? 1 : 0,
-                // Se for global, força arrays vazios no envio para limpar o banco
-                allowed_categories: isGlobal ? [] : cleanCats,
-                allowed_brands: isGlobal ? [] : cleanBrands
+                is_global: hasRestrictions ? 0 : (formData.is_global ? 1 : 0),
+                allowed_categories: hasRestrictions ? formData.allowed_categories : [],
+                allowed_brands: hasRestrictions ? formData.allowed_brands : []
             };
 
             if (formData.id) {
@@ -9453,7 +9437,6 @@ const AdminCoupons = () => {
                 if (list.includes(value)) {
                     return { ...prev, [field]: list.filter(v => v !== value) };
                 } else {
-                    // Adiciona e desmarca Global automaticamente
                     return { ...prev, [field]: [...list, value], is_global: 0 };
                 }
             });
@@ -9490,19 +9473,14 @@ const AdminCoupons = () => {
 
                 <div className="border-t pt-4">
                      <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
-                        <input 
-                            type="checkbox" 
-                            checked={!!form.is_global} 
-                            onChange={e => {
+                        <input type="checkbox" checked={!!form.is_global} onChange={e => {
                                 const checked = e.target.checked;
                                 setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
-                            }} 
-                        />
+                            }} />
                         <span className="font-bold">Cupom Global</span>
                     </label>
 
-                    {/* Exibe listas se não for global */}
-                    {!form.is_global && (
+                    {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
                         <div className="bg-white p-3 border rounded">
                              <p className="text-xs text-red-600 font-bold mb-2">*Selecione as restrições (Obrigatório):</p>
                              <div className="mb-2">
@@ -9582,12 +9560,11 @@ const AdminCoupons = () => {
                                 <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
                                 <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
                                 <td className="p-3 text-xs text-gray-500">
-                                    {/* Exibe o que está SALVO no banco */}
+                                    {/* CORREÇÃO VISUAL: Usa !! para evitar o '0' */}
                                     {!c.is_global && (
                                         <div className="flex flex-col gap-1">
-                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">Marcas: {tryParse(c.allowed_brands).join(', ')}</span>}
-                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-700">Cats: {tryParse(c.allowed_categories).join(', ')}</span>}
-                                            {tryParse(c.allowed_brands).length === 0 && tryParse(c.allowed_categories).length === 0 && <span className="text-red-500 font-bold">! VAZIO (Corrigir) !</span>}
+                                            {tryParse(c.allowed_brands).length > 0 && <span className="text-purple-700">M: {tryParse(c.allowed_brands).join(', ')}</span>}
+                                            {tryParse(c.allowed_categories).length > 0 && <span className="text-blue-700">C: {tryParse(c.allowed_categories).join(', ')}</span>}
                                         </div>
                                     )}
                                     {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
@@ -9623,6 +9600,8 @@ const AdminCoupons = () => {
                                     {tryParse(c.allowed_categories).length > 0 && <span>C: {tryParse(c.allowed_categories).join(', ')}</span>}
                                 </div>
                             )}
+                            {!!c.is_first_purchase && <span className="block text-amber-700 font-semibold">• 1ª Compra</span>}
+                            {!!c.is_single_use_per_user && <span className="block text-blue-700 font-semibold">• Uso Único</span>}
                          </div>
                          <div className="flex justify-end gap-3 mt-2 border-t pt-2">
                             <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex gap-1"><EditIcon className="h-3 w-3"/> Edit</button>
