@@ -550,26 +550,28 @@ const ShopProvider = ({ children }) => {
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- LÓGICA DE DESCONTO REESCRITA (Prioridade para Restrições) ---
+    // --- LÓGICA DE DESCONTO (Atualizada com Normalização e Prioridade) ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
+        
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
-        // 1. Parsing seguro das restrições
-        const allowedCatsRaw = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-        const allowedBrandsRaw = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
+        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
 
-        // 2. Normalização rigorosa (tudo minúsculo, sem espaços)
+        // Normalização
         const normalize = (str) => String(str || '').toLowerCase().trim();
-        const safeAllowedCats = Array.isArray(allowedCatsRaw) ? allowedCatsRaw.map(normalize).filter(s => s.length > 0) : [];
-        const safeAllowedBrands = Array.isArray(allowedBrandsRaw) ? allowedBrandsRaw.map(normalize).filter(s => s.length > 0) : [];
+        const safeAllowedCats = Array.isArray(allowedCats) ? allowedCats.map(normalize).filter(s => s.length > 0) : [];
+        const safeAllowedBrands = Array.isArray(allowedBrands) ? allowedBrands.map(normalize).filter(s => s.length > 0) : [];
 
-        // 3. Definição do Escopo (Global ou Restrito)
-        // Se houver qualquer item nas listas de restrição, o cupom É RESTRITO, não importa o que diz a flag 'is_global'
+        // LÓGICA FORÇADA: Se houver qualquer restrição definida, ignora a flag "Global" do banco.
+        // O cupom só é global se NÃO houver categorias nem marcas listadas.
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        const isGlobal = !hasRestrictions; 
+        
+        // Se tem restrições, isGlobal é false. Se não tem, confia no banco (mas geralmente é true).
+        const isGlobal = !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
@@ -577,7 +579,6 @@ const ShopProvider = ({ children }) => {
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Comparação segura
                 const itemCategory = normalize(item.category);
                 const itemBrand = normalize(item.brand);
                 
@@ -599,17 +600,15 @@ const ShopProvider = ({ children }) => {
         if (appliedCoupon.type === 'percentage') {
             discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
-            // Garante que o desconto fixo não ultrapasse o valor dos itens elegíveis
             discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
 
         return discountValue;
     }, [appliedCoupon, cart]);
 
-    // Mensagem de Feedback
     useEffect(() => {
         if (appliedCoupon) {
-             // Mesma lógica de verificação para consistência da mensagem
+            // Mesma lógica de verificação para a mensagem
             const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
             const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
             const hasRestrictions = (allowedCats && allowedCats.length > 0) || (allowedBrands && allowedBrands.length > 0);
@@ -646,7 +645,7 @@ const ShopProvider = ({ children }) => {
             isGeolocating,
             couponCode, setCouponCode,
             couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            discount // Disponibiliza o valor calculado do desconto
+            discount 
         }}>
             {children}
         </ShopContext.Provider>
@@ -9354,7 +9353,6 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // Helper seguro para JSON
     const tryParse = (data) => {
         try {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
@@ -9367,18 +9365,16 @@ const AdminCoupons = () => {
     useEffect(() => {
         fetchCoupons();
         
-        // CORREÇÃO: Busca categorias de COLEÇÕES E PRODUTOS para garantir lista completa
         Promise.all([
             apiService('/products/all'),
-            apiService('/collections/admin') // Busca todas as categorias criadas no sistema
+            apiService('/collections/admin')
         ]).then(([products, collections]) => {
             const productBrands = products.map(p => p.brand).filter(Boolean);
             const productCats = products.map(p => p.category).filter(Boolean);
-            // Pega o nome das coleções (que são as categorias reais do menu)
-            const collectionCats = collections.map(c => c.name).filter(Boolean);
+            // IMPORTANTE: Usa o filtro da coleção, que é o que geralmente é salvo no produto
+            const collectionCats = collections.map(c => c.filter || c.name).filter(Boolean);
 
             const uniqueBrands = [...new Set(productBrands)].sort();
-            // Une categorias de produtos com categorias de coleções para não faltar nada
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
 
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
@@ -9407,7 +9403,7 @@ const AdminCoupons = () => {
     const handleBulkAction = (action) => {
          if (selectedCoupons.length === 0) return;
          const actionText = action === 'delete' ? 'excluir' : (action === 'deactivate' ? 'desativar' : 'ativar');
-         confirmation.show(`Tem certeza que deseja ${actionText} ${selectedCoupons.length} cupom(ns)?`, async () => {
+         confirmation.show(`Confirmar ${actionText} ${selectedCoupons.length} cupom(ns)?`, async () => {
             try {
                 const promises = selectedCoupons.map(id => {
                     if (action === 'delete') return apiService(`/coupons/${id}`, 'DELETE');
@@ -9425,26 +9421,23 @@ const AdminCoupons = () => {
     
     const handleSave = async (formData) => {
         try {
-            // CORREÇÃO CRÍTICA: Lógica de Salvamento Reforçada
-            // Se houver qualquer categoria ou marca selecionada, FORÇA is_global = 0
+            // Se houver restrições, força Global = 0
             const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
                                     (formData.allowed_brands && formData.allowed_brands.length > 0);
             
-            const finalIsGlobal = hasRestrictions ? 0 : (formData.is_global ? 1 : 0);
-
             const payload = {
                 ...formData,
-                is_global: finalIsGlobal, // Sobrescreve com a lógica correta
-                allowed_categories: finalIsGlobal === 1 ? [] : formData.allowed_categories,
-                allowed_brands: finalIsGlobal === 1 ? [] : formData.allowed_brands
+                is_global: hasRestrictions ? 0 : (formData.is_global ? 1 : 0),
+                allowed_categories: hasRestrictions ? formData.allowed_categories : [],
+                allowed_brands: hasRestrictions ? formData.allowed_brands : []
             };
 
             if (formData.id) {
                 await apiService(`/coupons/${formData.id}`, 'PUT', payload);
-                notification.show('Cupom atualizado!');
+                notification.show('Atualizado!');
             } else {
                 await apiService('/coupons', 'POST', payload);
-                notification.show('Cupom criado!');
+                notification.show('Criado!');
             }
             fetchCoupons();
             setIsModalOpen(false);
@@ -9456,7 +9449,7 @@ const AdminCoupons = () => {
             try {
                 await apiService(`/coupons/${id}`, 'DELETE');
                 fetchCoupons();
-                notification.show('Cupom excluído.');
+                notification.show('Excluído.');
             } catch(e) { notification.show(e.message, 'error'); }
         });
     };
@@ -9497,10 +9490,10 @@ const AdminCoupons = () => {
         const toggleSelection = (field, value) => {
             setForm(prev => {
                 const list = prev[field] || [];
-                // Se já estiver selecionado, remove. Senão, adiciona e desmarca Global automaticamente.
                 if (list.includes(value)) {
                     return { ...prev, [field]: list.filter(v => v !== value) };
                 } else {
+                    // Adiciona e desmarca Global automaticamente
                     return { ...prev, [field]: [...list, value], is_global: 0 };
                 }
             });
@@ -9542,17 +9535,15 @@ const AdminCoupons = () => {
                             checked={!!form.is_global} 
                             onChange={e => {
                                 const checked = e.target.checked;
-                                // Se marcar Global, limpa as restrições visualmente
                                 setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
                             }} 
                         />
-                        <span className="font-bold">Cupom Global (Válido para todo o site)</span>
+                        <span className="font-bold">Cupom Global</span>
                     </label>
 
-                    {/* Exibe as listas se NÃO for global OU se já tiver itens selecionados (para facilitar edição) */}
                     {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
                         <div className="bg-white p-3 border rounded">
-                             <p className="text-xs text-red-600 font-bold mb-2">*Ao selecionar itens abaixo, "Global" será desmarcado:</p>
+                             <p className="text-xs text-red-600 font-bold mb-2">*Restrições (Selecione para ativar):</p>
                              <div className="mb-2">
                                 <span className="block text-xs font-bold uppercase">Categorias</span>
                                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
@@ -9597,6 +9588,23 @@ const AdminCoupons = () => {
                 <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
             </div>
             
+            <div className="mb-6 relative">
+                <input type="text" placeholder="Pesquisar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 pl-10 border rounded shadow-sm" />
+                <div className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400"><SearchIcon className="h-5 w-5" /></div>
+            </div>
+
+            {selectedCoupons.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded mb-4 flex justify-between items-center">
+                    <span className="text-sm font-bold text-blue-800">{selectedCoupons.length} selecionado(s)</span>
+                    <div className="flex gap-2">
+                        <button onClick={() => handleBulkAction('activate')} className="px-2 py-1 bg-green-600 text-white text-xs rounded">Ativar</button>
+                        <button onClick={() => handleBulkAction('deactivate')} className="px-2 py-1 bg-yellow-500 text-white text-xs rounded">Desativar</button>
+                        <button onClick={() => handleBulkAction('delete')} className="px-2 py-1 bg-red-600 text-white text-xs rounded">Excluir</button>
+                        <button onClick={() => setSelectedCoupons([])} className="px-2 py-1 bg-white text-gray-600 text-xs rounded border">Cancelar</button>
+                    </div>
+                </div>
+            )}
+
             <div className="hidden md:block bg-white rounded shadow overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
@@ -9607,15 +9615,14 @@ const AdminCoupons = () => {
                     </thead>
                     <tbody>
                         {filteredCoupons.map(c => (
-                            <tr key={c.id} className="border-b hover:bg-gray-50">
+                            <tr key={c.id} className={`border-b hover:bg-gray-50 ${selectedCoupons.includes(c.id) ? 'bg-blue-50' : ''}`}>
                                 <td className="p-3"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/></td>
                                 <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
                                 <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
                                 <td className="p-3 text-xs text-gray-500">
-                                    {/* CORREÇÃO DO ZERO NA TABELA */}
-                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
-                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
+                                    {!!c.is_first_purchase && <div className="text-amber-700">• 1ª Compra</div>}
+                                    {!!c.is_single_use_per_user && <div className="text-blue-700">• Uso Único</div>}
                                     {!c.is_first_purchase && !c.is_single_use_per_user && <span>-</span>}
                                 </td>
                                 <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
@@ -9641,7 +9648,6 @@ const AdminCoupons = () => {
                             <span>{c.is_global ? 'Global' : 'Restrito'}</span>
                             <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
                          </div>
-                          {/* CORREÇÃO DO ZERO NO CARD MOBILE */}
                          {(!!c.is_first_purchase || !!c.is_single_use_per_user) && (
                             <div className="flex flex-col mt-2 text-xs">
                                 {!!c.is_first_purchase && <span className="text-amber-700 font-semibold">• 1ª Compra</span>}
