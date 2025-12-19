@@ -347,6 +347,7 @@ const ShopProvider = ({ children }) => {
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
+            // O backend retorna SELECT p.*, então category e brand DEVEM vir daqui
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
         } catch (err) { console.error("Falha ao buscar carrinho:", err); setCart([]); }
@@ -399,6 +400,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
+    // Inicialização
     useEffect(() => {
         if (isAuthLoading) return;
         if (isAuthenticated) {
@@ -412,6 +414,18 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
+    // --- NOVO: Auto-correção de dados do carrinho ---
+    // Se o cupom for aplicado e os itens não tiverem marca/categoria, recarrega do servidor
+    useEffect(() => {
+        if (cart.length > 0 && isAuthenticated) {
+            const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
+            if (missingData) {
+                console.log("Dados incompletos no carrinho detectados. Recarregando...");
+                fetchPersistentCart();
+            }
+        }
+    }, [cart.length, isAuthenticated, fetchPersistentCart]);
+
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
         const debounceTimer = setTimeout(() => {
@@ -459,8 +473,10 @@ const ShopProvider = ({ children }) => {
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        
         setCart(currentCart => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            // Garante que o objeto productToAdd tenha todas as propriedades
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
         if (isAuthenticated) apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
@@ -518,25 +534,16 @@ const ShopProvider = ({ children }) => {
         if (!appliedCoupon) return 0;
         if (appliedCoupon.type === 'free_shipping') return 0;
 
-        // 1. Definição Explícita de Global vs Restrito
-        // Se is_global for explicitamente 1, é global.
-        // Se for 0, é restrito.
-        // Se houver listas de restrição (categorias/marcas), FORÇA o modo restrito como medida de segurança.
-        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
+        let eligibleTotal = 0;
         
         // Parsing seguro
         const safeParse = (data) => {
+            if (Array.isArray(data)) return data;
             try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
             catch { return []; }
         };
         const allowedCats = safeParse(appliedCoupon.allowed_categories);
         const allowedBrands = safeParse(appliedCoupon.allowed_brands);
-
-        const hasRestrictions = allowedCats.length > 0 || allowedBrands.length > 0;
-        
-        // A regra final: É global APENAS se o banco disser que é E não houver listas de restrição.
-        // Isso previne que um cupom com marcas salvas funcione como global por erro de flag.
-        const isGlobal = dbIsGlobal && !hasRestrictions;
 
         // Normalização
         const normalize = (str) => {
@@ -548,24 +555,24 @@ const ShopProvider = ({ children }) => {
         const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
 
-        let eligibleTotal = 0;
+        // REGRA DE OURO: Se is_global não for explicitamente 1, ou se houver restrições, é Restrito.
+        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
+        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+        const isGlobal = dbIsGlobal && !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
-
+            
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Modo Restrito: O item PRECISA bater com uma das listas
-                const itemCategory = normalize(item.category);
-                const itemBrand = normalize(item.brand);
+                // Recupera dados do item (com fallback para string vazia se estiver faltando)
+                const itemCategory = normalize(item.category || "");
+                const itemBrand = normalize(item.brand || "");
                 
-                const catMatch = safeAllowedCats.includes(itemCategory);
-                const brandMatch = safeAllowedBrands.includes(itemBrand);
-
-                if (catMatch || brandMatch) {
-                    isEligible = true;
-                }
+                // Só marca como elegível se tiver dados E bater com as regras
+                if (itemCategory && safeAllowedCats.includes(itemCategory)) isEligible = true;
+                if (itemBrand && safeAllowedBrands.includes(itemBrand)) isEligible = true;
             }
 
             if (isEligible) {
@@ -574,7 +581,6 @@ const ShopProvider = ({ children }) => {
             }
         });
 
-        // Se nenhum item for elegível (eligibleTotal = 0), o desconto é 0.
         if (eligibleTotal === 0) return 0;
 
         let discountValue = 0;
@@ -589,7 +595,6 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (appliedCoupon) {
-            // Mesma lógica para a mensagem
             const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
             const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
             const isGlobal = (Number(appliedCoupon.is_global) === 1) && !hasRestr;
