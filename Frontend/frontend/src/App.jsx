@@ -9364,9 +9364,11 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
+    // Helper seguro para JSON
     const tryParse = (data) => {
         try {
-            return typeof data === 'string' ? JSON.parse(data) : (data || []);
+            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            return Array.isArray(parsed) ? parsed : [];
         } catch (e) {
             return [];
         }
@@ -9375,18 +9377,15 @@ const AdminCoupons = () => {
     useEffect(() => {
         fetchCoupons();
         
-        // CORREÇÃO: Busca categorias de COLEÇÕES E PRODUTOS para garantir lista completa
         Promise.all([
             apiService('/products/all'),
-            apiService('/collections/admin') // Busca todas as categorias criadas no sistema
+            apiService('/collections/admin') 
         ]).then(([products, collections]) => {
             const productBrands = products.map(p => p.brand).filter(Boolean);
             const productCats = products.map(p => p.category).filter(Boolean);
-            // Pega o nome das coleções (que são as categorias reais do menu)
             const collectionCats = collections.map(c => c.name).filter(Boolean);
 
             const uniqueBrands = [...new Set(productBrands)].sort();
-            // Une categorias de produtos com categorias de coleções para não faltar nada
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
 
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
@@ -9396,9 +9395,6 @@ const AdminCoupons = () => {
     const fetchCoupons = () => {
         apiService('/coupons').then(setCoupons).catch(console.error);
     };
-
-    // ... (restante do código: handleSave, handleDelete, handleBulkAction, CouponCountdown igual ao anterior) ...
-    // Vou incluir as partes essenciais para garantir que o arquivo esteja funcional se copiado inteiro
 
     const filteredCoupons = coupons.filter(coupon => {
         const term = searchTerm.toLowerCase();
@@ -9436,11 +9432,18 @@ const AdminCoupons = () => {
     
     const handleSave = async (formData) => {
         try {
-            // Se for global, limpa as restrições no envio para garantir consistência
+            // CORREÇÃO CRÍTICA: Lógica de Salvamento Reforçada
+            // Se houver qualquer categoria ou marca selecionada, FORÇA is_global = 0
+            const hasRestrictions = (formData.allowed_categories && formData.allowed_categories.length > 0) || 
+                                    (formData.allowed_brands && formData.allowed_brands.length > 0);
+            
+            const finalIsGlobal = hasRestrictions ? 0 : (formData.is_global ? 1 : 0);
+
             const payload = {
                 ...formData,
-                allowed_categories: formData.is_global ? [] : formData.allowed_categories,
-                allowed_brands: formData.is_global ? [] : formData.allowed_brands
+                is_global: finalIsGlobal, // Sobrescreve com a lógica correta
+                allowed_categories: finalIsGlobal === 1 ? [] : formData.allowed_categories,
+                allowed_brands: finalIsGlobal === 1 ? [] : formData.allowed_brands
             };
 
             if (formData.id) {
@@ -9486,7 +9489,7 @@ const AdminCoupons = () => {
         
         let color = 'text-gray-500';
         if(timeLeft === 'Expirado') color = 'text-red-500 font-bold';
-        if(timeLeft === 'Permanente') color = 'text-green-600 font-bold';
+        else if(timeLeft === 'Permanente') color = 'text-green-600 font-bold';
         else color = 'text-amber-600 font-mono';
         return <span className={`text-xs ${color}`}>{timeLeft}</span>;
     };
@@ -9501,7 +9504,12 @@ const AdminCoupons = () => {
         const toggleSelection = (field, value) => {
             setForm(prev => {
                 const list = prev[field] || [];
-                return list.includes(value) ? { ...prev, [field]: list.filter(v => v !== value) } : { ...prev, [field]: [...list, value] };
+                // Se já estiver selecionado, remove. Senão, adiciona e desmarca Global automaticamente.
+                if (list.includes(value)) {
+                    return { ...prev, [field]: list.filter(v => v !== value) };
+                } else {
+                    return { ...prev, [field]: [...list, value], is_global: 0 };
+                }
             });
         };
 
@@ -9536,12 +9544,22 @@ const AdminCoupons = () => {
 
                 <div className="border-t pt-4">
                      <label className="flex items-center space-x-2 cursor-pointer mb-2 bg-gray-100 p-2 rounded">
-                        <input type="checkbox" checked={!!form.is_global} onChange={e => setForm({...form, is_global: e.target.checked ? 1 : 0})} />
-                        <span className="font-bold">Cupom Global</span>
+                        <input 
+                            type="checkbox" 
+                            checked={!!form.is_global} 
+                            onChange={e => {
+                                const checked = e.target.checked;
+                                // Se marcar Global, limpa as restrições visualmente
+                                setForm({...form, is_global: checked ? 1 : 0, allowed_categories: checked ? [] : form.allowed_categories, allowed_brands: checked ? [] : form.allowed_brands});
+                            }} 
+                        />
+                        <span className="font-bold">Cupom Global (Válido para todo o site)</span>
                     </label>
-                    {!form.is_global && (
+
+                    {/* Exibe as listas se NÃO for global OU se já tiver itens selecionados (para facilitar edição) */}
+                    {(!form.is_global || form.allowed_categories.length > 0 || form.allowed_brands.length > 0) && (
                         <div className="bg-white p-3 border rounded">
-                             <p className="text-xs text-red-600 font-bold mb-2">*Selecione as restrições:</p>
+                             <p className="text-xs text-red-600 font-bold mb-2">*Ao selecionar itens abaixo, "Global" será desmarcado:</p>
                              <div className="mb-2">
                                 <span className="block text-xs font-bold uppercase">Categorias</span>
                                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
@@ -9585,14 +9603,13 @@ const AdminCoupons = () => {
                 <h1 className="text-2xl font-bold">Gerenciar Cupons</h1>
                 <button onClick={() => { setEditingCoupon(null); setIsModalOpen(true); }} className="bg-gray-800 text-white px-4 py-2 rounded flex items-center gap-2"><PlusIcon className="h-5 w-5"/> Novo</button>
             </div>
-            {/* ... Restante da tabela e cards (igual ao anterior, mantido para brevidade mas essencial) ... */}
-            {/* Visualização Desktop */}
+            
             <div className="hidden md:block bg-white rounded shadow overflow-hidden">
                 <table className="w-full text-left">
                     <thead className="bg-gray-100">
                         <tr>
                             <th className="p-3 w-10"><input type="checkbox" onChange={handleSelectAll} checked={filteredCoupons.length > 0 && selectedCoupons.length === filteredCoupons.length}/></th>
-                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
+                            <th className="p-3">Código</th><th className="p-3">Regra</th><th className="p-3">Desc.</th><th className="p-3">Restrições</th><th className="p-3">Valid.</th><th className="p-3">Status</th><th className="p-3">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -9602,6 +9619,12 @@ const AdminCoupons = () => {
                                 <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
                                 <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
+                                <td className="p-3 text-xs text-gray-500">
+                                    {/* CORREÇÃO DO ZERO NA TABELA */}
+                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
+                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
+                                    {!c.is_first_purchase && !c.is_single_use_per_user && <span>-</span>}
+                                </td>
                                 <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
                                 <td className="p-3"><span className={`px-2 py-0.5 text-xs rounded ${c.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100'}`}>{c.is_active ? 'Ativo' : 'Inativo'}</span></td>
                                 <td className="p-3 flex gap-2">
@@ -9613,7 +9636,7 @@ const AdminCoupons = () => {
                     </tbody>
                 </table>
             </div>
-            {/* Visualização Mobile (Cards) */}
+            
             <div className="md:hidden space-y-3">
                  {filteredCoupons.map(c => (
                     <div key={c.id} className={`bg-white border rounded p-3 relative ${selectedCoupons.includes(c.id) ? 'border-blue-400' : ''}`}>
@@ -9625,6 +9648,13 @@ const AdminCoupons = () => {
                             <span>{c.is_global ? 'Global' : 'Restrito'}</span>
                             <CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/>
                          </div>
+                          {/* CORREÇÃO DO ZERO NO CARD MOBILE */}
+                         {(!!c.is_first_purchase || !!c.is_single_use_per_user) && (
+                            <div className="flex flex-col mt-2 text-xs">
+                                {!!c.is_first_purchase && <span className="text-amber-700 font-semibold">• 1ª Compra</span>}
+                                {!!c.is_single_use_per_user && <span className="text-blue-700 font-semibold">• Uso Único</span>}
+                            </div>
+                         )}
                          <div className="flex justify-end gap-3 mt-2 border-t pt-2">
                             <button onClick={() => { setEditingCoupon({ ...c, allowed_categories: tryParse(c.allowed_categories), allowed_brands: tryParse(c.allowed_brands) }); setIsModalOpen(true); }} className="text-blue-600 text-xs font-bold flex gap-1"><EditIcon className="h-3 w-3"/> Edit</button>
                             <button onClick={() => handleDelete(c.id)} className="text-red-600 text-xs font-bold flex gap-1"><TrashIcon className="h-3 w-3"/> Del</button>
