@@ -331,10 +331,8 @@ const ShopProvider = ({ children }) => {
     const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
     const [cart, setCart] = useState([]);
     const [wishlist, setWishlist] = useState([]);
-    
     const [addresses, setAddresses] = useState([]);
     const [shippingLocation, setShippingLocation] = useState({ cep: '', city: '', state: '', alias: '' });
-    
     const [autoCalculatedShipping, setAutoCalculatedShipping] = useState(null);
     const [shippingOptions, setShippingOptions] = useState([]);
     const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -342,7 +340,6 @@ const ShopProvider = ({ children }) => {
     const [previewShippingItem, setPreviewShippingItem] = useState(null);
     const [selectedShippingName, setSelectedShippingName] = useState(null);
     const [isGeolocating, setIsGeolocating] = useState(false);
-
     const [couponCode, setCouponCode] = useState("");
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -352,7 +349,7 @@ const ShopProvider = ({ children }) => {
         try {
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
-        } catch (err) { console.error("Falha ao buscar carrinho persistente:", err); setCart([]); }
+        } catch (err) { console.error("Falha ao buscar carrinho:", err); setCart([]); }
     }, [isAuthenticated]);
 
     const fetchAddresses = useCallback(async () => {
@@ -361,7 +358,7 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { console.error("Falha ao buscar endereços:", error); setAddresses([]); return []; }
+        } catch (error) { console.error("Falha endereços:", error); setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -393,13 +390,10 @@ const ShopProvider = ({ children }) => {
                             const cep = data.address.postcode.replace(/\D/g, '');
                             setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
-                    } catch (error) { console.warn("Não foi possível obter CEP da geolocalização.", error); } 
+                    } catch (error) { console.warn("Erro geo:", error); } 
                     finally { setIsGeolocating(false); }
                 }, 
-                (error) => { 
-                    console.warn("Geolocalização negada ou indisponível.", error.message);
-                    setIsGeolocating(false);
-                },
+                (error) => { setIsGeolocating(false); },
                 { timeout: 10000 }
             );
         }
@@ -420,12 +414,10 @@ const ShopProvider = ({ children }) => {
     
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
-
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
-                
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = itemsToCalculate.map(item => ({
@@ -433,38 +425,23 @@ const ShopProvider = ({ children }) => {
                             price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
                             quantity: item.qty || 1,
                         }));
-                        
                         const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        
                         const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
                         const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-
                         const shippingApiOptions = [];
-                        if (pacOptionRaw) {
-                            shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        } else if (sedexOption) {
-                            shippingApiOptions.push(sedexOption);
-                        }
-
+                        if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                        else if (sedexOption) shippingApiOptions.push(sedexOption);
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        
                         const finalOptions = [...shippingApiOptions, pickupOption];
                         setShippingOptions(finalOptions);
-                        
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        const primaryShippingOption = shippingApiOptions[0];
-                        
-                        setAutoCalculatedShipping(desiredOption || primaryShippingOption || pickupOption || null);
-
+                        setAutoCalculatedShipping(desiredOption || shippingApiOptions[0] || pickupOption || null);
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
-                        const desiredOption = pickupOption.name === selectedShippingName ? pickupOption : null;
-                        setAutoCalculatedShipping(desiredOption || pickupOption);
-                    } finally {
-                        setIsLoadingShipping(false);
-                    }
+                        setAutoCalculatedShipping(pickupOption);
+                    } finally { setIsLoadingShipping(false); }
                 };
                 calculateShipping();
             } else {
@@ -474,7 +451,6 @@ const ShopProvider = ({ children }) => {
         }, 500);
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
-
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
@@ -482,29 +458,18 @@ const ShopProvider = ({ children }) => {
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-        
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-
         setCart(currentCart => {
-            let updatedCart;
-            if (existing) {
-                updatedCart = currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-            } else {
-                updatedCart = [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
-            }
-
-            if (isAuthenticated) {
-                apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
-            }
-            return updatedCart;
+            if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
+            return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
+        if (isAuthenticated) apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
     }, [cart, isAuthenticated]);
     
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
-        const updatedCart = cart.filter(item => item.cartItemId !== cartItemId);
-        setCart(updatedCart);
+        setCart(current => current.filter(item => item.cartItemId !== cartItemId));
         if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
@@ -514,9 +479,7 @@ const ShopProvider = ({ children }) => {
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-
-        const updatedCart = cart.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item);
-        setCart(updatedCart);
+        setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
         if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
     
@@ -529,7 +492,7 @@ const ShopProvider = ({ children }) => {
             const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
             setWishlist(current => [...current, addedProduct]);
             return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) { console.error(error); return { success: false, message: `Não foi possível adicionar o item: ${error.message}` }; }
+        } catch (error) { return { success: false, message: `Erro: ${error.message}` }; }
     }, [isAuthenticated, wishlist]);
 
     const removeFromWishlist = useCallback(async (productId) => {
@@ -550,28 +513,30 @@ const ShopProvider = ({ children }) => {
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- LÓGICA DE DESCONTO (Atualizada com Normalização e Prioridade) ---
+    // --- LÓGICA DE DESCONTO BLINDADA ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-        
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
-        const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-        const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
+        // Parsing e Normalização
+        const safeParse = (data) => {
+            try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
+            catch { return []; }
+        };
+        const allowedCats = safeParse(appliedCoupon.allowed_categories);
+        const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        // Normalização
         const normalize = (str) => String(str || '').toLowerCase().trim();
-        const safeAllowedCats = Array.isArray(allowedCats) ? allowedCats.map(normalize).filter(s => s.length > 0) : [];
-        const safeAllowedBrands = Array.isArray(allowedBrands) ? allowedBrands.map(normalize).filter(s => s.length > 0) : [];
+        const safeCats = allowedCats.map(normalize).filter(s => s.length > 0);
+        const safeBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
 
-        // LÓGICA FORÇADA: Se houver qualquer restrição definida, ignora a flag "Global" do banco.
-        // O cupom só é global se NÃO houver categorias nem marcas listadas.
-        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        
-        // Se tem restrições, isGlobal é false. Se não tem, confia no banco (mas geralmente é true).
-        const isGlobal = !hasRestrictions;
+        // REGRA DE OURO: Se o banco diz 0, É RESTRITO. Ponto final.
+        // Se diz 1, verificamos se há listas. Se houver, é restrito também (segurança contra erro de cadastro).
+        const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
+        const hasRestrictions = safeCats.length > 0 || safeBrands.length > 0;
+        const isGlobal = dbIsGlobal && !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
@@ -582,8 +547,9 @@ const ShopProvider = ({ children }) => {
                 const itemCategory = normalize(item.category);
                 const itemBrand = normalize(item.brand);
                 
-                const catMatch = safeAllowedCats.includes(itemCategory);
-                const brandMatch = safeAllowedBrands.includes(itemBrand);
+                // Verifica se está na lista (includes procura correspondência exata na string normalizada)
+                const catMatch = safeCats.includes(itemCategory);
+                const brandMatch = safeBrands.includes(itemBrand);
                 
                 if (catMatch || brandMatch) isEligible = true;
             }
@@ -608,14 +574,13 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (appliedCoupon) {
-            // Mesma lógica de verificação para a mensagem
-            const allowedCats = typeof appliedCoupon.allowed_categories === 'string' ? JSON.parse(appliedCoupon.allowed_categories) : (appliedCoupon.allowed_categories || []);
-            const allowedBrands = typeof appliedCoupon.allowed_brands === 'string' ? JSON.parse(appliedCoupon.allowed_brands) : (appliedCoupon.allowed_brands || []);
-            const hasRestrictions = (allowedCats && allowedCats.length > 0) || (allowedBrands && allowedBrands.length > 0);
-            const isGlobal = !hasRestrictions;
+            // Mesma lógica para a mensagem
+            const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
+            const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
+            const isGlobal = (Number(appliedCoupon.is_global) === 1) && !hasRestr;
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                setCouponMessage("Nenhum produto do carrinho é elegível para este cupom.");
+                setCouponMessage("Cupom válido apenas para produtos selecionados (Marca/Categoria).");
             } else if (!isGlobal) {
                 setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado aos itens elegíveis!`);
             } else {
@@ -630,22 +595,7 @@ const ShopProvider = ({ children }) => {
 
     return (
         <ShopContext.Provider value={{
-            cart, setCart, clearOrderState,
-            wishlist, addToCart, 
-            addToWishlist, removeFromWishlist,
-            updateQuantity, removeFromCart,
-            userName: user?.name,
-            addresses, fetchAddresses,
-            shippingLocation, setShippingLocation,
-            autoCalculatedShipping, setAutoCalculatedShipping,
-            shippingOptions, isLoadingShipping, shippingError,
-            updateDefaultShippingLocation, determineShippingLocation,
-            setPreviewShippingItem, 
-            setSelectedShippingName,
-            isGeolocating,
-            couponCode, setCouponCode,
-            couponMessage, applyCoupon, appliedCoupon, removeCoupon,
-            discount 
+            cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, userName: user?.name, addresses, fetchAddresses, shippingLocation, setShippingLocation, autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount
         }}>
             {children}
         </ShopContext.Provider>
