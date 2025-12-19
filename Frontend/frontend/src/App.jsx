@@ -520,7 +520,7 @@ const ShopProvider = ({ children }) => {
 
         let eligibleTotal = 0;
         
-        // Parsing e Normalização
+        // 1. Parsing seguro das restrições
         const safeParse = (data) => {
             try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
             catch { return []; }
@@ -528,15 +528,22 @@ const ShopProvider = ({ children }) => {
         const allowedCats = safeParse(appliedCoupon.allowed_categories);
         const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        const normalize = (str) => String(str || '').toLowerCase().trim();
-        const safeCats = allowedCats.map(normalize).filter(s => s.length > 0);
-        const safeBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+        // 2. Normalização rigorosa (remove acentos, espaços, minúsculo)
+        const normalize = (str) => {
+            if (!str) return "";
+            return String(str).toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Remove acentos
+        };
+        
+        const safeAllowedCats = Array.isArray(allowedCats) ? allowedCats.map(normalize).filter(s => s.length > 0) : [];
+        const safeAllowedBrands = Array.isArray(allowedBrands) ? allowedBrands.map(normalize).filter(s => s.length > 0) : [];
 
-        // REGRA DE OURO: Se o banco diz 0, É RESTRITO. Ponto final.
-        // Se diz 1, verificamos se há listas. Se houver, é restrito também (segurança contra erro de cadastro).
+        // 3. Definição do Escopo (Global ou Restrito)
+        // Se is_global for explicitamente 1 E não houver listas, é global.
+        // Se for 0, ou se houver listas, é restrito.
         const dbIsGlobal = Number(appliedCoupon.is_global) === 1;
-        const hasRestrictions = safeCats.length > 0 || safeBrands.length > 0;
-        const isGlobal = dbIsGlobal && !hasRestrictions;
+        const hasRestrictionsLists = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+        const isGlobal = dbIsGlobal && !hasRestrictionsLists;
 
         cart.forEach(item => {
             let isEligible = false;
@@ -544,12 +551,15 @@ const ShopProvider = ({ children }) => {
             if (isGlobal) {
                 isEligible = true;
             } else {
+                // Comparação Segura
                 const itemCategory = normalize(item.category);
                 const itemBrand = normalize(item.brand);
                 
-                // Verifica se está na lista (includes procura correspondência exata na string normalizada)
-                const catMatch = safeCats.includes(itemCategory);
-                const brandMatch = safeBrands.includes(itemBrand);
+                // Debug: descomente se necessário para ver o que está sendo comparado no console
+                // console.log(`Comparando: Cat[${itemCategory}] Marca[${itemBrand}] com Restrições`, safeAllowedCats, safeAllowedBrands);
+
+                const catMatch = safeAllowedCats.includes(itemCategory);
+                const brandMatch = safeAllowedBrands.includes(itemBrand);
                 
                 if (catMatch || brandMatch) isEligible = true;
             }
@@ -574,7 +584,6 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (appliedCoupon) {
-            // Mesma lógica para a mensagem
             const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
             const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
             const isGlobal = (Number(appliedCoupon.is_global) === 1) && !hasRestr;
