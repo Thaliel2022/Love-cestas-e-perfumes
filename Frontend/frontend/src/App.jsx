@@ -9367,15 +9367,18 @@ const AdminCoupons = () => {
     useEffect(() => {
         fetchCoupons();
         
+        // CORREÇÃO: Busca categorias de COLEÇÕES E PRODUTOS para garantir lista completa
         Promise.all([
             apiService('/products/all'),
-            apiService('/collections/admin') 
+            apiService('/collections/admin') // Busca todas as categorias criadas no sistema
         ]).then(([products, collections]) => {
             const productBrands = products.map(p => p.brand).filter(Boolean);
             const productCats = products.map(p => p.category).filter(Boolean);
+            // Pega o nome das coleções (que são as categorias reais do menu)
             const collectionCats = collections.map(c => c.name).filter(Boolean);
 
             const uniqueBrands = [...new Set(productBrands)].sort();
+            // Une categorias de produtos com categorias de coleções para não faltar nada
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
 
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
