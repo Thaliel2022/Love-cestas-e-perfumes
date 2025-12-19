@@ -9353,6 +9353,7 @@ const AdminCoupons = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
+    // Helper seguro para JSON
     const tryParse = (data) => {
         try {
             const parsed = typeof data === 'string' ? JSON.parse(data) : data;
@@ -9365,16 +9366,19 @@ const AdminCoupons = () => {
     useEffect(() => {
         fetchCoupons();
         
+        // CORREÇÃO: Busca categorias de COLEÇÕES E PRODUTOS para garantir lista completa
         Promise.all([
             apiService('/products/all'),
             apiService('/collections/admin')
         ]).then(([products, collections]) => {
-            const productBrands = products.map(p => p.brand).filter(Boolean);
-            const productCats = products.map(p => p.category).filter(Boolean);
+            // Extrai marcas e categorias ignorando vazios/nulos
+            const productBrands = products.map(p => p.brand).filter(b => b && b.trim() !== "");
+            const productCats = products.map(p => p.category).filter(c => c && c.trim() !== "");
             // IMPORTANTE: Usa o filtro da coleção, que é o que geralmente é salvo no produto
-            const collectionCats = collections.map(c => c.filter || c.name).filter(Boolean);
+            const collectionCats = collections.map(c => c.filter || c.name).filter(c => c && c.trim() !== "");
 
             const uniqueBrands = [...new Set(productBrands)].sort();
+            // Une categorias de produtos com categorias de coleções para não faltar nada
             const uniqueCategories = [...new Set([...productCats, ...collectionCats])].sort();
 
             setProductsData({ brands: uniqueBrands, categories: uniqueCategories });
@@ -9547,17 +9551,17 @@ const AdminCoupons = () => {
                              <div className="mb-2">
                                 <span className="block text-xs font-bold uppercase">Categorias</span>
                                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                                    {productsData.categories.map(cat => (
+                                    {productsData.categories.length > 0 ? productsData.categories.map(cat => (
                                         <button type="button" key={cat} onClick={() => toggleSelection('allowed_categories', cat)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_categories?.includes(cat) ? 'bg-blue-600 text-white' : 'bg-gray-50'}`}>{cat}</button>
-                                    ))}
+                                    )) : <span className="text-xs text-gray-400">Nenhuma categoria encontrada.</span>}
                                 </div>
                              </div>
                              <div>
                                 <span className="block text-xs font-bold uppercase">Marcas</span>
                                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                                    {productsData.brands.map(brand => (
+                                    {productsData.brands.length > 0 ? productsData.brands.map(brand => (
                                         <button type="button" key={brand} onClick={() => toggleSelection('allowed_brands', brand)} className={`px-2 py-0.5 text-[10px] rounded border ${form.allowed_brands?.includes(brand) ? 'bg-purple-600 text-white' : 'bg-gray-50'}`}>{brand}</button>
-                                    ))}
+                                    )) : <span className="text-xs text-gray-400">Nenhuma marca encontrada.</span>}
                                 </div>
                              </div>
                         </div>
@@ -9615,14 +9619,14 @@ const AdminCoupons = () => {
                     </thead>
                     <tbody>
                         {filteredCoupons.map(c => (
-                            <tr key={c.id} className={`border-b hover:bg-gray-50 ${selectedCoupons.includes(c.id) ? 'bg-blue-50' : ''}`}>
+                            <tr key={c.id} className="border-b hover:bg-gray-50">
                                 <td className="p-3"><input type="checkbox" checked={selectedCoupons.includes(c.id)} onChange={() => handleSelectCoupon(c.id)}/></td>
                                 <td className="p-3 font-mono font-bold text-blue-600">{c.code}</td>
                                 <td className="p-3 text-xs">{c.is_global ? <span className="text-green-600 font-bold">Global</span> : <span className="text-amber-600 font-bold">Restrito</span>}</td>
                                 <td className="p-3 text-sm">{c.type === 'free_shipping' ? 'Grátis' : (c.type === 'percentage' ? `${c.value}%` : `R$${c.value}`)}</td>
                                 <td className="p-3 text-xs text-gray-500">
-                                    {!!c.is_first_purchase && <div className="text-amber-700">• 1ª Compra</div>}
-                                    {!!c.is_single_use_per_user && <div className="text-blue-700">• Uso Único</div>}
+                                    {!!c.is_first_purchase && <div className="text-amber-700 font-semibold">• 1ª Compra</div>}
+                                    {!!c.is_single_use_per_user && <div className="text-blue-700 font-semibold">• Uso Único</div>}
                                     {!c.is_first_purchase && !c.is_single_use_per_user && <span>-</span>}
                                 </td>
                                 <td className="p-3"><CouponCountdown createdAt={c.created_at} validityDays={c.validity_days}/></td>
