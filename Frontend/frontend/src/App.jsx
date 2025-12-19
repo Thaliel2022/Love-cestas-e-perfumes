@@ -415,7 +415,6 @@ const ShopProvider = ({ children }) => {
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
     // --- NOVO: Auto-correção de dados do carrinho ---
-    // Se o cupom for aplicado e os itens não tiverem marca/categoria, recarrega do servidor
     useEffect(() => {
         if (cart.length > 0 && isAuthenticated) {
             const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
@@ -476,7 +475,6 @@ const ShopProvider = ({ children }) => {
         
         setCart(currentCart => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
-            // Garante que o objeto productToAdd tenha todas as propriedades
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
         if (isAuthenticated) apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
@@ -536,53 +534,53 @@ const ShopProvider = ({ children }) => {
 
         let eligibleTotal = 0;
         
-        // Parsing seguro - garante que seja um array mesmo se vier nulo/invalido
-        const safeParse = (data) => {
-            if (Array.isArray(data)) return data;
-            try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } 
-            catch { return []; }
+        // Função auxiliar de parse seguro
+        const safeParse = (val) => {
+            if (!val) return [];
+            if (Array.isArray(val)) return val;
+            try {
+                const parsed = JSON.parse(val);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
         };
+
         const allowedCats = safeParse(appliedCoupon.allowed_categories);
         const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        // Normalização robusta
+        // Normalização para comparação (remove acentos e espaços)
         const normalize = (str) => {
             if (!str) return "";
-            return String(str).toLowerCase().trim()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
+            return String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         };
 
         const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
 
-        // REGRA DE OURO: Verifica is_global de forma segura (aceita 1, true, "1")
-        const dbIsGlobal = Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true;
-        // Se houver itens nas listas de restrição, AUTOMATICAMENTE deixa de ser global
+        // Se houver qualquer item nas listas de restrição, o cupom NÃO é global
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        const isGlobal = dbIsGlobal && !hasRestrictions;
-
-        console.log(`[CUPOM DEBUG] Code: ${appliedCoupon.code} | Global: ${isGlobal} | Restricted Cats: ${safeAllowedCats} | Restricted Brands: ${safeAllowedBrands}`);
+        
+        // É global se NÃO tiver restrições E a flag is_global for verdadeira
+        const isGlobal = !hasRestrictions && (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
 
         cart.forEach(item => {
             let isEligible = false;
-            
+
             if (isGlobal) {
                 isEligible = true;
             } else {
-                // Recupera dados do item (com fallback para string vazia se estiver faltando)
-                const itemCategory = normalize(item.category || "");
-                const itemBrand = normalize(item.brand || "");
+                const itemCat = normalize(item.category);
+                const itemBrand = normalize(item.brand);
+
+                // Verifica se a categoria do item está na lista permitida OU se contém o termo permitido
+                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
                 
-                // Só marca como elegível se tiver dados E bater com as regras
-                // Adicionado includes reverso para garantir match parcial se necessário (ex: "Blazers" vs "Blazers de Inverno")
-                const catMatch = itemCategory && safeAllowedCats.some(c => itemCategory === c || itemCategory.includes(c));
-                const brandMatch = itemBrand && safeAllowedBrands.some(b => itemBrand === b || itemBrand.includes(b));
-                
+                // Verifica se a marca do item está na lista permitida OU se contém o termo permitido
+                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
+
                 if (catMatch || brandMatch) {
                     isEligible = true;
-                    console.log(`[CUPOM DEBUG] Item ELEGÍVEL: ${item.name} (${itemCategory} / ${itemBrand})`);
-                } else {
-                    console.log(`[CUPOM DEBUG] Item INELIGÍVEL: ${item.name} (${itemCategory} / ${itemBrand})`);
                 }
             }
 
@@ -594,14 +592,14 @@ const ShopProvider = ({ children }) => {
 
         if (eligibleTotal === 0) return 0;
 
-        let discountValue = 0;
+        let finalDiscount = 0;
         if (appliedCoupon.type === 'percentage') {
-            discountValue = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+            finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
-            discountValue = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+            finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
 
-        return discountValue;
+        return finalDiscount;
     }, [appliedCoupon, cart]);
 
     useEffect(() => {
@@ -632,7 +630,6 @@ const ShopProvider = ({ children }) => {
         </ShopContext.Provider>
     );
 };
-
 const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
 
