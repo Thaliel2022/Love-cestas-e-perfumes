@@ -528,79 +528,106 @@ const ShopProvider = ({ children }) => {
     }, [removeCoupon]);
     
     // --- LÓGICA DE DESCONTO BLINDADA ---
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        if (appliedCoupon.type === 'free_shipping') return 0;
+   const discount = useMemo(() => {
+    if (!appliedCoupon) return 0;
+    if (appliedCoupon.type === 'free_shipping') return 0;
 
-        let eligibleTotal = 0;
-        
-        // Função auxiliar de parse seguro
-        const safeParse = (val) => {
-            if (!val) return [];
-            if (Array.isArray(val)) return val;
-            try {
-                const parsed = JSON.parse(val);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch {
-                return [];
-            }
-        };
+    let eligibleTotal = 0;
 
-        const allowedCats = safeParse(appliedCoupon.allowed_categories);
-        const allowedBrands = safeParse(appliedCoupon.allowed_brands);
+    const safeParse = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    };
 
-        // Normalização para comparação (remove acentos e espaços)
-        const normalize = (str) => {
-            if (!str) return "";
-            return String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        };
+    const allowedCats = safeParse(appliedCoupon.allowed_categories);
+    const allowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
-        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+    const normalize = (str) => {
+        if (!str) return "";
+        return String(str)
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    };
 
-        // Se houver qualquer item nas listas de restrição, o cupom NÃO é global
-        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        
-        // É global se NÃO tiver restrições E a flag is_global for verdadeira
-        const isGlobal = !hasRestrictions && (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
+    const safeAllowedCats = allowedCats.map(normalize).filter(Boolean);
+    const safeAllowedBrands = allowedBrands.map(normalize).filter(Boolean);
 
-        cart.forEach(item => {
-            let isEligible = false;
+    const hasCategoryRestriction = safeAllowedCats.length > 0;
+    const hasBrandRestriction = safeAllowedBrands.length > 0;
 
-            if (isGlobal) {
+    // ✅ Global somente se NÃO houver restrições
+    const isGlobal =
+        !hasCategoryRestriction &&
+        !hasBrandRestriction &&
+        (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
+
+    cart.forEach(item => {
+        let isEligible = false;
+
+        if (isGlobal) {
+            isEligible = true;
+        } else {
+            // 🔒 Proteção contra dados faltando
+            if (!item.category && !item.brand) return;
+
+            const itemCat = normalize(item.category);
+            const itemBrand = normalize(item.brand);
+
+            const catMatch =
+                hasCategoryRestriction &&
+                safeAllowedCats.some(allowed =>
+                    itemCat === allowed || itemCat.includes(allowed)
+                );
+
+            const brandMatch =
+                hasBrandRestriction &&
+                safeAllowedBrands.some(allowed =>
+                    itemBrand === allowed || itemBrand.includes(allowed)
+                );
+
+            // ✅ REGRA CORRETA:
+            // - Se tiver categoria → exige categoria
+            // - Se tiver marca → exige marca
+            // - Se tiver ambos → qualquer um vale
+            if (
+                (hasCategoryRestriction && catMatch) ||
+                (hasBrandRestriction && brandMatch)
+            ) {
                 isEligible = true;
-            } else {
-                const itemCat = normalize(item.category);
-                const itemBrand = normalize(item.brand);
-
-                // Verifica se a categoria do item está na lista permitida OU se contém o termo permitido
-                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
-                
-                // Verifica se a marca do item está na lista permitida OU se contém o termo permitido
-                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
-
-                if (catMatch || brandMatch) {
-                    isEligible = true;
-                }
             }
-
-            if (isEligible) {
-                const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
-                eligibleTotal += price * item.qty;
-            }
-        });
-
-        if (eligibleTotal === 0) return 0;
-
-        let finalDiscount = 0;
-        if (appliedCoupon.type === 'percentage') {
-            finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
 
-        return finalDiscount;
-    }, [appliedCoupon, cart]);
+        if (isEligible) {
+            const price =
+                item.is_on_sale && item.sale_price
+                    ? parseFloat(item.sale_price)
+                    : parseFloat(item.price);
+
+            eligibleTotal += price * item.qty;
+        }
+    });
+
+    if (eligibleTotal <= 0) return 0;
+
+    if (appliedCoupon.type === 'percentage') {
+        return eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+    }
+
+    if (appliedCoupon.type === 'fixed') {
+        return Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+    }
+
+    return 0;
+}, [appliedCoupon, cart]);
+
 
     useEffect(() => {
         if (appliedCoupon) {
