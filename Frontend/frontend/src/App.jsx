@@ -528,41 +528,79 @@ const ShopProvider = ({ children }) => {
     }, [removeCoupon]);
     
     // --- LÓGICA DE DESCONTO BLINDADA ---
-   useEffect(() => {
-    if (!appliedCoupon) {
-        setCouponMessage("");
-        return;
-    }
+    const discount = useMemo(() => {
+        if (!appliedCoupon) return 0;
+        if (appliedCoupon.type === 'free_shipping') return 0;
 
-    const safeParse = (val) => {
-        try {
-            return typeof val === "string" ? JSON.parse(val) : val || [];
-        } catch {
-            return [];
+        let eligibleTotal = 0;
+        
+        // Função auxiliar de parse seguro
+        const safeParse = (val) => {
+            if (!val) return [];
+            if (Array.isArray(val)) return val;
+            try {
+                const parsed = JSON.parse(val);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        };
+
+        const allowedCats = safeParse(appliedCoupon.allowed_categories);
+        const allowedBrands = safeParse(appliedCoupon.allowed_brands);
+
+        // Normalização para comparação (remove acentos e espaços)
+        const normalize = (str) => {
+            if (!str) return "";
+            return String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        };
+
+        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
+        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+
+        // Se houver qualquer item nas listas de restrição, o cupom NÃO é global
+        const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
+        
+        // É global se NÃO tiver restrições E a flag is_global for verdadeira
+        const isGlobal = !hasRestrictions && (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
+
+        cart.forEach(item => {
+            let isEligible = false;
+
+            if (isGlobal) {
+                isEligible = true;
+            } else {
+                const itemCat = normalize(item.category);
+                const itemBrand = normalize(item.brand);
+
+                // Verifica se a categoria do item está na lista permitida OU se contém o termo permitido
+                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
+                
+                // Verifica se a marca do item está na lista permitida OU se contém o termo permitido
+                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
+
+                if (catMatch || brandMatch) {
+                    isEligible = true;
+                }
+            }
+
+            if (isEligible) {
+                const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
+                eligibleTotal += price * item.qty;
+            }
+        });
+
+        if (eligibleTotal === 0) return 0;
+
+        let finalDiscount = 0;
+        if (appliedCoupon.type === 'percentage') {
+            finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
-    };
 
-    const hasRestrictions =
-        safeParse(appliedCoupon.allowed_categories).length > 0 ||
-        safeParse(appliedCoupon.allowed_brands).length > 0;
-
-    const isGlobal =
-        !hasRestrictions &&
-        (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
-
-    if (discount === 0 && appliedCoupon.type !== "free_shipping") {
-        setCouponMessage(
-            "Nenhum produto do carrinho é elegível para este cupom."
-        );
-    } else if (isGlobal) {
-        setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado com sucesso!`);
-    } else {
-        setCouponMessage(
-            `Cupom "${appliedCoupon.code}" aplicado aos itens elegíveis!`
-        );
-    }
-}, [appliedCoupon, discount]);
-
+        return finalDiscount;
+    }, [appliedCoupon, cart]);
 
     useEffect(() => {
         if (appliedCoupon) {
