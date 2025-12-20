@@ -347,7 +347,6 @@ const ShopProvider = ({ children }) => {
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
-            // O backend retorna SELECT p.*, então category e brand DEVEM vir daqui
             const dbCart = await apiService('/cart');
             setCart(dbCart || []);
         } catch (err) { console.error("Falha ao buscar carrinho:", err); setCart([]); }
@@ -414,7 +413,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
     
-    // --- NOVO: Auto-correção de dados do carrinho ---
+    // Auto-correção de dados do carrinho
     useEffect(() => {
         if (cart.length > 0 && isAuthenticated) {
             const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
@@ -527,42 +526,50 @@ const ShopProvider = ({ children }) => {
         } catch (error) { removeCoupon(); setCouponMessage(error.message || "Não foi possível aplicar o cupom."); }
     }, [removeCoupon]);
     
-    // --- LÓGICA DE DESCONTO BLINDADA ---
+    // --- LÓGICA DE DESCONTO BLINDADA E CORRIGIDA ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         if (appliedCoupon.type === 'free_shipping') return 0;
 
         let eligibleTotal = 0;
         
-        // Função auxiliar de parse seguro
+        // Parse seguro das restrições com tratamento de erro
         const safeParse = (val) => {
             if (!val) return [];
             if (Array.isArray(val)) return val;
             try {
                 const parsed = JSON.parse(val);
                 return Array.isArray(parsed) ? parsed : [];
-            } catch {
+            } catch (e) {
+                console.warn("[ShopProvider] Erro ao parsear restrição (JSON inválido):", val);
                 return [];
             }
         };
 
-        const allowedCats = safeParse(appliedCoupon.allowed_categories);
-        const allowedBrands = safeParse(appliedCoupon.allowed_brands);
+        const rawAllowedCats = safeParse(appliedCoupon.allowed_categories);
+        const rawAllowedBrands = safeParse(appliedCoupon.allowed_brands);
 
-        // Normalização para comparação (remove acentos e espaços)
+        // Normalização agressiva para garantir comparação correta
         const normalize = (str) => {
             if (!str) return "";
-            return String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return String(str).toLowerCase().trim()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); 
         };
 
-        const safeAllowedCats = allowedCats.map(normalize).filter(s => s.length > 0);
-        const safeAllowedBrands = allowedBrands.map(normalize).filter(s => s.length > 0);
+        const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
+        const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
 
-        // Se houver qualquer item nas listas de restrição, o cupom NÃO é global
+        // Definição de Restrição: Se EXISTE qualquer item nas listas, É RESTRITO.
+        // Isso previne que a flag 'is_global' do banco (que pode estar desatualizada) atrapalhe.
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        
-        // É global se NÃO tiver restrições E a flag is_global for verdadeira
-        const isGlobal = !hasRestrictions && (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
+        const isGlobal = !hasRestrictions;
+
+        console.log(`[CUPOM] Validando: ${appliedCoupon.code}`);
+        console.log(`[CUPOM] Modo: ${isGlobal ? 'GLOBAL (Tudo Aceito)' : 'RESTRITO'}`);
+        if (!isGlobal) {
+            console.log(`[CUPOM] Categorias Permitidas:`, safeAllowedCats);
+            console.log(`[CUPOM] Marcas Permitidas:`, safeAllowedBrands);
+        }
 
         cart.forEach(item => {
             let isEligible = false;
@@ -570,17 +577,25 @@ const ShopProvider = ({ children }) => {
             if (isGlobal) {
                 isEligible = true;
             } else {
-                const itemCat = normalize(item.category);
-                const itemBrand = normalize(item.brand);
+                const itemCat = normalize(item.category || "");
+                const itemBrand = normalize(item.brand || "");
 
-                // Verifica se a categoria do item está na lista permitida OU se contém o termo permitido
-                const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
+                // Lógica de Match:
+                // 1. Verifica se a categoria do produto é EXATAMENTE igual a alguma permitida
+                // 2. OU se a categoria do produto CONTÉM a palavra permitida (ex: "Perfumes" permitida -> "Perfumes Masc" aceita)
+                const catMatch = safeAllowedCats.some(allowed => 
+                    itemCat === allowed || itemCat.includes(allowed)
+                );
                 
-                // Verifica se a marca do item está na lista permitida OU se contém o termo permitido
-                const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
+                const brandMatch = safeAllowedBrands.some(allowed => 
+                    itemBrand === allowed || itemBrand.includes(allowed)
+                );
 
                 if (catMatch || brandMatch) {
                     isEligible = true;
+                    console.log(`[CUPOM] ✅ Item ACEITO: ${item.name} | Cat: ${itemCat} | Brand: ${itemBrand}`);
+                } else {
+                    console.log(`[CUPOM] ❌ Item REJEITADO: ${item.name} | Cat: ${itemCat} | Brand: ${itemBrand}`);
                 }
             }
 
@@ -590,7 +605,10 @@ const ShopProvider = ({ children }) => {
             }
         });
 
-        if (eligibleTotal === 0) return 0;
+        if (eligibleTotal === 0) {
+            console.log(`[CUPOM] Total elegível é 0. Desconto não aplicado.`);
+            return 0;
+        }
 
         let finalDiscount = 0;
         if (appliedCoupon.type === 'percentage') {
@@ -606,7 +624,7 @@ const ShopProvider = ({ children }) => {
         if (appliedCoupon) {
             const safeParse = (data) => { try { return typeof data === 'string' ? JSON.parse(data) : (data || []); } catch { return []; } };
             const hasRestr = safeParse(appliedCoupon.allowed_categories).length > 0 || safeParse(appliedCoupon.allowed_brands).length > 0;
-            const isGlobal = (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true) && !hasRestr;
+            const isGlobal = !hasRestr; // Recalcula aqui para consistência da mensagem
 
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
                 setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
