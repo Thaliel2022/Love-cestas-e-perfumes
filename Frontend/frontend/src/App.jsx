@@ -4165,7 +4165,8 @@ const CartPage = ({ onNavigate }) => {
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
-        couponMessage, appliedCoupon
+        couponMessage, appliedCoupon,
+        discount // Usando o desconto calculado no Contexto (que tem a validação correta)
     } = useShop();
     const notification = useNotification();
 
@@ -4176,24 +4177,6 @@ const CartPage = ({ onNavigate }) => {
 
     const shippingCost = useMemo(() => autoCalculatedShipping ? autoCalculatedShipping.price : 0, [autoCalculatedShipping]);
 
-    const discount = useMemo(() => {
-        if (!appliedCoupon) return 0;
-        let discountValue = 0;
-        if (appliedCoupon.type === 'percentage') {
-            discountValue = subtotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            discountValue = parseFloat(appliedCoupon.value);
-        } else if (appliedCoupon.type === 'free_shipping') {
-            discountValue = shippingCost;
-        }
-        // Garante que o desconto não seja maior que o subtotal + frete (exceto frete grátis)
-        if (appliedCoupon.type !== 'free_shipping' && discountValue > subtotal + shippingCost) {
-            return subtotal + shippingCost;
-        }
-        return discountValue;
-    }, [appliedCoupon, subtotal, shippingCost]);
-
-
     const handleApplyCoupon = (e) => {
         e.preventDefault();
         if (couponCode.trim()) {
@@ -4202,8 +4185,9 @@ const CartPage = ({ onNavigate }) => {
     }
 
     const total = useMemo(() => {
+        // O desconto já vem calculado corretamente do ShopProvider, respeitando as restrições
         const calculatedTotal = subtotal - discount + shippingCost;
-        return calculatedTotal < 0 ? 0 : calculatedTotal; // Evita total negativo
+        return calculatedTotal < 0 ? 0 : calculatedTotal; 
     }, [subtotal, discount, shippingCost]);
 
 
@@ -4217,8 +4201,8 @@ const CartPage = ({ onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-            <div className="container mx-auto px-4 py-12"> {/* Aumentado padding vertical */}
-                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> {/* Centralizado e margem aumentada */}
+            <div className="container mx-auto px-4 py-12"> 
+                <h1 className="text-3xl md:text-4xl font-bold mb-10 text-center">Meu Carrinho</h1> 
                 {cart.length === 0 ? (
                     <EmptyState
                         icon={<CartIcon className="h-12 w-12"/>}
@@ -4228,9 +4212,9 @@ const CartPage = ({ onNavigate }) => {
                         onButtonClick={() => onNavigate('products')}
                     />
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> {/* Aumentado gap */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-10"> 
                         {/* Coluna de Itens e Frete */}
-                        <div className="lg:col-span-2 space-y-8"> {/* Aumentado space-y */}
+                        <div className="lg:col-span-2 space-y-8"> 
                             {/* Card de Itens */}
                             <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-lg">
                                 <h2 className="text-xl font-semibold p-5 border-b border-gray-700 text-amber-400">Itens no Carrinho ({cart.length})</h2>
@@ -4251,7 +4235,7 @@ const CartPage = ({ onNavigate }) => {
                                         >
                                             <div className="flex items-center w-full md:w-auto flex-grow">
                                                 <div
-                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" // Aumentado tamanho
+                                                    className="w-24 h-24 bg-white rounded-md flex-shrink-0 cursor-pointer p-1 border border-gray-700" 
                                                     onClick={() => onNavigate(`product/${item.id}`)}
                                                 >
                                                     <img src={getFirstImage(item.images, 'https://placehold.co/96x96/222/fff?text=Img')} alt={item.name} className="w-full h-full object-contain"/>
