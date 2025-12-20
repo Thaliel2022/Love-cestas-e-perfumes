@@ -344,6 +344,15 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // Helpers internos para validação consistente
+    const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    
+    const safeParse = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        try { return JSON.parse(val) || []; } catch { return []; }
+    };
+
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -518,17 +527,9 @@ const ShopProvider = ({ children }) => {
     
     const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
 
-    // Helper Functions (definidas aqui para uso em applyCoupon e discount)
-    const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    const safeParse = (val) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        try { return JSON.parse(val) || []; } catch { return []; }
-    };
-
     const applyCoupon = useCallback(async (code) => {
         setCouponCode(code);
-        setCouponMessage(""); // Limpa msg anterior
+        setCouponMessage(""); 
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             const coupon = response.coupon;
@@ -541,8 +542,8 @@ const ShopProvider = ({ children }) => {
                 const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
                 
                 const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-                // Se tem restrições, não é global, independente da flag do banco
-                const isGlobal = !hasRestrictions && (Number(coupon.is_global) === 1 || coupon.is_global === true);
+                // SIMPLIFICAÇÃO: Se não há restrições listadas, é Global (assume permissivo)
+                const isGlobal = !hasRestrictions;
 
                 let eligibleCount = 0;
 
@@ -568,12 +569,11 @@ const ShopProvider = ({ children }) => {
 
             // Se passou na validação ou é frete grátis:
             setAppliedCoupon(coupon);
-            // Mensagem de sucesso será definida pelo useEffect baseado no estado
         } catch (error) { 
             setAppliedCoupon(null); 
             setCouponMessage(error.message || "Não foi possível aplicar o cupom."); 
         }
-    }, [cart]); // Adicionado 'cart' como dependência para validar os itens atuais
+    }, [cart]); 
     
     // --- CÁLCULO DE DESCONTO ---
     const discount = useMemo(() => {
@@ -589,8 +589,9 @@ const ShopProvider = ({ children }) => {
         const rawAllowedBrands = safeParse(appliedCoupon.allowed_brands);
         const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
+        
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-        const isGlobal = !hasRestrictions && (Number(appliedCoupon.is_global) === 1 || appliedCoupon.is_global === true);
+        const isGlobal = !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
@@ -623,12 +624,18 @@ const ShopProvider = ({ children }) => {
     }, [appliedCoupon, cart, autoCalculatedShipping]);
 
     useEffect(() => {
-        // Atualiza mensagem APENAS se o cupom estiver aplicado com sucesso.
-        // Erros de validação inicial são tratados no applyCoupon.
         if (appliedCoupon) {
+            // --- TRAVA DE SEGURANÇA ---
+            // Se o desconto calculado for 0 e não for cupom de frete, REMOVE o cupom.
+            // Isso garante que se o cliente remover o item elegível, o cupom sai.
+            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
+                 setAppliedCoupon(null);
+                 setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
+                 return;
+            }
+
             setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
-        } else if (couponMessage === `Cupom "${couponCode}" aplicado!`) {
-             // Limpa mensagem de sucesso se o cupom for removido, mas mantem mensagens de erro
+        } else if (couponMessage && couponMessage.includes("aplicado")) {
              setCouponMessage("");
         }
     }, [discount, appliedCoupon]);
