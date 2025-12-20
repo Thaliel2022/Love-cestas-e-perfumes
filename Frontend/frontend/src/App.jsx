@@ -433,38 +433,74 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
+    // Lógica de Cálculo de Frete (CORRIGIDA PARA ENTREGA LOCAL)
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
         const debounceTimer = setTimeout(() => {
-            if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+            
+            if (itemsToCalculate && itemsToCalculate.length > 0 && cleanCep.length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
-                const calculateShipping = async () => {
-                    try {
-                        const productsPayload = itemsToCalculate.map(item => ({
-                            id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                        const shippingApiOptions = [];
-                        if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        else if (sedexOption) shippingApiOptions.push(sedexOption);
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        const finalOptions = [...shippingApiOptions, pickupOption];
-                        setShippingOptions(finalOptions);
-                        const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        setAutoCalculatedShipping(desiredOption || shippingApiOptions[0] || pickupOption || null);
-                    } catch (error) {
-                        setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        setShippingOptions([pickupOption]);
-                        setAutoCalculatedShipping(pickupOption);
-                    } finally { setIsLoadingShipping(false); }
-                };
-                calculateShipping();
+                
+                // Lógica de Entrega Local Direta (João Pessoa: 58000-000 a 58099-999)
+                const cepInt = parseInt(cleanCep, 10);
+                const isJoaoPessoa = cepInt >= 58000000 && cepInt <= 58099999;
+
+                if (isJoaoPessoa) {
+                    console.log("[ShopProvider] CEP de João Pessoa detectado. Ativando Entrega Local.");
+                     const localDeliveryOption = {
+                        name: "Entrega Local",
+                        price: 20.00,
+                        delivery_time: 'Entrega via Motoboy/Uber no mesmo dia',
+                        isLocal: true // Flag para identificar visualmente
+                    };
+                    const pickupOption = { 
+                        name: "Retirar na loja", 
+                        price: 0, 
+                        delivery_time: 'Disponível para retirada após confirmação', 
+                        isPickup: true 
+                    };
+                    
+                    const finalOptions = [localDeliveryOption, pickupOption];
+                    setShippingOptions(finalOptions);
+                    
+                    // Seleciona Entrega Local por padrão se nada estiver selecionado, ou mantém a seleção se válida
+                    const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
+                    setAutoCalculatedShipping(desiredOption || localDeliveryOption);
+                    setIsLoadingShipping(false);
+                } else {
+                    console.log("[ShopProvider] CEP fora de João Pessoa. Buscando Correios.");
+                    // Lógica Padrão (Correios)
+                    const calculateShipping = async () => {
+                        try {
+                            const productsPayload = itemsToCalculate.map(item => ({
+                                id: String(item.id),
+                                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                                quantity: item.qty || 1,
+                            }));
+                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                            const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                            const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                            const shippingApiOptions = [];
+                            if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                            else if (sedexOption) shippingApiOptions.push(sedexOption);
+                            
+                            const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                            const finalOptions = [...shippingApiOptions, pickupOption];
+                            setShippingOptions(finalOptions);
+                            
+                            const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
+                            setAutoCalculatedShipping(desiredOption || shippingApiOptions[0] || pickupOption || null);
+                        } catch (error) {
+                            setShippingError(error.message || 'Não foi possível calcular o frete.');
+                            const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                            setShippingOptions([pickupOption]);
+                            setAutoCalculatedShipping(pickupOption);
+                        } finally { setIsLoadingShipping(false); }
+                    };
+                    calculateShipping();
+                }
             } else {
                 setShippingOptions([]);
                 setAutoCalculatedShipping(null);
