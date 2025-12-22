@@ -289,51 +289,53 @@ const AuthProvider = ({ children }) => {
         try {
             await apiService('/logout', 'POST');
         } catch (error) {
-            console.error("Erro na API de logout, limpando localmente de qualquer maneira.", error);
+            console.error("Erro na API de logout.", error);
         } finally {
-            localStorage.removeItem('user');
             setUser(null);
-            // Redireciona para o login após garantir que tudo foi limpo
             window.location.hash = '#login';
         }
     }, []);
 
-    useEffect(() => {
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-            try {
-                setUser(JSON.parse(storedUser));
-            } catch (e) {
-                localStorage.removeItem('user');
-            }
+    // Busca o perfil do usuário diretamente da API para validar a sessão
+    const fetchUserProfile = useCallback(async () => {
+        try {
+            const userData = await apiService('/users/me');
+            setUser(userData);
+        } catch (error) {
+            // Se der erro (401/403), o usuário não está logado
+            setUser(null);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }, []);
 
+    // Executa apenas uma vez ao montar o componente
+    useEffect(() => {
+        fetchUserProfile();
+    }, [fetchUserProfile]);
+
+    // Listener para eventos globais de erro de autenticação
     useEffect(() => {
         const handleAuthError = () => {
-            console.log("Erro de autenticação detectado. Deslogando usuário.");
+            console.log("Sessão expirada ou inválida. Realizando logout.");
             logout();
         };
 
         window.addEventListener('auth-error', handleAuthError);
-
         return () => {
             window.removeEventListener('auth-error', handleAuthError);
         };
     }, [logout]);
 
     const login = async (email, password) => {
-        // A resposta agora não contém mais o token diretamente
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
-            localStorage.setItem('user', JSON.stringify(response.user));
             setUser(response.user);
         }
-        return response; // Retorna a resposta completa para a página de login
+        return response;
     };
     
-    // ATUALIZADO: Agora aceita e envia o parâmetro 'phone'
+    // Função de registro atualizada para receber o telefone
     const register = async (name, email, password, cpf, phone) => {
         return await apiService('/register', 'POST', { name, email, password, cpf, phone });
     };
