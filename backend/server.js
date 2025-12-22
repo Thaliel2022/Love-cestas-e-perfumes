@@ -2611,23 +2611,25 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     if (!req.user.id || !items || items.length === 0) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
+    
+    // --- ATUALIZAÇÃO DO TELEFONE (ISOLADA) ---
+    // Executamos isso ANTES de iniciar a transação do pedido.
+    // Se der erro aqui (ex: coluna não existe), pegamos o erro e NÃO afetamos a venda.
+    if (phone) {
+        try {
+            const cleanPhone = String(phone).replace(/\D/g, '');
+            if (cleanPhone.length >= 10) {
+                // Note que usamos 'connection.query' diretamente, sem estar dentro do 'beginTransaction' ainda
+                await connection.query("UPDATE users SET phone = ? WHERE id = ?", [cleanPhone, req.user.id]);
+            }
+        } catch (phoneError) {
+            console.error("Aviso (Não Crítico): Falha ao atualizar telefone. O pedido seguirá normalmente.", phoneError.message);
+        }
+    }
+
+    // --- INÍCIO DA TRANSAÇÃO DO PEDIDO ---
     try {
         await connection.beginTransaction();
-
-        // BLINDAGEM: Tenta salvar o telefone, mas não trava o pedido se falhar
-        if (phone) {
-            try {
-                // Remove caracteres não numéricos para salvar limpo
-                const cleanPhone = String(phone).replace(/\D/g, '');
-                // Só tenta atualizar se tiver um tamanho válido (evita erros com strings vazias)
-                if (cleanPhone.length >= 10) {
-                    await connection.query("UPDATE users SET phone = ? WHERE id = ?", [cleanPhone, req.user.id]);
-                }
-            } catch (phoneError) {
-                // Apenas loga o erro no servidor, mas NÃO interrompe a venda do cliente
-                console.error("Aviso (Não Crítico): Não foi possível atualizar o telefone do usuário no pedido:", phoneError.message);
-            }
-        }
 
         // 1. Recalcular Subtotal e Validar Estoque
         let calculatedSubtotal = 0;
