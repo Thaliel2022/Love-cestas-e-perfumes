@@ -3920,11 +3920,13 @@ const RegisterPage = ({ onNavigate }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState(''); // Novo estado para confirmação
     const [cpf, setCpf] = useState('');
-    const [phone, setPhone] = useState(''); // Novo estado para celular
+    const [phone, setPhone] = useState(''); 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -3943,22 +3945,29 @@ const RegisterPage = ({ onNavigate }) => {
         e.preventDefault();
         setError('');
         
+        // Validação de Senha Fraca
         if (password.length < 6) {
-             setError("A senha deve ter pelo menos 6 caracteres.");
+             setError("A senha é muito fraca. Deve ter pelo menos 6 caracteres.");
              return;
         }
+        
+        // Validação de Senhas Iguais
+        if (password !== confirmPassword) {
+             setError("As senhas não coincidem. Por favor, verifique.");
+             return;
+        }
+
         if (!validateCPF(cpf)) {
             setError("O CPF informado é inválido.");
             return;
         }
-        if (!validatePhone(phone)) { // Nova validação
+        if (!validatePhone(phone)) {
             setError("O número de celular informado é inválido.");
             return;
         }
 
         setIsLoading(true);
         try {
-            // Passando 'phone' para a função de registro
             await register(name, email, password, cpf, phone); 
             notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
             setTimeout(() => onNavigate('login'), 2000);
@@ -3991,14 +4000,13 @@ const RegisterPage = ({ onNavigate }) => {
                     <p className="text-gray-400 mt-2 text-sm sm:text-base">É rápido e fácil.</p>
                 </motion.div>
 
-                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm font-bold border border-red-800">{error}</p>}
                 
                 <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     
-                    {/* Novo Campo de Celular */}
                     <div className="relative">
                         <input 
                             type="text" 
@@ -4026,6 +4034,25 @@ const RegisterPage = ({ onNavigate }) => {
                             className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
                         >
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                        </button>
+                    </div>
+
+                    {/* Campo Repetir Senha */}
+                    <div className="relative">
+                        <input
+                            type={isConfirmPasswordVisible ? 'text' : 'password'}
+                            placeholder="Repita a Senha"
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
+                            required
+                            className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border rounded-md focus:outline-none focus:ring-1 transition-all pr-10 text-sm sm:text-base ${confirmPassword && password !== confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-gray-700 focus:ring-amber-400'}`}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
+                        >
+                            {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
                     
