@@ -749,63 +749,67 @@ app.post('/api/upload/image', verifyToken, imageUpload, async (req, res) => {
 
 // --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
 app.post('/api/register', [
-    body('name', 'O nome é obrigatório').notEmpty().trim().escape(),
-    body('email', 'Por favor, inclua um e-mail válido').isEmail().normalizeEmail(),
-    body('password', 'A senha deve ter no mínimo 6 caracteres').isLength({ min: 6 }),
-    body('cpf').custom(value => {
-        const cpf = String(value).replace(/[^\d]/g, '');
-        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) throw new Error('CPF inválido');
-        let sum = 0, remainder;
-        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(9, 10))) throw new Error('CPF inválido');
-        sum = 0;
-        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
-        return true;
-    })
+    body('name', 'O nome é obrigatório').notEmpty().trim().escape(),
+    body('email', 'Por favor, inclua um e-mail válido').isEmail().normalizeEmail(),
+    body('password', 'A senha deve ter no mínimo 6 caracteres').isLength({ min: 6 }),
+    body('cpf').custom(value => {
+        const cpf = String(value).replace(/[^\d]/g, '');
+        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) throw new Error('CPF inválido');
+        let sum = 0, remainder;
+        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(cpf.substring(9, 10))) throw new Error('CPF inválido');
+        sum = 0;
+        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
+        return true;
+    }),
+    body('phone', 'Número de telefone inválido').optional().isLength({ min: 10 }) // Validação do telefone
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    const { name, email, password, cpf } = req.body;
+    // Recebe 'phone' do body
+    const { name, email, password, cpf, phone } = req.body;
 
-    if (!isValidEmail(email)) {
-        return res.status(400).json({ message: "Formato de e-mail inválido." });
-    }
-    if (password.length < 6) {
-        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres." });
-    }
+    if (!isValidEmail(email)) {
+        return res.status(400).json({ message: "Formato de e-mail inválido." });
+    }
+    if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres." });
+    }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-        const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`) VALUES (?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword]);
-        
-        sendEmailAsync({
-            from: FROM_EMAIL,
-            to: email,
-            subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
-            html: createWelcomeEmail(name),
-        });
+    try {
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        // Insere o telefone no banco
+        const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`, `phone`) VALUES (?, ?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword, phone ? phone.replace(/\D/g, '') : null]);
+        
+        sendEmailAsync({
+            from: FROM_EMAIL,
+            to: email,
+            subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
+            html: createWelcomeEmail(name),
+        });
 
-        res.status(201).json({ message: "Usuário registrado com sucesso!", userId: result.insertId });
+        res.status(201).json({ message: "Usuário registrado com sucesso!", userId: result.insertId });
 
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            const message = err.message.includes('email')
-                ? "Este e-mail já está em uso."
-                : "Este CPF já está cadastrado.";
-            return res.status(409).json({ message });
-        }
-        console.error("Erro ao registrar usuário:", err);
-        res.status(500).json({ message: "Erro interno ao registrar usuário." });
-    }
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            const message = err.message.includes('email')
+                ? "Este e-mail já está em uso."
+                : "Este CPF já está cadastrado.";
+            return res.status(409).json({ message });
+        }
+        console.error("Erro ao registrar usuário:", err);
+        res.status(500).json({ message: "Erro interno ao registrar usuário." });
+    }
 });
+
 
 app.post('/api/login', [
     body('email', 'Email inválido').isEmail().normalizeEmail(),
@@ -2602,15 +2606,19 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// Atualização da rota POST /api/orders para validar regras de cupom no servidor
 app.post('/api/orders', verifyToken, async (req, res) => {
-    const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details } = req.body;
+    const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details, phone } = req.body;
     
     if (!req.user.id || !items || items.length === 0) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
     try {
         await connection.beginTransaction();
+
+        // 0. Atualizar telefone do usuário se fornecido
+        if (phone) {
+            await connection.query("UPDATE users SET phone = ? WHERE id = ?", [phone.replace(/\D/g, ''), req.user.id]);
+        }
 
         // 1. Recalcular Subtotal e Validar Estoque
         let calculatedSubtotal = 0;
@@ -2665,13 +2673,13 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                     if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
                 }
 
-                // C. Validação de Primeira Compra (RESTAURADO)
+                // C. Validação de Primeira Compra
                 if (coupon.is_first_purchase) {
                     const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
                     if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
                 }
 
-                // D. Validação de Uso Único (RESTAURADO)
+                // D. Validação de Uso Único
                 if (coupon.is_single_use_per_user) {
                     const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
                     if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
@@ -2713,8 +2721,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                     }
                 } else {
                     console.log(`[Checkout] Cupom ${coupon_code} inválido no servidor: ${errorMsg}`);
-                    // Opcional: Lançar erro se quiser bloquear a compra em caso de cupom inválido
-                    // throw new Error(errorMsg); 
                 }
             }
         }

@@ -92,6 +92,19 @@ const maskCPF = (value) => {
         .substring(0, 14);
 };
 
+const maskPhone = (value) => {
+    return value
+        .replace(/\D/g, '')
+        .replace(/^(\d{2})(\d)/g, '($1) $2')
+        .replace(/(\d)(\d{4})$/, '$1-$2')
+        .substring(0, 15);
+};
+
+const validatePhone = (phone) => {
+    const cleanPhone = phone.replace(/\D/g, '');
+    return cleanPhone.length >= 10 && cleanPhone.length <= 11;
+};
+
 const maskCEP = (value) => {
     return value
         .replace(/\D/g, '')
@@ -3908,6 +3921,7 @@ const RegisterPage = ({ onNavigate }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [cpf, setCpf] = useState('');
+    const [phone, setPhone] = useState(''); // Novo estado para celular
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -3928,6 +3942,7 @@ const RegisterPage = ({ onNavigate }) => {
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');
+        
         if (password.length < 6) {
              setError("A senha deve ter pelo menos 6 caracteres.");
              return;
@@ -3936,10 +3951,15 @@ const RegisterPage = ({ onNavigate }) => {
             setError("O CPF informado é inválido.");
             return;
         }
+        if (!validatePhone(phone)) { // Nova validação
+            setError("O número de celular informado é inválido.");
+            return;
+        }
 
         setIsLoading(true);
         try {
-            await register(name, email, password, cpf);
+            // Passando 'phone' para a função de registro
+            await register(name, email, password, cpf, phone); 
             notification.show("Usuário registrado com sucesso! Você já pode fazer o login.");
             setTimeout(() => onNavigate('login'), 2000);
         } catch (err) {
@@ -3954,28 +3974,43 @@ const RegisterPage = ({ onNavigate }) => {
         setCpf(maskCPF(e.target.value));
     };
 
+    const handlePhoneChange = (e) => {
+        setPhone(maskPhone(e.target.value));
+    };
+
     return (
-        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6">
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                 // --- MODIFICAÇÃO: Estilo do card de registro, cores e responsividade ---
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800"
             >
                 <motion.div variants={itemVariants} className="text-center mb-6">
-                    {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                     <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Crie Sua Conta</h2>
                     <p className="text-gray-400 mt-2 text-sm sm:text-base">É rápido e fácil.</p>
                 </motion.div>
 
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
-                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4"> {/* Reduzido space-y */}
-                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
+                
+                <motion.form variants={itemVariants} onSubmit={handleRegister} className="space-y-4">
                     <input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
                     <input type="text" placeholder="CPF" value={cpf} onChange={handleCpfChange} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all text-sm sm:text-base" />
+                    
+                    {/* Novo Campo de Celular */}
+                    <div className="relative">
+                        <input 
+                            type="text" 
+                            placeholder="Celular / WhatsApp" 
+                            value={phone} 
+                            onChange={handlePhoneChange} 
+                            required 
+                            className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 transition-all pl-10 text-sm sm:text-base" 
+                        />
+                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    </div>
+
                     <div className="relative">
                         <input
                             type={isPasswordVisible ? 'text' : 'password'}
@@ -3993,12 +4028,12 @@ const RegisterPage = ({ onNavigate }) => {
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
-                     {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
+                    
                     <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                         {isLoading ? <SpinnerIcon /> : 'Registrar'}
                     </button>
                 </motion.form>
-                {/* --- MODIFICAÇÃO: Tamanho de texto do link --- */}
+                
                  <motion.div variants={itemVariants} className="text-center mt-5 text-xs sm:text-sm">
                      <p className="text-gray-400">
                         Já tem uma conta?{' '}
@@ -4646,7 +4681,6 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
 // Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
 
 const CheckoutPage = ({ onNavigate }) => {
-    // console.log(`%c--- Rendering CheckoutPage ---`, 'color: yellow; font-weight: bold;'); // Log opcional
     const { user } = useAuth();
     const {
         cart,
@@ -4671,16 +4705,22 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
 
-    // Estados que armazenam o valor FINAL (atualizado no onBlur)
+    // Campos de Retirada
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // --- REMOVIDO: Estado visual 'displayPickupCpf' não é mais necessário ---
+    // Novo Estado para WhatsApp
+    const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- Efeito para buscar e definir endereço inicial ---
-    // (Lógica mantida)
+    // Efeito para preencher WhatsApp e dados iniciais
     useEffect(() => {
         setIsAddressLoading(true);
+        
+        // Preenche o WhatsApp com o do cadastro se existir
+        if (user && user.phone) {
+            setWhatsapp(maskPhone(user.phone));
+        }
+
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
             if (shippingLocation && shippingLocation.cep) {
@@ -4710,32 +4750,27 @@ const CheckoutPage = ({ onNavigate }) => {
         }).finally(() => {
             setIsAddressLoading(false);
         });
-    }, [fetchAddresses, shippingLocation, setShippingLocation]);
+    }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
-    // --- Efeito para definir os VALORES INICIAIS (para defaultValue) ---
-    // (Aplica máscara no CPF aqui para valor inicial)
+    // Efeito para valores iniciais de retirada
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
-            setPickupPersonCpf(maskCPF(user.cpf || '')); // Define o valor principal já mascarado
+            setPickupPersonCpf(maskCPF(user.cpf || '')); 
         } else {
-            // Limpa o estado principal
             setPickupPersonName('');
             setPickupPersonCpf('');
         }
     }, [user, isSomeoneElsePickingUp]);
 
-
-    // --- Funções de seleção de frete/endereço ---
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
         setSelectedShippingName(option.name);
         if(option.isPickup) {
             setDisplayAddress(null);
-            // Redefine valores iniciais ao selecionar Retirada
             if (!isSomeoneElsePickingUp && user) {
                 setPickupPersonName(user.name || '');
-                setPickupPersonCpf(maskCPF(user.cpf || '')); // Define estado principal
+                setPickupPersonCpf(maskCPF(user.cpf || '')); 
             } else {
                  setPickupPersonName('');
                  setPickupPersonCpf('');
@@ -4748,15 +4783,18 @@ const CheckoutPage = ({ onNavigate }) => {
              }
         }
     };
+
     const handleAddressSelection = (address) => {
         setDisplayAddress(address);
         setShippingLocation({ cep: address.cep, city: address.localidade, state: address.uf, alias: address.alias });
         setIsAddressModalOpen(false);
     };
+    
     const handleAddNewAddress = () => {
         setIsAddressModalOpen(false);
         setIsNewAddressModalOpen(true);
     };
+    
     const handleSaveNewAddress = async (formData) => {
         try {
             const savedAddress = await apiService('/addresses', 'POST', formData);
@@ -4771,7 +4809,10 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- Cálculos de Valores (COM CORREÇÃO NaN) ---
+    const handleWhatsappChange = (e) => {
+        setWhatsapp(maskPhone(e.target.value));
+    };
+
     const subtotal = useMemo(() => {
         return cart.reduce((sum, item) => {
             const price = Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0;
@@ -4779,9 +4820,9 @@ const CheckoutPage = ({ onNavigate }) => {
             return sum + (price * quantity);
         }, 0);
     }, [cart]);
-    const shippingCost = useMemo(() => {
-        return Number(autoCalculatedShipping?.price) || 0;
-    }, [autoCalculatedShipping]);
+    
+    const shippingCost = useMemo(() => Number(autoCalculatedShipping?.price) || 0, [autoCalculatedShipping]);
+    
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         let val = 0;
@@ -4798,19 +4839,29 @@ const CheckoutPage = ({ onNavigate }) => {
         const currentTotalBeforeDiscount = currentSubtotal + currentShippingCost;
         return Math.max(0, (appliedCoupon.type !== 'free_shipping' && val > currentTotalBeforeDiscount) ? currentTotalBeforeDiscount : val);
     }, [appliedCoupon, subtotal, shippingCost]);
+    
     const total = useMemo(() => {
         const finalTotal = (Number(subtotal) || 0) - (Number(discount) || 0) + (Number(shippingCost) || 0);
         return Math.max(0, finalTotal);
     }, [subtotal, discount, shippingCost]);
 
-    // --- Finalizar Pedido (usa pickupPersonCpf) ---
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
+        
+        // Validações básicas
         if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
             notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
         }
+        
+        // Validação WhatsApp
+        if (!whatsapp || !validatePhone(whatsapp)) {
+            notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error');
+            return;
+        }
+
         const nameToCheck = isSomeoneElsePickingUp ? pickupPersonName : user?.name;
         const cpfToCheck = isSomeoneElsePickingUp ? pickupPersonCpf : user?.cpf;
+        
         if (isPickup && (!nameToCheck || !validateCPF(cpfToCheck))) {
             if(!isSomeoneElsePickingUp && !user) {
                  notification.show("Faça login ou marque 'Outra pessoa vai retirar?' e preencha os dados.", 'error');
@@ -4828,11 +4879,17 @@ const CheckoutPage = ({ onNavigate }) => {
 
             const orderPayload = {
                 items: cart.map(item => ({ id: item.id, qty: item.qty, price: (item.is_on_sale && item.sale_price ? item.sale_price : item.price), variation: item.variation })),
-                total, shippingAddress: finalShippingAddress, paymentMethod,
-                shipping_method: autoCalculatedShipping.name, shipping_cost: shippingCost,
-                coupon_code: appliedCoupon?.code || null, discount_amount: discount,
+                total, 
+                shippingAddress: finalShippingAddress, 
+                paymentMethod,
+                shipping_method: autoCalculatedShipping.name, 
+                shipping_cost: shippingCost,
+                coupon_code: appliedCoupon?.code || null, 
+                discount_amount: discount,
                 pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
+                phone: whatsapp.replace(/\D/g, '') // Envia apenas números
             };
+            
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
             if (paymentMethod === 'mercadopago') {
@@ -4850,9 +4907,8 @@ const CheckoutPage = ({ onNavigate }) => {
         }
     };
 
-    // --- Funções Auxiliares ---
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    // CORREÇÃO: Função getDeliveryDateText (mantida da correção anterior)
+    
     const getDeliveryDateText = (deliveryTime) => {
         const timeInDays = Number(deliveryTime);
         if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
@@ -4872,7 +4928,6 @@ const CheckoutPage = ({ onNavigate }) => {
         return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
 
-    // --- Componente de Seção ---
     const CheckoutSection = ({ title, step, children, icon: Icon }) => (
          <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
             <div className="flex items-center gap-3 p-4 border-b border-gray-700">
@@ -4885,32 +4940,17 @@ const CheckoutPage = ({ onNavigate }) => {
         </div>
     );
 
-    // --- Handlers para os inputs de retirada (AMBOS com onBlur) ---
-    const handlePickupNameBlur = (e) => {
-        setPickupPersonName(e.target.value); // Atualiza o estado principal no blur
-    };
-
-    // Handler para aplicar máscara VISUALMENTE no CPF a cada digitação (onInput)
-    const handleCpfInputChangeMask = (e) => {
-        e.target.value = maskCPF(e.target.value); // Manipula o DOM
-    };
-
-    // Handler para atualizar o estado PRINCIPAL do CPF no blur
-    const handlePickupCpfBlur = (e) => {
-        setPickupPersonCpf(maskCPF(e.target.value)); // Atualiza estado principal
-    };
-
+    const handlePickupNameBlur = (e) => { setPickupPersonName(e.target.value); };
+    const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
+    const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
 
     return (
         <>
-            {/* Modais */}
             <AddressSelectionModal isOpen={isAddressModalOpen} onClose={() => setIsAddressModalOpen(false)} addresses={addresses} onSelectAddress={handleAddressSelection} onAddNewAddress={handleAddNewAddress} />
             <Modal isOpen={isNewAddressModalOpen} onClose={() => setIsNewAddressModalOpen(false)} title="Adicionar Novo Endereço"><AddressForm onSave={handleSaveNewAddress} onCancel={() => setIsNewAddressModalOpen(false)} /></Modal>
 
-            {/* Conteúdo da Página */}
             <div className="bg-black text-white min-h-screen py-8 sm:py-12">
                 <div className="container mx-auto px-4">
-                    {/* Botão Voltar */}
                     <button onClick={() => onNavigate('cart')} className="text-sm text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1.5 mb-6 w-fit bg-gray-800/50 hover:bg-gray-700/50 px-3 py-1.5 rounded-md border border-gray-700">
                         <ArrowUturnLeftIcon className="h-4 w-4"/> Voltar ao Carrinho
                     </button>
@@ -4918,10 +4958,36 @@ const CheckoutPage = ({ onNavigate }) => {
                     <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center sm:text-left">Finalizar Pedido</h1>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12 items-start">
 
-                        {/* Coluna Esquerda */}
                         <div className="lg:col-span-2 space-y-8">
-                            {/* Seção Forma de Entrega */}
-                            <CheckoutSection title="Forma de Entrega" step={1} icon={TruckIcon}>
+                            
+                            {/* NOVA SEÇÃO: CONTATO (WhatsApp) */}
+                            <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">WhatsApp para notificações do pedido <span className="text-red-500">*</span></label>
+                                        <div className="relative">
+                                            <input 
+                                                type="text" 
+                                                value={whatsapp} 
+                                                onChange={handleWhatsappChange} 
+                                                placeholder="(00) 00000-0000" 
+                                                className="w-full pl-10 p-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-400 text-white" 
+                                            />
+                                            <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-green-500" />
+                                        </div>
+                                    </div>
+                                    <div className="bg-blue-900/30 border border-blue-800 p-3 rounded-md flex gap-3 items-start">
+                                        <ExclamationCircleIcon className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                                        <p className="text-sm text-blue-200">
+                                            Manteremos você informado sobre cada etapa do seu pedido (aprovação, envio e entrega) através deste número. 
+                                            <br/>
+                                            <span className="text-xs text-gray-400 mt-1 block">Caso altere o número aqui, seu cadastro será atualizado automaticamente.</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </CheckoutSection>
+
+                            <CheckoutSection title="Forma de Entrega" step={2} icon={TruckIcon}>
                                 <div className="space-y-3">
                                     {shippingOptions.map(option => (
                                         <div key={option.name} onClick={() => handleSelectShipping(option)}
@@ -4941,7 +5007,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </div>
                             </CheckoutSection>
 
-                            {/* Seção Endereço ou Detalhes de Retirada */}
                             {autoCalculatedShipping?.isPickup ? (
                                 <CheckoutSection title="Detalhes da Retirada" icon={BoxIcon}>
                                      <div className="text-sm bg-gray-800 p-4 rounded-md space-y-2 border border-gray-700">
@@ -4956,34 +5021,12 @@ const CheckoutPage = ({ onNavigate }) => {
                                             <input type="checkbox" id="pickup-checkbox" checked={isSomeoneElsePickingUp} onChange={(e) => setIsSomeoneElsePickingUp(e.target.checked)} className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-amber-500 focus:ring-amber-600 ring-offset-gray-900"/>
                                             <label htmlFor="pickup-checkbox" className="ml-2 text-sm text-gray-300">Outra pessoa vai retirar?</label>
                                         </div>
-                                        {/* --- CORREÇÃO: Usando defaultValue + onBlur para AMBOS --- */}
                                         {isSomeoneElsePickingUp && (
-                                            <div
-                                                // Key para forçar remonte com defaultValue correto
-                                                key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"}
-                                                className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700"
-                                            >
-                                                {/* Input de Nome NÃO CONTROLADO (como funcionava) */}
-                                                <input
-                                                    type="text"
-                                                    defaultValue={pickupPersonName} // Valor inicial
-                                                    onBlur={handlePickupNameBlur} // Atualiza estado no blur
-                                                    placeholder="Nome completo de quem vai retirar"
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
-                                                {/* Input de CPF NÃO CONTROLADO (mesma lógica do Nome) */}
-                                                <input
-                                                    type="text"
-                                                    defaultValue={pickupPersonCpf} // Valor inicial (já mascarado)
-                                                    onInput={handleCpfInputChangeMask} // Aplica máscara VISUALMENTE
-                                                    onBlur={handlePickupCpfBlur} // Atualiza estado PRINCIPAL no blur
-                                                    placeholder="CPF de quem vai retirar"
-                                                    maxLength="14" // Limite visual
-                                                    className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"
-                                                />
+                                            <div key={isSomeoneElsePickingUp ? "pickup-form-on" : "pickup-form-off"} className="space-y-2 overflow-hidden bg-gray-800 p-3 rounded-md border border-gray-700">
+                                                <input type="text" defaultValue={pickupPersonName} onBlur={handlePickupNameBlur} placeholder="Nome completo de quem vai retirar" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
+                                                <input type="text" defaultValue={pickupPersonCpf} onInput={handleCpfInputChangeMask} onBlur={handlePickupCpfBlur} placeholder="CPF de quem vai retirar" maxLength="14" className="w-full p-2 bg-gray-700 border-gray-600 border rounded text-sm"/>
                                             </div>
                                         )}
-                                        {/* --- FIM DA CORREÇÃO --- */}
                                     </div>
                                 </CheckoutSection>
                             ) : (
@@ -5019,8 +5062,7 @@ const CheckoutPage = ({ onNavigate }) => {
                                 </CheckoutSection>
                             )}
 
-                            {/* Seção Forma de Pagamento */}
-                            <CheckoutSection title="Forma de Pagamento" step={2} icon={CreditCardIcon}>
+                            <CheckoutSection title="Forma de Pagamento" step={3} icon={CreditCardIcon}>
                                 <div className="space-y-3">
                                     <div onClick={() => setPaymentMethod('mercadopago')}
                                          className={`relative p-4 rounded-lg border-2 transition cursor-pointer flex items-center gap-4 ${paymentMethod === 'mercadopago' ? 'border-amber-400 bg-gray-800 shadow-inner' : 'border-gray-700 hover:border-gray-600 bg-gray-800/50'}`}>
@@ -5038,7 +5080,6 @@ const CheckoutPage = ({ onNavigate }) => {
                             </CheckoutSection>
                         </div> 
 
-                        {/* Coluna Direita: Resumo */}
                         <div className="lg:col-span-1">
                              <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 lg:p-6 shadow-lg h-fit lg:sticky lg:top-24">
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
