@@ -2614,9 +2614,10 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // ATUALIZAÇÃO: Salva o novo telefone no perfil do usuário
-        if (phone) {
-            await connection.query("UPDATE users SET phone = ? WHERE id = ?", [phone.replace(/\D/g, ''), req.user.id]);
+        // ATUALIZAÇÃO ROBUSTA: Só tenta atualizar se 'phone' for enviado e tiver números
+        if (phone && phone.replace(/\D/g, '').length >= 10) {
+            const cleanPhone = phone.replace(/\D/g, '');
+            await connection.query("UPDATE users SET phone = ? WHERE id = ?", [cleanPhone, req.user.id]);
         }
 
         // 1. Recalcular Subtotal e Validar Estoque
@@ -2662,19 +2663,23 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                 let isValid = true;
                 let errorMsg = "";
 
+                // A. Validação Básica
                 if (!coupon.is_active) { isValid = false; errorMsg = "Cupom inativo."; }
                 
+                // B. Validação de Prazo
                 if (coupon.validity_days) {
                     const createdAt = new Date(coupon.created_at);
                     const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
                     if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
                 }
 
+                // C. Validação de Primeira Compra
                 if (coupon.is_first_purchase) {
                     const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
                     if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
                 }
 
+                // D. Validação de Uso Único
                 if (coupon.is_single_use_per_user) {
                     const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
                     if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
@@ -2714,6 +2719,8 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                             }
                         }
                     }
+                } else {
+                    console.log(`[Checkout] Cupom ${coupon_code} inválido no servidor: ${errorMsg}`);
                 }
             }
         }
@@ -2765,12 +2772,12 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     } catch (err) {
         await connection.rollback();
         console.error("Erro ao criar pedido:", err);
+        // Retorna a mensagem real do erro para o frontend ajudar no debug
         res.status(500).json({ message: err.message || "Falha ao criar o pedido." });
     } finally {
         connection.release();
     }
 });
-
 app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     const { id } = req.params;
     const { address } = req.body;
