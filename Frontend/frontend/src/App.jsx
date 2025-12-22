@@ -3945,7 +3945,7 @@ const RegisterPage = ({ onNavigate }) => {
     // Helper para calcular força da senha
     const getPasswordStrength = (pass) => {
         if (!pass) return { label: '', color: '' };
-        if (pass.length < 6) return { label: 'Fraca (mínimo 6 dígitos)', color: 'text-red-500' };
+        if (pass.length < 6) return { label: 'Fraca (mín. 6)', color: 'text-red-500' };
         if (pass.length < 8) return { label: 'Média', color: 'text-yellow-500' };
         return { label: 'Forte', color: 'text-green-500' };
     };
@@ -4048,7 +4048,7 @@ const RegisterPage = ({ onNavigate }) => {
                         </button>
                     </div>
 
-                    {/* Campo Repetir Senha */}
+                    {/* Campo Repetir Senha + Feedbacks */}
                     <div>
                         <div className="relative">
                             <input
@@ -4068,10 +4068,10 @@ const RegisterPage = ({ onNavigate }) => {
                             </button>
                         </div>
                         
-                        {/* Container de Feedback de Senha (Força e Erro) */}
-                        <div className="flex justify-between items-start mt-1 px-1">
+                        {/* Container Unificado para Feedback de Senha */}
+                        <div className="flex justify-between items-center mt-1.5 px-1 min-h-[20px]">
                             {/* Aviso de Senhas Diferentes (Esquerda) */}
-                            <div className="text-left">
+                            <div className="flex-1">
                                 {showMismatch && (
                                     <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-pulse">
                                         <ExclamationCircleIcon className="h-3 w-3 inline"/> As senhas não coincidem.
@@ -4081,8 +4081,9 @@ const RegisterPage = ({ onNavigate }) => {
 
                             {/* Indicador de Força da Senha (Direita) */}
                             {password && (
-                                <div className="text-right text-xs font-semibold">
-                                    Força: <span className={passStrength.color}>{passStrength.label}</span>
+                                <div className="text-right text-xs font-medium ml-2">
+                                    <span className="text-gray-400 mr-1">Força:</span>
+                                    <span className={`${passStrength.color} font-bold`}>{passStrength.label}</span>
                                 </div>
                             )}
                         </div>
