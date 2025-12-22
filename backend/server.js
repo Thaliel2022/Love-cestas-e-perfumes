@@ -2642,12 +2642,25 @@ app.post('/api/orders', verifyToken, async (req, res) => {
 
             // Validação de Estoque
             if (product.product_type === 'clothing') {
-                if (!item.variation?.color || !item.variation?.size) throw new Error(`Variação inválida para ${item.name}.`);
+                // CORREÇÃO: Usa o nome do produto do banco de dados na mensagem de erro
+                // Verifica se item.variation existe e tem as propriedades necessárias
+                if (!item.variation || !item.variation.color || !item.variation.size) {
+                    throw new Error(`Variação (cor/tamanho) inválida ou ausente para o produto "${product.name}".`);
+                }
                 const variations = JSON.parse(product.variations || '[]');
                 const vIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
-                if (vIndex === -1 || variations[vIndex].stock < item.qty) throw new Error(`Estoque insuficiente para ${item.name} (${item.variation.color}).`);
+                
+                if (vIndex === -1) {
+                     throw new Error(`A variação ${item.variation.color} / ${item.variation.size} não está disponível para "${product.name}".`);
+                }
+                
+                if (variations[vIndex].stock < item.qty) {
+                    throw new Error(`Estoque insuficiente para "${product.name}" (${item.variation.color}/${item.variation.size}). Disponível: ${variations[vIndex].stock}.`);
+                }
             } else {
-                if (product.stock < item.qty) throw new Error(`Estoque insuficiente para ${product.name}.`);
+                if (product.stock < item.qty) {
+                    throw new Error(`Estoque insuficiente para "${product.name}". Disponível: ${product.stock}.`);
+                }
             }
 
             // Preço Oficial do Banco
