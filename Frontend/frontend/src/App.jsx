@@ -4732,6 +4732,7 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
+// [SEÇÃO AFETADA]: CheckoutSection (Componente Auxiliar - Coloque ANTES da CheckoutPage)
 const CheckoutSection = ({ title, step, children, icon: Icon }) => (
      <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
         <div className="flex items-center gap-3 p-4 border-b border-gray-700">
@@ -4744,6 +4745,7 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
     </div>
 );
 
+// [SEÇÃO AFETADA]: CheckoutPage (Código Completo sem cortes)
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
@@ -4768,45 +4770,54 @@ const CheckoutPage = ({ onNavigate }) => {
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
     const [isNewAddressModalOpen, setIsNewAddressModalOpen] = useState(false);
     const [isSomeoneElsePickingUp, setIsSomeoneElsePickingUp] = useState(false);
-
-    // Campos de Retirada
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
-
-    // Estado para WhatsApp
     const [whatsapp, setWhatsapp] = useState(''); 
 
     // Efeito para preencher WhatsApp e dados iniciais
     useEffect(() => {
         setIsAddressLoading(true);
-        
-        // CORREÇÃO: Preenche automaticamente se o usuário tiver telefone salvo
         if (user && user.phone) {
             setWhatsapp(maskPhone(user.phone));
         }
 
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
+            
+            // Lógica melhorada para selecionar endereço válido
             if (shippingLocation && shippingLocation.cep) {
+                // Tenta achar um endereço salvo COMPLETO com este CEP
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
-                    (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual' ? addr.alias === shippingLocation.alias : true)
+                    addr.logradouro && addr.numero && addr.bairro // Garante que tem dados
                 );
+                
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
+                    // Se não tem endereço salvo, usa o shippingLocation temporário mas marca como incompleto visualmente
+                    // O usuário terá que cadastrar para finalizar
                     addressToSet = {
-                        cep: shippingLocation.cep, localidade: shippingLocation.city, uf: shippingLocation.state, alias: shippingLocation.alias,
-                        logradouro: '', numero: '', bairro: '', is_default: false, id: Date.now()
+                        cep: shippingLocation.cep,
+                        localidade: shippingLocation.city,
+                        uf: shippingLocation.state,
+                        alias: 'Endereço Incompleto (Preencha os dados)', // Aviso visual
+                        logradouro: '',
+                        numero: '',
+                        bairro: '',
+                        is_incomplete: true // Flag para validação
                     };
                 }
             }
+
             if (!addressToSet) {
+                // Pega o padrão ou o primeiro válido
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
+            
             setDisplayAddress(addressToSet);
 
-            if (addressToSet && addressToSet.cep !== shippingLocation?.cep) {
+            if (addressToSet && addressToSet.cep && addressToSet.cep !== shippingLocation?.cep) {
                  setShippingLocation({
                     cep: addressToSet.cep, city: addressToSet.localidade, state: addressToSet.uf, alias: addressToSet.alias
                  });
@@ -4909,12 +4920,64 @@ const CheckoutPage = ({ onNavigate }) => {
         return Math.max(0, finalTotal);
     }, [subtotal, discount, shippingCost]);
 
+    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
+    
+    const getDeliveryDateText = (deliveryTime) => {
+        const timeInDays = Number(deliveryTime);
+        if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
+
+        const date = new Date();
+        let addedBusinessDays = 0;
+        date.setDate(date.getDate() + 1);
+        if (date.getDay() === 0) date.setDate(date.getDate() + 1);
+        else if (date.getDay() === 6) date.setDate(date.getDate() + 2);
+
+        while (addedBusinessDays < timeInDays) {
+            date.setDate(date.getDate() + 1);
+            if (date.getDay() !== 0 && date.getDay() !== 6) {
+                addedBusinessDays++;
+            }
+        }
+        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
+    };
+
+    const handlePickupNameBlur = (e) => { setPickupPersonName(e.target.value); };
+    const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
+    const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
+
+    // Validação Robusta para Habilitar o Botão
+    const canPlaceOrder = useMemo(() => {
+        const isPickup = autoCalculatedShipping?.isPickup;
+        
+        // Se for retirada, valida apenas os dados da pessoa
+        if (isPickup) {
+             if (isSomeoneElsePickingUp) {
+                 return pickupPersonName.length > 3 && pickupPersonCpf.length >= 11;
+             }
+             return true; // Se for o próprio usuário, ok (dados vêm do cadastro)
+        }
+
+        // Se for entrega, valida o endereço
+        if (!displayAddress) return false;
+        
+        // Verifica se os campos obrigatórios estão preenchidos e não são "N/A" ou vazios
+        const hasValidStreet = displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '';
+        const hasValidNumber = displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '';
+        const hasValidNeighborhood = displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '';
+        const isNotMarkedIncomplete = !displayAddress.is_incomplete;
+
+        return hasValidStreet && hasValidNumber && hasValidNeighborhood && isNotMarkedIncomplete;
+    }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
+
+
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         
-        // Validações básicas
-        if ((!displayAddress && !isPickup) || !paymentMethod || !autoCalculatedShipping) {
-            notification.show("Selecione a forma de entrega e o endereço (se aplicável).", 'error'); return;
+        if (!canPlaceOrder && !isPickup) {
+             notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
+             // Abre o modal de novo endereço automaticamente para facilitar
+             setIsNewAddressModalOpen(true); 
+             return;
         }
         
         // Validação WhatsApp
@@ -4970,31 +5033,6 @@ const CheckoutPage = ({ onNavigate }) => {
             setIsLoading(false);
         }
     };
-
-    const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
-    
-    const getDeliveryDateText = (deliveryTime) => {
-        const timeInDays = Number(deliveryTime);
-        if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
-
-        const date = new Date();
-        let addedBusinessDays = 0;
-        date.setDate(date.getDate() + 1);
-        if (date.getDay() === 0) date.setDate(date.getDate() + 1);
-        else if (date.getDay() === 6) date.setDate(date.getDate() + 2);
-
-        while (addedBusinessDays < timeInDays) {
-            date.setDate(date.getDate() + 1);
-            if (date.getDay() !== 0 && date.getDay() !== 6) {
-                addedBusinessDays++;
-            }
-        }
-        return `Previsão: ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
-    };
-
-    const handlePickupNameBlur = (e) => { setPickupPersonName(e.target.value); };
-    const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
-    const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
 
     return (
         <>
@@ -5085,29 +5123,30 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <CheckoutSection title="Endereço de Entrega" icon={MapPinIcon}>
                                      {isAddressLoading ? (
                                         <div className="flex justify-center items-center h-24"><SpinnerIcon className="h-6 w-6 text-amber-400"/></div>
-                                    ) : displayAddress ? (
-                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700">
+                                    ) : displayAddress && !displayAddress.is_incomplete ? (
+                                        <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
                                                 {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero || 'N/A'} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade || 'N/A'} - {displayAddress.uf || 'N/A'}</p>
-                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep || 'N/A'}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Nº:</span> {displayAddress.numero} {displayAddress.complemento && `- ${displayAddress.complemento}`}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Bairro:</span> {displayAddress.bairro}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">Cidade:</span> {displayAddress.localidade} - {displayAddress.uf}</p>
+                                                <p><span className="font-semibold text-gray-500 w-16 inline-block">CEP:</span> {displayAddress.cep}</p>
                                             </div>
                                             <button onClick={() => setIsAddressModalOpen(true)} className="text-amber-400 hover:text-amber-300 mt-4 font-semibold text-sm flex items-center gap-1">
                                                 <EditIcon className="h-4 w-4"/> Alterar Endereço
                                             </button>
                                         </div>
                                     ) : (
-                                        <div className="text-center p-6 bg-gray-800 rounded-md border border-gray-700">
-                                            <MapPinIcon className="h-10 w-10 mx-auto text-gray-500 mb-3"/>
-                                            <p className="text-gray-400 mb-4 text-sm">Nenhum endereço selecionado ou cadastrado.</p>
-                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto">
-                                                <PlusIcon className="h-4 w-4"/> Adicionar Endereço
+                                        <div className="text-center p-6 bg-red-900/20 rounded-md border border-red-800">
+                                            <MapPinIcon className="h-10 w-10 mx-auto text-red-500 mb-3"/>
+                                            <p className="text-red-200 font-bold mb-2 text-sm">Endereço Incompleto</p>
+                                            <p className="text-gray-400 mb-4 text-xs">Precisamos do nome da rua e número para entregar.</p>
+                                            <button onClick={() => setIsNewAddressModalOpen(true)} className="bg-amber-500 text-black px-5 py-2 rounded-md hover:bg-amber-400 font-bold text-sm flex items-center gap-2 mx-auto animate-pulse">
+                                                <PlusIcon className="h-4 w-4"/> Preencher Endereço
                                             </button>
                                         </div>
                                     )}
@@ -5170,12 +5209,21 @@ const CheckoutPage = ({ onNavigate }) => {
 
                                 <button
                                     onClick={handlePlaceOrderAndPay}
-                                    disabled={(!displayAddress && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
-                                    className="w-full mt-6 bg-gradient-to-r from-amber-400 to-amber-500 text-black py-3 rounded-md hover:from-amber-300 hover:to-amber-400 font-bold text-lg shadow-md hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:bg-gray-600 flex items-center justify-center gap-2"
+                                    disabled={(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading}
+                                    className={`w-full mt-6 py-3 rounded-md font-bold text-lg shadow-md transition-all duration-300 flex items-center justify-center gap-2
+                                        ${(!canPlaceOrder && !autoCalculatedShipping?.isPickup) || !paymentMethod || !autoCalculatedShipping || isLoading 
+                                            ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                                            : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 hover:shadow-lg'
+                                        }`}
                                 >
                                     {isLoading ? <SpinnerIcon className="h-6 w-6"/> : <CheckBadgeIcon className="h-6 w-6"/>}
                                     {isLoading ? 'Processando...' : 'Finalizar e Pagar'}
                                 </button>
+                                {(!canPlaceOrder && !autoCalculatedShipping?.isPickup && !isLoading) && (
+                                    <p className="text-red-400 text-xs text-center mt-3 font-semibold">
+                                        ⚠️ Complete o endereço de entrega para continuar.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
