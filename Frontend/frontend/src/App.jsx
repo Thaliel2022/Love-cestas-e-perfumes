@@ -4046,12 +4046,6 @@ const RegisterPage = ({ onNavigate }) => {
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
-                    {/* Indicador de Força da Senha */}
-                    {password && (
-                        <div className="text-right text-xs font-semibold -mt-2">
-                            Força da senha: <span className={passStrength.color}>{passStrength.label}</span>
-                        </div>
-                    )}
 
                     {/* Campo Repetir Senha */}
                     <div>
@@ -4072,12 +4066,25 @@ const RegisterPage = ({ onNavigate }) => {
                                 {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                             </button>
                         </div>
-                        {/* Aviso de Senhas Diferentes */}
-                        {showMismatch && (
-                            <p className="text-red-500 text-xs font-bold mt-1 text-left">
-                                ⚠️ As senhas não coincidem.
-                            </p>
-                        )}
+                        
+                        {/* Container de Feedback de Senha (Força e Erro) */}
+                        <div className="flex justify-between items-start mt-1 px-1">
+                            {/* Aviso de Senhas Diferentes (Esquerda) */}
+                            <div className="text-left">
+                                {showMismatch && (
+                                    <p className="text-red-500 text-xs font-bold flex items-center gap-1 animate-pulse">
+                                        <ExclamationCircleIcon className="h-3 w-3 inline"/> As senhas não coincidem.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Indicador de Força da Senha (Direita) */}
+                            {password && (
+                                <div className="text-right text-xs font-semibold">
+                                    Força: <span className={passStrength.color}>{passStrength.label}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                     
                     <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
