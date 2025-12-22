@@ -3618,14 +3618,15 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 
 
 app.get('/api/users/me', verifyToken, async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT id, name, email, role FROM users WHERE id = ?", [req.user.id]);
-        if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
-        res.json(rows[0]);
-    } catch (err) {
-        console.error("Erro ao buscar dados do usuário:", err);
-        res.status(500).json({ message: "Erro ao buscar dados do usuário." });
-    }
+    try {
+        // CORREÇÃO: Adicionado 'cpf' e 'phone' na seleção para preenchimento automático
+        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+        res.json(rows[0]);
+    } catch (err) {
+        console.error("Erro ao buscar dados do usuário:", err);
+        res.status(500).json({ message: "Erro ao buscar dados do usuário." });
+    }
 });
 
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
