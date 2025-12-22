@@ -333,8 +333,9 @@ const AuthProvider = ({ children }) => {
         return response; // Retorna a resposta completa para a página de login
     };
     
-    const register = async (name, email, password, cpf) => {
-        return await apiService('/register', 'POST', { name, email, password, cpf });
+    // ATUALIZADO: Agora aceita e envia o parâmetro 'phone'
+    const register = async (name, email, password, cpf, phone) => {
+        return await apiService('/register', 'POST', { name, email, password, cpf, phone });
     };
 
     return <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, setUser }}>{children}</AuthContext.Provider>;
