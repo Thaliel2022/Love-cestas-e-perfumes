@@ -4801,7 +4801,7 @@ const CheckoutPage = ({ onNavigate }) => {
                         cep: shippingLocation.cep,
                         localidade: shippingLocation.city,
                         uf: shippingLocation.state,
-                        alias: 'Endereço Incompleto (Preencha os dados)', // Aviso visual
+                        alias: 'Endereço Incompleto (Preencha os dados)',
                         logradouro: '',
                         numero: '',
                         bairro: '',
@@ -6098,7 +6098,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         </>
     );
 };
-
 const MyOrdersListPage = ({ onNavigate }) => {
     const [orders, setOrders] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -6194,7 +6193,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin" /></div>
             ) : orders.length > 0 ? (
                 <div className="space-y-4">
-                    {orders.map(order => {
+                    {orders.map((order, idx) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
 
@@ -6203,7 +6202,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 key={order.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * orders.indexOf(order) }}
+                                transition={{ delay: 0.1 * idx }} // CORREÇÃO: Usando idx ao invés de indexOf para evitar erros
                                 className="bg-gray-800 p-4 rounded-lg border border-gray-700"
                             >
                                 {firstItem && (
