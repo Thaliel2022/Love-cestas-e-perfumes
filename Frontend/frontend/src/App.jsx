@@ -3920,7 +3920,7 @@ const RegisterPage = ({ onNavigate }) => {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState(''); // Novo estado para confirmação
+    const [confirmPassword, setConfirmPassword] = useState(''); 
     const [cpf, setCpf] = useState('');
     const [phone, setPhone] = useState(''); 
     const [error, setError] = useState('');
@@ -3941,18 +3941,28 @@ const RegisterPage = ({ onNavigate }) => {
         visible: { opacity: 1, y: 0 }
     };
 
+    // Helper para calcular força da senha
+    const getPasswordStrength = (pass) => {
+        if (!pass) return { label: '', color: '' };
+        if (pass.length < 6) return { label: 'Fraca (mínimo 6 dígitos)', color: 'text-red-500' };
+        if (pass.length < 8) return { label: 'Média', color: 'text-yellow-500' };
+        return { label: 'Forte', color: 'text-green-500' };
+    };
+
+    const passStrength = getPasswordStrength(password);
+    const passwordsMatch = password === confirmPassword;
+    const showMismatch = confirmPassword.length > 0 && !passwordsMatch;
+
     const handleRegister = async (e) => {
         e.preventDefault();
         setError('');
         
-        // Validação de Senha Fraca
         if (password.length < 6) {
              setError("A senha é muito fraca. Deve ter pelo menos 6 caracteres.");
              return;
         }
         
-        // Validação de Senhas Iguais
-        if (password !== confirmPassword) {
+        if (!passwordsMatch) {
              setError("As senhas não coincidem. Por favor, verifique.");
              return;
         }
@@ -4036,24 +4046,38 @@ const RegisterPage = ({ onNavigate }) => {
                             {isPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
                         </button>
                     </div>
+                    {/* Indicador de Força da Senha */}
+                    {password && (
+                        <div className="text-right text-xs font-semibold -mt-2">
+                            Força da senha: <span className={passStrength.color}>{passStrength.label}</span>
+                        </div>
+                    )}
 
                     {/* Campo Repetir Senha */}
-                    <div className="relative">
-                        <input
-                            type={isConfirmPasswordVisible ? 'text' : 'password'}
-                            placeholder="Repita a Senha"
-                            value={confirmPassword}
-                            onChange={e => setConfirmPassword(e.target.value)}
-                            required
-                            className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border rounded-md focus:outline-none focus:ring-1 transition-all pr-10 text-sm sm:text-base ${confirmPassword && password !== confirmPassword ? 'border-red-500 focus:ring-red-500' : 'border-gray-700 focus:ring-amber-400'}`}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
-                            className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
-                        >
-                            {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
-                        </button>
+                    <div>
+                        <div className="relative">
+                            <input
+                                type={isConfirmPasswordVisible ? 'text' : 'password'}
+                                placeholder="Repita a Senha"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                required
+                                className={`w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border rounded-md focus:outline-none focus:ring-1 transition-all pr-10 text-sm sm:text-base ${showMismatch ? 'border-red-500 focus:ring-red-500' : 'border-gray-700 focus:ring-amber-400'}`}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-amber-400"
+                            >
+                                {isConfirmPasswordVisible ? <EyeOffIcon className="h-5 w-5"/> : <EyeIcon className="h-5 w-5"/>}
+                            </button>
+                        </div>
+                        {/* Aviso de Senhas Diferentes */}
+                        {showMismatch && (
+                            <p className="text-red-500 text-xs font-bold mt-1 text-left">
+                                ⚠️ As senhas não coincidem.
+                            </p>
+                        )}
                     </div>
                     
                     <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
