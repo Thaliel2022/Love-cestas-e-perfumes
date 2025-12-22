@@ -767,14 +767,13 @@ app.post('/api/register', [
         if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
         return true;
     }),
-    body('phone', 'Número de telefone inválido').optional().isLength({ min: 10 }) // Validação do telefone
+    body('phone', 'Número de telefone inválido').optional().isLength({ min: 10 }) // Validação
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    // Recebe 'phone' do body
     const { name, email, password, cpf, phone } = req.body;
 
     if (!isValidEmail(email)) {
@@ -786,7 +785,7 @@ app.post('/api/register', [
 
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        // Insere o telefone no banco
+        // INSERT ATUALIZADO: Salva o campo 'phone' no banco
         const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`, `phone`) VALUES (?, ?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword, phone ? phone.replace(/\D/g, '') : null]);
         
         sendEmailAsync({
@@ -2615,7 +2614,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 0. Atualizar telefone do usuário se fornecido
+        // ATUALIZAÇÃO: Salva o novo telefone no perfil do usuário
         if (phone) {
             await connection.query("UPDATE users SET phone = ? WHERE id = ?", [phone.replace(/\D/g, ''), req.user.id]);
         }
@@ -2663,23 +2662,19 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                 let isValid = true;
                 let errorMsg = "";
 
-                // A. Validação Básica
                 if (!coupon.is_active) { isValid = false; errorMsg = "Cupom inativo."; }
                 
-                // B. Validação de Prazo
                 if (coupon.validity_days) {
                     const createdAt = new Date(coupon.created_at);
                     const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
                     if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
                 }
 
-                // C. Validação de Primeira Compra
                 if (coupon.is_first_purchase) {
                     const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
                     if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
                 }
 
-                // D. Validação de Uso Único
                 if (coupon.is_single_use_per_user) {
                     const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
                     if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
@@ -2719,8 +2714,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                             }
                         }
                     }
-                } else {
-                    console.log(`[Checkout] Cupom ${coupon_code} inválido no servidor: ${errorMsg}`);
                 }
             }
         }
@@ -3619,7 +3612,7 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
-        // CORREÇÃO: Adicionado 'phone' na seleção para preenchimento automático
+        // CORREÇÃO: Adicionado 'phone' na lista de campos retornados
         const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         res.json(rows[0]);

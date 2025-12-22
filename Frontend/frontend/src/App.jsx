@@ -296,35 +296,28 @@ const AuthProvider = ({ children }) => {
         }
     }, []);
 
-    // Busca o perfil do usuário diretamente da API para validar a sessão
     const fetchUserProfile = useCallback(async () => {
         try {
             const userData = await apiService('/users/me');
             setUser(userData);
         } catch (error) {
-            // Se der erro (401/403), o usuário não está logado
             setUser(null);
         } finally {
             setIsLoading(false);
         }
     }, []);
 
-    // Executa apenas uma vez ao montar o componente
     useEffect(() => {
         fetchUserProfile();
     }, [fetchUserProfile]);
 
-    // Listener para eventos globais de erro de autenticação
     useEffect(() => {
         const handleAuthError = () => {
-            console.log("Sessão expirada ou inválida. Realizando logout.");
+            console.log("Sessão expirada. Logout.");
             logout();
         };
-
         window.addEventListener('auth-error', handleAuthError);
-        return () => {
-            window.removeEventListener('auth-error', handleAuthError);
-        };
+        return () => window.removeEventListener('auth-error', handleAuthError);
     }, [logout]);
 
     const login = async (email, password) => {
@@ -335,7 +328,6 @@ const AuthProvider = ({ children }) => {
         return response;
     };
     
-    // Função de registro atualizada para receber o telefone
     const register = async (name, email, password, cpf, phone) => {
         return await apiService('/register', 'POST', { name, email, password, cpf, phone });
     };
@@ -4740,8 +4732,6 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-// Componente PickupPersonForm REMOVIDO. Inputs voltam a ser nativos.
-
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
@@ -4771,14 +4761,14 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonName, setPickupPersonName] = useState('');
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
 
-    // Novo Estado para WhatsApp
+    // Estado para WhatsApp
     const [whatsapp, setWhatsapp] = useState(''); 
 
     // Efeito para preencher WhatsApp e dados iniciais
     useEffect(() => {
         setIsAddressLoading(true);
         
-        // Preenche o WhatsApp com o do cadastro se existir
+        // CORREÇÃO: Preenche automaticamente se o usuário tiver telefone salvo
         if (user && user.phone) {
             setWhatsapp(maskPhone(user.phone));
         }
