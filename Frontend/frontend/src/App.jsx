@@ -10049,59 +10049,81 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Melhorada) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Robustez contra erros de codificação) ---
     const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         
+        // Emojis em Unicode Escapado para evitar erros de codificação (o símbolo )
+        const EMOJI = {
+            WAVE: '\uD83D\uDC4B',      // 👋
+            STAR: '\uD83C\uDF1F',      // 🌟
+            PACKAGE: '\uD83D\uDCE6',   // 📦
+            TRUCK: '\uD83D\uDE9A',     // 🚚
+            DOC: '\uD83D\uDCC4',       // 📄
+            LINK: '\uD83D\uDD17',      // 🔗
+            MOTO: '\uD83D\uDEF5',      // 🛵
+            CHECK: '\u2705',           // ✅
+            PARTY: '\uD83C\uDF89',     // 🎉
+            HEART: '\u2764\uFE0F',     // ❤️
+            BAGS: '\uD83D\uDECD\uFE0F',// 🛍️
+            PIN: '\uD83D\uDCCD',       // 📍
+            CLOCK: '\u23F0',           // ⏰
+            MONEY: '\uD83D\uDCB8',     // 💸
+            CROSS: '\u274C',           // ❌
+            WARN: '\u26A0\uFE0F',      // ⚠️
+            NEW: '\uD83C\uDD95',       // 🆕
+            PHONE: '\uD83D\uDCF1'      // 📱
+        };
+
         // Cabeçalho Padrão
-        let text = `Olá, *${firstName}*! Tudo bem? 🌟\n\n`;
+        let text = `Olá, *${firstName}*! Tudo bem? ${EMOJI.STAR}\n\n`;
         text += `Aqui é da *Love Cestas e Perfumes*. Temos uma atualização sobre o seu pedido *#${orderId}*.\n\n`;
 
         // Corpo da mensagem baseado no status
         switch (status) {
             case 'Separando Pedido':
-                text += `📦 *Novo Status: Separando seu Pedido*\n`;
+                text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
                 text += `Estamos preparando tudo com muito carinho! Em breve você receberá mais atualizações.`;
                 break;
             case 'Enviado':
-                text += `🚚 *Novo Status: Pedido Enviado*\n`;
+                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
                 text += `Oba! Seu pedido já foi despachado e está a caminho.`;
-                if (trackingCode) text += `\n\n📄 *Código de Rastreio:* ${trackingCode}\n🔗 *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
+                if (trackingCode) text += `\n\n${EMOJI.DOC} *Código de Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
-                text += `🛵 *Novo Status: Saiu para Entrega*\n`;
+                text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
                 text += `Seu pedido está chegando! Por favor, fique atento(a) ao interfone ou campainha.`;
-                if (trackingCode) text += `\n\n🔗 Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
+                if (trackingCode) text += `\n\n${EMOJI.LINK} Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Entregue':
-                text += `✅ *Novo Status: Entregue*\n`;
-                text += `Seu pedido foi entregue com sucesso! 🎉\nEsperamos que ame seus produtos tanto quanto amamos prepará-los.`;
+                text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
+                text += `Seu pedido foi entregue com sucesso! ${EMOJI.PARTY}\nEsperamos que ame seus produtos tanto quanto amamos prepará-los. ${EMOJI.HEART}`;
                 break;
             case 'Pronto para Retirada':
-                text += `🛍️ *Novo Status: Pronto para Retirada*\n`;
+                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
                 text += `Seu pedido já está disponível em nossa loja física.\n\n`;
-                text += `📍 *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
-                text += `⏰ *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
+                text += `${EMOJI.PIN} *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
+                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
                 break;
             case 'Pagamento Aprovado':
-                text += `💸 *Novo Status: Pagamento Aprovado*\n`;
+                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
                 text += `Recebemos a confirmação do seu pagamento! Já vamos iniciar a separação dos seus itens.`;
                 break;
             case 'Cancelado':
-                text += `❌ *Novo Status: Cancelado*\n`;
+                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
                 text += `O pedido foi cancelado. Caso tenha dúvidas ou queira refazer a compra, estamos à disposição.`;
                 break;
             case 'Pagamento Recusado':
-                text += `⚠️ *Novo Status: Pagamento Recusado*\n`;
+                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
                 text += `Houve um problema na confirmação do pagamento. Tente refazer o pedido ou entre em contato conosco.`;
                 break;
             default:
-                text += `🆕 *Novo Status:* ${status}\n`;
+                text += `${EMOJI.NEW} *Novo Status:* ${status}\n`;
                 text += `Qualquer dúvida, estamos por aqui!`;
         }
 
         // Assinatura Oficial da Loja
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n📱 (83) 98737-9573`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
         
         return text;
     };
