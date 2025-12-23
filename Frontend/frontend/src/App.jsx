@@ -365,10 +365,39 @@ const ShopProvider = ({ children }) => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
-            // Mescla o carrinho local com o do banco se necessário, ou prefere o do banco
+            // O banco é a fonte da verdade quando logado
             setCart(dbCart || []);
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
+
+    // --- NOVA FUNÇÃO: Sincroniza Carrinho de Visitante para o Banco ao Logar ---
+    const syncGuestCartToDB = useCallback(async () => {
+        const localCartStr = localStorage.getItem('lovecestas_cart');
+        if (!localCartStr) return;
+
+        try {
+            const localItems = JSON.parse(localCartStr);
+            if (Array.isArray(localItems) && localItems.length > 0) {
+                console.log("Sincronizando itens locais para o banco...");
+                // Envia cada item local para o banco de dados
+                // Nota: Isso garante que o cliente não perca o que escolheu antes de logar
+                const promises = localItems.map(item => 
+                    apiService('/cart', 'POST', {
+                        productId: item.id,
+                        quantity: item.qty,
+                        variationId: item.variation?.id // Garante persistência da variação (cor/tamanho)
+                    }).catch(err => console.warn("Item duplicado ou erro no sync:", err))
+                );
+                
+                await Promise.all(promises);
+                
+                // Limpa o localstorage para evitar conflitos futuros, pois agora o DB assume
+                localStorage.removeItem('lovecestas_cart');
+            }
+        } catch (e) {
+            console.error("Erro ao sincronizar carrinho:", e);
+        }
+    }, []);
 
     const fetchAddresses = useCallback(async () => {
         if (!isAuthenticated) return [];
@@ -417,51 +446,58 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // --- CORREÇÃO: Persistência Local (LocalStorage) ---
-    // Salva o carrinho no localStorage sempre que ele mudar (se não estiver logado ou como backup)
+    // Persistência Híbrida: Salva no LocalStorage como backup/cache rápido
     useEffect(() => {
         if (!isAuthLoading) {
             localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
         }
     }, [cart, isAuthLoading]);
 
-    // Inicialização e Recuperação
+    // Inicialização Inteligente e Sincronização
     useEffect(() => {
         if (isAuthLoading) return;
 
-        if (isAuthenticated) {
-            // Se logado, busca do banco (que é a fonte da verdade para usuários logados)
-            fetchPersistentCart();
-            determineShippingLocation();
-            apiService('/wishlist').then(setWishlist).catch(console.error);
-        } else {
-            // Se NÃO logado, tenta recuperar do localStorage
-            const localCart = localStorage.getItem('lovecestas_cart');
-            if (localCart) {
-                try {
-                    const parsedLocalCart = JSON.parse(localCart);
-                    if (Array.isArray(parsedLocalCart)) {
-                        setCart(parsedLocalCart);
+        const initializeShop = async () => {
+            if (isAuthenticated) {
+                // 1. AO LOGAR: Verifica se há itens "órfãos" no localStorage e envia para o banco
+                await syncGuestCartToDB();
+                
+                // 2. Depois busca a versão definitiva do banco (que agora inclui os itens locais)
+                await fetchPersistentCart();
+                
+                determineShippingLocation();
+                apiService('/wishlist').then(setWishlist).catch(console.error);
+            } else {
+                // 3. MODO VISITANTE: Recupera do LocalStorage
+                const localCart = localStorage.getItem('lovecestas_cart');
+                if (localCart) {
+                    try {
+                        const parsedLocalCart = JSON.parse(localCart);
+                        if (Array.isArray(parsedLocalCart)) {
+                            setCart(parsedLocalCart);
+                        }
+                    } catch (e) {
+                        console.error("Erro ao carregar carrinho local:", e);
+                        setCart([]);
                     }
-                } catch (e) {
-                    console.error("Erro ao carregar carrinho local:", e);
+                } else {
                     setCart([]);
                 }
-            } else {
-                setCart([]);
+                
+                // Limpa dados sensíveis ao deslogar
+                setWishlist([]); 
+                setAddresses([]); 
+                setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+                setAutoCalculatedShipping(null); 
+                setCouponCode(''); 
+                setAppliedCoupon(null); 
+                setCouponMessage('');
+                determineShippingLocation();
             }
-            
-            // Limpa dados de usuário
-            setWishlist([]); 
-            setAddresses([]); 
-            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null); 
-            setCouponCode(''); 
-            setAppliedCoupon(null); 
-            setCouponMessage('');
-            determineShippingLocation();
-        }
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
+        };
+
+        initializeShop();
+    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB]);
     
     // Auto-correção de dados do carrinho
     useEffect(() => {
@@ -526,14 +562,26 @@ const ShopProvider = ({ children }) => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
-        if (isAuthenticated) apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id }).catch(console.error);
+        
+        // Se estiver logado, salva no banco imediatamente
+        if (isAuthenticated) {
+            apiService('/cart', 'POST', { 
+                productId: productToAdd.id, 
+                quantity: existing ? existing.qty + qty : qty, 
+                variationId: variation?.id 
+            }).catch(console.error);
+        }
     }, [cart, isAuthenticated]);
     
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
         setCart(current => current.filter(item => item.cartItemId !== cartItemId));
-        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+        
+        // Se estiver logado, remove do banco
+        if (isAuthenticated) {
+            await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+        }
     }, [cart, isAuthenticated]);
 
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
@@ -542,13 +590,18 @@ const ShopProvider = ({ children }) => {
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
         if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        
         setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
-        if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+        
+        // Se estiver logado, atualiza no banco
+        if (isAuthenticated) {
+            await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+        }
     }, [cart, isAuthenticated, removeFromCart]);
     
     const clearCart = useCallback(async () => { 
         setCart([]); 
-        localStorage.removeItem('lovecestas_cart'); // Limpa também o localstorage
+        localStorage.removeItem('lovecestas_cart'); 
         if (isAuthenticated) await apiService('/cart', 'DELETE'); 
     }, [isAuthenticated]);
 
@@ -587,13 +640,12 @@ const ShopProvider = ({ children }) => {
                 const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
                 
                 const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
-                // SIMPLIFICAÇÃO: Se não há restrições listadas, é Global (assume permissivo)
                 const isGlobal = !hasRestrictions;
 
                 let eligibleCount = 0;
 
                 if (isGlobal) {
-                    eligibleCount = cart.length; // Tudo é elegível
+                    eligibleCount = cart.length; 
                 } else {
                     cart.forEach(item => {
                         const itemCat = normalize(item.category || "");
@@ -605,14 +657,11 @@ const ShopProvider = ({ children }) => {
                 }
 
                 if (eligibleCount === 0) {
-                    // REJEITA O CUPOM
                     setAppliedCoupon(null);
                     setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
-                    return; // Sai da função sem aplicar
+                    return; 
                 }
             }
-
-            // Se passou na validação ou é frete grátis:
             setAppliedCoupon(coupon);
         } catch (error) { 
             setAppliedCoupon(null); 
@@ -670,15 +719,11 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (appliedCoupon) {
-            // --- TRAVA DE SEGURANÇA ---
-            // Se o desconto calculado for 0 e não for cupom de frete, REMOVE o cupom.
-            // Isso garante que se o cliente remover o item elegível, o cupom sai.
             if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
                  setAppliedCoupon(null);
                  setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
                  return;
             }
-
             setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
         } else if (couponMessage && couponMessage.includes("aplicado")) {
              setCouponMessage("");
