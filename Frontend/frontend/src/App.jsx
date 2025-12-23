@@ -367,20 +367,28 @@ const ShopProvider = ({ children }) => {
         try {
             const dbCart = await apiService('/cart');
             
-            // Tenta recuperar variações do localStorage caso o banco tenha falhado em salvar
-            // (Comum se as variações não tiverem IDs únicos no banco)
+            // Recupera o carrinho local para servir de backup caso o banco falhe
             const localCartStr = localStorage.getItem('lovecestas_cart');
             let localCart = [];
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
 
             const mergedCart = (dbCart || []).map(dbItem => {
-                // Se o item do banco já tem variação, usa ela (ideal)
-                if (dbItem.variation) return dbItem;
+                // Se o item do banco já tem variação válida, usa ela
+                if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
+                    // Garante que cartItemId esteja correto
+                    return {
+                        ...dbItem,
+                        cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}`
+                    };
+                }
                 
-                // Se é roupa e veio sem variação do banco, tenta restaurar do local
+                // Se o item é roupa e veio do banco SEM variação, tenta resgatar do local
                 if (dbItem.product_type === 'clothing') {
-                    const localItem = localCart.find(li => li.id === dbItem.id);
+                    // Procura um item correspondente no local que TENHA variação
+                    const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
+                    
                     if (localItem && localItem.variation) {
+                        console.log(`[Cart Sync] Restaurando variação local para item ${dbItem.name}:`, localItem.variation);
                         return {
                             ...dbItem,
                             variation: localItem.variation,
@@ -389,12 +397,17 @@ const ShopProvider = ({ children }) => {
                         };
                     }
                 }
-                // Se não tiver salvação, retorna como está
-                return dbItem;
+                
+                // Fallback: se não tiver variação e for roupa, mantém como está (evita crash, mas ficará incompleto)
+                // Gera um ID base se não existir
+                return {
+                    ...dbItem,
+                    cartItemId: dbItem.cartItemId || String(dbItem.id)
+                };
             });
 
             setCart(mergedCart);
-            // Atualiza o backup local com os dados mesclados
+            // Atualiza o backup local imediatamente com os dados mesclados e corrigidos
             localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
@@ -408,21 +421,24 @@ const ShopProvider = ({ children }) => {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
                 console.log("Sincronizando itens locais para o banco...");
-                const promises = localItems.map(item => 
-                    apiService('/cart', 'POST', {
+                
+                const promises = localItems.map(item => {
+                    // Prepara o payload para garantir que o backend receba os dados
+                    const payload = {
                         productId: item.id,
                         quantity: item.qty,
                         variationId: item.variation?.id,
-                        // Envia objeto completo da variação como fallback
-                        variation: item.variation 
-                    }).catch(err => console.warn("Item duplicado ou erro no sync:", err))
-                );
+                        // Envia objeto completo e stringificado para cobrir diferentes implementações de backend
+                        variation: item.variation,
+                        variation_details: item.variation ? JSON.stringify(item.variation) : null
+                    };
+
+                    return apiService('/cart', 'POST', payload)
+                        .catch(err => console.warn("Item duplicado ou erro no sync:", err));
+                });
                 
                 await Promise.all(promises);
-                
-                // NOTA: Não removemos o localStorage aqui imediatamente.
-                // Deixamos o fetchPersistentCart fazer o merge primeiro para garantir 
-                // que as variações sejam preservadas visualmente antes de limpar.
+                // Não limpamos o localStorage aqui. Deixamos o fetchPersistentCart fazer o merge.
             }
         } catch (e) {
             console.error("Erro ao sincronizar carrinho:", e);
@@ -479,9 +495,17 @@ const ShopProvider = ({ children }) => {
     // Persistência Híbrida: Salva no LocalStorage como backup/cache rápido
     useEffect(() => {
         if (!isAuthLoading) {
-            localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+            // Só sobrescreve o localStorage se o carrinho tiver itens ou se estivermos limpando intencionalmente
+            // Evita sobrescrever um carrinho local bom com um estado vazio inicial
+            if (cart.length > 0) {
+                localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+            } else if (cart.length === 0 && !isAuthenticated) {
+                 // Se deslogado e carrinho vazio, limpa.
+                 // Se logado, pode ser apenas delay do fetch, então não limpa imediatamente.
+                 localStorage.setItem('lovecestas_cart', JSON.stringify([]));
+            }
         }
-    }, [cart, isAuthLoading]);
+    }, [cart, isAuthLoading, isAuthenticated]);
 
     // Inicialização Inteligente e Sincronização
     useEffect(() => {
@@ -595,12 +619,13 @@ const ShopProvider = ({ children }) => {
         
         // Se estiver logado, salva no banco imediatamente
         if (isAuthenticated) {
+            // Envia dados completos para tentar contornar problemas de backend
             apiService('/cart', 'POST', { 
                 productId: productToAdd.id, 
                 quantity: existing ? existing.qty + qty : qty, 
                 variationId: variation?.id,
-                // Envia variação completa como fallback
-                variation: variation 
+                variation: variation,
+                variation_details: variation ? JSON.stringify(variation) : null
             }).catch(console.error);
         }
     }, [cart, isAuthenticated]);
@@ -627,7 +652,12 @@ const ShopProvider = ({ children }) => {
         
         // Se estiver logado, atualiza no banco
         if (isAuthenticated) {
-            await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
+            apiService('/cart', 'POST', { 
+                productId: itemToUpdate.id, 
+                quantity: newQuantity, 
+                variationId: itemToUpdate.variation?.id,
+                variation: itemToUpdate.variation
+            });
         }
     }, [cart, isAuthenticated, removeFromCart]);
     
