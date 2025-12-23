@@ -10240,51 +10240,175 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado',
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Lógica de Entrega Local e Link Uber) ---
+    // --- COMPONENTES DE TIMELINE PARA O ADMIN ---
+    const TimelineDisplay = ({ order }) => {
+        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy');
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        
+        let timelineOrder = [];
+        let displayLabels = {};
+        let statusDefinitions = {};
+
+        // Definição de Cores e Ícones
+        const colorClasses = {
+            amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
+            green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
+            blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+            red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
+            gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+        };
+
+        const icons = {
+            clock: <ClockIcon className="h-5 w-5 text-white" />,
+            check: <CheckBadgeIcon className="h-5 w-5 text-white" />,
+            package: <PackageIcon className="h-5 w-5 text-white" />,
+            truck: <TruckIcon className="h-5 w-5 text-white" />,
+            home: <HomeIcon className="h-5 w-5 text-white" />,
+            cancel: <XCircleIcon className="h-5 w-5 text-white" />,
+            dollar: <CurrencyDollarIcon className="h-5 w-5 text-white" />,
+            checkCircle: <CheckCircleIcon className="h-5 w-5 text-white" />
+        };
+
+        // Configuração por Tipo de Entrega
+        if (isLocalDelivery) {
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
+            displayLabels = {
+                'Pendente': 'Pendente',
+                'Pagamento Aprovado': 'Aprovado',
+                'Separando Pedido': 'Preparando',
+                'Saiu para Entrega': 'Saiu (Motoboy)',
+                'Entregue': 'Entregue'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Saiu para Entrega': { icon: icons.truck, color: 'blue' }, // Ícone de Moto se tivesse, Truck serve
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
+        } else if (isPickup) {
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
+            displayLabels = {
+                'Pendente': 'Pendente',
+                'Pagamento Aprovado': 'Aprovado',
+                'Separando Pedido': 'Separando',
+                'Pronto para Retirada': 'Pronto p/ Retirada',
+                'Entregue': 'Retirado'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Pronto para Retirada': { icon: icons.checkCircle, color: 'blue' },
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
+        } else { // Correios
+            timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
+            displayLabels = {
+                'Pendente': 'Pendente',
+                'Pagamento Aprovado': 'Aprovado',
+                'Separando Pedido': 'Separando',
+                'Enviado': 'Enviado',
+                'Saiu para Entrega': 'Saiu p/ Entrega',
+                'Entregue': 'Entregue'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Enviado': { icon: icons.truck, color: 'blue' },
+                'Saiu para Entrega': { icon: icons.truck, color: 'blue' },
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
+        }
+
+        // Adiciona status de cancelamento/erro se for o caso
+        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
+            return (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                     <div className="p-2 bg-red-100 rounded-full">{icons.cancel}</div>
+                     <div>
+                         <p className="font-bold text-red-800">{order.status}</p>
+                         <p className="text-xs text-red-600">O fluxo normal foi interrompido.</p>
+                     </div>
+                </div>
+            );
+        }
+
+        const currentStatusIndex = timelineOrder.indexOf(order.status);
+
+        return (
+            <div className="w-full py-4 overflow-x-auto">
+                <div className="flex items-center justify-between min-w-[300px]">
+                    {timelineOrder.map((statusKey, index) => {
+                        const isStepActive = index <= currentStatusIndex;
+                        const isCurrent = statusKey === order.status;
+                        const def = statusDefinitions[statusKey];
+                        const style = isStepActive ? colorClasses[def.color] : colorClasses.gray;
+
+                        return (
+                            <React.Fragment key={statusKey}>
+                                <div className="flex flex-col items-center z-10">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${style.bg} ${style.border} ${isCurrent ? 'ring-4 ring-opacity-50 ring-offset-1 ' + style.border : ''}`}>
+                                        {React.cloneElement(def.icon, { className: "h-4 w-4 text-white" })}
+                                    </div>
+                                    <p className={`text-[10px] mt-1 font-bold text-center ${isStepActive ? 'text-gray-800' : 'text-gray-400'}`}>
+                                        {displayLabels[statusKey]}
+                                    </p>
+                                </div>
+                                {index < timelineOrder.length - 1 && (
+                                    <div className={`flex-1 h-1 mx-1 rounded ${index < currentStatusIndex ? style.bg : 'bg-gray-200'}`}></div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
-        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); // Verifica se é entrega local
+        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); 
         
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
         
         const EMOJI = {
-            PACKAGE: String.fromCodePoint(0x1F4E6),   // 📦
-            TRUCK: String.fromCodePoint(0x1F69A),     // 🚚
-            DOC: String.fromCodePoint(0x1F4C4),       // 📄
-            LINK: String.fromCodePoint(0x1F517),      // 🔗
-            MOTO: String.fromCodePoint(0x1F6F5),      // 🛵
-            CHECK: String.fromCodePoint(0x2705),      // ✅
-            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), // 🛍️
-            PIN: String.fromCodePoint(0x1F4CD),       // 📍
-            CLOCK: String.fromCodePoint(0x23F0),      // ⏰
-            MONEY: String.fromCodePoint(0x1F4B8),     // 💸
-            CROSS: String.fromCodePoint(0x274C),      // ❌
-            WARN: String.fromCodePoint(0x26A0, 0xFE0F), // ⚠️
-            NEW: String.fromCodePoint(0x1F195),       // 🆕
-            PHONE: String.fromCodePoint(0x1F4F1),     // 📱
-            HOUSE: String.fromCodePoint(0x1F3E0),     // 🏠
-            ROCKET: String.fromCodePoint(0x1F680)     // 🚀
+            PACKAGE: String.fromCodePoint(0x1F4E6),
+            TRUCK: String.fromCodePoint(0x1F69A),
+            DOC: String.fromCodePoint(0x1F4C4),
+            LINK: String.fromCodePoint(0x1F517),
+            MOTO: String.fromCodePoint(0x1F6F5),
+            CHECK: String.fromCodePoint(0x2705),
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F),
+            PIN: String.fromCodePoint(0x1F4CD),
+            CLOCK: String.fromCodePoint(0x23F0),
+            MONEY: String.fromCodePoint(0x1F4B8),
+            CROSS: String.fromCodePoint(0x274C),
+            WARN: String.fromCodePoint(0x26A0, 0xFE0F),
+            NEW: String.fromCodePoint(0x1F195),
+            PHONE: String.fromCodePoint(0x1F4F1),
+            HOUSE: String.fromCodePoint(0x1F3E0),
+            ROCKET: String.fromCodePoint(0x1F680)
         };
 
-        // Cabeçalho Padrão
         let text = `Olá, *${firstName}*! seu pedido foi atualizado ${EMOJI.ROCKET}\n\n`;
 
-        // Corpo da mensagem baseado no status e tipo de entrega
         switch (status) {
             case 'Separando Pedido':
                 text += `Status: ${EMOJI.PACKAGE} Preparado o pedido para envio\n`;
                 text += `Estamos separando seus itens.`;
                 break;
-            case 'Enviado': // Usado para PAC
+            case 'Enviado': 
                 text += `Status: ${EMOJI.TRUCK} Pedido Enviado\n`;
                 if (trackingCode) text += `\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
                 if (isLocalDelivery) {
-                     // MENSAGEM ESPECÍFICA PARA ENTREGA LOCAL
                     text += `Status: ${EMOJI.MOTO} Saiu para entrega (Motoboy)\n`;
                     text += `O motorista já está a caminho do seu endereço.`;
                     if (trackingCode && trackingCode.startsWith('http')) {
@@ -10315,7 +10439,6 @@ const AdminOrders = () => {
 
         text += `\n\n--------------------------------\n`;
 
-        // Informações de Endereço/Retirada
         if (isPickup) {
             text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
             text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
@@ -10544,20 +10667,17 @@ const AdminOrders = () => {
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
+                                
+                                {/* --- NOVA TIMELINE VISUAL NO ADMIN --- */}
+                                <TimelineDisplay order={editingOrder} />
+
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
                                     {/* --- SEÇÃO DO CLIENTE --- */}
                                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
                                         <div className="space-y-1.5">
                                             <p className="font-semibold text-gray-900 text-base">{editingOrder.user_name}</p>
-                                            
-                                            {editingOrder.user_cpf && (
-                                                <p className="text-gray-600 flex items-center gap-1">
-                                                    <span className="font-medium text-gray-700">CPF:</span> 
-                                                    {maskCPF(editingOrder.user_cpf)}
-                                                </p>
-                                            )}
-
+                                            {editingOrder.user_cpf && <p className="text-gray-600 flex items-center gap-1"><span className="font-medium text-gray-700">CPF:</span> {maskCPF(editingOrder.user_cpf)}</p>}
                                             {editingOrder.user_phone ? (
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-1 rounded-md text-sm font-bold border border-green-100">
@@ -10565,9 +10685,7 @@ const AdminOrders = () => {
                                                         {maskPhone(editingOrder.user_phone)}
                                                     </span>
                                                 </div>
-                                            ) : (
-                                                <p className="text-gray-400 italic text-xs">Telefone não informado</p>
-                                            )}
+                                            ) : <p className="text-gray-400 italic text-xs">Telefone não informado</p>}
                                         </div>
                                     </div>
 
@@ -10589,12 +10707,8 @@ const AdminOrders = () => {
                                                         </div>
                                                     );
                                                 }
-                                                if (details.method === 'pix') {
-                                                    return <p className="font-semibold text-gray-800">Pix</p>;
-                                                }
-                                                if (details.method === 'boleto') {
-                                                    return <p className="font-semibold text-gray-800">Boleto</p>;
-                                                }
+                                                if (details.method === 'pix') return <p className="font-semibold text-gray-800">Pix</p>;
+                                                if (details.method === 'boleto') return <p className="font-semibold text-gray-800">Boleto</p>;
                                             } catch (e) {
                                                 return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
                                             }
@@ -10639,12 +10753,11 @@ const AdminOrders = () => {
                                                 } catch { return <p>Endereço mal formatado.</p> }
                                             })() : <p>Nenhum endereço de entrega.</p>}
                                         </div>
-                                        
                                         {/* Badge visual de Entrega Local */}
                                         {isLocalDelivery && (
                                             <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-bold rounded flex items-center gap-2">
                                                 <div className="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></div>
-                                                Entrega Local (Motoboy / Uber) - R$ 20,00
+                                                Entrega Local (Motoboy / Uber)
                                             </div>
                                         )}
                                     </div>
@@ -10809,7 +10922,7 @@ const AdminOrders = () => {
                                                 {/* --- Ícone de WhatsApp na Tabela --- */}
                                                 {o.user_phone && (
                                                     <a 
-                                                        href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} 
+                                                        href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer" 
                                                         className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-0.5"
@@ -10827,7 +10940,8 @@ const AdminOrders = () => {
                                             {o.shipping_method === 'Retirar na loja' ? (
                                                 <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
                                             ) : o.shipping_method && o.shipping_method.includes('Motoboy') ? (
-                                                 <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
+                                                // --- ATUALIZAÇÃO: Ícone de Moto para Entrega Local na Lista ---
+                                                <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                             ) : (
                                                 <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
                                             )}
@@ -10864,7 +10978,7 @@ const AdminOrders = () => {
                                         {/* --- Ícone de WhatsApp no Card Mobile --- */}
                                         {o.user_phone && (
                                             <a 
-                                                href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} 
+                                                href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer" 
                                                 className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-100"
