@@ -10260,21 +10260,23 @@ const AdminOrders = () => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // --- STATUS BASE ---
-    const baseStatuses = [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
-        'Pagamento Recusado', 'Cancelado',
+    // Status globais possíveis no sistema
+    const allStatuses = [
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
+        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
+        'Entregue', 'Pagamento Recusado', 'Cancelado'
     ];
 
     // --- COMPONENTES DE TIMELINE PARA O ADMIN ---
     const TimelineDisplay = ({ order }) => {
-        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy');
+        // Verifica se é entrega local (contém "Motoboy" ou "Entrega local" no nome)
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.includes('Motoboy') || order.shipping_method.includes('Entrega local'));
         const isPickup = order.shipping_method === 'Retirar na loja';
         
         let timelineOrder = [];
         let displayLabels = {};
         let statusDefinitions = {};
 
-        // Definição de Cores e Ícones
         const colorClasses = {
             amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
             green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
@@ -10294,8 +10296,9 @@ const AdminOrders = () => {
             checkCircle: <CheckCircleIcon className="h-5 w-5 text-white" />
         };
 
-        // Configuração por Tipo de Entrega
+        // --- CONFIGURAÇÃO DAS TIMELINES ---
         if (isLocalDelivery) {
+            // TIMELINE: ENTREGA LOCAL (MOTOBOY)
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
             displayLabels = {
                 'Pendente': 'Pendente',
@@ -10308,10 +10311,11 @@ const AdminOrders = () => {
                 'Pendente': { icon: icons.clock, color: 'amber' },
                 'Pagamento Aprovado': { icon: icons.check, color: 'green' },
                 'Separando Pedido': { icon: icons.package, color: 'blue' },
-                'Saiu para Entrega': { icon: icons.truck, color: 'blue' }, // Ícone de Moto se tivesse, Truck serve
+                'Saiu para Entrega': { icon: icons.truck, color: 'blue' },
                 'Entregue': { icon: icons.home, color: 'green' }
             };
         } else if (isPickup) {
+            // TIMELINE: RETIRADA
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
             displayLabels = {
                 'Pendente': 'Pendente',
@@ -10327,7 +10331,8 @@ const AdminOrders = () => {
                 'Pronto para Retirada': { icon: icons.checkCircle, color: 'blue' },
                 'Entregue': { icon: icons.home, color: 'green' }
             };
-        } else { // Correios
+        } else { 
+            // TIMELINE: CORREIOS (PADRÃO)
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
             displayLabels = {
                 'Pendente': 'Pendente',
@@ -10347,7 +10352,6 @@ const AdminOrders = () => {
             };
         }
 
-        // Adiciona status de cancelamento/erro se for o caso
         if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
             return (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
@@ -10398,7 +10402,7 @@ const AdminOrders = () => {
         const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
-        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); 
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.includes('Motoboy') || order.shipping_method.includes('Entrega local'));
         
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
         
@@ -10421,45 +10425,47 @@ const AdminOrders = () => {
             ROCKET: String.fromCodePoint(0x1F680)
         };
 
-        let text = `Olá, *${firstName}*! seu pedido foi atualizado ${EMOJI.ROCKET}\n\n`;
+        let text = `Olá, *${firstName}*.\n\n`;
+        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
 
         switch (status) {
             case 'Separando Pedido':
-                text += `Status: ${EMOJI.PACKAGE} Preparado o pedido para envio\n`;
-                text += `Estamos separando seus itens.`;
+                text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
+                text += `Estamos preparando seus itens com cuidado.`;
                 break;
             case 'Enviado': 
-                text += `Status: ${EMOJI.TRUCK} Pedido Enviado\n`;
-                if (trackingCode) text += `\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
+                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
+                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
                 if (isLocalDelivery) {
-                    text += `Status: ${EMOJI.MOTO} Saiu para entrega (Motoboy)\n`;
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\n`;
                     text += `O motorista já está a caminho do seu endereço.`;
                     if (trackingCode && trackingCode.startsWith('http')) {
                         text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
                     }
                 } else {
-                    text += `Status: ${EMOJI.MOTO} Saiu para Entrega\n`;
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
                     text += `Seu pedido está em rota de entrega pelos Correios.`;
                 }
                 break;
             case 'Entregue':
-                text += `Status: ${EMOJI.CHECK} Pedido entregue\n`;
-                text += `Confirmamos a entrega. Esperamos que goste!`;
+                text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
+                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
                 break;
             case 'Pronto para Retirada':
-                text += `Status: ${EMOJI.BAGS} Pronto para Retirada\n`;
+                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
                 text += `Já disponível em nossa loja.`;
                 break;
             case 'Pagamento Aprovado':
-                text += `Status: ${EMOJI.MONEY} Pagamento Aprovado\n`;
+                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
+                text += `Pagamento confirmado. Iniciaremos a separação.`;
                 break;
             case 'Cancelado':
-                text += `Status: ${EMOJI.CROSS} Cancelado\n`;
+                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
                 break;
             default:
-                text += `Status: ${EMOJI.NEW} ${status}`;
+                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
         text += `\n\n--------------------------------\n`;
@@ -10482,7 +10488,9 @@ const AdminOrders = () => {
             }
         }
 
-        text += `\n\nQualquer dúvida, estamos à disposição 😊`;
+        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        
         return text;
     };
 
@@ -10684,20 +10692,34 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    const isLocalDelivery = editingOrder.shipping_method && editingOrder.shipping_method.includes('Motoboy');
+                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.includes('Motoboy') || editingOrder.shipping_method.includes('Entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
                     
                     const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
+
+                    // --- DEFINIÇÃO DOS STATUS DISPONÍVEIS NO SELECT ---
+                    let availableStatuses = [];
+                    if (isLocalDelivery) {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    } else if (isPickup) {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    } else {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    }
+
+                    // Garante que o status atual esteja na lista (mesmo se for antigo/incompatível)
+                    if (!availableStatuses.includes(editingOrder.status)) {
+                        availableStatuses.push(editingOrder.status);
+                    }
 
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
                                 
-                                {/* --- NOVA TIMELINE VISUAL NO ADMIN --- */}
+                                {/* --- TIMELINE DINÂMICA --- */}
                                 <TimelineDisplay order={editingOrder} />
 
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    {/* --- SEÇÃO DO CLIENTE --- */}
                                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
                                         <div className="space-y-1.5">
@@ -10717,9 +10739,7 @@ const AdminOrders = () => {
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
                                         {(() => {
-                                            if (!editingOrder.payment_details) {
-                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
-                                            }
+                                            if (!editingOrder.payment_details) return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
                                             try {
                                                 const details = JSON.parse(editingOrder.payment_details);
                                                 if (details.method === 'credit_card') {
@@ -10741,6 +10761,7 @@ const AdminOrders = () => {
                                         })()}
                                     </div>
                                 </div>
+
                                 {isPickup ? (
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
@@ -10778,7 +10799,8 @@ const AdminOrders = () => {
                                                 } catch { return <p>Endereço mal formatado.</p> }
                                             })() : <p>Nenhum endereço de entrega.</p>}
                                         </div>
-                                        {/* Badge visual de Entrega Local */}
+                                        
+                                        {/* --- BADGE DE TIPO DE ENTREGA --- */}
                                         {isLocalDelivery && (
                                             <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-bold rounded flex items-center gap-2">
                                                 <div className="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></div>
@@ -10787,6 +10809,7 @@ const AdminOrders = () => {
                                         )}
                                     </div>
                                 )}
+
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
                                     <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
@@ -10804,6 +10827,7 @@ const AdminOrders = () => {
                                         ))}
                                     </div>
                                 </div>
+                                
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
                                     <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
@@ -10813,11 +10837,13 @@ const AdminOrders = () => {
                                         <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
                                     </div>
                                 </div>
+
                                 <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
                                         <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                                            {baseStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            {/* --- OPÇÕES FILTRADAS PELO TIPO DE ENTREGA --- */}
+                                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </div>
                                     {!isPickup && (
@@ -10837,10 +10863,7 @@ const AdminOrders = () => {
                                         </div>
                                     )}
 
-                                    {/* --- ÁREA DE AÇÕES --- */}
                                     <div className="flex flex-col gap-4 pt-2">
-                                        
-                                        {/* Botão de WhatsApp em destaque (NOVO) */}
                                         {editingOrder.user_phone && (
                                             <button 
                                                 type="button" 
@@ -10911,7 +10934,7 @@ const AdminOrders = () => {
                     <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
-                        {[...new Set(baseStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
+                        {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="mt-4 flex gap-2 flex-wrap">
@@ -10944,7 +10967,6 @@ const AdminOrders = () => {
                                         <td className="p-4">
                                             <div>
                                                 <p className="font-semibold text-gray-800">{o.user_name}</p>
-                                                {/* --- Ícone de WhatsApp na Tabela --- */}
                                                 {o.user_phone && (
                                                     <a 
                                                         href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
@@ -10964,8 +10986,7 @@ const AdminOrders = () => {
                                         <td className="p-4">
                                             {o.shipping_method === 'Retirar na loja' ? (
                                                 <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                            ) : o.shipping_method && o.shipping_method.includes('Motoboy') ? (
-                                                // --- ATUALIZAÇÃO: Ícone de Moto para Entrega Local na Lista ---
+                                            ) : o.shipping_method && (o.shipping_method.includes('Motoboy') || o.shipping_method.includes('Entrega local')) ? (
                                                 <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                             ) : (
                                                 <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
@@ -11000,7 +11021,6 @@ const AdminOrders = () => {
                                     <div>
                                         <p className="font-bold">Pedido #{o.id}</p>
                                         <p className="text-sm text-gray-600">{o.user_name}</p>
-                                        {/* --- Ícone de WhatsApp no Card Mobile --- */}
                                         {o.user_phone && (
                                             <a 
                                                 href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
@@ -11030,7 +11050,7 @@ const AdminOrders = () => {
                                         <strong className="text-gray-500 block">Entrega</strong>
                                         {o.shipping_method === 'Retirar na loja' ? (
                                             <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                        ) : o.shipping_method && o.shipping_method.includes('Motoboy') ? (
+                                        ) : o.shipping_method && (o.shipping_method.includes('Motoboy') || o.shipping_method.includes('Entrega local')) ? (
                                             <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                        ) : (
                                             <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
