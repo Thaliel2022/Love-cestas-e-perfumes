@@ -10239,10 +10239,39 @@ const AdminOrders = () => {
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    <div>
-                                        <h4 className="font-bold text-gray-700 mb-1">Cliente</h4>
-                                        <p>{editingOrder.user_name}</p>
+                                    {/* --- SEÇÃO DO CLIENTE ATUALIZADA --- */}
+                                    <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                                        <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
+                                        <div className="space-y-1.5">
+                                            <p className="font-semibold text-gray-900 text-base">{editingOrder.user_name}</p>
+                                            
+                                            {editingOrder.user_cpf && (
+                                                <p className="text-gray-600 flex items-center gap-1">
+                                                    <span className="font-medium text-gray-700">CPF:</span> 
+                                                    {maskCPF(editingOrder.user_cpf)}
+                                                </p>
+                                            )}
+
+                                            {editingOrder.user_phone ? (
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <a 
+                                                        href={`https://wa.me/55${editingOrder.user_phone.replace(/\D/g, '')}`} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="inline-flex items-center gap-1.5 bg-green-100 text-green-800 hover:bg-green-200 px-3 py-1.5 rounded-md transition-colors text-sm font-bold border border-green-200"
+                                                        title="Conversar no WhatsApp"
+                                                    >
+                                                        <WhatsappIcon className="h-4 w-4" />
+                                                        {maskPhone(editingOrder.user_phone)}
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-400 italic text-xs">Telefone não informado</p>
+                                            )}
+                                        </div>
                                     </div>
+                                    {/* --- FIM DA SEÇÃO DO CLIENTE --- */}
+
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
                                         {(() => {
@@ -10440,7 +10469,24 @@ const AdminOrders = () => {
                                 return (
                                     <tr key={o.id} className="border-b hover:bg-gray-50">
                                         <td className="p-4 font-mono">#{o.id}</td>
-                                        <td className="p-4">{o.user_name}</td>
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{o.user_name}</p>
+                                                {/* --- Ícone de WhatsApp na Tabela --- */}
+                                                {o.user_phone && (
+                                                    <a 
+                                                        href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-0.5"
+                                                        title="Conversar"
+                                                    >
+                                                        <WhatsappIcon className="h-3 w-3" />
+                                                        {maskPhone(o.user_phone)}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="p-4">{formattedDate}</td>
                                         <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
                                         <td className="p-4">
@@ -10479,6 +10525,18 @@ const AdminOrders = () => {
                                     <div>
                                         <p className="font-bold">Pedido #{o.id}</p>
                                         <p className="text-sm text-gray-600">{o.user_name}</p>
+                                        {/* --- Ícone de WhatsApp no Card Mobile --- */}
+                                        {o.user_phone && (
+                                            <a 
+                                                href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-100"
+                                            >
+                                                <WhatsappIcon className="h-3 w-3" />
+                                                Conversar
+                                            </a>
+                                        )}
                                     </div>
                                     <div className="flex flex-col items-end gap-1">
                                         <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
