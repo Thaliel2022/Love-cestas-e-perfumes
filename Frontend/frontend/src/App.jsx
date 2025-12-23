@@ -375,7 +375,6 @@ const ShopProvider = ({ children }) => {
             const mergedCart = (dbCart || []).map(dbItem => {
                 // Se o item do banco já tem variação válida, usa ela
                 if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
-                    // Garante que cartItemId esteja correto
                     return {
                         ...dbItem,
                         cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}`
@@ -384,7 +383,6 @@ const ShopProvider = ({ children }) => {
                 
                 // Se o item é roupa e veio do banco SEM variação, tenta resgatar do local
                 if (dbItem.product_type === 'clothing') {
-                    // Procura um item correspondente no local que TENHA variação
                     const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
                     
                     if (localItem && localItem.variation) {
@@ -392,14 +390,11 @@ const ShopProvider = ({ children }) => {
                         return {
                             ...dbItem,
                             variation: localItem.variation,
-                            // Reconstrói o ID único do item no carrinho
                             cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}`
                         };
                     }
                 }
                 
-                // Fallback: se não tiver variação e for roupa, mantém como está (evita crash, mas ficará incompleto)
-                // Gera um ID base se não existir
                 return {
                     ...dbItem,
                     cartItemId: dbItem.cartItemId || String(dbItem.id)
@@ -407,7 +402,6 @@ const ShopProvider = ({ children }) => {
             });
 
             setCart(mergedCart);
-            // Atualiza o backup local imediatamente com os dados mesclados e corrigidos
             localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
@@ -421,24 +415,18 @@ const ShopProvider = ({ children }) => {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
                 console.log("Sincronizando itens locais para o banco...");
-                
                 const promises = localItems.map(item => {
-                    // Prepara o payload para garantir que o backend receba os dados
                     const payload = {
                         productId: item.id,
                         quantity: item.qty,
                         variationId: item.variation?.id,
-                        // Envia objeto completo e stringificado para cobrir diferentes implementações de backend
                         variation: item.variation,
                         variation_details: item.variation ? JSON.stringify(item.variation) : null
                     };
-
                     return apiService('/cart', 'POST', payload)
                         .catch(err => console.warn("Item duplicado ou erro no sync:", err));
                 });
-                
                 await Promise.all(promises);
-                // Não limpamos o localStorage aqui. Deixamos o fetchPersistentCart fazer o merge.
             }
         } catch (e) {
             console.error("Erro ao sincronizar carrinho:", e);
@@ -492,37 +480,26 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // Persistência Híbrida: Salva no LocalStorage como backup/cache rápido
     useEffect(() => {
         if (!isAuthLoading) {
-            // Só sobrescreve o localStorage se o carrinho tiver itens ou se estivermos limpando intencionalmente
-            // Evita sobrescrever um carrinho local bom com um estado vazio inicial
             if (cart.length > 0) {
                 localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
             } else if (cart.length === 0 && !isAuthenticated) {
-                 // Se deslogado e carrinho vazio, limpa.
-                 // Se logado, pode ser apenas delay do fetch, então não limpa imediatamente.
                  localStorage.setItem('lovecestas_cart', JSON.stringify([]));
             }
         }
     }, [cart, isAuthLoading, isAuthenticated]);
 
-    // Inicialização Inteligente e Sincronização
     useEffect(() => {
         if (isAuthLoading) return;
 
         const initializeShop = async () => {
             if (isAuthenticated) {
-                // 1. AO LOGAR: Verifica se há itens "órfãos" no localStorage e envia para o banco
                 await syncGuestCartToDB();
-                
-                // 2. Depois busca a versão definitiva do banco (que agora inclui os itens locais via merge)
                 await fetchPersistentCart();
-                
                 determineShippingLocation();
                 apiService('/wishlist').then(setWishlist).catch(console.error);
             } else {
-                // 3. MODO VISITANTE: Recupera do LocalStorage
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) {
                     try {
@@ -537,8 +514,6 @@ const ShopProvider = ({ children }) => {
                 } else {
                     setCart([]);
                 }
-                
-                // Limpa dados sensíveis ao deslogar
                 setWishlist([]); 
                 setAddresses([]); 
                 setShippingLocation({ cep: '', city: '', state: '', alias: '' });
@@ -564,30 +539,58 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
+    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO DO BRASIL ---
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
                 setShippingError('');
+                
                 const calculateShipping = async () => {
                     try {
-                        const productsPayload = itemsToCalculate.map(item => ({
-                            id: String(item.id),
-                            price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
-                            quantity: item.qty || 1,
-                        }));
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
-                        const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                        const shippingApiOptions = [];
-                        if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                        else if (sedexOption) shippingApiOptions.push(sedexOption);
+                        // Verifica se o CEP é de João Pessoa (Faixa: 58000-000 a 58099-999)
+                        const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+                        const cepPrefix = parseInt(cleanCep.substring(0, 5));
+                        const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
+
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
-                        const finalOptions = [...shippingApiOptions, pickupOption];
+                        let finalOptions = [];
+
+                        if (isJoaoPessoa) {
+                            // ✅ REGRA: Apenas Entrega Local (R$ 20) e Retirada
+                            const localDeliveryOption = { 
+                                name: "Entrega local (Motoboy / Uber)", 
+                                price: 20.00, 
+                                delivery_time: 'Receba hoje ou amanhã', 
+                                isLocal: true 
+                            };
+                            finalOptions = [localDeliveryOption, pickupOption];
+                        } else {
+                            // ✅ REGRA: Correios (PAC) e Retirada para outros locais
+                            const productsPayload = itemsToCalculate.map(item => ({
+                                id: String(item.id),
+                                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                                quantity: item.qty || 1,
+                            }));
+                            const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
+                            const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                            // Se precisar adicionar Sedex depois, basta descomentar
+                            // const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                            
+                            const shippingApiOptions = [];
+                            if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                            // if (sedexOption) shippingApiOptions.push(sedexOption);
+                            
+                            finalOptions = [...shippingApiOptions, pickupOption];
+                        }
+
                         setShippingOptions(finalOptions);
+                        
+                        // Seleciona automaticamente a melhor opção se a atual não for válida
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
-                        setAutoCalculatedShipping(desiredOption || shippingApiOptions[0] || pickupOption || null);
+                        setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
+
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
                         const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
@@ -617,9 +620,7 @@ const ShopProvider = ({ children }) => {
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
         
-        // Se estiver logado, salva no banco imediatamente
         if (isAuthenticated) {
-            // Envia dados completos para tentar contornar problemas de backend
             apiService('/cart', 'POST', { 
                 productId: productToAdd.id, 
                 quantity: existing ? existing.qty + qty : qty, 
@@ -635,7 +636,6 @@ const ShopProvider = ({ children }) => {
         if (!itemToRemove) return;
         setCart(current => current.filter(item => item.cartItemId !== cartItemId));
         
-        // Se estiver logado, remove do banco
         if (isAuthenticated) {
             await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
         }
@@ -650,14 +650,8 @@ const ShopProvider = ({ children }) => {
         
         setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
         
-        // Se estiver logado, atualiza no banco
         if (isAuthenticated) {
-            apiService('/cart', 'POST', { 
-                productId: itemToUpdate.id, 
-                quantity: newQuantity, 
-                variationId: itemToUpdate.variation?.id,
-                variation: itemToUpdate.variation
-            });
+            apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
         }
     }, [cart, isAuthenticated, removeFromCart]);
     
@@ -694,7 +688,6 @@ const ShopProvider = ({ children }) => {
             const response = await apiService('/coupons/validate', 'POST', { code });
             const coupon = response.coupon;
 
-            // --- VALIDAÇÃO IMEDIATA (Antes de aplicar no estado) ---
             if (coupon.type !== 'free_shipping') {
                 const rawAllowedCats = safeParse(coupon.allowed_categories);
                 const rawAllowedBrands = safeParse(coupon.allowed_brands);
@@ -731,7 +724,6 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart]); 
     
-    // --- CÁLCULO DE DESCONTO ---
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
 
@@ -5925,7 +5917,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             notification.show(result.message);
             setIsRefundModalOpen(false);
             setRefundReason('');
-            fetchOrderDetails(); // Recarrega os dados do pedido
+            fetchOrderDetails(); 
         } catch (error) {
             notification.show(`Erro ao solicitar: ${error.message}`, 'error');
         } finally {
@@ -6023,26 +6015,114 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
+    const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); // Detecta entrega local
     const pickupDetails = isPickupOrder && order.pickup_details ? JSON.parse(order.pickup_details) : null;
     const safeHistory = Array.isArray(order.history) ? order.history : [];
     const shippingAddress = !isPickupOrder && order.shipping_address ? JSON.parse(order.shipping_address) : null;
     const subtotal = (Number(order.total) || 0) - (Number(order.shipping_cost) || 0) + (Number(order.discount_amount) || 0);
     
     const cancellableStatuses = ['Pagamento Aprovado', 'Separando Pedido', 'Entregue'];
-    const isOrderDelivered = order.status === 'Entregue';
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
-    // A condição agora verifica o status do pagamento do gateway
     const canRequest = 
-        order.payment_status === 'approved' && // <-- VERIFICAÇÃO ADICIONADA
+        order.payment_status === 'approved' && 
         cancellableStatuses.includes(order.status) && 
         !order.refund_id && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
-    const actionText = isOrderDelivered ? 'Reembolso' : 'Cancelamento';
+    const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
+
+    // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL ---
+    const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
+        // Mapeia os status visuais do frontend para os do backend
+        const timelineOrder = [
+            'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
+        ];
+        
+        // Define as labels visuais personalizadas para o cliente
+        const displayLabels = {
+            'Pendente': 'Pedido Pendente',
+            'Pagamento Aprovado': 'Pagamento Aprovado',
+            'Separando Pedido': 'Preparado o pedido para envio',
+            'Saiu para Entrega': 'Saiu para entrega (Motoboy)',
+            'Entregue': 'Pedido entregue'
+        };
+
+        const STATUS_DEFINITIONS = {
+            'Pendente': { icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
+            'Pagamento Aprovado': { icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
+            'Separando Pedido': { icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
+            'Saiu para Entrega': { icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
+            'Entregue': { icon: <HomeIcon className="h-6 w-6" />, color: 'green' }
+        };
+
+        const colorClasses = {
+            amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
+            green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
+            blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+            gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+        };
+
+        const historyMap = new Map((Array.isArray(history) ? history : []).filter(h => h.status).map(h => [h.status, h]));
+        const currentStatusIndex = timelineOrder.indexOf(currentStatus);
+
+        return (
+            <div className="w-full">
+                {/* Desktop View */}
+                <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
+                    {timelineOrder.map((statusKey, index) => {
+                        const statusInfo = historyMap.get(statusKey);
+                        const isStepActive = index <= currentStatusIndex;
+                        const isCurrent = statusKey === currentStatus;
+                        const definition = STATUS_DEFINITIONS[statusKey];
+                        if (!definition) return null;
+                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+                        
+                        return (
+                            <React.Fragment key={statusKey}>
+                                <div className="flex flex-col items-center">
+                                    <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
+                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                    </div>
+                                    <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
+                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleDateString('pt-BR')}</p>)}
+                                </div>
+                                {index < timelineOrder.length - 1 && <div className={`flex-1 h-1 transition-colors ${isStepActive ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+                 {/* Mobile View */}
+                <div className="md:hidden flex flex-col">
+                    {timelineOrder.map((statusKey, index) => {
+                        const statusInfo = historyMap.get(statusKey);
+                        const isStepActive = index <= currentStatusIndex;
+                        const definition = STATUS_DEFINITIONS[statusKey];
+                        if (!definition) return null;
+                        const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
+
+                        return (
+                            <div key={statusKey} className="flex">
+                                <div className="flex flex-col items-center mr-4">
+                                    <div className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border}`}>
+                                        {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
+                                    </div>
+                                    {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${index < currentStatusIndex ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
+                                </div>
+                                <div className="pt-1.5 pb-8">
+                                    <p className={`font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
+                                    {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <>
@@ -6083,7 +6163,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 )}
             </AnimatePresence>
             <div>
-                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit">
+                <button onClick={() => onNavigate('account/orders')} className="text-sm text-amber-400 hover:underline flex items-center mb-6 w-fit transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                     Voltar para todos os pedidos
                 </button>
@@ -6105,11 +6185,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     )}
 
                     <div className="my-6">
-                        {isPickupOrder ? 
+                        {isLocalDelivery ? (
+                            <LocalDeliveryTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
+                        ) : isPickupOrder ? (
                             <PickupOrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} /> 
-                            : 
+                        ) : (
                             <OrderStatusTimeline history={safeHistory} currentStatus={order.status} onStatusClick={handleOpenStatusModal} />
-                        }
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
@@ -6162,7 +6244,24 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                     <p><span className="font-semibold text-gray-400">CEP:</span> {shippingAddress.cep}</p>
                                 </div>
                             ) : <p>Endereço não informado.</p>}
-                            {order.tracking_code && <p className="mt-2 pt-2 border-t border-gray-700"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>}
+                            
+                            {/* Lógica de Rastreamento (Uber vs Correios) */}
+                            {order.tracking_code && (
+                                <div className="mt-4 pt-3 border-t border-gray-700">
+                                    {isLocalDelivery ? (
+                                        <a 
+                                            href={order.tracking_code} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="block w-full text-center bg-black text-white font-bold py-3 rounded-md hover:bg-gray-900 border border-gray-600 transition-colors animate-pulse"
+                                        >
+                                            🚗 Acompanhar entrega em tempo real
+                                        </a>
+                                    ) : (
+                                        <p className="font-mono text-amber-400"><strong>Cód. Rastreio:</strong> {order.tracking_code}</p>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -6218,7 +6317,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
                              {canRequest && (
                                 <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
