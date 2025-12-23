@@ -10270,7 +10270,7 @@ const AdminOrders = () => {
     // --- COMPONENTES DE TIMELINE PARA O ADMIN ---
     const TimelineDisplay = ({ order }) => {
         // Verifica se é entrega local (contém "Motoboy" ou "Entrega local" no nome)
-        const isLocalDelivery = order.shipping_method && (order.shipping_method.includes('Motoboy') || order.shipping_method.includes('Entrega local'));
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = order.shipping_method === 'Retirar na loja';
         
         let timelineOrder = [];
@@ -10301,11 +10301,11 @@ const AdminOrders = () => {
             // TIMELINE: ENTREGA LOCAL (MOTOBOY)
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
             displayLabels = {
-                'Pendente': 'Pendente',
-                'Pagamento Aprovado': 'Aprovado',
-                'Separando Pedido': 'Preparando',
+                'Pendente': 'Pedido Pendente',
+                'Pagamento Aprovado': 'Pagamento Aprovado',
+                'Separando Pedido': 'Preparado p/ Envio',
                 'Saiu para Entrega': 'Saiu (Motoboy)',
-                'Entregue': 'Entregue'
+                'Entregue': 'Pedido Entregue'
             };
             statusDefinitions = {
                 'Pendente': { icon: icons.clock, color: 'amber' },
@@ -10402,7 +10402,7 @@ const AdminOrders = () => {
         const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
-        const isLocalDelivery = order.shipping_method && (order.shipping_method.includes('Motoboy') || order.shipping_method.includes('Entrega local'));
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
         
@@ -10430,8 +10430,8 @@ const AdminOrders = () => {
 
         switch (status) {
             case 'Separando Pedido':
-                text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
-                text += `Estamos preparando seus itens com cuidado.`;
+                text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\n`;
+                text += `Estamos separando seus itens com cuidado.`;
                 break;
             case 'Enviado': 
                 text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
@@ -10450,7 +10450,7 @@ const AdminOrders = () => {
                 }
                 break;
             case 'Entregue':
-                text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
+                text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\n`;
                 text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
                 break;
             case 'Pronto para Retirada':
@@ -10692,7 +10692,7 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.includes('Motoboy') || editingOrder.shipping_method.includes('Entrega local'));
+                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
                     
                     const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
@@ -10706,6 +10706,17 @@ const AdminOrders = () => {
                     } else {
                         availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
                     }
+
+                    // Função para converter status do DB para nome amigável no select
+                    const getStatusLabel = (status) => {
+                        if (isLocalDelivery) {
+                            if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
+                            if (status === 'Separando Pedido') return 'Preparado o pedido para envio';
+                            if (status === 'Entregue') return 'Pedido entregue';
+                            if (status === 'Pendente') return 'Pedido pendente';
+                        }
+                        return status;
+                    };
 
                     // Garante que o status atual esteja na lista (mesmo se for antigo/incompatível)
                     if (!availableStatuses.includes(editingOrder.status)) {
@@ -10843,7 +10854,7 @@ const AdminOrders = () => {
                                         <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
                                         <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
                                             {/* --- OPÇÕES FILTRADAS PELO TIPO DE ENTREGA --- */}
-                                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
                                         </select>
                                     </div>
                                     {!isPickup && (
@@ -10967,6 +10978,7 @@ const AdminOrders = () => {
                                         <td className="p-4">
                                             <div>
                                                 <p className="font-semibold text-gray-800">{o.user_name}</p>
+                                                {/* --- Ícone de WhatsApp na Tabela --- */}
                                                 {o.user_phone && (
                                                     <a 
                                                         href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
@@ -10986,7 +10998,7 @@ const AdminOrders = () => {
                                         <td className="p-4">
                                             {o.shipping_method === 'Retirar na loja' ? (
                                                 <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                            ) : o.shipping_method && (o.shipping_method.includes('Motoboy') || o.shipping_method.includes('Entrega local')) ? (
+                                            ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
                                                 <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                             ) : (
                                                 <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
@@ -11021,6 +11033,7 @@ const AdminOrders = () => {
                                     <div>
                                         <p className="font-bold">Pedido #{o.id}</p>
                                         <p className="text-sm text-gray-600">{o.user_name}</p>
+                                        {/* --- Ícone de WhatsApp no Card Mobile --- */}
                                         {o.user_phone && (
                                             <a 
                                                 href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
@@ -11050,7 +11063,7 @@ const AdminOrders = () => {
                                         <strong className="text-gray-500 block">Entrega</strong>
                                         {o.shipping_method === 'Retirar na loja' ? (
                                             <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                        ) : o.shipping_method && (o.shipping_method.includes('Motoboy') || o.shipping_method.includes('Entrega local')) ? (
+                                        ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
                                             <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                        ) : (
                                             <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
