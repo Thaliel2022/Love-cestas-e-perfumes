@@ -10049,57 +10049,59 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Melhorada) ---
     const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
-        let text = `Olá, *${firstName}*! 👋\n\n`;
-        text += `Passando para avisar que o status do seu pedido *#${orderId}* mudou na *Love Cestas e Perfumes*.\n\n`;
+        
+        // Cabeçalho Padrão
+        let text = `Olá, *${firstName}*! Tudo bem? 🌟\n\n`;
+        text += `Aqui é da *Love Cestas e Perfumes*. Temos uma atualização sobre o seu pedido *#${orderId}*.\n\n`;
 
+        // Corpo da mensagem baseado no status
         switch (status) {
             case 'Separando Pedido':
-                text += `*Novo Status:* 📦 Separando seu Pedido\n`;
-                text += `Já estamos preparando tudo com muito carinho! Em breve enviaremos.`;
+                text += `📦 *Novo Status: Separando seu Pedido*\n`;
+                text += `Estamos preparando tudo com muito carinho! Em breve você receberá mais atualizações.`;
                 break;
             case 'Enviado':
-                text += `*Novo Status:* 🚚 Pedido Enviado\n`;
-                text += `Seu pedido já está com a transportadora e a caminho do seu endereço.`;
-                if (trackingCode) text += `\n\n📄 *Código de Rastreio:* ${trackingCode}\n🔗 Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
+                text += `🚚 *Novo Status: Pedido Enviado*\n`;
+                text += `Oba! Seu pedido já foi despachado e está a caminho.`;
+                if (trackingCode) text += `\n\n📄 *Código de Rastreio:* ${trackingCode}\n🔗 *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
-                text += `*Novo Status:* 🛵 Saiu para Entrega\n`;
-                text += `Fique atento(a) ao interfone ou campainha, seu pedido deve chegar ainda hoje!`;
-                if (trackingCode) text += `\n\n🔗 Acompanhe em tempo real: https://linketrack.com/track?codigo=${trackingCode}`;
+                text += `🛵 *Novo Status: Saiu para Entrega*\n`;
+                text += `Seu pedido está chegando! Por favor, fique atento(a) ao interfone ou campainha.`;
+                if (trackingCode) text += `\n\n🔗 Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Entregue':
-                text += `*Novo Status:* ✅ Entregue\n`;
-                text += `Seu pedido foi entregue! Esperamos que você ame seus produtos. ❤️\n`;
-                text += `Quando puder, deixe sua avaliação no site!`;
+                text += `✅ *Novo Status: Entregue*\n`;
+                text += `Seu pedido foi entregue com sucesso! 🎉\nEsperamos que ame seus produtos tanto quanto amamos prepará-los.`;
                 break;
             case 'Pronto para Retirada':
-                text += `*Novo Status:* 🛍️ Pronto para Retirada\n`;
-                text += `Você já pode vir buscar seu pedido em nossa loja.\n\n`;
+                text += `🛍️ *Novo Status: Pronto para Retirada*\n`;
+                text += `Seu pedido já está disponível em nossa loja física.\n\n`;
                 text += `📍 *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
                 text += `⏰ *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
                 break;
             case 'Pagamento Aprovado':
-                text += `*Novo Status:* 💸 Pagamento Aprovado\n`;
-                text += `Recebemos seu pagamento! Vamos começar a preparar seu pedido em breve.`;
+                text += `💸 *Novo Status: Pagamento Aprovado*\n`;
+                text += `Recebemos a confirmação do seu pagamento! Já vamos iniciar a separação dos seus itens.`;
                 break;
             case 'Cancelado':
-                text += `*Novo Status:* ❌ Cancelado\n`;
-                text += `Seu pedido foi cancelado. Se tiver dúvidas ou precisar de ajuda, estamos por aqui.`;
+                text += `❌ *Novo Status: Cancelado*\n`;
+                text += `O pedido foi cancelado. Caso tenha dúvidas ou queira refazer a compra, estamos à disposição.`;
                 break;
             case 'Pagamento Recusado':
-                text += `*Novo Status:* ⚠️ Pagamento Recusado\n`;
-                text += `Houve um problema com o pagamento. Tente realizar o pedido novamente ou entre em contato.`;
+                text += `⚠️ *Novo Status: Pagamento Recusado*\n`;
+                text += `Houve um problema na confirmação do pagamento. Tente refazer o pedido ou entre em contato conosco.`;
                 break;
             default:
-                text += `*Novo Status:* ${status}\n`;
-                text += `Qualquer dúvida, estamos à disposição!`;
+                text += `🆕 *Novo Status:* ${status}\n`;
+                text += `Qualquer dúvida, estamos por aqui!`;
         }
 
-        // --- ASSINATURA DA LOJA ---
-        text += `\n\nAtenciosamente,\n*Love Cestas e Perfumes*\n📱 (83) 98737-9573`;
+        // Assinatura Oficial da Loja
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n📱 (83) 98737-9573`;
         
         return text;
     };
