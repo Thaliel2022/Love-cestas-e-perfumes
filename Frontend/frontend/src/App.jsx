@@ -10128,6 +10128,33 @@ const AdminOrders = () => {
         return text;
     };
 
+    const handleManualWhatsAppNotification = () => {
+        if (!editingOrder || !editingOrder.user_phone) {
+            notification.show("Telefone do cliente não disponível.", "error");
+            return;
+        }
+
+        // Usa o status selecionado no formulário, não necessariamente o salvo no banco
+        const statusToSend = editFormData.status || editingOrder.status;
+        const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
+
+        const message = generateWhatsAppStatusMessage(
+            statusToSend,
+            editingOrder.user_name,
+            editingOrder.id,
+            trackingToSend
+        );
+
+        const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
+
+        if (cleanPhone.length >= 10) {
+            const waUrl = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
+            window.open(waUrl, '_blank');
+        } else {
+            notification.show("Número de telefone do cliente inválido.", "error");
+        }
+    };
+
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
@@ -10204,34 +10231,12 @@ const AdminOrders = () => {
         e.preventDefault();
         if (!editingOrder) return;
         try {
-            // 1. Salva no Banco de Dados
             await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
-            
-            // 2. Lógica de Envio Automático de WhatsApp
-            // Verifica se o status mudou E se temos o telefone do cliente
-            if (editFormData.status !== editingOrder.status && editingOrder.user_phone) {
-                const message = generateWhatsAppStatusMessage(
-                    editFormData.status, 
-                    editingOrder.user_name, 
-                    editingOrder.id, 
-                    editFormData.tracking_code || editingOrder.tracking_code
-                );
-                
-                const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
-                
-                // Abre o WhatsApp em uma nova aba automaticamente
-                if (cleanPhone.length >= 10) {
-                    const waUrl = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
-                    // Pequeno timeout para garantir que a UI não bloqueie o popup imediatamente após o submit
-                    setTimeout(() => window.open(waUrl, '_blank'), 100);
-                    notification.show('WhatsApp aberto com a mensagem de status!', 'success');
-                }
-            }
-
             fetchOrders();
             setIsEditModalOpen(false);
             setEditingOrder(null);
             notification.show('Pedido atualizado com sucesso!');
+            // REMOVIDO: Lógica automática de WhatsApp. Agora é manual via botão.
         } catch(error) {
             notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
         }
@@ -10341,7 +10346,7 @@ const AdminOrders = () => {
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    {/* --- SEÇÃO DO CLIENTE ATUALIZADA --- */}
+                                    {/* --- SEÇÃO DO CLIENTE --- */}
                                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
                                         <div className="space-y-1.5">
@@ -10356,23 +10361,16 @@ const AdminOrders = () => {
 
                                             {editingOrder.user_phone ? (
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <a 
-                                                        href={`https://wa.me/55${editingOrder.user_phone.replace(/\D/g, '')}`} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="inline-flex items-center gap-1.5 bg-green-100 text-green-800 hover:bg-green-200 px-3 py-1.5 rounded-md transition-colors text-sm font-bold border border-green-200"
-                                                        title="Conversar no WhatsApp"
-                                                    >
+                                                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-1 rounded-md text-sm font-bold border border-green-100">
                                                         <WhatsappIcon className="h-4 w-4" />
                                                         {maskPhone(editingOrder.user_phone)}
-                                                    </a>
+                                                    </span>
                                                 </div>
                                             ) : (
                                                 <p className="text-gray-400 italic text-xs">Telefone não informado</p>
                                             )}
                                         </div>
                                     </div>
-                                    {/* --- FIM DA SEÇÃO DO CLIENTE --- */}
 
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
@@ -10483,21 +10481,38 @@ const AdminOrders = () => {
                                             <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
                                         </div>
                                     )}
-                                    <div className="flex justify-between items-center space-x-3 pt-4">
-                                        <div>
-                                            {canRequestRefund ? (
-                                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold">
-                                                    Solicitar Reembolso
-                                                </button>
-                                            ) : (
-                                                <p className="text-xs text-gray-500">
-                                                    {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="flex gap-3">
-                                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                                            <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900">Salvar Alterações</button>
+
+                                    {/* --- ÁREA DE AÇÕES --- */}
+                                    <div className="flex flex-col gap-4 pt-2">
+                                        
+                                        {/* Botão de WhatsApp em destaque (NOVO) */}
+                                        {editingOrder.user_phone && (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleManualWhatsAppNotification}
+                                                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-md hover:bg-green-700 font-bold transition-colors shadow-sm"
+                                            >
+                                                <WhatsappIcon className="h-5 w-5" />
+                                                Enviar Notificação de Status
+                                            </button>
+                                        )}
+
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                {canRequestRefund ? (
+                                                    <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold text-sm">
+                                                        Solicitar Reembolso
+                                                    </button>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500">
+                                                        {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-sm font-medium">Cancelar</button>
+                                                <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 text-sm font-bold">Salvar Alterações</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </form>
