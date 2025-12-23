@@ -4880,14 +4880,13 @@ const CheckoutPage = ({ onNavigate }) => {
                 // Tenta achar um endereço salvo COMPLETO com este CEP
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
-                    addr.logradouro && addr.numero && addr.bairro // Garante que tem dados
+                    addr.logradouro && addr.numero && addr.bairro 
                 );
                 
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
-                    // Se não tem endereço salvo, usa o shippingLocation temporário mas marca como incompleto visualmente
-                    // O usuário terá que cadastrar para finalizar
+                    // Endereço temporário incompleto (exige cadastro)
                     addressToSet = {
                         cep: shippingLocation.cep,
                         localidade: shippingLocation.city,
@@ -4896,13 +4895,12 @@ const CheckoutPage = ({ onNavigate }) => {
                         logradouro: '',
                         numero: '',
                         bairro: '',
-                        is_incomplete: true // Flag para validação
+                        is_incomplete: true
                     };
                 }
             }
 
             if (!addressToSet) {
-                // Pega o padrão ou o primeiro válido
                 addressToSet = userAddresses.find(addr => addr.is_default) || userAddresses[0] || null;
             }
             
@@ -5013,7 +5011,13 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     
+    // --- CORREÇÃO: Aceita texto direto para Entrega Local ---
     const getDeliveryDateText = (deliveryTime) => {
+        // Se for string não numérica (ex: "1 dia útil"), retorna ela direto
+        if (typeof deliveryTime === 'string' && isNaN(Number(deliveryTime))) {
+            return deliveryTime;
+        }
+
         const timeInDays = Number(deliveryTime);
         if (isNaN(timeInDays) || timeInDays <= 0) return 'Prazo indisponível';
 
@@ -5036,22 +5040,18 @@ const CheckoutPage = ({ onNavigate }) => {
     const handleCpfInputChangeMask = (e) => { e.target.value = maskCPF(e.target.value); };
     const handlePickupCpfBlur = (e) => { setPickupPersonCpf(maskCPF(e.target.value)); };
 
-    // Validação Robusta para Habilitar o Botão
     const canPlaceOrder = useMemo(() => {
         const isPickup = autoCalculatedShipping?.isPickup;
         
-        // Se for retirada, valida apenas os dados da pessoa
         if (isPickup) {
              if (isSomeoneElsePickingUp) {
                  return pickupPersonName.length > 3 && pickupPersonCpf.length >= 11;
              }
-             return true; // Se for o próprio usuário, ok (dados vêm do cadastro)
+             return true; 
         }
 
-        // Se for entrega, valida o endereço
         if (!displayAddress) return false;
         
-        // Verifica se os campos obrigatórios estão preenchidos e não são "N/A" ou vazios
         const hasValidStreet = displayAddress.logradouro && displayAddress.logradouro !== 'N/A' && displayAddress.logradouro.trim() !== '';
         const hasValidNumber = displayAddress.numero && displayAddress.numero !== 'N/A' && displayAddress.numero.trim() !== '';
         const hasValidNeighborhood = displayAddress.bairro && displayAddress.bairro !== 'N/A' && displayAddress.bairro.trim() !== '';
@@ -5066,12 +5066,10 @@ const CheckoutPage = ({ onNavigate }) => {
         
         if (!canPlaceOrder && !isPickup) {
              notification.show("Por favor, complete o endereço de entrega (Rua, Número e Bairro) para continuar.", 'error');
-             // Abre o modal de novo endereço automaticamente para facilitar
              setIsNewAddressModalOpen(true); 
              return;
         }
         
-        // Validação WhatsApp
         if (!whatsapp || !validatePhone(whatsapp)) {
             notification.show("Por favor, informe um número de WhatsApp válido para contato.", 'error');
             return;
@@ -5141,7 +5139,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
                         <div className="lg:col-span-2 space-y-8">
                             
-                            {/* NOVA SEÇÃO: CONTATO (WhatsApp) */}
                             <CheckoutSection title="Contato para Status" step={1} icon={WhatsappIcon}>
                                 <div className="space-y-4">
                                     <div>
@@ -5218,7 +5215,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {/* CORREÇÃO: Converter is_default (0 ou 1) para booleano real com !! para evitar renderizar "0" */}
                                                 {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
