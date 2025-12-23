@@ -2996,7 +2996,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         setAutoCalculatedShipping,
         setPreviewShippingItem,
         setSelectedShippingName,
-        isGeolocating // <-- NOVO ESTADO
+        isGeolocating 
     } = useShop();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -3046,8 +3046,26 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         if (apiError) setApiError('');
     };
 
+    // --- CORREÇÃO: Formatação de Data para Entrega Local ---
     const getDeliveryDate = (deliveryTime) => {
+        // Se o prazo for texto (ex: "1 dia útil"), assumimos que é entrega local
+        // e calculamos a data do próximo dia útil para exibir "Receba até..."
+        if (typeof deliveryTime === 'string') {
+             const date = new Date();
+             let addedDays = 0;
+             // Adiciona 1 dia útil
+             while (addedDays < 1) {
+                 date.setDate(date.getDate() + 1);
+                 // Pula Domingo (0) e Sábado (6)
+                 if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
+             }
+             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+             return `Receba até ${formattedDate}. (1 dia útil)`;
+        }
+
+        // Se for numérico (Correios), mantém a lógica padrão
         if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
+        
         const date = new Date();
         let addedDays = 0;
         while (addedDays < deliveryTime) {
