@@ -361,16 +361,42 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
+    // --- CORREÇÃO: Fetch com Merge Inteligente (Restaura variações perdidas) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
-            // O banco é a fonte da verdade quando logado
-            setCart(dbCart || []);
+            
+            // Tenta recuperar variações do localStorage caso o banco tenha falhado em salvar
+            const localCartStr = localStorage.getItem('lovecestas_cart');
+            let localCart = [];
+            try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
+
+            const mergedCart = (dbCart || []).map(dbItem => {
+                // Se o item do banco já tem variação, usa ela (ideal)
+                if (dbItem.variation) return dbItem;
+                
+                // Se é roupa e veio sem variação do banco, tenta restaurar do local
+                if (dbItem.product_type === 'clothing') {
+                    const localItem = localCart.find(li => li.id === dbItem.id);
+                    if (localItem && localItem.variation) {
+                        return {
+                            ...dbItem,
+                            variation: localItem.variation,
+                            // Reconstrói o ID único do item no carrinho
+                            cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}`
+                        };
+                    }
+                }
+                // Se não tiver salvação, retorna como está
+                return dbItem;
+            });
+
+            setCart(mergedCart);
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
-    // --- NOVA FUNÇÃO: Sincroniza Carrinho de Visitante para o Banco ao Logar ---
+    // --- Sincroniza Carrinho de Visitante para o Banco ao Logar ---
     const syncGuestCartToDB = useCallback(async () => {
         const localCartStr = localStorage.getItem('lovecestas_cart');
         if (!localCartStr) return;
@@ -379,20 +405,19 @@ const ShopProvider = ({ children }) => {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
                 console.log("Sincronizando itens locais para o banco...");
-                // Envia cada item local para o banco de dados
-                // Nota: Isso garante que o cliente não perca o que escolheu antes de logar
                 const promises = localItems.map(item => 
                     apiService('/cart', 'POST', {
                         productId: item.id,
                         quantity: item.qty,
-                        variationId: item.variation?.id // Garante persistência da variação (cor/tamanho)
+                        variationId: item.variation?.id 
                     }).catch(err => console.warn("Item duplicado ou erro no sync:", err))
                 );
                 
                 await Promise.all(promises);
                 
-                // Limpa o localstorage para evitar conflitos futuros, pois agora o DB assume
-                localStorage.removeItem('lovecestas_cart');
+                // CORREÇÃO: Não removemos o localStorage aqui imediatamente.
+                // Deixamos que o fetchPersistentCart faça o merge primeiro para garantir que nada se perca.
+                // O useEffect de persistência atualizará o localStorage corretamente depois.
             }
         } catch (e) {
             console.error("Erro ao sincronizar carrinho:", e);
@@ -462,7 +487,7 @@ const ShopProvider = ({ children }) => {
                 // 1. AO LOGAR: Verifica se há itens "órfãos" no localStorage e envia para o banco
                 await syncGuestCartToDB();
                 
-                // 2. Depois busca a versão definitiva do banco (que agora inclui os itens locais)
+                // 2. Depois busca a versão definitiva do banco (que agora inclui os itens locais via merge)
                 await fetchPersistentCart();
                 
                 determineShippingLocation();
