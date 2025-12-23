@@ -10049,23 +10049,23 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Correção Definitiva via CodePoint) ---
-    // Utiliza String.fromCodePoint para garantir que o JS gere o emoji correto em tempo de execução,
-    // independente da codificação do arquivo.
-    const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Completa com Endereço/Link) ---
+    const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
+        const customerName = order.user_name;
+        const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        
+        // Link dinâmico para o pedido no site (usa a URL atual como base)
+        const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
         
         const EMOJI = {
-            WAVE: String.fromCodePoint(0x1F44B),      // 👋
-            STAR: String.fromCodePoint(0x1F31F),      // 🌟
             PACKAGE: String.fromCodePoint(0x1F4E6),   // 📦
             TRUCK: String.fromCodePoint(0x1F69A),     // 🚚
             DOC: String.fromCodePoint(0x1F4C4),       // 📄
             LINK: String.fromCodePoint(0x1F517),      // 🔗
             MOTO: String.fromCodePoint(0x1F6F5),      // 🛵
             CHECK: String.fromCodePoint(0x2705),      // ✅
-            PARTY: String.fromCodePoint(0x1F389),     // 🎉
-            HEART: String.fromCodePoint(0x2764, 0xFE0F), // ❤️
             BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), // 🛍️
             PIN: String.fromCodePoint(0x1F4CD),       // 📍
             CLOCK: String.fromCodePoint(0x23F0),      // ⏰
@@ -10073,57 +10073,81 @@ const AdminOrders = () => {
             CROSS: String.fromCodePoint(0x274C),      // ❌
             WARN: String.fromCodePoint(0x26A0, 0xFE0F), // ⚠️
             NEW: String.fromCodePoint(0x1F195),       // 🆕
-            PHONE: String.fromCodePoint(0x1F4F1)      // 📱
+            PHONE: String.fromCodePoint(0x1F4F1),     // 📱
+            HOUSE: String.fromCodePoint(0x1F3E0)      // 🏠
         };
 
-        // Cabeçalho Padrão
-        let text = `Olá, *${firstName}*! Tudo bem? ${EMOJI.STAR}\n\n`;
-        text += `Aqui é da *Love Cestas e Perfumes*. Temos uma atualização sobre o seu pedido *#${orderId}*.\n\n`;
+        // Cabeçalho
+        let text = `Olá, *${firstName}*.\n\n`;
+        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
 
         // Corpo da mensagem baseado no status
         switch (status) {
             case 'Separando Pedido':
                 text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
-                text += `Estamos preparando tudo com muito carinho! Em breve você receberá mais atualizações.`;
+                text += `Estamos preparando seus itens com cuidado.`;
                 break;
             case 'Enviado':
                 text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
-                text += `Oba! Seu pedido já foi despachado e está a caminho.`;
-                if (trackingCode) text += `\n\n${EMOJI.DOC} *Código de Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
+                text += `Seu pedido foi despachado.`;
+                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Rastrear:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
                 text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
-                text += `Seu pedido está chegando! Por favor, fique atento(a) ao interfone ou campainha.`;
+                text += `Seu pedido está em rota de entrega. Por favor, aguarde no local.`;
                 if (trackingCode) text += `\n\n${EMOJI.LINK} Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Entregue':
                 text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
-                text += `Seu pedido foi entregue com sucesso! ${EMOJI.PARTY}\nEsperamos que ame seus produtos tanto quanto amamos prepará-los. ${EMOJI.HEART}`;
+                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
                 break;
             case 'Pronto para Retirada':
                 text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
-                text += `Seu pedido já está disponível em nossa loja física.\n\n`;
-                text += `${EMOJI.PIN} *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
-                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
+                text += `Já disponível em nossa loja.`;
                 break;
             case 'Pagamento Aprovado':
                 text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
-                text += `Recebemos a confirmação do seu pagamento! Já vamos iniciar a separação dos seus itens.`;
+                text += `Pagamento confirmado. Iniciaremos a separação.`;
                 break;
             case 'Cancelado':
                 text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
-                text += `O pedido foi cancelado. Caso tenha dúvidas ou queira refazer a compra, estamos à disposição.`;
+                text += `O pedido foi cancelado. Dúvidas? Entre em contato.`;
                 break;
             case 'Pagamento Recusado':
                 text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
-                text += `Houve um problema na confirmação do pagamento. Tente refazer o pedido ou entre em contato conosco.`;
+                text += `Não confirmamos o pagamento. Tente novamente ou contate-nos.`;
                 break;
             default:
-                text += `${EMOJI.NEW} *Novo Status:* ${status}\n`;
-                text += `Qualquer dúvida, estamos por aqui!`;
+                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
-        // Assinatura Oficial da Loja
+        text += `\n\n--------------------------------\n`;
+
+        // Informações de Endereço/Retirada
+        if (isPickup) {
+            text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
+            text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
+            text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
+        } else {
+            // Tenta fazer o parse do endereço de entrega
+            try {
+                const addr = JSON.parse(order.shipping_address);
+                if (addr) {
+                    text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
+                    text += `${addr.logradouro}, ${addr.numero}\n`;
+                    if (addr.bairro) text += `${addr.bairro} - `;
+                    text += `${addr.localidade}/${addr.uf}`;
+                }
+            } catch (e) {
+                // Se der erro no parse, não adiciona nada ou mensagem genérica
+                text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
+            }
+        }
+
+        // Link para o site
+        text += `\n\n${EMOJI.LINK} *Acompanhe detalhes no site:*\n${orderLink}`;
+
+        // Assinatura
         text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
         
         return text;
@@ -10135,21 +10159,19 @@ const AdminOrders = () => {
             return;
         }
 
-        // Usa o status selecionado no formulário, não necessariamente o salvo no banco
         const statusToSend = editFormData.status || editingOrder.status;
         const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
 
+        // Agora passamos o objeto 'editingOrder' completo
         const message = generateWhatsAppStatusMessage(
             statusToSend,
-            editingOrder.user_name,
-            editingOrder.id,
+            editingOrder,
             trackingToSend
         );
 
         const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
 
         if (cleanPhone.length >= 10) {
-            // Alterado para api.whatsapp.com para maior compatibilidade
             const waUrl = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`;
             window.open(waUrl, '_blank');
         } else {
