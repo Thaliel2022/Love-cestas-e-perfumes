@@ -10097,6 +10097,10 @@ const AdminOrders = () => {
                 text += `*Novo Status:* ${status}\n`;
                 text += `Qualquer dúvida, estamos à disposição!`;
         }
+
+        // --- ASSINATURA DA LOJA ---
+        text += `\n\nAtenciosamente,\n*Love Cestas e Perfumes*\n📱 (83) 98737-9573`;
+        
         return text;
     };
 
