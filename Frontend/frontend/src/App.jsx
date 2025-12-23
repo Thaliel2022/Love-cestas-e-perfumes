@@ -368,6 +368,7 @@ const ShopProvider = ({ children }) => {
             const dbCart = await apiService('/cart');
             
             // Tenta recuperar variações do localStorage caso o banco tenha falhado em salvar
+            // (Comum se as variações não tiverem IDs únicos no banco)
             const localCartStr = localStorage.getItem('lovecestas_cart');
             let localCart = [];
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
@@ -393,6 +394,8 @@ const ShopProvider = ({ children }) => {
             });
 
             setCart(mergedCart);
+            // Atualiza o backup local com os dados mesclados
+            localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
@@ -409,15 +412,17 @@ const ShopProvider = ({ children }) => {
                     apiService('/cart', 'POST', {
                         productId: item.id,
                         quantity: item.qty,
-                        variationId: item.variation?.id 
+                        variationId: item.variation?.id,
+                        // Envia objeto completo da variação como fallback
+                        variation: item.variation 
                     }).catch(err => console.warn("Item duplicado ou erro no sync:", err))
                 );
                 
                 await Promise.all(promises);
                 
-                // CORREÇÃO: Não removemos o localStorage aqui imediatamente.
-                // Deixamos que o fetchPersistentCart faça o merge primeiro para garantir que nada se perca.
-                // O useEffect de persistência atualizará o localStorage corretamente depois.
+                // NOTA: Não removemos o localStorage aqui imediatamente.
+                // Deixamos o fetchPersistentCart fazer o merge primeiro para garantir 
+                // que as variações sejam preservadas visualmente antes de limpar.
             }
         } catch (e) {
             console.error("Erro ao sincronizar carrinho:", e);
@@ -593,7 +598,9 @@ const ShopProvider = ({ children }) => {
             apiService('/cart', 'POST', { 
                 productId: productToAdd.id, 
                 quantity: existing ? existing.qty + qty : qty, 
-                variationId: variation?.id 
+                variationId: variation?.id,
+                // Envia variação completa como fallback
+                variation: variation 
             }).catch(console.error);
         }
     }, [cart, isAuthenticated]);
