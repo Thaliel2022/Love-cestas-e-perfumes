@@ -4732,7 +4732,6 @@ const AddressSelectionModal = ({ isOpen, onClose, addresses, onSelectAddress, on
     );
 };
 
-// [SEÇÃO AFETADA]: CheckoutSection (Componente Auxiliar - Coloque ANTES da CheckoutPage)
 const CheckoutSection = ({ title, step, children, icon: Icon }) => (
      <div className="bg-gray-900 rounded-lg border border-gray-800 shadow-md">
         <div className="flex items-center gap-3 p-4 border-b border-gray-700">
@@ -4745,7 +4744,6 @@ const CheckoutSection = ({ title, step, children, icon: Icon }) => (
     </div>
 );
 
-// [SEÇÃO AFETADA]: CheckoutPage (Código Completo sem cortes)
 const CheckoutPage = ({ onNavigate }) => {
     const { user } = useAuth();
     const {
@@ -5127,7 +5125,8 @@ const CheckoutPage = ({ onNavigate }) => {
                                         <div className="p-4 bg-gray-800 rounded-md border border-gray-700 relative">
                                             <div className="flex justify-between items-start">
                                                 <p className="font-bold text-lg mb-2 text-white">{displayAddress.alias}</p>
-                                                {displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
+                                                {/* CORREÇÃO: Converter is_default (0 ou 1) para booleano real com !! para evitar renderizar "0" */}
+                                                {!!displayAddress.is_default && <span className="text-xs bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full font-semibold">Padrão</span>}
                                             </div>
                                             <div className="space-y-1 text-gray-300 text-sm">
                                                 <p><span className="font-semibold text-gray-500 w-16 inline-block">Rua:</span> {displayAddress.logradouro}</p>
