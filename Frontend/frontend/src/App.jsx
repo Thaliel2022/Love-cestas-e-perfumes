@@ -361,19 +361,18 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
-    // --- CORREÇÃO: Fetch com Merge Inteligente (Restaura variações perdidas) ---
+    // --- Fetch com Merge Inteligente (Restaura variações perdidas) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
             
-            // Recupera o carrinho local para servir de backup caso o banco falhe
+            // Recupera o carrinho local para servir de backup
             const localCartStr = localStorage.getItem('lovecestas_cart');
             let localCart = [];
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
 
             const mergedCart = (dbCart || []).map(dbItem => {
-                // Se o item do banco já tem variação válida, usa ela
                 if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
                     return {
                         ...dbItem,
@@ -381,12 +380,9 @@ const ShopProvider = ({ children }) => {
                     };
                 }
                 
-                // Se o item é roupa e veio do banco SEM variação, tenta resgatar do local
                 if (dbItem.product_type === 'clothing') {
                     const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
-                    
                     if (localItem && localItem.variation) {
-                        console.log(`[Cart Sync] Restaurando variação local para item ${dbItem.name}:`, localItem.variation);
                         return {
                             ...dbItem,
                             variation: localItem.variation,
@@ -394,11 +390,7 @@ const ShopProvider = ({ children }) => {
                         };
                     }
                 }
-                
-                return {
-                    ...dbItem,
-                    cartItemId: dbItem.cartItemId || String(dbItem.id)
-                };
+                return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
             });
 
             setCart(mergedCart);
@@ -423,14 +415,11 @@ const ShopProvider = ({ children }) => {
                         variation: item.variation,
                         variation_details: item.variation ? JSON.stringify(item.variation) : null
                     };
-                    return apiService('/cart', 'POST', payload)
-                        .catch(err => console.warn("Item duplicado ou erro no sync:", err));
+                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado ou erro no sync:", err));
                 });
                 await Promise.all(promises);
             }
-        } catch (e) {
-            console.error("Erro ao sincronizar carrinho:", e);
-        }
+        } catch (e) { console.error("Erro ao sincronizar carrinho:", e); }
     }, []);
 
     const fetchAddresses = useCallback(async () => {
@@ -492,7 +481,6 @@ const ShopProvider = ({ children }) => {
 
     useEffect(() => {
         if (isAuthLoading) return;
-
         const initializeShop = async () => {
             if (isAuthenticated) {
                 await syncGuestCartToDB();
@@ -504,16 +492,9 @@ const ShopProvider = ({ children }) => {
                 if (localCart) {
                     try {
                         const parsedLocalCart = JSON.parse(localCart);
-                        if (Array.isArray(parsedLocalCart)) {
-                            setCart(parsedLocalCart);
-                        }
-                    } catch (e) {
-                        console.error("Erro ao carregar carrinho local:", e);
-                        setCart([]);
-                    }
-                } else {
-                    setCart([]);
-                }
+                        if (Array.isArray(parsedLocalCart)) setCart(parsedLocalCart);
+                    } catch (e) { setCart([]); }
+                } else { setCart([]); }
                 setWishlist([]); 
                 setAddresses([]); 
                 setShippingLocation({ cep: '', city: '', state: '', alias: '' });
@@ -524,18 +505,13 @@ const ShopProvider = ({ children }) => {
                 determineShippingLocation();
             }
         };
-
         initializeShop();
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB]);
     
-    // Auto-correção de dados do carrinho
     useEffect(() => {
         if (cart.length > 0 && isAuthenticated) {
             const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
-            if (missingData) {
-                console.log("Dados incompletos no carrinho detectados. Recarregando...");
-                fetchPersistentCart();
-            }
+            if (missingData) fetchPersistentCart();
         }
     }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
@@ -558,16 +534,16 @@ const ShopProvider = ({ children }) => {
                         let finalOptions = [];
 
                         if (isJoaoPessoa) {
-                            // ✅ REGRA: Apenas Entrega Local (R$ 20) e Retirada
+                            // ✅ REGRA JOÃO PESSOA: Apenas Entrega Local (R$ 20) e Retirada
                             const localDeliveryOption = { 
                                 name: "Entrega local (Motoboy / Uber)", 
                                 price: 20.00, 
-                                delivery_time: 'Receba hoje ou amanhã', 
+                                delivery_time: '1 dia útil', 
                                 isLocal: true 
                             };
                             finalOptions = [localDeliveryOption, pickupOption];
                         } else {
-                            // ✅ REGRA: Correios (PAC) e Retirada para outros locais
+                            // ✅ REGRA GERAL: Correios (PAC) e Retirada para outros locais
                             const productsPayload = itemsToCalculate.map(item => ({
                                 id: String(item.id),
                                 price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
@@ -575,8 +551,7 @@ const ShopProvider = ({ children }) => {
                             }));
                             const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
                             const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                            // Se precisar adicionar Sedex depois, basta descomentar
-                            // const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+                            // const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex')); // Opcional
                             
                             const shippingApiOptions = [];
                             if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
@@ -587,7 +562,7 @@ const ShopProvider = ({ children }) => {
 
                         setShippingOptions(finalOptions);
                         
-                        // Seleciona automaticamente a melhor opção se a atual não for válida
+                        // Seleciona automaticamente a melhor opção
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
 
@@ -687,21 +662,15 @@ const ShopProvider = ({ children }) => {
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             const coupon = response.coupon;
-
             if (coupon.type !== 'free_shipping') {
                 const rawAllowedCats = safeParse(coupon.allowed_categories);
                 const rawAllowedBrands = safeParse(coupon.allowed_brands);
                 const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
                 const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
-                
                 const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
                 const isGlobal = !hasRestrictions;
-
                 let eligibleCount = 0;
-
-                if (isGlobal) {
-                    eligibleCount = cart.length; 
-                } else {
+                if (isGlobal) { eligibleCount = cart.length; } else {
                     cart.forEach(item => {
                         const itemCat = normalize(item.category || "");
                         const itemBrand = normalize(item.brand || "");
@@ -710,7 +679,6 @@ const ShopProvider = ({ children }) => {
                         if (catMatch || brandMatch) eligibleCount++;
                     });
                 }
-
                 if (eligibleCount === 0) {
                     setAppliedCoupon(null);
                     setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
@@ -726,48 +694,36 @@ const ShopProvider = ({ children }) => {
     
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
-
-        if (appliedCoupon.type === 'free_shipping') {
-            return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
-        }
-
+        if (appliedCoupon.type === 'free_shipping') return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
         let eligibleTotal = 0;
-        
         const rawAllowedCats = safeParse(appliedCoupon.allowed_categories);
         const rawAllowedBrands = safeParse(appliedCoupon.allowed_brands);
         const safeAllowedCats = rawAllowedCats.map(normalize).filter(s => s.length > 0);
         const safeAllowedBrands = rawAllowedBrands.map(normalize).filter(s => s.length > 0);
-        
         const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
         const isGlobal = !hasRestrictions;
 
         cart.forEach(item => {
             let isEligible = false;
-            if (isGlobal) {
-                isEligible = true;
-            } else {
+            if (isGlobal) { isEligible = true; } else {
                 const itemCat = normalize(item.category || "");
                 const itemBrand = normalize(item.brand || "");
                 const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
                 const brandMatch = safeAllowedBrands.some(allowed => itemBrand === allowed || itemBrand.includes(allowed));
                 if (catMatch || brandMatch) isEligible = true;
             }
-
             if (isEligible) {
                 const price = (item.is_on_sale && item.sale_price) ? parseFloat(item.sale_price) : parseFloat(item.price);
                 eligibleTotal += price * item.qty;
             }
         });
-
         if (eligibleTotal === 0) return 0;
-
         let finalDiscount = 0;
         if (appliedCoupon.type === 'percentage') {
             finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
         } else if (appliedCoupon.type === 'fixed') {
             finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         }
-
         return Math.min(finalDiscount, eligibleTotal);
     }, [appliedCoupon, cart, autoCalculatedShipping]);
 
@@ -10277,30 +10233,25 @@ const AdminOrders = () => {
         maxPrice: '',
     });
 
-    // --- Estados para o Modal de Reembolso ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundAmount, setRefundAmount] = useState(0);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Define os fluxos de status separados
-    const shippingStatuses = [
+    // --- STATUS BASE ---
+    const baseStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
-    ];
-    const pickupStatuses = [
-        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue',
-        'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
+        'Pagamento Recusado', 'Cancelado',
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Completa com Endereço/Link) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Lógica de Entrega Local e Link Uber) ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
+        const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); // Verifica se é entrega local
         
-        // Link dinâmico para o pedido no site (usa a URL atual como base)
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
         
         const EMOJI = {
@@ -10318,51 +10269,52 @@ const AdminOrders = () => {
             WARN: String.fromCodePoint(0x26A0, 0xFE0F), // ⚠️
             NEW: String.fromCodePoint(0x1F195),       // 🆕
             PHONE: String.fromCodePoint(0x1F4F1),     // 📱
-            HOUSE: String.fromCodePoint(0x1F3E0)      // 🏠
+            HOUSE: String.fromCodePoint(0x1F3E0),     // 🏠
+            ROCKET: String.fromCodePoint(0x1F680)     // 🚀
         };
 
-        // Cabeçalho
-        let text = `Olá, *${firstName}*.\n\n`;
-        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
+        // Cabeçalho Padrão
+        let text = `Olá, *${firstName}*! seu pedido foi atualizado ${EMOJI.ROCKET}\n\n`;
 
-        // Corpo da mensagem baseado no status
+        // Corpo da mensagem baseado no status e tipo de entrega
         switch (status) {
             case 'Separando Pedido':
-                text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
-                text += `Estamos preparando seus itens com cuidado.`;
+                text += `Status: ${EMOJI.PACKAGE} Preparado o pedido para envio\n`;
+                text += `Estamos separando seus itens.`;
                 break;
-            case 'Enviado':
-                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
-                text += `Seu pedido foi despachado.`;
-                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Rastrear:* https://linketrack.com/track?codigo=${trackingCode}`;
+            case 'Enviado': // Usado para PAC
+                text += `Status: ${EMOJI.TRUCK} Pedido Enviado\n`;
+                if (trackingCode) text += `\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
-                text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
-                text += `Seu pedido está em rota de entrega. Por favor, aguarde no local.`;
-                if (trackingCode) text += `\n\n${EMOJI.LINK} Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
+                if (isLocalDelivery) {
+                     // MENSAGEM ESPECÍFICA PARA ENTREGA LOCAL
+                    text += `Status: ${EMOJI.MOTO} Saiu para entrega (Motoboy)\n`;
+                    text += `O motorista já está a caminho do seu endereço.`;
+                    if (trackingCode && trackingCode.startsWith('http')) {
+                        text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
+                    }
+                } else {
+                    text += `Status: ${EMOJI.MOTO} Saiu para Entrega\n`;
+                    text += `Seu pedido está em rota de entrega pelos Correios.`;
+                }
                 break;
             case 'Entregue':
-                text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
-                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
+                text += `Status: ${EMOJI.CHECK} Pedido entregue\n`;
+                text += `Confirmamos a entrega. Esperamos que goste!`;
                 break;
             case 'Pronto para Retirada':
-                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
+                text += `Status: ${EMOJI.BAGS} Pronto para Retirada\n`;
                 text += `Já disponível em nossa loja.`;
                 break;
             case 'Pagamento Aprovado':
-                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
-                text += `Pagamento confirmado. Iniciaremos a separação.`;
+                text += `Status: ${EMOJI.MONEY} Pagamento Aprovado\n`;
                 break;
             case 'Cancelado':
-                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
-                text += `O pedido foi cancelado. Dúvidas? Entre em contato.`;
-                break;
-            case 'Pagamento Recusado':
-                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
-                text += `Não confirmamos o pagamento. Tente novamente ou contate-nos.`;
+                text += `Status: ${EMOJI.CROSS} Cancelado\n`;
                 break;
             default:
-                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
+                text += `Status: ${EMOJI.NEW} ${status}`;
         }
 
         text += `\n\n--------------------------------\n`;
@@ -10373,7 +10325,6 @@ const AdminOrders = () => {
             text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
             text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
         } else {
-            // Tenta fazer o parse do endereço de entrega
             try {
                 const addr = JSON.parse(order.shipping_address);
                 if (addr) {
@@ -10383,17 +10334,11 @@ const AdminOrders = () => {
                     text += `${addr.localidade}/${addr.uf}`;
                 }
             } catch (e) {
-                // Se der erro no parse, não adiciona nada ou mensagem genérica
                 text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
             }
         }
 
-        // Link para o site
-        text += `\n\n${EMOJI.LINK} *Acompanhe detalhes no site:*\n${orderLink}`;
-
-        // Assinatura
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
-        
+        text += `\n\nQualquer dúvida, estamos à disposição 😊`;
         return text;
     };
 
@@ -10406,7 +10351,6 @@ const AdminOrders = () => {
         const statusToSend = editFormData.status || editingOrder.status;
         const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
 
-        // Agora passamos o objeto 'editingOrder' completo
         const message = generateWhatsAppStatusMessage(
             statusToSend,
             editingOrder,
@@ -10436,7 +10380,6 @@ const AdminOrders = () => {
                     return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
                 });
                 setNewOrdersCount(recentOrders.length);
-
             })
             .catch(err => console.error("Falha ao buscar pedidos:", err));
     }, []);
@@ -10464,8 +10407,8 @@ const AdminOrders = () => {
         if (!editingOrder) return;
         setRefundAmount(editingOrder.total);
         setRefundReason('');
-        setIsEditModalOpen(false); // Fecha o modal de detalhes
-        setIsRefundModalOpen(true); // Abre o modal de reembolso
+        setIsEditModalOpen(false);
+        setIsRefundModalOpen(true);
     };
 
     const handleRequestRefund = async (e) => {
@@ -10597,23 +10540,16 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    const baseStatuses = editingOrder.shipping_method === 'Retirar na loja' 
-                        ? pickupStatuses 
-                        : shippingStatuses;
+                    const isLocalDelivery = editingOrder.shipping_method && editingOrder.shipping_method.includes('Motoboy');
+                    const isPickup = editingOrder.shipping_method === 'Retirar na loja';
                     
-                    const availableStatuses = baseStatuses.filter(s => s !== 'Reembolsado');
-
-                    if (!availableStatuses.includes(editingOrder.status)) {
-                        availableStatuses.push(editingOrder.status);
-                    }
-
                     const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
 
                     return (
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    {/* --- SEÇÃO DO CLIENTE ATUALIZADA --- */}
+                                    {/* --- SEÇÃO DO CLIENTE --- */}
                                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
                                         <div className="space-y-1.5">
@@ -10638,7 +10574,6 @@ const AdminOrders = () => {
                                             )}
                                         </div>
                                     </div>
-                                    {/* --- FIM DA SEÇÃO DO CLIENTE --- */}
 
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
@@ -10671,7 +10606,7 @@ const AdminOrders = () => {
                                         })()}
                                     </div>
                                 </div>
-                                {editingOrder.shipping_method === 'Retirar na loja' ? (
+                                {isPickup ? (
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
                                         <div className="text-sm bg-blue-50 p-3 rounded-md border border-blue-200">
@@ -10708,6 +10643,14 @@ const AdminOrders = () => {
                                                 } catch { return <p>Endereço mal formatado.</p> }
                                             })() : <p>Nenhum endereço de entrega.</p>}
                                         </div>
+                                        
+                                        {/* Badge visual de Entrega Local */}
+                                        {isLocalDelivery && (
+                                            <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-bold rounded flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></div>
+                                                Entrega Local (Motoboy / Uber) - R$ 20,00
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 <div>
@@ -10740,13 +10683,23 @@ const AdminOrders = () => {
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
                                         <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
-                                            {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            {baseStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                                         </select>
                                     </div>
-                                    {editingOrder.shipping_method !== 'Retirar na loja' && (
+                                    {!isPickup && (
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-700">Código de Rastreio</label>
-                                            <input type="text" name="tracking_code" value={editFormData.tracking_code} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" />
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                {isLocalDelivery ? "Link de Acompanhamento (Uber)" : "Código de Rastreio"}
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                name="tracking_code" 
+                                                value={editFormData.tracking_code} 
+                                                onChange={handleEditFormChange} 
+                                                placeholder={isLocalDelivery ? "Cole o link da Uber aqui" : "Ex: AA123456789BR"}
+                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" 
+                                            />
+                                            {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Cole o link completo de compartilhamento da viagem Uber Flash.</p>}
                                         </div>
                                     )}
 
@@ -10761,7 +10714,7 @@ const AdminOrders = () => {
                                                 className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-md hover:bg-green-700 font-bold transition-colors shadow-sm"
                                             >
                                                 <WhatsappIcon className="h-5 w-5" />
-                                                Enviar Notificação de Status
+                                                Enviar atualização pelo WhatsApp
                                             </button>
                                         )}
 
@@ -10824,7 +10777,7 @@ const AdminOrders = () => {
                     <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
-                        {[...new Set([...shippingStatuses, ...pickupStatuses])].map(s => <option key={s} value={s}>{s}</option>)}
+                        {[...new Set(baseStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                 </div>
                 <div className="mt-4 flex gap-2 flex-wrap">
@@ -10877,6 +10830,8 @@ const AdminOrders = () => {
                                         <td className="p-4">
                                             {o.shipping_method === 'Retirar na loja' ? (
                                                 <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
+                                            ) : o.shipping_method && o.shipping_method.includes('Motoboy') ? (
+                                                 <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
                                             ) : (
                                                 <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
                                             )}
@@ -10940,7 +10895,9 @@ const AdminOrders = () => {
                                         <strong className="text-gray-500 block">Entrega</strong>
                                         {o.shipping_method === 'Retirar na loja' ? (
                                             <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                        ) : (
+                                        ) : o.shipping_method && o.shipping_method.includes('Motoboy') ? (
+                                            <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
+                                       ) : (
                                             <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
                                         )}
                                     </div>
