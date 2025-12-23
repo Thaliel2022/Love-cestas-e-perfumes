@@ -2561,48 +2561,49 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     }
 });
 
-
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const sql = `
+    try {
+        const sql = `
             SELECT 
                 o.*, 
                 u.name as user_name,
+                u.phone as user_phone, -- CAMPO ADICIONADO
                 r.status as refund_status
             FROM orders o 
             JOIN users u ON o.user_id = u.id
             LEFT JOIN refunds r ON o.refund_id = r.id
             ORDER BY o.date DESC
         `;
-        const [orders] = await db.query(sql);
-        res.json(orders);
-    } catch (err) {
-        console.error("Erro ao buscar pedidos (admin):", err);
-        res.status(500).json({ message: "Erro ao buscar pedidos." });
-    }
+        const [orders] = await db.query(sql);
+        res.json(orders);
+    } catch (err) {
+        console.error("Erro ao buscar pedidos (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar pedidos." });
+    }
 });
 
 app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [orders] = await db.query("SELECT o.*, u.name as user_name FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?", [id]);
-        if (orders.length === 0) {
-            return res.status(404).json({ message: "Pedido não encontrado." });
-        }
-        const order = orders[0];
-        const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
-        
-        const parsedItems = items.map(item => ({
-            ...item,
-            variation: item.variation_details ? JSON.parse(item.variation_details) : null
-        }));
-        
-        const detailedOrder = { ...order, items: parsedItems };
-        res.json(detailedOrder);
-    } catch (err) {
-        console.error("Erro ao buscar detalhes do pedido:", err);
-        res.status(500).json({ message: "Erro ao buscar detalhes do pedido." });
-    }
+    const { id } = req.params;
+    try {
+        // ATUALIZAÇÃO: Adicionado 'u.cpf as user_cpf' na consulta SQL para retornar o CPF do cliente
+        const [orders] = await db.query("SELECT o.*, u.name as user_name, u.phone as user_phone, u.cpf as user_cpf FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?", [id]);
+        if (orders.length === 0) {
+            return res.status(404).json({ message: "Pedido não encontrado." });
+        }
+        const order = orders[0];
+        const [items] = await db.query("SELECT oi.*, p.name, p.images FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
+        
+        const parsedItems = items.map(item => ({
+            ...item,
+            variation: item.variation_details ? JSON.parse(item.variation_details) : null
+        }));
+        
+        const detailedOrder = { ...order, items: parsedItems };
+        res.json(detailedOrder);
+    } catch (err) {
+        console.error("Erro ao buscar detalhes do pedido:", err);
+        res.status(500).json({ message: "Erro ao buscar detalhes do pedido." });
+    }
 });
 
 app.post('/api/orders', verifyToken, async (req, res) => {
