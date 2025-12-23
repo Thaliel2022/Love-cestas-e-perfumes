@@ -1198,25 +1198,19 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const { isAuthenticated } = useAuth();
 
     const [isAddingToCart, setIsAddingToCart] = useState(false);
-    // isBuyingNow não é mais necessário aqui, mas mantive para evitar quebras se usado em outro lugar
     const [isBuyingNow, setIsBuyingNow] = useState(false); 
     const [cardShippingInfo, setCardShippingInfo] = useState(null); 
     const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
     
-    // Novo estado para o tempo restante da promoção
     const [timeLeft, setTimeLeft] = useState('');
-    
-    // NOVO: Estado para controle local da promoção
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
 
-    // Atualiza estado local quando product muda
     useEffect(() => {
         setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
     }, [product]);
 
-    // Lógica baseada no estado local
     const currentPrice = isPromoActive ? product.sale_price : product.price;
 
     const discountPercent = useMemo(() => {
@@ -1226,14 +1220,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
-    // --- LÓGICA DO CONTADOR REGRESSIVO COM EXPIRAÇÃO AUTOMÁTICA ---
     useEffect(() => {
         if (!product?.sale_end_date) {
             setTimeLeft('');
             return;
         }
 
-        // Se a promoção já foi desativada localmente, não roda o timer
         if (!isPromoActive) return;
 
         const calculateTimeLeft = () => {
@@ -1250,14 +1242,13 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
                 setTimeLeft(timeString);
             } else {
-                // TEMPO ACABOU: Desativa promoção localmente
                 setTimeLeft('Expirada');
                 setIsPromoActive(false);
             }
         };
 
-        calculateTimeLeft(); // Executa imediatamente
-        const timer = setInterval(calculateTimeLeft, 1000); // Atualiza a cada segundo
+        calculateTimeLeft();
+        const timer = setInterval(calculateTimeLeft, 1000);
 
         return () => clearInterval(timer);
     }, [isPromoActive, product.sale_end_date]);
@@ -1276,15 +1267,37 @@ const ProductCard = memo(({ product, onNavigate }) => {
     const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
     const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
 
-    // --- Efeito de Frete ---
+    // --- Efeito de Frete Atualizado ---
     useEffect(() => {
         const controller = new AbortController();
         const signal = controller.signal;
          const debounceTimer = setTimeout(() => {
-            if (product && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+            
+            if (product && cleanCep.length === 8) {
                 setIsCardShippingLoading(true);
                 setCardShippingInfo(null);
 
+                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
+                const cepPrefix = parseInt(cleanCep.substring(0, 5));
+                const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
+
+                if (isJoaoPessoa) {
+                    // Calcula data para 1 dia útil
+                    const date = new Date();
+                    let addedDays = 0;
+                    while (addedDays < 1) { // 1 dia útil
+                        date.setDate(date.getDate() + 1);
+                        if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
+                    }
+                    const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                    
+                    setCardShippingInfo(`Frete Fixo R$ 20,00 - Receba até ${formattedDate} (1 dia útil).`);
+                    setIsCardShippingLoading(false);
+                    return; // Interrompe para não chamar a API
+                }
+
+                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
                 const calculateShipping = async () => {
                     try {
                         const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
@@ -1337,13 +1350,11 @@ const ProductCard = memo(({ product, onNavigate }) => {
         return null;
     }, [currentPrice]);
 
-    // Função para ver detalhes (substitui o Comprar direto)
     const handleViewDetails = (e) => {
         e.stopPropagation();
         onNavigate(`product/${product.id}`);
     };
 
-    // Função de Adicionar ao Carrinho (MANTIDA)
     const handleAddToCartInternal = async (e) => { 
         e.stopPropagation();
         if (product.product_type === 'clothing') {
@@ -1405,7 +1416,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
             className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
             onClick={() => onNavigate(`product/${product.id}`)} 
         >
-            {/* --- Seção da Imagem --- */}
             <div className="relative h-64 bg-white overflow-hidden group">
                 <img
                     src={imageUrl} 
@@ -1414,7 +1424,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 />
                 <WishlistButton product={product} /> 
 
-                {/* --- Badges/Selos --- */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
                     {isOutOfStock ? (
                         <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
@@ -1428,7 +1437,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     ) : null}
                 </div>
 
-                {/* --- CONTADOR REGRESSIVO (OFERTA RELÂMPAGO) --- */}
                 {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1442,7 +1450,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 )}
 
-                {/* --- BARRA DE DESTAQUE (PROMOÇÃO PADRÃO) --- */}
                 {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
                     <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
                         <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
@@ -1471,7 +1478,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 )}
             </div>
 
-            {/* --- Seção de Informações --- */}
             <div className="p-4 flex flex-col flex-grow">
                 <div>
                     <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
@@ -1487,7 +1493,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     </div>
                 </div>
 
-                {/* --- Preço e Parcelas --- */}
                 <div className="mt-auto pt-3">
                     {isPromoActive ? (
                          <div className="flex flex-col">
@@ -1501,14 +1506,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
 
                     {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
 
-                    {/* --- Botões de Ação --- */}
                     {isOutOfStock ? (
                         <div className="mt-3">
                             <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
                         </div>
                     ) : (
                         <div className="mt-3 flex items-stretch space-x-2">
-                            {/* Botão Ver Detalhes (Substitui o Comprar Direto) */}
                             <button
                                 onClick={handleViewDetails}
                                 className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
@@ -1516,7 +1519,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                                 <EyeIcon className="h-4 w-4"/>
                                 Ver Detalhes
                             </button>
-                            {/* Botão Adicionar ao Carrinho (Mantido) */}
                             <button
                                 onClick={handleAddToCartInternal}
                                 disabled={isAddingToCart}
@@ -1530,7 +1532,6 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 </div>
             </div>
 
-            {/* --- Informação de Frete --- */}
             {(isCardShippingLoading || cardShippingInfo) && (
                 <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
                     {isCardShippingLoading ? (
