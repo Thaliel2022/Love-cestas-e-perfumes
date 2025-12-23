@@ -10049,6 +10049,57 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
+    const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
+        const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
+        let text = `Olá, *${firstName}*! 👋\n\n`;
+        text += `Passando para avisar que o status do seu pedido *#${orderId}* mudou na *Love Cestas e Perfumes*.\n\n`;
+
+        switch (status) {
+            case 'Separando Pedido':
+                text += `*Novo Status:* 📦 Separando seu Pedido\n`;
+                text += `Já estamos preparando tudo com muito carinho! Em breve enviaremos.`;
+                break;
+            case 'Enviado':
+                text += `*Novo Status:* 🚚 Pedido Enviado\n`;
+                text += `Seu pedido já está com a transportadora e a caminho do seu endereço.`;
+                if (trackingCode) text += `\n\n📄 *Código de Rastreio:* ${trackingCode}\n🔗 Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
+                break;
+            case 'Saiu para Entrega':
+                text += `*Novo Status:* 🛵 Saiu para Entrega\n`;
+                text += `Fique atento(a) ao interfone ou campainha, seu pedido deve chegar ainda hoje!`;
+                if (trackingCode) text += `\n\n🔗 Acompanhe em tempo real: https://linketrack.com/track?codigo=${trackingCode}`;
+                break;
+            case 'Entregue':
+                text += `*Novo Status:* ✅ Entregue\n`;
+                text += `Seu pedido foi entregue! Esperamos que você ame seus produtos. ❤️\n`;
+                text += `Quando puder, deixe sua avaliação no site!`;
+                break;
+            case 'Pronto para Retirada':
+                text += `*Novo Status:* 🛍️ Pronto para Retirada\n`;
+                text += `Você já pode vir buscar seu pedido em nossa loja.\n\n`;
+                text += `📍 *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
+                text += `⏰ *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
+                break;
+            case 'Pagamento Aprovado':
+                text += `*Novo Status:* 💸 Pagamento Aprovado\n`;
+                text += `Recebemos seu pagamento! Vamos começar a preparar seu pedido em breve.`;
+                break;
+            case 'Cancelado':
+                text += `*Novo Status:* ❌ Cancelado\n`;
+                text += `Seu pedido foi cancelado. Se tiver dúvidas ou precisar de ajuda, estamos por aqui.`;
+                break;
+            case 'Pagamento Recusado':
+                text += `*Novo Status:* ⚠️ Pagamento Recusado\n`;
+                text += `Houve um problema com o pagamento. Tente realizar o pedido novamente ou entre em contato.`;
+                break;
+            default:
+                text += `*Novo Status:* ${status}\n`;
+                text += `Qualquer dúvida, estamos à disposição!`;
+        }
+        return text;
+    };
+
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
@@ -10125,7 +10176,30 @@ const AdminOrders = () => {
         e.preventDefault();
         if (!editingOrder) return;
         try {
+            // 1. Salva no Banco de Dados
             await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            
+            // 2. Lógica de Envio Automático de WhatsApp
+            // Verifica se o status mudou E se temos o telefone do cliente
+            if (editFormData.status !== editingOrder.status && editingOrder.user_phone) {
+                const message = generateWhatsAppStatusMessage(
+                    editFormData.status, 
+                    editingOrder.user_name, 
+                    editingOrder.id, 
+                    editFormData.tracking_code || editingOrder.tracking_code
+                );
+                
+                const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
+                
+                // Abre o WhatsApp em uma nova aba automaticamente
+                if (cleanPhone.length >= 10) {
+                    const waUrl = `https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`;
+                    // Pequeno timeout para garantir que a UI não bloqueie o popup imediatamente após o submit
+                    setTimeout(() => window.open(waUrl, '_blank'), 100);
+                    notification.show('WhatsApp aberto com a mensagem de status!', 'success');
+                }
+            }
+
             fetchOrders();
             setIsEditModalOpen(false);
             setEditingOrder(null);
