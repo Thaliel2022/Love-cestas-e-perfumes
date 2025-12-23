@@ -5013,9 +5013,16 @@ const CheckoutPage = ({ onNavigate }) => {
     
     // --- CORREÇÃO: Aceita texto direto para Entrega Local ---
     const getDeliveryDateText = (deliveryTime) => {
-        // Se for string não numérica (ex: "1 dia útil"), retorna ela direto
-        if (typeof deliveryTime === 'string' && isNaN(Number(deliveryTime))) {
-            return deliveryTime;
+        // Se for string "1 dia útil", calcula a data
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('1 dia')) {
+            const date = new Date();
+            let addedDays = 0;
+            while (addedDays < 1) {
+                date.setDate(date.getDate() + 1);
+                if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
+            }
+            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
+            return `Receba até ${formattedDate}. (1 dia útil)`;
         }
 
         const timeInDays = Number(deliveryTime);
