@@ -10049,81 +10049,79 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Correção Definitiva) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Correção Definitiva com Unicode Escaped) ---
+    // Usamos \uXXXX para garantir que o emoji seja renderizado corretamente independente da codificação do arquivo
     const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         
-        // Emojis gerados via CodePoint para garantir compatibilidade total
-        const EMOJI = {
-            WAVE: String.fromCodePoint(0x1F44B),      // 👋
-            STAR: String.fromCodePoint(0x1F31F),      // 🌟
-            PACKAGE: String.fromCodePoint(0x1F4E6),   // 📦
-            TRUCK: String.fromCodePoint(0x1F69A),     // 🚚
-            DOC: String.fromCodePoint(0x1F4C4),       // 📄
-            LINK: String.fromCodePoint(0x1F517),      // 🔗
-            MOTO: String.fromCodePoint(0x1F6F5),      // 🛵
-            CHECK: String.fromCodePoint(0x2705),      // ✅
-            PARTY: String.fromCodePoint(0x1F389),     // 🎉
-            HEART: String.fromCodePoint(0x2764, 0xFE0F), // ❤️
-            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), // 🛍️
-            PIN: String.fromCodePoint(0x1F4CD),       // 📍
-            CLOCK: String.fromCodePoint(0x23F0),      // ⏰
-            MONEY: String.fromCodePoint(0x1F4B8),     // 💸
-            CROSS: String.fromCodePoint(0x274C),      // ❌
-            WARN: String.fromCodePoint(0x26A0, 0xFE0F), // ⚠️
-            NEW: String.fromCodePoint(0x1F195),       // 🆕
-            PHONE: String.fromCodePoint(0x1F4F1)      // 📱
-        };
+        // Emojis Seguros (Unicode Escaped)
+        const STAR = '\uD83C\uDF1F';      // 🌟
+        const PACKAGE = '\uD83D\uDCE6';   // 📦
+        const TRUCK = '\uD83D\uDE9A';     // 🚚
+        const DOC = '\uD83D\uDCC4';       // 📄
+        const LINK = '\uD83D\uDD17';      // 🔗
+        const MOTO = '\uD83D\uDEF5';      // 🛵
+        const CHECK = '\u2705';           // ✅
+        const PARTY = '\uD83C\uDF89';     // 🎉
+        const HEART = '\u2764\uFE0F';     // ❤️
+        const BAGS = '\uD83D\uDECD\uFE0F';// 🛍️
+        const PIN = '\uD83D\uDCCD';       // 📍
+        const CLOCK = '\u23F0';           // ⏰
+        const MONEY = '\uD83D\uDCB8';     // 💸
+        const CROSS = '\u274C';           // ❌
+        const WARN = '\u26A0\uFE0F';      // ⚠️
+        const NEW = '\uD83C\uDD95';       // 🆕
+        const PHONE = '\uD83D\uDCF1';     // 📱
 
         // Cabeçalho Padrão
-        let text = `Olá, *${firstName}*! Tudo bem? ${EMOJI.STAR}\n\n`;
+        let text = `Olá, *${firstName}*! Tudo bem? ${STAR}\n\n`;
         text += `Aqui é da *Love Cestas e Perfumes*. Temos uma atualização sobre o seu pedido *#${orderId}*.\n\n`;
 
         // Corpo da mensagem baseado no status
         switch (status) {
             case 'Separando Pedido':
-                text += `${EMOJI.PACKAGE} *Novo Status: Separando seu Pedido*\n`;
+                text += `${PACKAGE} *Novo Status: Separando seu Pedido*\n`;
                 text += `Estamos preparando tudo com muito carinho! Em breve você receberá mais atualizações.`;
                 break;
             case 'Enviado':
-                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
+                text += `${TRUCK} *Novo Status: Pedido Enviado*\n`;
                 text += `Oba! Seu pedido já foi despachado e está a caminho.`;
-                if (trackingCode) text += `\n\n${EMOJI.DOC} *Código de Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
+                if (trackingCode) text += `\n\n${DOC} *Código de Rastreio:* ${trackingCode}\n${LINK} *Acompanhe aqui:* https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Saiu para Entrega':
-                text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
+                text += `${MOTO} *Novo Status: Saiu para Entrega*\n`;
                 text += `Seu pedido está chegando! Por favor, fique atento(a) ao interfone ou campainha.`;
-                if (trackingCode) text += `\n\n${EMOJI.LINK} Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
+                if (trackingCode) text += `\n\n${LINK} Acompanhe: https://linketrack.com/track?codigo=${trackingCode}`;
                 break;
             case 'Entregue':
-                text += `${EMOJI.CHECK} *Novo Status: Entregue*\n`;
-                text += `Seu pedido foi entregue com sucesso! ${EMOJI.PARTY}\nEsperamos que ame seus produtos tanto quanto amamos prepará-los. ${EMOJI.HEART}`;
+                text += `${CHECK} *Novo Status: Entregue*\n`;
+                text += `Seu pedido foi entregue com sucesso! ${PARTY}\nEsperamos que ame seus produtos tanto quanto amamos prepará-los. ${HEART}`;
                 break;
             case 'Pronto para Retirada':
-                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
+                text += `${BAGS} *Novo Status: Pronto para Retirada*\n`;
                 text += `Seu pedido já está disponível em nossa loja física.\n\n`;
-                text += `${EMOJI.PIN} *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
-                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
+                text += `${PIN} *Endereço:* R. Leopoldo Pereira Lima, 378 – Mangabeira VIII\n`;
+                text += `${CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30`;
                 break;
             case 'Pagamento Aprovado':
-                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
+                text += `${MONEY} *Novo Status: Pagamento Aprovado*\n`;
                 text += `Recebemos a confirmação do seu pagamento! Já vamos iniciar a separação dos seus itens.`;
                 break;
             case 'Cancelado':
-                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
+                text += `${CROSS} *Novo Status: Cancelado*\n`;
                 text += `O pedido foi cancelado. Caso tenha dúvidas ou queira refazer a compra, estamos à disposição.`;
                 break;
             case 'Pagamento Recusado':
-                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
+                text += `${WARN} *Novo Status: Pagamento Recusado*\n`;
                 text += `Houve um problema na confirmação do pagamento. Tente refazer o pedido ou entre em contato conosco.`;
                 break;
             default:
-                text += `${EMOJI.NEW} *Novo Status:* ${status}\n`;
+                text += `${NEW} *Novo Status:* ${status}\n`;
                 text += `Qualquer dúvida, estamos por aqui!`;
         }
 
         // Assinatura Oficial da Loja
-        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${PHONE} (83) 98737-9573`;
         
         return text;
     };
@@ -10346,7 +10344,7 @@ const AdminOrders = () => {
                         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm items-start">
-                                    {/* --- SEÇÃO DO CLIENTE --- */}
+                                    {/* --- SEÇÃO DO CLIENTE ATUALIZADA --- */}
                                     <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
                                         <div className="space-y-1.5">
@@ -10371,6 +10369,7 @@ const AdminOrders = () => {
                                             )}
                                         </div>
                                     </div>
+                                    {/* --- FIM DA SEÇÃO DO CLIENTE --- */}
 
                                     <div>
                                         <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
