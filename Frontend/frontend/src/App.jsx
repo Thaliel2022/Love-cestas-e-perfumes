@@ -10049,30 +10049,30 @@ const AdminOrders = () => {
         'Pagamento Recusado', 'Cancelado', /* 'Reembolsado' removido */
     ];
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Robustez contra erros de codificação) ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (Correção Definitiva) ---
     const generateWhatsAppStatusMessage = (status, customerName, orderId, trackingCode) => {
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         
-        // Emojis em Unicode Escapado para evitar erros de codificação (o símbolo )
+        // Emojis gerados via CodePoint para garantir compatibilidade total
         const EMOJI = {
-            WAVE: '\uD83D\uDC4B',      // 👋
-            STAR: '\uD83C\uDF1F',      // 🌟
-            PACKAGE: '\uD83D\uDCE6',   // 📦
-            TRUCK: '\uD83D\uDE9A',     // 🚚
-            DOC: '\uD83D\uDCC4',       // 📄
-            LINK: '\uD83D\uDD17',      // 🔗
-            MOTO: '\uD83D\uDEF5',      // 🛵
-            CHECK: '\u2705',           // ✅
-            PARTY: '\uD83C\uDF89',     // 🎉
-            HEART: '\u2764\uFE0F',     // ❤️
-            BAGS: '\uD83D\uDECD\uFE0F',// 🛍️
-            PIN: '\uD83D\uDCCD',       // 📍
-            CLOCK: '\u23F0',           // ⏰
-            MONEY: '\uD83D\uDCB8',     // 💸
-            CROSS: '\u274C',           // ❌
-            WARN: '\u26A0\uFE0F',      // ⚠️
-            NEW: '\uD83C\uDD95',       // 🆕
-            PHONE: '\uD83D\uDCF1'      // 📱
+            WAVE: String.fromCodePoint(0x1F44B),      // 👋
+            STAR: String.fromCodePoint(0x1F31F),      // 🌟
+            PACKAGE: String.fromCodePoint(0x1F4E6),   // 📦
+            TRUCK: String.fromCodePoint(0x1F69A),     // 🚚
+            DOC: String.fromCodePoint(0x1F4C4),       // 📄
+            LINK: String.fromCodePoint(0x1F517),      // 🔗
+            MOTO: String.fromCodePoint(0x1F6F5),      // 🛵
+            CHECK: String.fromCodePoint(0x2705),      // ✅
+            PARTY: String.fromCodePoint(0x1F389),     // 🎉
+            HEART: String.fromCodePoint(0x2764, 0xFE0F), // ❤️
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F), // 🛍️
+            PIN: String.fromCodePoint(0x1F4CD),       // 📍
+            CLOCK: String.fromCodePoint(0x23F0),      // ⏰
+            MONEY: String.fromCodePoint(0x1F4B8),     // 💸
+            CROSS: String.fromCodePoint(0x274C),      // ❌
+            WARN: String.fromCodePoint(0x26A0, 0xFE0F), // ⚠️
+            NEW: String.fromCodePoint(0x1F195),       // 🆕
+            PHONE: String.fromCodePoint(0x1F4F1)      // 📱
         };
 
         // Cabeçalho Padrão
