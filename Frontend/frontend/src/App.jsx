@@ -365,8 +365,9 @@ const ShopProvider = ({ children }) => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
+            // Mescla o carrinho local com o do banco se necessário, ou prefere o do banco
             setCart(dbCart || []);
-        } catch (err) { console.error("Falha ao buscar carrinho:", err); setCart([]); }
+        } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
     const fetchAddresses = useCallback(async () => {
@@ -416,16 +417,48 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // Inicialização
+    // --- CORREÇÃO: Persistência Local (LocalStorage) ---
+    // Salva o carrinho no localStorage sempre que ele mudar (se não estiver logado ou como backup)
+    useEffect(() => {
+        if (!isAuthLoading) {
+            localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+        }
+    }, [cart, isAuthLoading]);
+
+    // Inicialização e Recuperação
     useEffect(() => {
         if (isAuthLoading) return;
+
         if (isAuthenticated) {
+            // Se logado, busca do banco (que é a fonte da verdade para usuários logados)
             fetchPersistentCart();
             determineShippingLocation();
             apiService('/wishlist').then(setWishlist).catch(console.error);
         } else {
-            setCart([]); setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-            setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage('');
+            // Se NÃO logado, tenta recuperar do localStorage
+            const localCart = localStorage.getItem('lovecestas_cart');
+            if (localCart) {
+                try {
+                    const parsedLocalCart = JSON.parse(localCart);
+                    if (Array.isArray(parsedLocalCart)) {
+                        setCart(parsedLocalCart);
+                    }
+                } catch (e) {
+                    console.error("Erro ao carregar carrinho local:", e);
+                    setCart([]);
+                }
+            } else {
+                setCart([]);
+            }
+            
+            // Limpa dados de usuário
+            setWishlist([]); 
+            setAddresses([]); 
+            setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+            setAutoCalculatedShipping(null); 
+            setCouponCode(''); 
+            setAppliedCoupon(null); 
+            setCouponMessage('');
             determineShippingLocation();
         }
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation]);
@@ -513,7 +546,11 @@ const ShopProvider = ({ children }) => {
         if (isAuthenticated) await apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
     
-    const clearCart = useCallback(async () => { setCart([]); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
+    const clearCart = useCallback(async () => { 
+        setCart([]); 
+        localStorage.removeItem('lovecestas_cart'); // Limpa também o localstorage
+        if (isAuthenticated) await apiService('/cart', 'DELETE'); 
+    }, [isAuthenticated]);
 
     const addToWishlist = useCallback(async (productToAdd) => {
         if (!isAuthenticated) return; 
