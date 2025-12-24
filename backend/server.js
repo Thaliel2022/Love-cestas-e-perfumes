@@ -5272,6 +5272,52 @@ app.use((err, req, res, next) => {
     });
 });
 
+// Rota Pública: O site usa isso para calcular o frete no carrinho
+app.get('/api/settings/local-shipping/public', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
+        if (rows.length > 0) {
+            res.json(JSON.parse(rows[0].setting_value));
+        } else {
+            // Valor padrão se ninguém configurou nada ainda
+            res.json({ base_price: 20.00, rules: [] });
+        }
+    } catch (err) {
+        console.error("Erro ao buscar config de frete:", err);
+        res.json({ base_price: 20.00, rules: [] });
+    }
+});
+
+// Rota Admin: Você usa isso no painel para salvar os valores e regras
+app.put('/api/settings/local-shipping', verifyToken, verifyAdmin, async (req, res) => {
+    const { base_price, rules } = req.body;
+    
+    if (base_price === undefined) {
+        return res.status(400).json({ message: "Preço base é obrigatório." });
+    }
+
+    // Cria o objeto JSON com o preço base e as regras de exceção
+    const config = JSON.stringify({ 
+        base_price: parseFloat(base_price), 
+        rules: Array.isArray(rules) ? rules : [] 
+    });
+
+    try {
+        // Salva ou Atualiza na tabela site_settings
+        await db.query(`
+            INSERT INTO site_settings (setting_key, setting_value) 
+            VALUES ('local_shipping_config', ?) 
+            ON DUPLICATE KEY UPDATE setting_value = ?
+        `, [config, config]);
+        
+        logAdminAction(req.user, 'ATUALIZOU FRETE LOCAL', `Base: R$ ${base_price}, Regras: ${rules?.length || 0}`);
+        res.json({ message: "Configurações de frete atualizadas com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar config de frete:", err);
+        res.status(500).json({ message: "Erro ao salvar configurações." });
+    }
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
