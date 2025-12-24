@@ -2609,25 +2609,26 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
 app.post('/api/orders', verifyToken, async (req, res) => {
     const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details, phone } = req.body;
     
-    if (!req.user.id || !items || items.length === 0) {
-        return res.status(400).json({ message: "Faltam dados para criar o pedido." });
-    }
+    if (!req.user.id || !items || items.length === 0) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
     
     const connection = await db.getConnection();
     
     // --- ATUALIZAÇÃO DO TELEFONE (ISOLADA) ---
-    // Executamos isso antes da transação para garantir que o dado do usuário seja atualizado independente do sucesso do pedido
+    // Executamos isso ANTES de iniciar a transação do pedido.
+    // Se der erro aqui (ex: coluna não existe), pegamos o erro e NÃO afetamos a venda.
     if (phone) {
         try {
             const cleanPhone = String(phone).replace(/\D/g, '');
             if (cleanPhone.length >= 10) {
+                // Note que usamos 'connection.query' diretamente, sem estar dentro do 'beginTransaction' ainda
                 await connection.query("UPDATE users SET phone = ? WHERE id = ?", [cleanPhone, req.user.id]);
             }
         } catch (phoneError) {
-            console.error("Aviso (Não Crítico): Falha ao atualizar telefone.", phoneError.message);
+            console.error("Aviso (Não Crítico): Falha ao atualizar telefone. O pedido seguirá normalmente.", phoneError.message);
         }
     }
 
+    // --- INÍCIO DA TRANSAÇÃO DO PEDIDO ---
     try {
         await connection.beginTransaction();
 
@@ -2636,27 +2637,18 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         let verifiedItems = [];
 
         for (const item of items) {
-             const [productResult] = await connection.query("SELECT id, name, price, sale_price, is_on_sale, product_type, variations, stock, category, brand FROM products WHERE id = ? FOR UPDATE", [item.id]);
-             
-             if (productResult.length === 0) {
-                 throw new Error(`Produto ID ${item.id} não encontrado.`);
-             }
+            const [productResult] = await connection.query("SELECT id, name, price, sale_price, is_on_sale, product_type, variations, stock, category, brand FROM products WHERE id = ? FOR UPDATE", [item.id]);
+            const product = productResult[0];
+            if (!product) throw new Error(`Produto ID ${item.id} não encontrado.`);
 
-             const product = productResult[0];
-
-             // Validação de Estoque
-             if (product.product_type === 'clothing') {
+            // Validação de Estoque
+            if (product.product_type === 'clothing') {
+                // CORREÇÃO: Usa o nome do produto do banco de dados na mensagem de erro
+                // Verifica se item.variation existe e tem as propriedades necessárias
                 if (!item.variation || !item.variation.color || !item.variation.size) {
                     throw new Error(`Variação (cor/tamanho) inválida ou ausente para o produto "${product.name}".`);
                 }
-                
-                let variations = [];
-                try {
-                    variations = JSON.parse(product.variations || '[]');
-                } catch (e) {
-                    throw new Error(`Erro nos dados do produto "${product.name}".`);
-                }
-
+                const variations = JSON.parse(product.variations || '[]');
                 const vIndex = variations.findIndex(v => v.color === item.variation.color && v.size === item.variation.size);
                 
                 if (vIndex === -1) {
@@ -2666,79 +2658,26 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                 if (variations[vIndex].stock < item.qty) {
                     throw new Error(`Estoque insuficiente para "${product.name}" (${item.variation.color}/${item.variation.size}). Disponível: ${variations[vIndex].stock}.`);
                 }
-             } else {
+            } else {
                 if (product.stock < item.qty) {
                     throw new Error(`Estoque insuficiente para "${product.name}". Disponível: ${product.stock}.`);
                 }
-             }
-             
-             const unitPrice = (product.is_on_sale && product.sale_price) ? parseFloat(product.sale_price) : parseFloat(product.price);
-             calculatedSubtotal += unitPrice * item.qty;
-             
-             verifiedItems.push({
-                ...item,
-                dbCategory: product.category, // Necessário para regra de frete segura
-                dbBrand: product.brand,       // Necessário para regra de frete segura
-                unitPrice: unitPrice,
-                totalPrice: unitPrice * item.qty
-             });
-        }
-
-        // =================================================================================
-        // 🛡️ SEGURANÇA: CÁLCULO DE FRETE NO SERVER-SIDE
-        // =================================================================================
-        let finalShippingCost = parseFloat(shipping_cost || 0);
-
-        // Identifica o tipo de entrega
-        const isPickup = shipping_method === 'Retirar na loja';
-        const isLocalDelivery = shipping_method && (shipping_method.toLowerCase().includes('motoboy') || shipping_method.toLowerCase().includes('entrega local'));
-
-        if (isPickup) {
-            finalShippingCost = 0; // Retirada é sempre grátis
-        } else if (isLocalDelivery) {
-            // Se for Entrega Local, ignoramos o valor enviado pelo front e recalculamos
-            
-            // 1. Busca configurações salvas no banco
-            const [settingsRows] = await connection.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
-            let config = { base_price: 20.00, rules: [] };
-            
-            if (settingsRows.length > 0) {
-                try { config = JSON.parse(settingsRows[0].setting_value); } catch(e) {}
             }
 
-            let calculatedLocalCost = parseFloat(config.base_price);
-            let isFreeShipping = false;
-
-            // 2. Aplica Regras de Exceção (Categoria/Marca) baseadas nos dados VERIFICADOS do banco
-            const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-
-            verifiedItems.forEach(item => {
-                const itemCategory = normalize(item.dbCategory);
-                const itemBrand = normalize(item.dbBrand);
-
-                (config.rules || []).forEach(rule => {
-                    const ruleValue = normalize(rule.value);
-                    let match = false;
-                    
-                    if (rule.type === 'category' && itemCategory.includes(ruleValue)) match = true;
-                    if (rule.type === 'brand' && itemBrand.includes(ruleValue)) match = true;
-
-                    if (match) {
-                        if (parseFloat(rule.price) === 0) isFreeShipping = true; // Prioridade máxima
-                        else if (parseFloat(rule.price) > calculatedLocalCost) calculatedLocalCost = parseFloat(rule.price); // Preço maior prevalece
-                    }
-                });
+            // Preço Oficial do Banco
+            const unitPrice = (product.is_on_sale && product.sale_price) ? parseFloat(product.sale_price) : parseFloat(product.price);
+            calculatedSubtotal += unitPrice * item.qty;
+            
+            verifiedItems.push({
+                ...item,
+                dbCategory: product.category,
+                dbBrand: product.brand,
+                unitPrice: unitPrice,
+                totalPrice: unitPrice * item.qty
             });
+        }
 
-            finalShippingCost = isFreeShipping ? 0 : calculatedLocalCost;
-            console.log(`[SEGURANÇA] Frete Local Recalculado: R$ ${finalShippingCost} (Valor enviado pelo front: R$ ${shipping_cost})`);
-        } 
-        // Nota: Para Correios (PAC), em produção idealmente também se recalcula com a API dos Correios/Melhor Envio aqui,
-        // mas mantemos o valor enviado para focar na segurança da entrega local conforme solicitado.
-
-        // =================================================================================
-
-        // 2. Calcular Desconto do Cupom e Validar
+        // 2. Calcular Desconto do Cupom (Servidor - Validação Rigorosa)
         let serverDiscountAmount = 0;
         let couponIdToLog = null;
 
@@ -2747,30 +2686,31 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             if (coupons.length > 0) {
                 const coupon = coupons[0];
                 let isValid = true;
+                let errorMsg = "";
 
-                if (!coupon.is_active) isValid = false;
+                if (!coupon.is_active) { isValid = false; errorMsg = "Cupom inativo."; }
                 
                 if (coupon.validity_days) {
                     const createdAt = new Date(coupon.created_at);
                     const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
-                    if (new Date() > expiryDate) isValid = false;
+                    if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
                 }
 
                 if (coupon.is_first_purchase) {
                     const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
-                    if (pastOrders.length > 0) isValid = false;
+                    if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
                 }
 
                 if (coupon.is_single_use_per_user) {
                     const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
-                    if (usage.length > 0) isValid = false;
+                    if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
                 }
 
                 if (isValid) {
                     couponIdToLog = coupon.id;
                     
                     if (coupon.type === 'free_shipping') {
-                        serverDiscountAmount = finalShippingCost; // Zera o frete calculado no servidor
+                        serverDiscountAmount = parseFloat(shipping_cost || 0);
                     } else {
                         let eligibleTotal = 0;
                         const isGlobal = coupon.is_global === 1;
@@ -2805,30 +2745,21 @@ app.post('/api/orders', verifyToken, async (req, res) => {
         }
 
         // 3. Finalizar Valores
-        // Garante que o total nunca seja negativo
-        const finalTotal = Math.max(0, calculatedSubtotal + finalShippingCost - serverDiscountAmount);
+        const shipping = parseFloat(shipping_cost || 0);
+        const finalTotal = Math.max(0, calculatedSubtotal + shipping - serverDiscountAmount);
 
         // 4. Inserir Pedido
         const orderSql = "INSERT INTO orders (user_id, total, status, shipping_address, payment_method, shipping_method, shipping_cost, coupon_code, discount_amount, pickup_details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         const [orderResult] = await connection.query(orderSql, [
-            req.user.id, 
-            finalTotal, 
-            ORDER_STATUS.PENDING, 
+            req.user.id, finalTotal, ORDER_STATUS.PENDING, 
             shipping_method === 'Retirar na loja' ? null : JSON.stringify(shippingAddress),
-            paymentMethod, 
-            shipping_method, 
-            finalShippingCost, // Usa o custo validado pelo servidor
-            coupon_code || null, 
-            serverDiscountAmount, 
-            pickup_details || null
+            paymentMethod, shipping_method, shipping, coupon_code || null, serverDiscountAmount, pickup_details || null
         ]);
         
         const orderId = orderResult.insertId;
-        
-        // 5. Registrar Histórico Inicial
-        await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, ORDER_STATUS.PENDING, "Pedido criado."]);
+        await updateOrderStatus(orderId, ORDER_STATUS.PENDING, connection, "Pedido criado.");
 
-        // 6. Baixar Estoque e Inserir Itens
+        // 5. Baixar Estoque e Itens
         for (const item of verifiedItems) {
             const varJson = item.variation ? JSON.stringify(item.variation) : null;
             await connection.query("INSERT INTO order_items (order_id, product_id, quantity, price, variation_details) VALUES (?, ?, ?, ?, ?)", [orderId, item.id, item.qty, item.unitPrice, varJson]);
@@ -2847,14 +2778,12 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             }
         }
 
-        // 7. Registrar uso do cupom único
+        // Registrar uso do cupom único
         if (couponIdToLog) {
             await connection.query("INSERT INTO coupon_usage (user_id, coupon_id, order_id) VALUES (?, ?, ?)", [req.user.id, couponIdToLog, orderId]);
         }
 
-        // 8. Limpar Carrinho
         await connection.query("DELETE FROM user_carts WHERE user_id = ?", [req.user.id]);
-        
         await connection.commit();
 
         res.status(201).json({ message: "Pedido criado com sucesso!", orderId: orderId });
@@ -5270,52 +5199,6 @@ app.use((err, req, res, next) => {
         message: 'Ocorreu um erro interno no servidor.',
         error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
-});
-
-// Rota Pública: O site usa isso para calcular o frete no carrinho
-app.get('/api/settings/local-shipping/public', async (req, res) => {
-    try {
-        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
-        if (rows.length > 0) {
-            res.json(JSON.parse(rows[0].setting_value));
-        } else {
-            // Valor padrão se ninguém configurou nada ainda
-            res.json({ base_price: 20.00, rules: [] });
-        }
-    } catch (err) {
-        console.error("Erro ao buscar config de frete:", err);
-        res.json({ base_price: 20.00, rules: [] });
-    }
-});
-
-// Rota Admin: Você usa isso no painel para salvar os valores e regras
-app.put('/api/settings/local-shipping', verifyToken, verifyAdmin, async (req, res) => {
-    const { base_price, rules } = req.body;
-    
-    if (base_price === undefined) {
-        return res.status(400).json({ message: "Preço base é obrigatório." });
-    }
-
-    // Cria o objeto JSON com o preço base e as regras de exceção
-    const config = JSON.stringify({ 
-        base_price: parseFloat(base_price), 
-        rules: Array.isArray(rules) ? rules : [] 
-    });
-
-    try {
-        // Salva ou Atualiza na tabela site_settings
-        await db.query(`
-            INSERT INTO site_settings (setting_key, setting_value) 
-            VALUES ('local_shipping_config', ?) 
-            ON DUPLICATE KEY UPDATE setting_value = ?
-        `, [config, config]);
-        
-        logAdminAction(req.user, 'ATUALIZOU FRETE LOCAL', `Base: R$ ${base_price}, Regras: ${rules?.length || 0}`);
-        res.json({ message: "Configurações de frete atualizadas com sucesso!" });
-    } catch (err) {
-        console.error("Erro ao salvar config de frete:", err);
-        res.status(500).json({ message: "Erro ao salvar configurações." });
-    }
 });
 
 // --- INICIALIZAÇÃO DO SERVIDOR ---
