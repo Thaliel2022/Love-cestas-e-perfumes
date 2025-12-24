@@ -6013,36 +6013,63 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
 
-    // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL ---
+    // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL (CORRIGIDA) ---
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
-        // Mapeia os status visuais do frontend para os do backend
-        const timelineOrder = [
-            'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
-        ];
-        
         // Define as labels visuais personalizadas para o cliente
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
             'Pagamento Aprovado': 'Pagamento Aprovado',
             'Separando Pedido': 'Preparado o pedido para envio',
             'Saiu para Entrega': 'Saiu para entrega (Motoboy)',
-            'Entregue': 'Pedido entregue'
+            'Entregue': 'Pedido entregue',
+            'Reembolsado': 'Pedido Reembolsado',
+            'Cancelado': 'Pedido Cancelado',
+            'Pagamento Recusado': 'Pagamento Recusado'
         };
 
         const STATUS_DEFINITIONS = {
-            'Pendente': { icon: <ClockIcon className="h-6 w-6" />, color: 'amber' },
-            'Pagamento Aprovado': { icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green' },
-            'Separando Pedido': { icon: <PackageIcon className="h-6 w-6" />, color: 'blue' },
-            'Saiu para Entrega': { icon: <TruckIcon className="h-6 w-6" />, color: 'blue' },
-            'Entregue': { icon: <HomeIcon className="h-6 w-6" />, color: 'green' }
+            'Pendente': { icon: <ClockIcon className="h-6 w-6" />, color: 'amber', title: displayLabels['Pendente'], description: 'Aguardando confirmação do pagamento.' },
+            'Pagamento Aprovado': { icon: <CheckBadgeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Pagamento Aprovado'], description: 'Recebemos seu pagamento! Agora, estamos preparando seu pedido.' },
+            'Separando Pedido': { icon: <PackageIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Separando Pedido'], description: 'Seu pedido está sendo separado e embalado.' },
+            'Saiu para Entrega': { icon: <TruckIcon className="h-6 w-6" />, color: 'blue', title: displayLabels['Saiu para Entrega'], description: 'O motoboy/Uber saiu com seu pedido.' },
+            'Entregue': { icon: <HomeIcon className="h-6 w-6" />, color: 'green', title: displayLabels['Entregue'], description: 'Pedido entregue com sucesso!' },
+            'Reembolsado': { icon: <CurrencyDollarIcon className="h-6 w-6" />, color: 'gray', title: displayLabels['Reembolsado'], description: 'O valor foi estornado.' },
+            'Cancelado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Cancelado'], description: 'Pedido cancelado.' },
+            'Pagamento Recusado': { icon: <XCircleIcon className="h-6 w-6" />, color: 'red', title: displayLabels['Pagamento Recusado'], description: 'Pagamento não autorizado.' }
         };
 
         const colorClasses = {
             amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
             green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
             blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+            red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
             gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
         };
+
+        // Verifica status especiais
+        if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
+            const specialStatus = STATUS_DEFINITIONS[currentStatus];
+            const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
+            
+            return (
+                <div className="p-4 bg-gray-800 rounded-lg">
+                    <div onClick={() => onStatusClick && onStatusClick(specialStatus)} className="flex items-center gap-4 cursor-pointer">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center ${specialClasses.bg} text-white`}>
+                            {React.cloneElement(specialStatus.icon, { className: 'h-7 w-7'})}
+                        </div>
+                        <div>
+                            <h4 className={`font-bold text-lg ${specialClasses.text}`}>{specialStatus.title}</h4>
+                            <p className="text-sm text-gray-400">Clique para ver mais detalhes</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Timeline padrão para fluxo normal
+        const timelineOrder = [
+            'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
+        ];
 
         const historyMap = new Map((Array.isArray(history) ? history : []).filter(h => h.status).map(h => [h.status, h]));
         const currentStatusIndex = timelineOrder.indexOf(currentStatus);
@@ -6061,7 +6088,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         
                         return (
                             <React.Fragment key={statusKey}>
-                                <div className="flex flex-col items-center">
+                                <div 
+                                    className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
+                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
                                         {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                     </div>
@@ -6078,6 +6107,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     {timelineOrder.map((statusKey, index) => {
                         const statusInfo = historyMap.get(statusKey);
                         const isStepActive = index <= currentStatusIndex;
+                        const isCurrent = statusKey === currentStatus;
                         const definition = STATUS_DEFINITIONS[statusKey];
                         if (!definition) return null;
                         const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
@@ -6085,12 +6115,16 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         return (
                             <div key={statusKey} className="flex">
                                 <div className="flex flex-col items-center mr-4">
-                                    <div className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border}`}>
+                                    <div 
+                                        className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                        onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                         {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                     </div>
                                     {index < timelineOrder.length - 1 && <div className={`w-px flex-grow transition-colors my-1 ${index < currentStatusIndex ? currentClasses.bg : colorClasses.gray.bg}`}></div>}
                                 </div>
-                                <div className="pt-1.5 pb-8">
+                                <div 
+                                    className={`pt-1.5 pb-8 ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                    onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                     <p className={`font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
                                     {statusInfo && isStepActive && (<p className="text-xs text-gray-500">{new Date(statusInfo.status_date).toLocaleString('pt-BR')}</p>)}
                                 </div>
