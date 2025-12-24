@@ -6012,6 +6012,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
+    const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
     // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL (CORRIGIDA) ---
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
@@ -6107,7 +6108,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                     {timelineOrder.map((statusKey, index) => {
                         const statusInfo = historyMap.get(statusKey);
                         const isStepActive = index <= currentStatusIndex;
-                        const isCurrent = statusKey === currentStatus;
                         const definition = STATUS_DEFINITIONS[statusKey];
                         if (!definition) return null;
                         const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
@@ -6116,7 +6116,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <div key={statusKey} className="flex">
                                 <div className="flex flex-col items-center mr-4">
                                     <div 
-                                        className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
+                                        className={`relative w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive && statusInfo ? 'cursor-pointer' : 'cursor-default'}`}
                                         onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
                                         {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                     </div>
@@ -6257,8 +6257,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 </div>
                             ) : <p>Endereço não informado.</p>}
                             
-                            {/* Lógica de Rastreamento (Uber vs Correios) */}
-                            {order.tracking_code && (
+                            {/* Lógica de Rastreamento (Uber vs Correios) - OCULTA se cancelado/reembolsado */}
+                            {order.tracking_code && !isOrderInactive && (
                                 <div className="mt-4 pt-3 border-t border-gray-700">
                                     {isLocalDelivery ? (
                                         <a 
@@ -6329,7 +6329,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && !isLocalDelivery && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
                              {canRequest && (
                                 <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
@@ -10294,7 +10294,6 @@ const AdminOrders = () => {
     const [isProcessing, setIsProcessing] = useState(false);
 
     // --- STATUS BASE ---
-    // Status globais possíveis no sistema
     const allStatuses = [
         'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
         'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
@@ -10437,9 +10436,7 @@ const AdminOrders = () => {
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
-        
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
-        
         const EMOJI = {
             PACKAGE: String.fromCodePoint(0x1F4E6),
             TRUCK: String.fromCodePoint(0x1F69A),
@@ -10497,28 +10494,40 @@ const AdminOrders = () => {
                 break;
             case 'Cancelado':
                 text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
+                text += `O pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`;
+                break;
+            case 'Pagamento Recusado':
+                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
+                text += `O pagamento não foi autorizado. Tente novamente ou entre em contato.`;
+                break;
+            case 'Reembolsado':
+                text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\n`;
+                text += `O reembolso do seu pedido foi processado.`;
                 break;
             default:
                 text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
-        text += `\n\n--------------------------------\n`;
-
-        if (isPickup) {
-            text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
-            text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
-            text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
-        } else {
-            try {
-                const addr = JSON.parse(order.shipping_address);
-                if (addr) {
-                    text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
-                    text += `${addr.logradouro}, ${addr.numero}\n`;
-                    if (addr.bairro) text += `${addr.bairro} - `;
-                    text += `${addr.localidade}/${addr.uf}`;
+        // --- LÓGICA DE EXIBIÇÃO DE ENDEREÇO ---
+        // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
+        if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
+             text += `\n\n--------------------------------\n`;
+             if (isPickup) {
+                text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
+                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
+                text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
+            } else {
+                try {
+                    const addr = JSON.parse(order.shipping_address);
+                    if (addr) {
+                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
+                        text += `${addr.logradouro}, ${addr.numero}\n`;
+                        if (addr.bairro) text += `${addr.bairro} - `;
+                        text += `${addr.localidade}/${addr.uf}`;
+                    }
+                } catch (e) {
+                    text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
                 }
-            } catch (e) {
-                text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
             }
         }
 
@@ -10529,6 +10538,7 @@ const AdminOrders = () => {
     };
 
     const handleManualWhatsAppNotification = () => {
+        // ... (Mesma lógica de envio)
         if (!editingOrder || !editingOrder.user_phone) {
             notification.show("Telefone do cliente não disponível.", "error");
             return;
@@ -10552,7 +10562,8 @@ const AdminOrders = () => {
             notification.show("Número de telefone do cliente inválido.", "error");
         }
     };
-
+    
+    // ... (Resto do código do componente permanece igual: fetchOrders, handlers, etc.)
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
@@ -10700,6 +10711,7 @@ const AdminOrders = () => {
 
     return (
         <div>
+            {/* Modal e restante do JSX mantido para AdminOrders */}
             <AnimatePresence>
                 {isRefundModalOpen && editingOrder && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
@@ -10752,7 +10764,6 @@ const AdminOrders = () => {
                         return status;
                     };
 
-                    // Garante que o status atual esteja na lista (mesmo se for antigo/incompatível)
                     if (!availableStatuses.includes(editingOrder.status)) {
                         availableStatuses.push(editingOrder.status);
                     }
@@ -10844,8 +10855,7 @@ const AdminOrders = () => {
                                                 } catch { return <p>Endereço mal formatado.</p> }
                                             })() : <p>Nenhum endereço de entrega.</p>}
                                         </div>
-                                        
-                                        {/* --- BADGE DE TIPO DE ENTREGA --- */}
+                                        {/* Badge visual de Entrega Local */}
                                         {isLocalDelivery && (
                                             <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-bold rounded flex items-center gap-2">
                                                 <div className="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></div>
@@ -10854,7 +10864,6 @@ const AdminOrders = () => {
                                         )}
                                     </div>
                                 )}
-
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
                                     <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
@@ -10872,7 +10881,6 @@ const AdminOrders = () => {
                                         ))}
                                     </div>
                                 </div>
-                                
                                 <div>
                                     <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
                                     <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
@@ -10882,7 +10890,6 @@ const AdminOrders = () => {
                                         <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
                                     </div>
                                 </div>
-
                                 <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
