@@ -355,8 +355,9 @@ const ShopProvider = ({ children }) => {
     // Novo estado para configuração de frete local
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
 
-    // Helpers internos
+    // Helpers internos para validação consistente
     const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    
     const safeParse = (val) => {
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -370,81 +371,65 @@ const ShopProvider = ({ children }) => {
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
 
-    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL ---
-    const calculateLocalDeliveryPrice = useCallback((items) => {
-        let finalPrice = parseFloat(localShippingConfig.base_price) || 20;
-        let isFree = false;
-
-        if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
-            items.forEach(item => {
-                const itemCategory = normalize(item.category || "");
-                const itemBrand = normalize(item.brand || "");
-
-                localShippingConfig.rules.forEach(rule => {
-                    const ruleValue = normalize(rule.value);
-                    const ruleAmount = parseFloat(rule.amount) || 0;
-                    let match = false;
-
-                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
-                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
-
-                    if (match) {
-                        switch (rule.action) {
-                            case 'free_shipping': isFree = true; break;
-                            case 'surcharge': finalPrice += ruleAmount; break;
-                            case 'discount': finalPrice -= ruleAmount; break;
-                            case 'fixed_price': finalPrice = ruleAmount; break;
-                            default: break;
-                        }
-                    }
-                });
-            });
-        }
-
-        if (isFree) return 0;
-        return Math.max(0, finalPrice);
-    }, [localShippingConfig]);
-
-    // --- Fetch com Merge Inteligente ---
+    // --- Fetch com Merge Inteligente (Restaura variações perdidas) ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
+            
+            // Recupera o carrinho local para servir de backup
             const localCartStr = localStorage.getItem('lovecestas_cart');
             let localCart = [];
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
 
             const mergedCart = (dbCart || []).map(dbItem => {
                 if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
-                    return { ...dbItem, cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}` };
+                    return {
+                        ...dbItem,
+                        cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}`
+                    };
                 }
+                
                 if (dbItem.product_type === 'clothing') {
                     const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
                     if (localItem && localItem.variation) {
-                        return { ...dbItem, variation: localItem.variation, cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}` };
+                        return {
+                            ...dbItem,
+                            variation: localItem.variation,
+                            cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}`
+                        };
                     }
                 }
                 return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
             });
+
             setCart(mergedCart);
             localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
-    // --- Sincroniza Carrinho ---
+    // --- Sincroniza Carrinho de Visitante para o Banco ao Logar ---
     const syncGuestCartToDB = useCallback(async () => {
         const localCartStr = localStorage.getItem('lovecestas_cart');
         if (!localCartStr) return;
+
         try {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
+                console.log("Sincronizando itens locais para o banco...");
                 const promises = localItems.map(item => {
-                    const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
-                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
+                    const payload = {
+                        productId: item.id,
+                        quantity: item.qty,
+                        variationId: item.variation?.id,
+                        variation: item.variation,
+                        variation_details: item.variation ? JSON.stringify(item.variation) : null
+                    };
+                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado ou erro no sync:", err));
                 });
                 await Promise.all(promises);
             }
-        } catch (e) { console.error("Erro sync carrinho:", e); }
+        } catch (e) { console.error("Erro ao sincronizar carrinho:", e); }
     }, []);
 
     const fetchAddresses = useCallback(async () => {
@@ -453,7 +438,7 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { setAddresses([]); return []; }
+        } catch (error) { console.error("Falha endereços:", error); setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -469,30 +454,105 @@ const ShopProvider = ({ children }) => {
         let locationDetermined = false;
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
+            if (userAddresses && userAddresses.length > 0) {
+                locationDetermined = updateDefaultShippingLocation(userAddresses);
+            }
         }
         if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
+                    const { latitude, longitude } = position.coords;
                     try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
                         const data = await response.json();
                         if (data.address && data.address.postcode) {
-                            setShippingLocation({ cep: data.address.postcode.replace(/\D/g, ''), city: data.address.city || '', state: data.address.state || '', alias: 'Localização Atual' });
+                            const cep = data.address.postcode.replace(/\D/g, '');
+                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
                     } catch (error) { console.warn("Erro geo:", error); } 
                     finally { setIsGeolocating(false); }
                 }, 
-                () => setIsGeolocating(false), { timeout: 10000 }
+                (error) => { setIsGeolocating(false); },
+                { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
+    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA) ---
+    const calculateLocalDeliveryPrice = useCallback((items) => {
+        let basePrice = parseFloat(localShippingConfig.base_price) || 20;
+        
+        // Se não houver itens, retorna o base
+        if (!items || items.length === 0) return basePrice;
+
+        let totalSurcharge = 0;
+        let totalDiscount = 0;
+        let isFreeShippingActive = false;
+        let fixedPriceOverride = null;
+
+        // Processar regras
+        if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
+            // Itera sobre cada item para ver se alguma regra se aplica
+            for (const item of items) {
+                const itemCategory = normalize(item.category || "");
+                const itemBrand = normalize(item.brand || "");
+
+                for (const rule of localShippingConfig.rules) {
+                    const ruleValue = normalize(rule.value);
+                    const ruleAmount = parseFloat(rule.amount) || 0;
+                    let match = false;
+
+                    // Verifica Match da Regra
+                    // Usa includes para ser mais flexível (ex: "Perfumes Masculino" dá match com "Perfumes")
+                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue) || ruleValue.includes(itemCategory))) match = true;
+                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue) || ruleValue.includes(itemBrand))) match = true;
+
+                    if (match) {
+                        switch (rule.action) {
+                            case 'free_shipping':
+                                // Se QUALQUER item tiver frete grátis, o pedido todo é grátis? 
+                                // GERALMENTE SIM em apps simples. Se quiser lógica mista, fica complexo.
+                                // Vamos assumir que se um item dá frete grátis, ele "ganha".
+                                isFreeShippingActive = true;
+                                break;
+                            case 'surcharge':
+                                totalSurcharge += ruleAmount; // Acréscimo por tipo de item
+                                break;
+                            case 'discount':
+                                totalDiscount += ruleAmount;
+                                break;
+                            case 'fixed_price':
+                                // Se houver conflito, o menor valor fixo ou o último ganha. 
+                                // Aqui, o último fixo sobrescreve.
+                                fixedPriceOverride = ruleAmount;
+                                break;
+                            default: break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (isFreeShippingActive) return 0;
+
+        let finalPrice = basePrice;
+        if (fixedPriceOverride !== null) {
+            finalPrice = fixedPriceOverride;
+        }
+
+        finalPrice = finalPrice + totalSurcharge - totalDiscount;
+
+        return Math.max(0, finalPrice); // Nunca negativo
+    }, [localShippingConfig]);
+
     useEffect(() => {
         if (!isAuthLoading) {
-            if (cart.length > 0) localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
-            else if (cart.length === 0 && !isAuthenticated) localStorage.setItem('lovecestas_cart', JSON.stringify([]));
+            if (cart.length > 0) {
+                localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+            } else if (cart.length === 0 && !isAuthenticated) {
+                 localStorage.setItem('lovecestas_cart', JSON.stringify([]));
+            }
         }
     }, [cart, isAuthLoading, isAuthenticated]);
 
@@ -506,14 +566,33 @@ const ShopProvider = ({ children }) => {
                 apiService('/wishlist').then(setWishlist).catch(console.error);
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
-                if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
-                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation();
+                if (localCart) {
+                    try {
+                        const parsedLocalCart = JSON.parse(localCart);
+                        if (Array.isArray(parsedLocalCart)) setCart(parsedLocalCart);
+                    } catch (e) { setCart([]); }
+                } else { setCart([]); }
+                setWishlist([]); 
+                setAddresses([]); 
+                setShippingLocation({ cep: '', city: '', state: '', alias: '' });
+                setAutoCalculatedShipping(null); 
+                setCouponCode(''); 
+                setAppliedCoupon(null); 
+                setCouponMessage('');
+                determineShippingLocation();
             }
         };
         initializeShop();
     }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB]);
+    
+    useEffect(() => {
+        if (cart.length > 0 && isAuthenticated) {
+            const missingData = cart.some(item => !item.hasOwnProperty('category') || !item.hasOwnProperty('brand'));
+            if (missingData) fetchPersistentCart();
+        }
+    }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
-    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO ---
+    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO DO BRASIL ---
     useEffect(() => {
         const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
         const debounceTimer = setTimeout(() => {
@@ -523,6 +602,7 @@ const ShopProvider = ({ children }) => {
                 
                 const calculateShipping = async () => {
                     try {
+                        // Verifica se o CEP é de João Pessoa (Faixa: 58000-000 a 58099-999)
                         const cleanCep = shippingLocation.cep.replace(/\D/g, '');
                         const cepPrefix = parseInt(cleanCep.substring(0, 5));
                         const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
@@ -531,44 +611,63 @@ const ShopProvider = ({ children }) => {
                         let finalOptions = [];
 
                         if (isJoaoPessoa) {
-                            // USA A FUNÇÃO DE CÁLCULO DINÂMICO
+                            // ✅ REGRA JOÃO PESSOA: Entrega Local Dinâmica e Retirada
                             const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
-                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: '1 dia útil', isLocal: true };
+                            
+                            const localDeliveryOption = { 
+                                name: "Entrega local (Motoboy / Uber)", 
+                                price: localPrice, 
+                                delivery_time: '1 dia útil', 
+                                isLocal: true 
+                            };
                             finalOptions = [localDeliveryOption, pickupOption];
                         } else {
-                            const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
+                            // ✅ REGRA GERAL: Correios (PAC) e Retirada para outros locais
+                            const productsPayload = itemsToCalculate.map(item => ({
+                                id: String(item.id),
+                                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
+                                quantity: item.qty || 1,
+                            }));
                             const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
                             const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                            if (pacOptionRaw) finalOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                            finalOptions.push(pickupOption);
+                            // const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex')); // Opcional
+                            
+                            const shippingApiOptions = [];
+                            if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                            // if (sedexOption) shippingApiOptions.push(sedexOption);
+                            
+                            finalOptions = [...shippingApiOptions, pickupOption];
                         }
 
                         setShippingOptions(finalOptions);
+                        
+                        // Seleciona automaticamente a melhor opção
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
                         setShippingOptions([pickupOption]);
                         setAutoCalculatedShipping(pickupOption);
                     } finally { setIsLoadingShipping(false); }
                 };
                 calculateShipping();
             } else {
-                setShippingOptions([]); setAutoCalculatedShipping(null);
+                setShippingOptions([]);
+                setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice]);
-
+    
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
         
         setCart(currentCart => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
@@ -576,15 +675,24 @@ const ShopProvider = ({ children }) => {
         });
         
         if (isAuthenticated) {
-            apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
+            apiService('/cart', 'POST', { 
+                productId: productToAdd.id, 
+                quantity: existing ? existing.qty + qty : qty, 
+                variationId: variation?.id,
+                variation: variation,
+                variation_details: variation ? JSON.stringify(variation) : null
+            }).catch(console.error);
         }
     }, [cart, isAuthenticated]);
-
+    
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
         setCart(current => current.filter(item => item.cartItemId !== cartItemId));
-        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+        
+        if (isAuthenticated) {
+            await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
+        }
     }, [cart, isAuthenticated]);
 
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
@@ -592,18 +700,44 @@ const ShopProvider = ({ children }) => {
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        
         setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
-        if (isAuthenticated) apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
+        
+        if (isAuthenticated) {
+            apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
+        }
     }, [cart, isAuthenticated, removeFromCart]);
-
-    const clearCart = useCallback(async () => { setCart([]); localStorage.removeItem('lovecestas_cart'); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
-    const addToWishlist = useCallback(async (productToAdd) => { if (!isAuthenticated) return; if (wishlist.some(p => p.id === productToAdd.id)) return; try { const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id }); setWishlist(current => [...current, addedProduct]); return { success: true, message: `${productToAdd.name} adicionado à lista!` }; } catch (error) { return { success: false, message: `Erro: ${error.message}` }; } }, [isAuthenticated, wishlist]);
-    const removeFromWishlist = useCallback(async (productId) => { if (!isAuthenticated) return; try { await apiService(`/wishlist/${productId}`, 'DELETE'); setWishlist(current => current.filter(p => p.id !== productId)); } catch (error) { console.error(error); } }, [isAuthenticated]);
-    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
     
+    const clearCart = useCallback(async () => { 
+        setCart([]); 
+        localStorage.removeItem('lovecestas_cart'); 
+        if (isAuthenticated) await apiService('/cart', 'DELETE'); 
+    }, [isAuthenticated]);
+
+    const addToWishlist = useCallback(async (productToAdd) => {
+        if (!isAuthenticated) return; 
+        if (wishlist.some(p => p.id === productToAdd.id)) return;
+        try {
+            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
+            setWishlist(current => [...current, addedProduct]);
+            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
+        } catch (error) { return { success: false, message: `Erro: ${error.message}` }; }
+    }, [isAuthenticated, wishlist]);
+
+    const removeFromWishlist = useCallback(async (productId) => {
+        if (!isAuthenticated) return;
+        try {
+            await apiService(`/wishlist/${productId}`, 'DELETE');
+            setWishlist(current => current.filter(p => p.id !== productId));
+        } catch (error) { console.error(error); }
+    }, [isAuthenticated]);
+    
+    const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
+
     const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code); setCouponMessage(""); 
+        setCouponCode(code);
+        setCouponMessage(""); 
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             const coupon = response.coupon;
@@ -615,8 +749,7 @@ const ShopProvider = ({ children }) => {
                 const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
                 const isGlobal = !hasRestrictions;
                 let eligibleCount = 0;
-                if (isGlobal) eligibleCount = cart.length;
-                else {
+                if (isGlobal) { eligibleCount = cart.length; } else {
                     cart.forEach(item => {
                         const itemCat = normalize(item.category || "");
                         const itemBrand = normalize(item.brand || "");
@@ -625,12 +758,19 @@ const ShopProvider = ({ children }) => {
                         if (catMatch || brandMatch) eligibleCount++;
                     });
                 }
-                if (eligibleCount === 0) { setAppliedCoupon(null); setCouponMessage("Nenhum produto elegível."); return; }
+                if (eligibleCount === 0) {
+                    setAppliedCoupon(null);
+                    setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
+                    return; 
+                }
             }
             setAppliedCoupon(coupon);
-        } catch (error) { setAppliedCoupon(null); setCouponMessage(error.message || "Erro no cupom."); }
-    }, [cart]);
-
+        } catch (error) { 
+            setAppliedCoupon(null); 
+            setCouponMessage(error.message || "Não foi possível aplicar o cupom."); 
+        }
+    }, [cart]); 
+    
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         if (appliedCoupon.type === 'free_shipping') return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
@@ -644,8 +784,7 @@ const ShopProvider = ({ children }) => {
 
         cart.forEach(item => {
             let isEligible = false;
-            if (isGlobal) isEligible = true;
-            else {
+            if (isGlobal) { isEligible = true; } else {
                 const itemCat = normalize(item.category || "");
                 const itemBrand = normalize(item.brand || "");
                 const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
@@ -659,10 +798,26 @@ const ShopProvider = ({ children }) => {
         });
         if (eligibleTotal === 0) return 0;
         let finalDiscount = 0;
-        if (appliedCoupon.type === 'percentage') finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        else if (appliedCoupon.type === 'fixed') finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+        if (appliedCoupon.type === 'percentage') {
+            finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+        } else if (appliedCoupon.type === 'fixed') {
+            finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
+        }
         return Math.min(finalDiscount, eligibleTotal);
     }, [appliedCoupon, cart, autoCalculatedShipping]);
+
+    useEffect(() => {
+        if (appliedCoupon) {
+            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
+                 setAppliedCoupon(null);
+                 setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
+                 return;
+            }
+            setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
+        } else if (couponMessage && couponMessage.includes("aplicado")) {
+             setCouponMessage("");
+        }
+    }, [discount, appliedCoupon]);
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
