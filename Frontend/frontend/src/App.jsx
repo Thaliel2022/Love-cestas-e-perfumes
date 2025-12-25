@@ -363,6 +363,42 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
+    // --- LÓGICA DE CÁLCULO DE DATA (FERIADOS) ---
+    const calculateDeliveryDate = useCallback((daysToAdd) => {
+        const date = new Date();
+        let added = 0;
+        
+        // Lista de Feriados Fixos (Dia/Mês)
+        const holidays = [
+            "01/01", // Confraternização Universal
+            "21/04", // Tiradentes
+            "01/05", // Dia do Trabalho
+            "24/06", // São João (Forte no NE/JP)
+            "07/09", // Independência
+            "12/10", // N. Sra. Aparecida
+            "02/11", // Finados
+            "15/11", // Proclamação da República
+            "25/12"  // Natal
+        ];
+
+        while (added < daysToAdd) {
+            date.setDate(date.getDate() + 1);
+            
+            const dayOfWeek = date.getDay();
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const dateString = `${day}/${month}`;
+            
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+            const isHoliday = holidays.includes(dateString);
+
+            if (!isWeekend && !isHoliday) {
+                added++;
+            }
+        }
+        return date;
+    }, []);
+
     // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
@@ -584,7 +620,13 @@ const ShopProvider = ({ children }) => {
 
                         if (isJoaoPessoa) {
                             const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
-                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: '1 dia útil', isLocal: true };
+                            
+                            // Calcula data usando o helper centralizado
+                            const date = calculateDeliveryDate(1);
+                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                            const deliveryString = `Receba até ${formattedDate}`;
+
+                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: deliveryString, isLocal: true };
                             finalOptions = [localDeliveryOption, pickupOption];
                         } else {
                             const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
@@ -611,7 +653,7 @@ const ShopProvider = ({ children }) => {
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice]);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
@@ -725,7 +767,7 @@ const ShopProvider = ({ children }) => {
             autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
-            calculateLocalDeliveryPrice
+            calculateLocalDeliveryPrice, calculateDeliveryDate // EXPOSTO
         }}>
             {children}
         </ShopContext.Provider>
