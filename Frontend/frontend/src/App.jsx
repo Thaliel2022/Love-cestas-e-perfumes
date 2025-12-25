@@ -1177,10 +1177,12 @@ const ProductCard = memo(({ product, onNavigate }) => {
                     }
                     const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                     
-                    // USANDO O CÁLCULO DINÂMICO
+                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
                     const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
                     
-                    setCardShippingInfo(`Frete R$ ${localPrice.toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
+                    const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
+                    
+                    setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
                     setIsCardShippingLoading(false);
                     return; // Interrompe para não chamar a API
                 }
