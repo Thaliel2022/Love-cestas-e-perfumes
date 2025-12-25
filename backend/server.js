@@ -2817,6 +2817,27 @@ app.put('/api/orders/:id/address', verifyToken, async (req, res) => {
     }
 });
 
+const createLocalDeliveryTrackingEmail = (customerName, orderId, trackingLink, items) => {
+    const itemsHtml = createItemsListHtml(items, "Itens a caminho:");
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+
+    const content = `
+        <h1 style="color: #D4AF37; font-family: Arial, sans-serif; font-size: 24px; margin: 0 0 20px;">Seu Pedido Saiu para Entrega! 🛵</h1>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Olá, ${customerName},</p>
+        <p style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; margin: 0 0 15px;">Seu pedido <strong>#${orderId}</strong> acabou de sair para entrega com nosso parceiro.</p>
+        
+        <div style="background-color: #1F2937; border: 1px solid #374151; padding: 25px; border-radius: 8px; text-align: center; margin: 25px 0;">
+            <p style="color: #E5E7EB; margin-bottom: 20px; font-size: 16px;">Acompanhe o trajeto em tempo real clicando abaixo:</p>
+            <a href="${trackingLink}" target="_blank" style="background-color: #10B981; color: #fff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">Acompanhar Entrega</a>
+            <p style="color: #9CA3AF; margin-top: 20px; font-size: 12px;">Se o botão não funcionar, acesse o link:<br><a href="${trackingLink}" style="color: #D4AF37; text-decoration: underline; word-break: break-all;">${trackingLink}</a></p>
+        </div>
+
+        <table width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation"><tr><td align="center" style="padding: 0px 0 20px;"><a href="${appUrl}/#account/orders/${orderId}" target="_blank" style="font-size: 14px; color: #D4AF37; text-decoration: underline; font-family: Arial, sans-serif;">Ver detalhes do pedido no site</a></td></tr></table>
+        ${itemsHtml}
+    `;
+    return createEmailBase(content);
+};
+
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -2913,10 +2934,18 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
                     const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
 
+                    // Verifica se é entrega local
+                    const isLocalDelivery = currentOrder.shipping_method && (currentOrder.shipping_method.toLowerCase().includes('motoboy') || currentOrder.shipping_method.toLowerCase().includes('entrega local'));
+
                     let emailHtml, emailSubject;
+
                     if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
                         emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
                         emailSubject = `Seu Pedido #${id} foi enviado!`;
+                    } else if (status === ORDER_STATUS.OUT_FOR_DELIVERY && isLocalDelivery && finalTrackingCode) {
+                        // --- NOVA LÓGICA: E-mail de Entrega Local com Link ---
+                        emailHtml = createLocalDeliveryTrackingEmail(customerName, id, finalTrackingCode, parsedItems);
+                        emailSubject = `Seu Pedido #${id} saiu para entrega! Acompanhe agora 🛵`;
                     } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
                         let pickupDetails = {};
                         try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
@@ -3011,10 +3040,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         connection.release();
     }
 });
-
-// --- ROTA DE NEWSLETTER (CLUBE VIP) ---
-
-// --- ROTA DE NEWSLETTER (CLUBE VIP) ---
 
 // Template de E-mail para Boas-vindas da Newsletter
 const createNewsletterWelcomeEmail = () => {
