@@ -2155,7 +2155,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
         <section className="bg-black text-white py-12 md:py-16">
             <div className="container mx-auto px-4">
                 {title && <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{title}</h2>}
-                <div className="relative">
+                <div className="relative group">
                     <div 
                         className="overflow-hidden"
                         onTouchStart={handleTouchStart}
@@ -2183,13 +2183,14 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                             ))}
                         </motion.div>
                     </div>
+                    {/* Botões de Navegação - Visíveis sempre que houver mais itens para mostrar */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 hidden md:flex">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
