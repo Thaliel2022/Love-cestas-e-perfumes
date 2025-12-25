@@ -363,12 +363,31 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
-    // --- Fetch Configuração de Frete Local ---
-    useEffect(() => {
+    // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
+    const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
-            .then(data => setLocalShippingConfig(data))
+            .then(data => {
+                // Atualiza apenas se houver mudança para evitar re-render desnecessário, 
+                // mas como é objeto, o React geralmente atualiza.
+                setLocalShippingConfig(prev => {
+                    if (JSON.stringify(prev) !== JSON.stringify(data)) {
+                        return data;
+                    }
+                    return prev;
+                });
+            })
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
+
+    useEffect(() => {
+        fetchShippingConfig(); // Busca inicial imediata
+        
+        // Define um intervalo para buscar atualizações a cada 5 segundos
+        const intervalId = setInterval(fetchShippingConfig, 5000);
+        
+        // Limpa o intervalo ao desmontar
+        return () => clearInterval(intervalId);
+    }, [fetchShippingConfig]);
 
     // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA) ---
     const calculateLocalDeliveryPrice = useCallback((items) => {
@@ -379,11 +398,9 @@ const ShopProvider = ({ children }) => {
         let highestBasePriceFound = 0;
         let totalSurcharges = 0;
         let totalDiscounts = 0;
-        let globalFreeShipping = false;
 
-        // Para evitar aplicar múltiplos descontos/acréscimos repetidos indevidamente para o mesmo tipo de regra,
-        // vamos somar por item, mas garantir que a lógica de "maior base" funcione.
-
+        // Itera sobre cada item para determinar o custo de envio individual
+        // O custo base do pedido será o MAIOR custo base individual encontrado
         for (const item of items) {
             const itemCategory = normalize(item.category || "");
             const itemBrand = normalize(item.brand || "");
@@ -391,9 +408,6 @@ const ShopProvider = ({ children }) => {
             // Começa assumindo o preço base global para este item
             let itemEffectiveBasePrice = defaultBasePrice; 
             
-            // Flags locais para este item
-            let itemMatchesFree = false;
-
             if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
@@ -408,8 +422,8 @@ const ShopProvider = ({ children }) => {
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping':
+                                // Para este item, o custo base é 0
                                 itemEffectiveBasePrice = 0;
-                                itemMatchesFree = true;
                                 break;
                             case 'surcharge':
                                 // Acréscimo é somado ao total global de acréscimos
@@ -417,8 +431,6 @@ const ShopProvider = ({ children }) => {
                                 break;
                             case 'discount':
                                 // Desconto é somado ao total global de descontos.
-                                // IMPORTANTE: Se o desconto for maior que o base price do item, limita a 0?
-                                // Por enquanto, soma tudo.
                                 totalDiscounts += ruleAmount;
                                 break;
                             default: break;
@@ -428,15 +440,12 @@ const ShopProvider = ({ children }) => {
             }
             
             // O custo base do pedido será o maior custo base individual encontrado entre os itens
-            // Ex: Item A (Grátis=0), Item B (Fixo=10), Item C (Base=15) -> Maior é 15.
             if (itemEffectiveBasePrice > highestBasePriceFound) {
                 highestBasePriceFound = itemEffectiveBasePrice;
             }
         }
 
-        // Lógica final: Base (maior encontrada) + Acréscimos - Descontos
         let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
-
         return Math.max(0, finalPrice); 
     }, [localShippingConfig]);
 
@@ -556,7 +565,7 @@ const ShopProvider = ({ children }) => {
 
     // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO ---
     useEffect(() => {
-        // CORREÇÃO CRÍTICA AQUI: Prioriza o previewShippingItem (do ProductDetail) sobre o cart
+        // Prioriza o previewShippingItem (do ProductDetail) sobre o cart
         const itemsToCalculate = previewShippingItem && previewShippingItem.length > 0 ? previewShippingItem : cart;
         
         const debounceTimer = setTimeout(() => {
