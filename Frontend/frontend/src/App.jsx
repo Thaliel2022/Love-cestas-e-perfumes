@@ -1669,8 +1669,6 @@ const Header = memo(({ onNavigate }) => {
 
     // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
     useEffect(() => {
-        // --- INÍCIO DA MODIFICAÇÃO ---
-        // Função para verificar se é iPhone
         const isIOS = () => {
             return [
                 'iPad Simulator',
@@ -1680,20 +1678,17 @@ const Header = memo(({ onNavigate }) => {
                 'iPhone',
                 'iPod'
             ].includes(navigator.platform)
-            // iPad on iOS 13 detection
             || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
         }
 
         const controlNavbar = () => {
-            // Se NÃO for iOS, mantém a barra visível e sai da função
             if (!isIOS()) {
                  setIsBottomNavVisible(true);
-                 isScrollingDown.current = false; // Garante que a lógica de scroll não interfira
-                 lastScrollY.current = window.scrollY; // Atualiza a posição para evitar saltos se mudar de OS
+                 isScrollingDown.current = false;
+                 lastScrollY.current = window.scrollY;
                  return;
             }
 
-            // Lógica original, agora executada APENAS se for iOS
             const currentScrollY = window.scrollY;
             const threshold = 5;
 
@@ -1712,13 +1707,12 @@ const Header = memo(({ onNavigate }) => {
 
             lastScrollY.current = currentScrollY;
         };
-        // --- FIM DA MODIFICAÇÃO ---
 
         window.addEventListener('scroll', controlNavbar);
         return () => {
             window.removeEventListener('scroll', controlNavbar);
         };
-    }, []); // Dependência vazia, executa apenas uma vez
+    }, []);
 
     const fetchAndBuildMenu = useCallback(() => {
         apiService('/collections')
@@ -1870,7 +1864,7 @@ const Header = memo(({ onNavigate }) => {
             }
         }
     }
-// Componente da Barra de Navegação Inferior (Mobile Only)
+
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
 
@@ -1881,25 +1875,22 @@ const Header = memo(({ onNavigate }) => {
 
         return (
             <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" // Adicionado pb-safe para iOS
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe"
                 initial={false}
                 animate={isBottomNavVisible ? "visible" : "hidden"}
                 variants={navVariants}
             >
-                {/* 1. Início */}
                 <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HomeIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Início</span>
                 </button>
                 
-                {/* 2. Lista de Desejos */}
                 <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <HeartIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Lista</span>
                     {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
                 </button>
 
-                {/* 3. Carrinho */}
                 <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <motion.div animate={cartAnimationControls}>
                         <CartIcon className="h-6 w-6 mb-1"/>
@@ -1908,13 +1899,11 @@ const Header = memo(({ onNavigate }) => {
                     {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
                 </button>
                 
-                {/* 4. Conta */}
                 <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <UserIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Conta</span>
                 </button>
 
-                {/* 5. Menu (Categorias) - Agora na posição final */}
                 <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <BarsGripIcon className="h-6 w-6 mb-1"/>
                     <span className="text-[10px]">Menu</span>
@@ -1961,7 +1950,14 @@ const Header = memo(({ onNavigate }) => {
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
-                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a>
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400 group">
+                        <div className="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7 text-amber-500 group-hover:scale-110 transition-transform">
+                                <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
+                            </svg>
+                        </div>
+                        <span>LovecestasePerfumes</span>
+                    </a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
                            <input
@@ -2018,7 +2014,14 @@ const Header = memo(({ onNavigate }) => {
             </div>
 
              <div className="block md:hidden px-4 pt-3">
-                <div className="text-center mb-2"> <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="text-xl font-bold tracking-wide text-amber-400">LovecestasePerfumes</a> </div>
+                <div className="flex justify-center items-center mb-3">
+                    <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
+                            <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
+                        </svg>
+                        LovecestasePerfumes
+                    </a>
+                </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
                     <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
@@ -2077,7 +2080,6 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
-        {/* Renderiza a BottomNavBar */}
         <BottomNavBar />
         </>
     );
