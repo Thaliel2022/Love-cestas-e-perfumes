@@ -4485,6 +4485,43 @@ app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) 
     }
 });
 
+// [SEÇÃO AFETADA]: Rotas de Configuração de Frete (Adicionar junto com as outras rotas de settings)
+
+// (Público) Busca configuração de frete local para cálculo no frontend
+app.get('/api/settings/shipping-local', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'local_shipping_config'");
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : { base_price: 20, rules: [] };
+        res.json(config);
+    } catch (err) {
+        console.error("Erro ao buscar config de frete:", err);
+        res.status(500).json({ base_price: 20, rules: [] }); // Fallback seguro
+    }
+});
+
+// (Admin) Atualiza configuração de frete local
+app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, res) => {
+    const { base_price, rules } = req.body;
+    
+    if (base_price === undefined || !Array.isArray(rules)) {
+        return res.status(400).json({ message: "Formato de configuração inválido." });
+    }
+
+    const configString = JSON.stringify({ base_price: parseFloat(base_price), rules });
+
+    try {
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('local_shipping_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+            [configString, configString]
+        );
+        logAdminAction(req.user, 'ATUALIZOU FRETE LOCAL', `Base: R$ ${base_price}, Regras: ${rules.length}`);
+        res.json({ message: "Configuração de frete atualizada com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar config de frete:", err);
+        res.status(500).json({ message: "Erro ao salvar configuração." });
+    }
+});
+
 // (Admin) Rota para buscar os logs de ações
 app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
     try {
