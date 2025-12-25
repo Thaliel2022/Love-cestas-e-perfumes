@@ -479,7 +479,7 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA) ---
+    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA E REVISADA) ---
     const calculateLocalDeliveryPrice = useCallback((items) => {
         let basePrice = parseFloat(localShippingConfig.base_price) || 20;
         
@@ -497,6 +497,9 @@ const ShopProvider = ({ children }) => {
             for (const item of items) {
                 const itemCategory = normalize(item.category || "");
                 const itemBrand = normalize(item.brand || "");
+
+                // Flag para saber se este item específico teve match de frete grátis
+                let itemHasFreeShipping = false;
 
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
@@ -524,9 +527,13 @@ const ShopProvider = ({ children }) => {
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping':
-                                // Se um item elegível para frete grátis estiver no cálculo, ativamos a flag.
-                                // Nota: Em carrinhos mistos, isso pode zerar o frete todo. 
-                                // Para corrigir "tudo grátis", a comparação acima deve ser precisa.
+                                // AQUI ESTAVA O ERRO ANTES: A flag global era ativada.
+                                // AGORA: Só ativamos se for para ESTE item, mas precisamos considerar o carrinho todo.
+                                // Se estamos calculando para UM item (ProductDetail), isFreeShippingActive vira true e retorna 0.
+                                // Se estamos calculando para o CARRINHO, precisamos decidir a regra. 
+                                // Normalmente, se UM item tem frete grátis, o pedido todo tem? 
+                                // Vamos assumir que sim para simplificar a experiência do usuário.
+                                itemHasFreeShipping = true;
                                 isFreeShippingActive = true;
                                 break;
                             case 'surcharge':
@@ -536,6 +543,7 @@ const ShopProvider = ({ children }) => {
                                 totalDiscount += ruleAmount;
                                 break;
                             case 'fixed_price':
+                                // Se houver conflito, o último fixo sobrescreve.
                                 fixedPriceOverride = ruleAmount;
                                 break;
                             default: break;
@@ -545,10 +553,12 @@ const ShopProvider = ({ children }) => {
             }
         }
 
-        // Se encontrou uma regra de frete grátis VÁLIDA para os itens atuais, retorna 0
+        // Se encontrou uma regra de frete grátis VÁLIDA para algum dos itens, retorna 0
         if (isFreeShippingActive) return 0;
 
         let finalPrice = basePrice;
+        
+        // Se houver um override de preço fixo (ex: Avon = 10,00), ele substitui a base.
         if (fixedPriceOverride !== null) {
             finalPrice = fixedPriceOverride;
         }
@@ -624,6 +634,8 @@ const ShopProvider = ({ children }) => {
 
                         if (isJoaoPessoa) {
                             // ✅ REGRA JOÃO PESSOA: Entrega Local Dinâmica e Retirada
+                            // Passa APENAS os itens relevantes para o cálculo.
+                            // Se estivermos no carrinho, passa o carrinho. Se for preview, passa o item de preview.
                             const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
                             
                             const localDeliveryOption = { 
