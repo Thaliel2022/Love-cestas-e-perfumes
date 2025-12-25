@@ -2822,9 +2822,14 @@ const HomePage = ({ onNavigate }) => {
         {/* Vitrine Roupas */}
         <section className="bg-black text-white py-8 md:py-10 border-t border-gray-800">
           <div className="container mx-auto px-4">
-              <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                  <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                  <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
+              <div className="flex items-end justify-between mb-6 md:mb-8">
+                  <div className="flex items-center gap-3 md:gap-4">
+                      <div className="bg-gray-800 p-2 md:p-3 rounded-full"><ShirtIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                      <h2 className="text-xl md:text-3xl font-bold">Roupas em Destaque</h2>
+                  </div>
+                  <button onClick={() => onNavigate('products?category=Roupas')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
+                      Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                  </button>
               </div>
               <ProductCarousel products={products.clothing} onNavigate={onNavigate} />
           </div>
@@ -2833,9 +2838,14 @@ const HomePage = ({ onNavigate }) => {
         {products.perfumes.length > 0 && (
             <section className="bg-black text-white py-8 md:py-12 border-t border-gray-800">
                 <div className="container mx-auto px-4">
-                    <div className="flex items-center gap-3 md:gap-4 mb-6 md:mb-8">
-                        <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
-                        <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                    <div className="flex items-end justify-between mb-6 md:mb-8">
+                        <div className="flex items-center gap-3 md:gap-4">
+                            <div className="bg-gray-800 p-2 md:p-3 rounded-full"><SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-amber-400"/></div>
+                            <h2 className="text-xl md:text-3xl font-bold">Perfumaria Selecionada</h2>
+                        </div>
+                        <button onClick={() => onNavigate('products?category=Perfumes')} className="text-amber-400 hover:text-white transition-colors text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2 group px-2 py-1 md:px-4 md:py-2 rounded-lg hover:bg-gray-900">
+                            Ver tudo <ArrowUturnLeftIcon className="h-3 w-3 md:h-4 md:w-4 rotate-180 group-hover:translate-x-1 transition-transform"/>
+                        </button>
                     </div>
                     <ProductCarousel products={products.perfumes} onNavigate={onNavigate} />
                 </div>
