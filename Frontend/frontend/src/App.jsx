@@ -7755,6 +7755,7 @@ const AdminShippingSettings = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
+    const confirmation = useConfirmation(); // Usaremos o hook de confirmação existente
 
     // Estado para nova regra
     const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
@@ -7764,7 +7765,11 @@ const AdminShippingSettings = () => {
             try {
                 // Busca configuração atual
                 const configData = await apiService('/settings/shipping-local');
-                setConfig(configData);
+                // Garante que base_price seja número e rules um array
+                setConfig({
+                    base_price: parseFloat(configData.base_price) || 20,
+                    rules: Array.isArray(configData.rules) ? configData.rules : []
+                });
 
                 // Busca dados para os selects (Marcas e Categorias)
                 const [products, collections] = await Promise.all([
@@ -7792,7 +7797,7 @@ const AdminShippingSettings = () => {
         }
         setConfig(prev => ({
             ...prev,
-            rules: [...prev.rules, { ...newRule, id: Date.now() }]
+            rules: [...prev.rules, { ...newRule, id: Date.now(), amount: parseFloat(newRule.amount) || 0 }]
         }));
         setNewRule({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
     };
@@ -7805,14 +7810,72 @@ const AdminShippingSettings = () => {
     };
 
     const handleSave = async () => {
+        // Usa o hook de confirmação que já lida com senha/2FA
+        confirmation.show(
+            "Esta é uma alteração crítica nas regras de frete. Por favor, confirme sua identidade para salvar.",
+            async () => {
+                setIsSaving(true);
+                try {
+                    // O confirmation.show já cuidou da verificação prévia (/auth/verify-action),
+                    // mas o endpoint específico de settings TAMBÉM pode exigir a senha no corpo se foi configurado assim.
+                    // No entanto, se o endpoint de settings pede senha no body, precisamos coletá-la.
+                    // O hook `useConfirmation` padrão geralmente apenas verifica a sessão/token.
+                    // SE o backend exige a senha NO CORPO da requisição de settings, precisamos de uma abordagem diferente.
+                    // Assumindo que o backend exige senha/token NO BODY da requisição PUT:
+
+                    // Como o hook `useConfirmation` do projeto atual é genérico e não retorna o valor digitado (apenas chama o callback),
+                    // precisaremos reimplementar um modal simples AQUI ou ajustar a lógica.
+                    // Pela estrutura atual do backend que você enviou, ele espera `password` ou `token` no body.
+                    
+                    // VAMOS SIMPLIFICAR: Como não tenho acesso fácil ao valor digitado no `useConfirmation` padrão sem alterá-lo,
+                    // Vou criar um estado local para um modal de confirmação específico deste componente.
+                } catch (err) {
+                   // ...
+                }
+            },
+            { requiresAuth: false } // Desativamos a auth do hook padrão para usar o nosso modal específico abaixo
+        );
+        // Ajeitando para usar a lógica correta abaixo com modal local
+        setIsAuthModalOpen(true);
+    };
+    
+    // Estados para o Modal de Autenticação Local
+    const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+    const [authInput, setAuthInput] = useState('');
+    const [isAuthVerify, setIsAuthVerify] = useState(false);
+
+    const confirmSaveWithAuth = async (e) => {
+        e.preventDefault();
+        setIsAuthVerify(true);
         setIsSaving(true);
+        
         try {
-            await apiService('/settings/shipping-local', 'PUT', config);
+            // Garante envio de números corretos
+            const payload = {
+                base_price: parseFloat(config.base_price),
+                rules: config.rules.map(r => ({
+                    ...r,
+                    amount: parseFloat(r.amount) || 0
+                })),
+                // Envia a senha ou token dependendo do que for (aqui assumimos senha por padrão, 
+                // mas se for 2FA o backend tenta validar como token também se falhar a senha, ou podemos enviar ambos)
+                // O backend espera `password` OU `token`. Vamos enviar como `password` se for longo, ou tentar inferir.
+                // Mas para ser seguro e compatível com o backend que espera campos distintos:
+                password: authInput, 
+                token: authInput.length === 6 && !isNaN(authInput) ? authInput : null 
+                // Nota: Se a senha for de 6 números, pode dar conflito, mas geralmente senha é mais complexa.
+                // O ideal é ter campos separados ou um input inteligente. Vamos mandar nos dois e o backend decide a prioridade.
+            };
+            
+            await apiService('/settings/shipping-local', 'PUT', payload);
             notification.show("Configurações de frete salvas com sucesso!");
+            setIsAuthModalOpen(false);
+            setAuthInput('');
         } catch (err) {
-            notification.show(err.message, "error");
+            notification.show(err.message || "Erro ao salvar. Verifique sua senha/token.", "error");
         } finally {
             setIsSaving(false);
+            setIsAuthVerify(false);
         }
     };
 
@@ -7820,6 +7883,40 @@ const AdminShippingSettings = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
+            
+            {/* MODAL DE CONFIRMAÇÃO DE SEGURANÇA */}
+            <AnimatePresence>
+                {isAuthModalOpen && (
+                    <Modal isOpen={true} onClose={() => setIsAuthModalOpen(false)} title="Confirmação de Segurança">
+                        <form onSubmit={confirmSaveWithAuth} className="space-y-4">
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                                <p className="text-sm text-yellow-700">
+                                    Esta é uma alteração crítica. Por favor, confirme sua <strong>Senha</strong> ou código <strong>2FA</strong> para continuar.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700">Senha ou Código 2FA</label>
+                                <input 
+                                    type="password" 
+                                    value={authInput} 
+                                    onChange={(e) => setAuthInput(e.target.value)} 
+                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    placeholder="Digite sua senha ou token..."
+                                    required
+                                />
+                            </div>
+                            <div className="flex justify-end gap-3">
+                                <button type="button" onClick={() => setIsAuthModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-700">Cancelar</button>
+                                <button type="submit" disabled={isAuthVerify} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2">
+                                    {isAuthVerify && <SpinnerIcon className="h-4 w-4"/>}
+                                    Confirmar e Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             <div>
                 <h1 className="text-3xl font-bold text-slate-800">Configuração de Entrega Local</h1>
                 <p className="text-slate-500">Defina os preços para entregas via Motoboy (João Pessoa).</p>
@@ -7940,7 +8037,7 @@ const AdminShippingSettings = () => {
 
             <div className="flex justify-end pt-4">
                 <button 
-                    onClick={handleSave} 
+                    onClick={() => setIsAuthModalOpen(true)} 
                     disabled={isSaving}
                     className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70"
                 >
