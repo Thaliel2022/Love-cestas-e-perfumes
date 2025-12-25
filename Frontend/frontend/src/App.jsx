@@ -355,9 +355,8 @@ const ShopProvider = ({ children }) => {
     // Novo estado para configuração de frete local
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
 
-    // Helpers internos para validação consistente
+    // Helpers internos
     const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-    
     const safeParse = (val) => {
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -371,65 +370,110 @@ const ShopProvider = ({ children }) => {
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
 
-    // --- Fetch com Merge Inteligente (Restaura variações perdidas) ---
+    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL ---
+    const calculateLocalDeliveryPrice = useCallback((items) => {
+        let basePrice = parseFloat(localShippingConfig.base_price) || 20;
+        
+        if (!items || items.length === 0) return basePrice;
+
+        let totalSurcharge = 0;
+        let totalDiscount = 0;
+        let isFreeShippingActive = false;
+        let fixedPriceOverride = null;
+
+        // Itera sobre cada item para ver se alguma regra se aplica
+        for (const item of items) {
+            const itemCategory = normalize(item.category || "");
+            const itemBrand = normalize(item.brand || "");
+            let itemMatchesFreeShipping = false;
+
+            if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
+                for (const rule of localShippingConfig.rules) {
+                    const ruleValue = normalize(rule.value);
+                    const ruleAmount = parseFloat(rule.amount) || 0;
+                    if (!ruleValue) continue;
+
+                    let match = false;
+                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
+                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
+
+                    if (match) {
+                        switch (rule.action) {
+                            case 'free_shipping':
+                                itemMatchesFreeShipping = true;
+                                break;
+                            case 'surcharge':
+                                totalSurcharge += ruleAmount; 
+                                break;
+                            case 'discount':
+                                totalDiscount += ruleAmount;
+                                break;
+                            case 'fixed_price':
+                                fixedPriceOverride = ruleAmount;
+                                break;
+                            default: break;
+                        }
+                    }
+                }
+            }
+
+            // Se pelo menos um item NÃO tiver frete grátis, a flag global de frete grátis não pode ser garantida apenas por um item
+            // Mas para simplificar a regra "Cesta Básica Grátis": se o item tiver regra de grátis, ele ativa a flag.
+            if (itemMatchesFreeShipping) {
+                isFreeShippingActive = true;
+            }
+        }
+
+        if (isFreeShippingActive) return 0;
+
+        let finalPrice = basePrice;
+        if (fixedPriceOverride !== null) {
+            finalPrice = fixedPriceOverride;
+        }
+
+        finalPrice = finalPrice + totalSurcharge - totalDiscount;
+        return Math.max(0, finalPrice); 
+    }, [localShippingConfig]);
+
+    // --- Fetch Carrinho ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
             const dbCart = await apiService('/cart');
-            
-            // Recupera o carrinho local para servir de backup
             const localCartStr = localStorage.getItem('lovecestas_cart');
             let localCart = [];
             try { localCart = JSON.parse(localCartStr) || []; } catch(e){}
-
             const mergedCart = (dbCart || []).map(dbItem => {
                 if (dbItem.variation && dbItem.variation.color && dbItem.variation.size) {
-                    return {
-                        ...dbItem,
-                        cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}`
-                    };
+                    return { ...dbItem, cartItemId: `${dbItem.id}-${dbItem.variation.color}-${dbItem.variation.size}` };
                 }
-                
                 if (dbItem.product_type === 'clothing') {
                     const localItem = localCart.find(li => li.id === dbItem.id && li.variation);
                     if (localItem && localItem.variation) {
-                        return {
-                            ...dbItem,
-                            variation: localItem.variation,
-                            cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}`
-                        };
+                        return { ...dbItem, variation: localItem.variation, cartItemId: `${dbItem.id}-${localItem.variation.color}-${localItem.variation.size}` };
                     }
                 }
                 return { ...dbItem, cartItemId: dbItem.cartItemId || String(dbItem.id) };
             });
-
             setCart(mergedCart);
             localStorage.setItem('lovecestas_cart', JSON.stringify(mergedCart));
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
-    // --- Sincroniza Carrinho de Visitante para o Banco ao Logar ---
+    // --- Sincroniza Carrinho ---
     const syncGuestCartToDB = useCallback(async () => {
         const localCartStr = localStorage.getItem('lovecestas_cart');
         if (!localCartStr) return;
-
         try {
             const localItems = JSON.parse(localCartStr);
             if (Array.isArray(localItems) && localItems.length > 0) {
-                console.log("Sincronizando itens locais para o banco...");
                 const promises = localItems.map(item => {
-                    const payload = {
-                        productId: item.id,
-                        quantity: item.qty,
-                        variationId: item.variation?.id,
-                        variation: item.variation,
-                        variation_details: item.variation ? JSON.stringify(item.variation) : null
-                    };
-                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado ou erro no sync:", err));
+                    const payload = { productId: item.id, quantity: item.qty, variationId: item.variation?.id, variation: item.variation, variation_details: item.variation ? JSON.stringify(item.variation) : null };
+                    return apiService('/cart', 'POST', payload).catch(err => console.warn("Item duplicado/erro sync:", err));
                 });
                 await Promise.all(promises);
             }
-        } catch (e) { console.error("Erro ao sincronizar carrinho:", e); }
+        } catch (e) { console.error("Erro sync carrinho:", e); }
     }, []);
 
     const fetchAddresses = useCallback(async () => {
@@ -438,7 +482,7 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await apiService('/addresses');
             setAddresses(userAddresses || []);
             return userAddresses || [];
-        } catch (error) { console.error("Falha endereços:", error); setAddresses([]); return []; }
+        } catch (error) { setAddresses([]); return []; }
     }, [isAuthenticated]);
 
     const updateDefaultShippingLocation = useCallback((addrs) => {
@@ -454,127 +498,30 @@ const ShopProvider = ({ children }) => {
         let locationDetermined = false;
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            if (userAddresses && userAddresses.length > 0) {
-                locationDetermined = updateDefaultShippingLocation(userAddresses);
-            }
+            if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
         }
         if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
-                    const { latitude, longitude } = position.coords;
                     try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
                         const data = await response.json();
                         if (data.address && data.address.postcode) {
-                            const cep = data.address.postcode.replace(/\D/g, '');
-                            setShippingLocation({ cep, city: data.address.city || data.address.town || '', state: data.address.state || '', alias: 'Localização Atual' });
+                            setShippingLocation({ cep: data.address.postcode.replace(/\D/g, ''), city: data.address.city || '', state: data.address.state || '', alias: 'Localização Atual' });
                         }
                     } catch (error) { console.warn("Erro geo:", error); } 
                     finally { setIsGeolocating(false); }
                 }, 
-                (error) => { setIsGeolocating(false); },
-                { timeout: 10000 }
+                () => setIsGeolocating(false), { timeout: 10000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA E REVISADA) ---
-    const calculateLocalDeliveryPrice = useCallback((items) => {
-        let basePrice = parseFloat(localShippingConfig.base_price) || 20;
-        
-        // Se não houver itens, retorna o base
-        if (!items || items.length === 0) return basePrice;
-
-        let totalSurcharge = 0;
-        let totalDiscount = 0;
-        let isFreeShippingActive = false;
-        let fixedPriceOverride = null;
-
-        // Processar regras
-        if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
-            // Itera sobre cada item para ver se alguma regra se aplica
-            for (const item of items) {
-                const itemCategory = normalize(item.category || "");
-                const itemBrand = normalize(item.brand || "");
-
-                // Flag para saber se este item específico teve match de frete grátis
-                let itemHasFreeShipping = false;
-
-                for (const rule of localShippingConfig.rules) {
-                    const ruleValue = normalize(rule.value);
-                    const ruleAmount = parseFloat(rule.amount) || 0;
-                    
-                    // Proteção contra regras vazias que dariam match em tudo
-                    if (!ruleValue) continue;
-
-                    let match = false;
-
-                    // Verifica Match da Regra (Lógica Estrita)
-                    if (rule.type === 'category') {
-                        // Match exato ou se a categoria do produto contém a regra (ex: "Blusas de Frio" contém "Blusas")
-                        if (itemCategory === ruleValue || itemCategory.includes(ruleValue)) {
-                            match = true;
-                        }
-                    } 
-                    
-                    if (rule.type === 'brand') {
-                        if (itemBrand === ruleValue || itemBrand.includes(ruleValue)) {
-                            match = true;
-                        }
-                    }
-
-                    if (match) {
-                        switch (rule.action) {
-                            case 'free_shipping':
-                                // AQUI ESTAVA O ERRO ANTES: A flag global era ativada.
-                                // AGORA: Só ativamos se for para ESTE item, mas precisamos considerar o carrinho todo.
-                                // Se estamos calculando para UM item (ProductDetail), isFreeShippingActive vira true e retorna 0.
-                                // Se estamos calculando para o CARRINHO, precisamos decidir a regra. 
-                                // Normalmente, se UM item tem frete grátis, o pedido todo tem? 
-                                // Vamos assumir que sim para simplificar a experiência do usuário.
-                                itemHasFreeShipping = true;
-                                isFreeShippingActive = true;
-                                break;
-                            case 'surcharge':
-                                totalSurcharge += ruleAmount; 
-                                break;
-                            case 'discount':
-                                totalDiscount += ruleAmount;
-                                break;
-                            case 'fixed_price':
-                                // Se houver conflito, o último fixo sobrescreve.
-                                fixedPriceOverride = ruleAmount;
-                                break;
-                            default: break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Se encontrou uma regra de frete grátis VÁLIDA para algum dos itens, retorna 0
-        if (isFreeShippingActive) return 0;
-
-        let finalPrice = basePrice;
-        
-        // Se houver um override de preço fixo (ex: Avon = 10,00), ele substitui a base.
-        if (fixedPriceOverride !== null) {
-            finalPrice = fixedPriceOverride;
-        }
-
-        finalPrice = finalPrice + totalSurcharge - totalDiscount;
-
-        return Math.max(0, finalPrice); // Nunca negativo
-    }, [localShippingConfig]);
-
     useEffect(() => {
         if (!isAuthLoading) {
-            if (cart.length > 0) {
-                localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
-            } else if (cart.length === 0 && !isAuthenticated) {
-                 localStorage.setItem('lovecestas_cart', JSON.stringify([]));
-            }
+            if (cart.length > 0) localStorage.setItem('lovecestas_cart', JSON.stringify(cart));
+            else if (cart.length === 0 && !isAuthenticated) localStorage.setItem('lovecestas_cart', JSON.stringify([]));
         }
     }, [cart, isAuthLoading, isAuthenticated]);
 
@@ -588,20 +535,8 @@ const ShopProvider = ({ children }) => {
                 apiService('/wishlist').then(setWishlist).catch(console.error);
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
-                if (localCart) {
-                    try {
-                        const parsedLocalCart = JSON.parse(localCart);
-                        if (Array.isArray(parsedLocalCart)) setCart(parsedLocalCart);
-                    } catch (e) { setCart([]); }
-                } else { setCart([]); }
-                setWishlist([]); 
-                setAddresses([]); 
-                setShippingLocation({ cep: '', city: '', state: '', alias: '' });
-                setAutoCalculatedShipping(null); 
-                setCouponCode(''); 
-                setAppliedCoupon(null); 
-                setCouponMessage('');
-                determineShippingLocation();
+                if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
+                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation();
             }
         };
         initializeShop();
@@ -614,9 +549,11 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
-    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO DO BRASIL ---
+    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO ---
     useEffect(() => {
-        const itemsToCalculate = cart.length > 0 ? cart : previewShippingItem;
+        // CORREÇÃO CRÍTICA AQUI: Prioriza o previewShippingItem (do ProductDetail) sobre o cart
+        const itemsToCalculate = previewShippingItem && previewShippingItem.length > 0 ? previewShippingItem : cart;
+        
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
@@ -624,74 +561,51 @@ const ShopProvider = ({ children }) => {
                 
                 const calculateShipping = async () => {
                     try {
-                        // Verifica se o CEP é de João Pessoa (Faixa: 58000-000 a 58099-999)
                         const cleanCep = shippingLocation.cep.replace(/\D/g, '');
                         const cepPrefix = parseInt(cleanCep.substring(0, 5));
                         const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
 
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
                         let finalOptions = [];
 
                         if (isJoaoPessoa) {
-                            // ✅ REGRA JOÃO PESSOA: Entrega Local Dinâmica e Retirada
-                            // Passa APENAS os itens relevantes para o cálculo.
-                            // Se estivermos no carrinho, passa o carrinho. Se for preview, passa o item de preview.
                             const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
-                            
-                            const localDeliveryOption = { 
-                                name: "Entrega local (Motoboy / Uber)", 
-                                price: localPrice, 
-                                delivery_time: '1 dia útil', 
-                                isLocal: true 
-                            };
+                            const localDeliveryOption = { name: "Entrega local (Motoboy / Uber)", price: localPrice, delivery_time: '1 dia útil', isLocal: true };
                             finalOptions = [localDeliveryOption, pickupOption];
                         } else {
-                            // ✅ REGRA GERAL: Correios (PAC) e Retirada para outros locais
-                            const productsPayload = itemsToCalculate.map(item => ({
-                                id: String(item.id),
-                                price: item.is_on_sale && item.sale_price ? item.sale_price : item.price,
-                                quantity: item.qty || 1,
-                            }));
+                            const productsPayload = itemsToCalculate.map(item => ({ id: String(item.id), price: item.is_on_sale && item.sale_price ? item.sale_price : item.price, quantity: item.qty || 1 }));
                             const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload });
                             const pacOptionRaw = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                            // const sedexOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex')); // Opcional
-                            
-                            const shippingApiOptions = [];
-                            if (pacOptionRaw) shippingApiOptions.push({ ...pacOptionRaw, name: 'PAC' });
-                            // if (sedexOption) shippingApiOptions.push(sedexOption);
-                            
-                            finalOptions = [...shippingApiOptions, pickupOption];
+                            if (pacOptionRaw) finalOptions.push({ ...pacOptionRaw, name: 'PAC' });
+                            finalOptions.push(pickupOption);
                         }
 
                         setShippingOptions(finalOptions);
-                        
-                        // Seleciona automaticamente a melhor opção
                         const desiredOption = finalOptions.find(opt => opt.name === selectedShippingName);
                         setAutoCalculatedShipping(desiredOption || finalOptions[0] || null);
 
                     } catch (error) {
                         setShippingError(error.message || 'Não foi possível calcular o frete.');
-                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada após confirmação', isPickup: true };
+                        const pickupOption = { name: "Retirar na loja", price: 0, delivery_time: 'Disponível para retirada', isPickup: true };
                         setShippingOptions([pickupOption]);
                         setAutoCalculatedShipping(pickupOption);
                     } finally { setIsLoadingShipping(false); }
                 };
                 calculateShipping();
             } else {
-                setShippingOptions([]);
-                setAutoCalculatedShipping(null);
+                setShippingOptions([]); setAutoCalculatedShipping(null);
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice]);
-    
+
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
         const existing = cart.find(item => item.cartItemId === cartItemId);
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
-        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
+        if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
         
         setCart(currentCart => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
@@ -699,24 +613,15 @@ const ShopProvider = ({ children }) => {
         });
         
         if (isAuthenticated) {
-            apiService('/cart', 'POST', { 
-                productId: productToAdd.id, 
-                quantity: existing ? existing.qty + qty : qty, 
-                variationId: variation?.id,
-                variation: variation,
-                variation_details: variation ? JSON.stringify(variation) : null
-            }).catch(console.error);
+            apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
         }
     }, [cart, isAuthenticated]);
-    
+
     const removeFromCart = useCallback(async (cartItemId) => {
         const itemToRemove = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToRemove) return;
         setCart(current => current.filter(item => item.cartItemId !== cartItemId));
-        
-        if (isAuthenticated) {
-            await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
-        }
+        if (isAuthenticated) await apiService(`/cart/${itemToRemove.id}`, 'DELETE', { variation: itemToRemove.variation });
     }, [cart, isAuthenticated]);
 
     const updateQuantity = useCallback(async (cartItemId, newQuantity) => {
@@ -724,44 +629,18 @@ const ShopProvider = ({ children }) => {
         const itemToUpdate = cart.find(item => item.cartItemId === cartItemId);
         if (!itemToUpdate) return;
         const availableStock = itemToUpdate.variation ? itemToUpdate.variation.stock : itemToUpdate.stock;
-        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unidade(s) disponível(ns).`);
-        
+        if (newQuantity > availableStock) throw new Error(`Estoque insuficiente.`);
         setCart(current => current.map(item => item.cartItemId === cartItemId ? {...item, qty: newQuantity } : item));
-        
-        if (isAuthenticated) {
-            apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
-        }
+        if (isAuthenticated) apiService('/cart', 'POST', { productId: itemToUpdate.id, quantity: newQuantity, variationId: itemToUpdate.variation?.id, variation: itemToUpdate.variation });
     }, [cart, isAuthenticated, removeFromCart]);
-    
-    const clearCart = useCallback(async () => { 
-        setCart([]); 
-        localStorage.removeItem('lovecestas_cart'); 
-        if (isAuthenticated) await apiService('/cart', 'DELETE'); 
-    }, [isAuthenticated]);
 
-    const addToWishlist = useCallback(async (productToAdd) => {
-        if (!isAuthenticated) return; 
-        if (wishlist.some(p => p.id === productToAdd.id)) return;
-        try {
-            const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id });
-            setWishlist(current => [...current, addedProduct]);
-            return { success: true, message: `${productToAdd.name} adicionado à lista de desejos!` };
-        } catch (error) { return { success: false, message: `Erro: ${error.message}` }; }
-    }, [isAuthenticated, wishlist]);
-
-    const removeFromWishlist = useCallback(async (productId) => {
-        if (!isAuthenticated) return;
-        try {
-            await apiService(`/wishlist/${productId}`, 'DELETE');
-            setWishlist(current => current.filter(p => p.id !== productId));
-        } catch (error) { console.error(error); }
-    }, [isAuthenticated]);
-    
+    const clearCart = useCallback(async () => { setCart([]); localStorage.removeItem('lovecestas_cart'); if (isAuthenticated) await apiService('/cart', 'DELETE'); }, [isAuthenticated]);
+    const addToWishlist = useCallback(async (productToAdd) => { if (!isAuthenticated) return; if (wishlist.some(p => p.id === productToAdd.id)) return; try { const addedProduct = await apiService('/wishlist', 'POST', { productId: productToAdd.id }); setWishlist(current => [...current, addedProduct]); return { success: true, message: `${productToAdd.name} adicionado à lista!` }; } catch (error) { return { success: false, message: `Erro: ${error.message}` }; } }, [isAuthenticated, wishlist]);
+    const removeFromWishlist = useCallback(async (productId) => { if (!isAuthenticated) return; try { await apiService(`/wishlist/${productId}`, 'DELETE'); setWishlist(current => current.filter(p => p.id !== productId)); } catch (error) { console.error(error); } }, [isAuthenticated]);
     const removeCoupon = useCallback(() => { setAppliedCoupon(null); setCouponCode(''); setCouponMessage(''); }, []);
-
+    
     const applyCoupon = useCallback(async (code) => {
-        setCouponCode(code);
-        setCouponMessage(""); 
+        setCouponCode(code); setCouponMessage(""); 
         try {
             const response = await apiService('/coupons/validate', 'POST', { code });
             const coupon = response.coupon;
@@ -773,7 +652,8 @@ const ShopProvider = ({ children }) => {
                 const hasRestrictions = safeAllowedCats.length > 0 || safeAllowedBrands.length > 0;
                 const isGlobal = !hasRestrictions;
                 let eligibleCount = 0;
-                if (isGlobal) { eligibleCount = cart.length; } else {
+                if (isGlobal) eligibleCount = cart.length;
+                else {
                     cart.forEach(item => {
                         const itemCat = normalize(item.category || "");
                         const itemBrand = normalize(item.brand || "");
@@ -782,19 +662,12 @@ const ShopProvider = ({ children }) => {
                         if (catMatch || brandMatch) eligibleCount++;
                     });
                 }
-                if (eligibleCount === 0) {
-                    setAppliedCoupon(null);
-                    setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
-                    return; 
-                }
+                if (eligibleCount === 0) { setAppliedCoupon(null); setCouponMessage("Nenhum produto elegível."); return; }
             }
             setAppliedCoupon(coupon);
-        } catch (error) { 
-            setAppliedCoupon(null); 
-            setCouponMessage(error.message || "Não foi possível aplicar o cupom."); 
-        }
-    }, [cart]); 
-    
+        } catch (error) { setAppliedCoupon(null); setCouponMessage(error.message || "Erro no cupom."); }
+    }, [cart]);
+
     const discount = useMemo(() => {
         if (!appliedCoupon) return 0;
         if (appliedCoupon.type === 'free_shipping') return autoCalculatedShipping ? autoCalculatedShipping.price : 0;
@@ -808,7 +681,8 @@ const ShopProvider = ({ children }) => {
 
         cart.forEach(item => {
             let isEligible = false;
-            if (isGlobal) { isEligible = true; } else {
+            if (isGlobal) isEligible = true;
+            else {
                 const itemCat = normalize(item.category || "");
                 const itemBrand = normalize(item.brand || "");
                 const catMatch = safeAllowedCats.some(allowed => itemCat === allowed || itemCat.includes(allowed));
@@ -822,30 +696,14 @@ const ShopProvider = ({ children }) => {
         });
         if (eligibleTotal === 0) return 0;
         let finalDiscount = 0;
-        if (appliedCoupon.type === 'percentage') {
-            finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
-        } else if (appliedCoupon.type === 'fixed') {
-            finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
-        }
+        if (appliedCoupon.type === 'percentage') finalDiscount = eligibleTotal * (parseFloat(appliedCoupon.value) / 100);
+        else if (appliedCoupon.type === 'fixed') finalDiscount = Math.min(parseFloat(appliedCoupon.value), eligibleTotal);
         return Math.min(finalDiscount, eligibleTotal);
     }, [appliedCoupon, cart, autoCalculatedShipping]);
 
-    useEffect(() => {
-        if (appliedCoupon) {
-            if (discount === 0 && appliedCoupon.type !== 'free_shipping') {
-                 setAppliedCoupon(null);
-                 setCouponMessage("Nenhum produto elegível para este cupom (Verifique Marca/Categoria).");
-                 return;
-            }
-            setCouponMessage(`Cupom "${appliedCoupon.code}" aplicado!`);
-        } else if (couponMessage && couponMessage.includes("aplicado")) {
-             setCouponMessage("");
-        }
-    }, [discount, appliedCoupon]);
-
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
-    // Agora EXPOMOS calculateLocalDeliveryPrice no value
+    // Agora EXPOMOS setPreviewShippingItem
     return (
         <ShopContext.Provider value={{
             cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
@@ -853,7 +711,7 @@ const ShopProvider = ({ children }) => {
             autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
-            calculateLocalDeliveryPrice // <-- EXPOSTO AQUI
+            calculateLocalDeliveryPrice
         }}>
             {children}
         </ShopContext.Provider>
@@ -3107,7 +2965,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         shippingError,
         autoCalculatedShipping,
         setAutoCalculatedShipping,
-        setPreviewShippingItem,
+        setPreviewShippingItem, // Pega do contexto
         setSelectedShippingName,
         isGeolocating 
     } = useShop();
@@ -3117,16 +2975,19 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     const [apiError, setApiError] = useState('');
 
     useEffect(() => {
-        const isProductPage = cart.length === 0 && itemsFromProp && itemsFromProp.length > 0;
-        if (isProductPage) {
+        // CORREÇÃO: Define o preview SEMPRE que houver itemsFromProp, ignorando o estado do carrinho.
+        // Isso garante que na página de detalhes, o cálculo seja para aquele item.
+        if (itemsFromProp && itemsFromProp.length > 0) {
             setPreviewShippingItem(itemsFromProp);
         }
+        
+        // Limpa ao desmontar
         return () => {
-            if (isProductPage) {
+            if (itemsFromProp && itemsFromProp.length > 0) {
                 setPreviewShippingItem(null);
             }
         };
-    }, [itemsFromProp, cart.length, setPreviewShippingItem]);
+    }, [itemsFromProp, setPreviewShippingItem]);
     
     const handleSelectShipping = (option) => {
         setAutoCalculatedShipping(option);
@@ -3159,24 +3020,18 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         if (apiError) setApiError('');
     };
 
-    // --- CORREÇÃO: Formatação de Data para Entrega Local ---
     const getDeliveryDate = (deliveryTime) => {
-        // Se o prazo for texto (ex: "1 dia útil"), assumimos que é entrega local
-        // e calculamos a data do próximo dia útil para exibir "Receba até..."
         if (typeof deliveryTime === 'string') {
              const date = new Date();
              let addedDays = 0;
-             // Adiciona 1 dia útil
              while (addedDays < 1) {
                  date.setDate(date.getDate() + 1);
-                 // Pula Domingo (0) e Sábado (6)
                  if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
              }
              const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
              return `Receba até ${formattedDate}. (1 dia útil)`;
         }
 
-        // Se for numérico (Correios), mantém a lógica padrão
         if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
         
         const date = new Date();
