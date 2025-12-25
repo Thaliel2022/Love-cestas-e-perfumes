@@ -379,9 +379,11 @@ const ShopProvider = ({ children }) => {
         let highestBasePriceFound = 0;
         let totalSurcharges = 0;
         let totalDiscounts = 0;
+        let globalFreeShipping = false;
 
-        // Itera sobre cada item para determinar o custo de envio individual
-        // O custo base do pedido será o MAIOR custo base individual encontrado
+        // Para evitar aplicar múltiplos descontos/acréscimos repetidos indevidamente para o mesmo tipo de regra,
+        // vamos somar por item, mas garantir que a lógica de "maior base" funcione.
+
         for (const item of items) {
             const itemCategory = normalize(item.category || "");
             const itemBrand = normalize(item.brand || "");
@@ -389,6 +391,9 @@ const ShopProvider = ({ children }) => {
             // Começa assumindo o preço base global para este item
             let itemEffectiveBasePrice = defaultBasePrice; 
             
+            // Flags locais para este item
+            let itemMatchesFree = false;
+
             if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
@@ -403,17 +408,20 @@ const ShopProvider = ({ children }) => {
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping':
-                                // Para este item, o custo base é 0
                                 itemEffectiveBasePrice = 0;
+                                itemMatchesFree = true;
                                 break;
                             case 'fixed_price':
-                                // Para este item, o custo base é o valor fixo
                                 itemEffectiveBasePrice = ruleAmount;
                                 break;
                             case 'surcharge':
+                                // Acréscimo é somado ao total global de acréscimos
                                 totalSurcharges += ruleAmount; 
                                 break;
                             case 'discount':
+                                // Desconto é somado ao total global de descontos.
+                                // IMPORTANTE: Se o desconto for maior que o base price do item, limita a 0?
+                                // Por enquanto, soma tudo.
                                 totalDiscounts += ruleAmount;
                                 break;
                             default: break;
@@ -421,15 +429,19 @@ const ShopProvider = ({ children }) => {
                     }
                 }
             }
-            
-            // O custo base do pedido será o maior custo base individual encontrado entre os itens
-            // Ex: Item A (Grátis=0), Item B (Fixo=10), Item C (Base=15) -> Maior é 15.
+
+            // Se algum item tiver frete grátis por regra, sua base é 0.
+            // O custo base do pedido será o maior custo base individual encontrado entre os itens.
+            // Se TODOS os itens tiverem frete grátis, highestBasePriceFound será 0.
+            // Se UM item tiver frete normal, highestBasePriceFound será o valor normal.
             if (itemEffectiveBasePrice > highestBasePriceFound) {
                 highestBasePriceFound = itemEffectiveBasePrice;
             }
         }
 
+        // Lógica final: Base (maior encontrada) + Acréscimos - Descontos
         let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
+
         return Math.max(0, finalPrice); 
     }, [localShippingConfig]);
 
