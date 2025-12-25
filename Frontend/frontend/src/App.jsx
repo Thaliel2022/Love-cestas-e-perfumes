@@ -3200,7 +3200,7 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart } = useShop();
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); // Adicionado calculateLocalDeliveryPrice e shippingLocation
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3219,9 +3219,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedVariation, setSelectedVariation] = useState(null);
     const [galleryImages, setGalleryImages] = useState([]);
     
-    const [timeLeft, setTimeLeft] = useState('');
+    // Novos estados para o preview de frete na página
+    const [cardShippingInfo, setCardShippingInfo] = useState(null);
+    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
     
-    // Estado para controlar se a promoção está ativa visualmente
+    const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
     const galleryRef = useRef(null);
@@ -3231,24 +3233,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // LÓGICA ATUALIZADA: Verifica se a promoção está ativa considerando a variação selecionada
     useEffect(() => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
-
-            // Se for roupa e tiver uma variação selecionada, verifica a regra específica da variação
             if (product.product_type === 'clothing' && selectedVariation) {
-                // Se is_promo for explicitamente false, a promoção não se aplica a esta cor
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
             }
-
             setIsPromoActive(active);
         }
     }, [product, selectedVariation]);
 
-    // Usa o estado local isPromoActive para definir preço e desconto
     const currentPrice = isPromoActive ? product.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
@@ -3258,15 +3254,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return 0;
     }, [isPromoActive, product]);
 
-    // --- Lógica do Contador Regressivo e Expiração Automática ---
     useEffect(() => {
-        // Se não houver data fim, mas estiver em promoção, mantém como promoção normal (limpa o timer)
         if (!product?.sale_end_date) {
             setTimeLeft(null);
             return;
         }
-        
-        // Se a promoção já foi desativada localmente (por ex: cor sem desconto), não roda o timer
         if (!isPromoActive) {
              setTimeLeft(null);
              return;
@@ -3285,7 +3277,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
-                // TEMPO ACABOU: Desativa a promoção localmente na hora!
                 setTimeLeft('Expirada');
                 setIsPromoActive(false); 
             }
@@ -3297,12 +3288,84 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
+    // --- EFEITO DE CÁLCULO DE FRETE (PREVIEW) ---
+    // Atualizado para usar calculateLocalDeliveryPrice corretamente
+    useEffect(() => {
+        const controller = new AbortController();
+        const signal = controller.signal;
+        
+        const debounceTimer = setTimeout(() => {
+            if (!product || !shippingLocation.cep || shippingLocation.cep.replace(/\D/g, '').length !== 8) {
+                setCardShippingInfo(null);
+                setIsCardShippingLoading(false);
+                return;
+            }
+
+            setIsCardShippingLoading(true);
+            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
+            const cepPrefix = parseInt(cleanCep.substring(0, 5));
+            const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
+
+            if (isJoaoPessoa) {
+                // Cálculo de data (1 dia útil)
+                const date = new Date();
+                let addedDays = 0;
+                while (addedDays < 1) {
+                    date.setDate(date.getDate() + 1);
+                    if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
+                }
+                const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+
+                // USA A FUNÇÃO DE CÁLCULO DO CONTEXTO PARA O PRODUTO ATUAL APENAS
+                const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
+                const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
+
+                setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate} (1 dia útil).`);
+                setIsCardShippingLoading(false);
+            } else {
+                // Lógica de API para outros CEPs
+                const calculateShipping = async () => {
+                    try {
+                        const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
+                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
+
+                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
+                        if (!shippingOption) shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
+
+                        if (shippingOption) {
+                            const date = new Date();
+                            let deliveryTime = shippingOption.delivery_time;
+                            let addedDays = 0;
+                            while (addedDays < deliveryTime) {
+                                date.setDate(date.getDate() + 1);
+                                if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
+                            }
+                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
+                        } else {
+                            setCardShippingInfo('Entrega indisponível para este CEP.');
+                        }
+                    } catch (error) {
+                        if (error.name !== 'AbortError') setCardShippingInfo('Erro ao calcular frete.');
+                    } finally {
+                        if (!signal.aborted) setIsCardShippingLoading(false);
+                    }
+                };
+                calculateShipping();
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(debounceTimer);
+            controller.abort();
+        };
+    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]);
+
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         return new Date(product.created_at) > thirtyDaysAgo;
     }, [product]);
-
 
     const avgRating = useMemo(() => {
         return reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length || 0;
@@ -3423,7 +3486,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         });
     };
 
-
     const handleAction = async (action) => {
         if (!product) return;
         if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
@@ -3486,7 +3548,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, currentPrice]);
 
-    // Efeito e Funções para Galeria
     const checkScrollButtons = useCallback(() => {
         const gallery = galleryRef.current;
         if (gallery) {
@@ -3569,7 +3630,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
                         </div>
 
-                        {/* Galeria com Setas */}
                         <div className="relative group">
                             <div
                                 ref={galleryRef}
@@ -3628,7 +3688,20 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PROMOÇÃO AVANÇADA (MOBILE AJUSTADO) --- */}
+                        {/* --- EXIBIÇÃO DE FRETE DO CARD (PREVIEW) --- */}
+                        {(isCardShippingLoading || cardShippingInfo) && (
+                            <div className="p-3 text-xs bg-gray-900 rounded-md border border-gray-800 flex items-center gap-2">
+                                {isCardShippingLoading ? (
+                                    <SpinnerIcon className="h-4 w-4 text-gray-500"/>
+                                ) : (
+                                    <TruckIcon className="h-4 w-4 text-green-500"/>
+                                )}
+                                <span className={isCardShippingLoading ? "text-gray-500" : "text-gray-300"}>
+                                    {isCardShippingLoading ? 'Calculando prazo...' : cardShippingInfo}
+                                </span>
+                            </div>
+                        )}
+
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -3640,7 +3713,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 
                                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10 w-full">
-                                    {/* Contador - Centralizado e Responsivo */}
                                     <div className="text-white font-mono text-lg sm:text-2xl font-bold flex justify-center gap-2 w-full sm:w-auto">
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
@@ -3663,7 +3735,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         </div>
                                     </div>
 
-                                    {/* Preços - Empilhados e centralizados no mobile */}
                                     <div className="flex flex-col items-center sm:items-end w-full sm:w-auto border-t sm:border-t-0 border-red-900/30 pt-3 sm:pt-0 mt-1 sm:mt-0">
                                         <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
                                         <div className="flex items-center justify-center sm:justify-end gap-2">
@@ -3675,7 +3746,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
-                        {/* --- ÁREA DE PROMOÇÃO PADRÃO (SEM TEMPO LIMITADO) --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
