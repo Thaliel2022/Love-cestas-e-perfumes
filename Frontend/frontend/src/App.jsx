@@ -411,9 +411,6 @@ const ShopProvider = ({ children }) => {
                                 itemEffectiveBasePrice = 0;
                                 itemMatchesFree = true;
                                 break;
-                            case 'fixed_price':
-                                itemEffectiveBasePrice = ruleAmount;
-                                break;
                             case 'surcharge':
                                 // Acréscimo é somado ao total global de acréscimos
                                 totalSurcharges += ruleAmount; 
@@ -429,11 +426,9 @@ const ShopProvider = ({ children }) => {
                     }
                 }
             }
-
-            // Se algum item tiver frete grátis por regra, sua base é 0.
-            // O custo base do pedido será o maior custo base individual encontrado entre os itens.
-            // Se TODOS os itens tiverem frete grátis, highestBasePriceFound será 0.
-            // Se UM item tiver frete normal, highestBasePriceFound será o valor normal.
+            
+            // O custo base do pedido será o maior custo base individual encontrado entre os itens
+            // Ex: Item A (Grátis=0), Item B (Fixo=10), Item C (Base=15) -> Maior é 15.
             if (itemEffectiveBasePrice > highestBasePriceFound) {
                 highestBasePriceFound = itemEffectiveBasePrice;
             }
