@@ -5171,7 +5171,9 @@ const CheckoutPage = ({ onNavigate }) => {
             if (paymentMethod === 'mercadopago') {
                 sessionStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                if (init_point) window.location.href = init_point;
+                // ATUALIZAÇÃO: Usa assign para navegação explícita na mesma janela, 
+                // tentando manter o contexto do navegador original.
+                if (init_point) window.location.assign(init_point);
                 else throw new Error("Link de pagamento não obtido.");
             } else {
                 clearOrderState();
