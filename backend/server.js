@@ -4526,11 +4526,44 @@ app.get('/api/settings/shipping-local', async (req, res) => {
 
 // (Admin) Atualiza configuração de frete local
 app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, res) => {
-    const { base_price, rules } = req.body;
+    const { base_price, rules, password, token } = req.body;
     
     if (base_price === undefined || !Array.isArray(rules)) {
         return res.status(400).json({ message: "Formato de configuração inválido." });
     }
+
+    // --- VERIFICAÇÃO DE SEGURANÇA (2FA/SENHA) ---
+    const adminId = req.user.id;
+    try {
+        const [admins] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (admins.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = admins[0];
+
+        let isVerified = false;
+        
+        // Prioriza 2FA se ativado e token fornecido, ou se a conta exige 2FA
+        if (admin.is_two_factor_enabled) {
+            if (!token) return res.status(400).json({ message: 'Código 2FA é obrigatório para esta alteração crítica.' });
+            isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: token
+            });
+        } else {
+            // Fallback para senha se 2FA não estiver ativo
+            if (!password) return res.status(400).json({ message: 'Senha é obrigatória para esta alteração crítica.' });
+            isVerified = await bcrypt.compare(password, admin.password);
+        }
+
+        if (!isVerified) {
+            return res.status(401).json({ message: 'Credencial inválida. Alteração de frete negada.' });
+        }
+
+    } catch (err) {
+        console.error("Erro na verificação de segurança:", err);
+        return res.status(500).json({ message: "Erro interno na verificação de segurança." });
+    }
+    // ---------------------------------------------
 
     const configString = JSON.stringify({ base_price: parseFloat(base_price), rules });
 
