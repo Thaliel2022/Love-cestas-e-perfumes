@@ -370,23 +370,25 @@ const ShopProvider = ({ children }) => {
             .catch(err => console.error("Falha ao buscar config de frete local:", err));
     }, []);
 
-    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL ---
+    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA) ---
     const calculateLocalDeliveryPrice = useCallback((items) => {
-        let basePrice = parseFloat(localShippingConfig.base_price) || 20;
+        const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
         
-        if (!items || items.length === 0) return basePrice;
+        if (!items || items.length === 0) return defaultBasePrice;
 
-        let totalSurcharge = 0;
-        let totalDiscount = 0;
-        let isFreeShippingActive = false;
-        let fixedPriceOverride = null;
+        let highestBasePriceFound = 0;
+        let totalSurcharges = 0;
+        let totalDiscounts = 0;
 
-        // Itera sobre cada item para ver se alguma regra se aplica
+        // Itera sobre cada item para determinar o custo de envio individual
+        // O custo base do pedido será o MAIOR custo base individual encontrado
         for (const item of items) {
             const itemCategory = normalize(item.category || "");
             const itemBrand = normalize(item.brand || "");
-            let itemMatchesFreeShipping = false;
-
+            
+            // Começa assumindo o preço base global para este item
+            let itemEffectiveBasePrice = defaultBasePrice; 
+            
             if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
@@ -394,44 +396,40 @@ const ShopProvider = ({ children }) => {
                     if (!ruleValue) continue;
 
                     let match = false;
+                    // Lógica de match flexível (contém ou igual)
                     if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
                     if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
 
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping':
-                                itemMatchesFreeShipping = true;
-                                break;
-                            case 'surcharge':
-                                totalSurcharge += ruleAmount; 
-                                break;
-                            case 'discount':
-                                totalDiscount += ruleAmount;
+                                // Para este item, o custo base é 0
+                                itemEffectiveBasePrice = 0;
                                 break;
                             case 'fixed_price':
-                                fixedPriceOverride = ruleAmount;
+                                // Para este item, o custo base é o valor fixo
+                                itemEffectiveBasePrice = ruleAmount;
+                                break;
+                            case 'surcharge':
+                                totalSurcharges += ruleAmount; 
+                                break;
+                            case 'discount':
+                                totalDiscounts += ruleAmount;
                                 break;
                             default: break;
                         }
                     }
                 }
             }
-
-            // Se pelo menos um item NÃO tiver frete grátis, a flag global de frete grátis não pode ser garantida apenas por um item
-            // Mas para simplificar a regra "Cesta Básica Grátis": se o item tiver regra de grátis, ele ativa a flag.
-            if (itemMatchesFreeShipping) {
-                isFreeShippingActive = true;
+            
+            // O custo base do pedido será o maior custo base individual encontrado entre os itens
+            // Ex: Item A (Grátis=0), Item B (Fixo=10), Item C (Base=15) -> Maior é 15.
+            if (itemEffectiveBasePrice > highestBasePriceFound) {
+                highestBasePriceFound = itemEffectiveBasePrice;
             }
         }
 
-        if (isFreeShippingActive) return 0;
-
-        let finalPrice = basePrice;
-        if (fixedPriceOverride !== null) {
-            finalPrice = fixedPriceOverride;
-        }
-
-        finalPrice = finalPrice + totalSurcharge - totalDiscount;
+        let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
         return Math.max(0, finalPrice); 
     }, [localShippingConfig]);
 
