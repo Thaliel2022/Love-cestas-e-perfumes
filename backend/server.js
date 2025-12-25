@@ -2913,10 +2913,18 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                     const [orderItems] = await db.query("SELECT oi.quantity, p.name, p.images, oi.variation_details FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?", [id]);
                     const parsedItems = orderItems.map(item => ({...item, variation_details: item.variation_details ? JSON.parse(item.variation_details) : null}));
 
+                    // Verifica se é entrega local
+                    const isLocalDelivery = currentOrder.shipping_method && (currentOrder.shipping_method.toLowerCase().includes('motoboy') || currentOrder.shipping_method.toLowerCase().includes('entrega local'));
+
                     let emailHtml, emailSubject;
+
                     if (status === ORDER_STATUS.SHIPPED && finalTrackingCode) {
                         emailHtml = createShippedEmail(customerName, id, finalTrackingCode, parsedItems);
                         emailSubject = `Seu Pedido #${id} foi enviado!`;
+                    } else if (status === ORDER_STATUS.OUT_FOR_DELIVERY && isLocalDelivery && finalTrackingCode) {
+                        // --- NOVA LÓGICA: E-mail de Entrega Local com Link ---
+                        emailHtml = createLocalDeliveryTrackingEmail(customerName, id, finalTrackingCode, parsedItems);
+                        emailSubject = `Seu Pedido #${id} saiu para entrega! Acompanhe agora 🛵`;
                     } else if (status === ORDER_STATUS.READY_FOR_PICKUP) {
                         let pickupDetails = {};
                         try { pickupDetails = JSON.parse(currentOrder.pickup_details); } catch(e){}
@@ -3011,10 +3019,6 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
         connection.release();
     }
 });
-
-// --- ROTA DE NEWSLETTER (CLUBE VIP) ---
-
-// --- ROTA DE NEWSLETTER (CLUBE VIP) ---
 
 // Template de E-mail para Boas-vindas da Newsletter
 const createNewsletterWelcomeEmail = () => {
