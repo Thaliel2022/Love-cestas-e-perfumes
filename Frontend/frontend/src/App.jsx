@@ -2898,7 +2898,15 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
             result = result.filter(p => p.brand === filters.brand);
         }
         if (filters.category) {
-            result = result.filter(p => p.category === filters.category);
+            // CORREÇÃO: Lógica para mapear categorias genéricas dos banners para tipos de produto
+            if (filters.category === 'Roupas') {
+                result = result.filter(p => p.product_type === 'clothing');
+            } else if (filters.category === 'Perfumes') {
+                result = result.filter(p => p.product_type === 'perfume');
+            } else {
+                // Filtro padrão exato para categorias específicas (ex: "Blusas")
+                result = result.filter(p => p.category === filters.category);
+            }
         }
         setFilteredProducts(result);
         setCurrentPage(1);
@@ -2951,6 +2959,8 @@ const ProductsPage = ({ onNavigate, initialSearch = '', initialCategory = '', in
                             </select>
                             <select value={filters.category} onChange={e => setFilters({...filters, category: e.target.value})} className="w-full p-2 bg-gray-800 border border-gray-700 rounded">
                                 <option value="">Todas as Categorias</option>
+                                <option value="Roupas">Roupas (Geral)</option>
+                                <option value="Perfumes">Perfumes (Geral)</option>
                                 {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
                             </select>
                         </div>
@@ -3158,44 +3168,6 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                                             <p className="font-bold text-lg text-amber-400">{option.price > 0 ? `R$ ${option.price.toFixed(2)}` : 'Grátis'}</p>
                                         </div>
                                     ))}
-
-                                    {/* --- BLOCO DE INFORMAÇÕES DE RETIRADA (Condicional) --- */}
-                                    {autoCalculatedShipping?.isPickup && (
-                                        <motion.div 
-                                            initial={{ opacity: 0, height: 0 }} 
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            className="mt-3 p-4 bg-gray-800 rounded-lg border border-gray-700 text-sm space-y-3 relative overflow-hidden"
-                                        >
-                                            <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
-                                            
-                                            <div>
-                                                <h4 className="font-bold text-amber-400 flex items-center gap-2 mb-1">
-                                                    <MapPinIcon className="h-4 w-4" /> Endereço para Retirada
-                                                </h4>
-                                                <p className="text-gray-300 pl-6 leading-relaxed">
-                                                    R. Leopoldo Pereira Lima, 378 – Mangabeira VIII<br/>
-                                                    João Pessoa – PB, 58059-123
-                                                </p>
-                                            </div>
-
-                                            <div className="pt-2 border-t border-gray-700">
-                                                <h4 className="font-bold text-amber-400 flex items-center gap-2 mb-1">
-                                                    <ClockIcon className="h-4 w-4" /> Horário de Funcionamento
-                                                </h4>
-                                                <p className="text-gray-300 pl-6 leading-relaxed">
-                                                    Segunda a Sábado:<br/>
-                                                    09h às 11h30 e 15h às 17h30<br/>
-                                                    <span className="text-xs text-gray-500 block mt-1">(Exceto feriados)</span>
-                                                </p>
-                                            </div>
-
-                                            <div className="bg-amber-900/20 p-2 rounded border border-amber-900/50 mt-2">
-                                                 <p className="text-xs text-amber-200 italic flex items-start gap-1">
-                                                    <span className="font-bold">*</span> Importante: Aguarde o e-mail de confirmação "Pronto para Retirada" antes de se dirigir à loja.
-                                                 </p>
-                                            </div>
-                                        </motion.div>
-                                    )}
                                 </div>
                             )}
                             {!isLoadingShipping && shippingOptions.length === 0 && !shippingError && (
