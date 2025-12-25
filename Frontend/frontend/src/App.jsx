@@ -501,30 +501,41 @@ const ShopProvider = ({ children }) => {
                 for (const rule of localShippingConfig.rules) {
                     const ruleValue = normalize(rule.value);
                     const ruleAmount = parseFloat(rule.amount) || 0;
+                    
+                    // Proteção contra regras vazias que dariam match em tudo
+                    if (!ruleValue) continue;
+
                     let match = false;
 
-                    // Verifica Match da Regra
-                    // Usa includes para ser mais flexível (ex: "Perfumes Masculino" dá match com "Perfumes")
-                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue) || ruleValue.includes(itemCategory))) match = true;
-                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue) || ruleValue.includes(itemBrand))) match = true;
+                    // Verifica Match da Regra (Lógica Estrita)
+                    if (rule.type === 'category') {
+                        // Match exato ou se a categoria do produto contém a regra (ex: "Blusas de Frio" contém "Blusas")
+                        if (itemCategory === ruleValue || itemCategory.includes(ruleValue)) {
+                            match = true;
+                        }
+                    } 
+                    
+                    if (rule.type === 'brand') {
+                        if (itemBrand === ruleValue || itemBrand.includes(ruleValue)) {
+                            match = true;
+                        }
+                    }
 
                     if (match) {
                         switch (rule.action) {
                             case 'free_shipping':
-                                // Se QUALQUER item tiver frete grátis, o pedido todo é grátis? 
-                                // GERALMENTE SIM em apps simples. Se quiser lógica mista, fica complexo.
-                                // Vamos assumir que se um item dá frete grátis, ele "ganha".
+                                // Se um item elegível para frete grátis estiver no cálculo, ativamos a flag.
+                                // Nota: Em carrinhos mistos, isso pode zerar o frete todo. 
+                                // Para corrigir "tudo grátis", a comparação acima deve ser precisa.
                                 isFreeShippingActive = true;
                                 break;
                             case 'surcharge':
-                                totalSurcharge += ruleAmount; // Acréscimo por tipo de item
+                                totalSurcharge += ruleAmount; 
                                 break;
                             case 'discount':
                                 totalDiscount += ruleAmount;
                                 break;
                             case 'fixed_price':
-                                // Se houver conflito, o menor valor fixo ou o último ganha. 
-                                // Aqui, o último fixo sobrescreve.
                                 fixedPriceOverride = ruleAmount;
                                 break;
                             default: break;
@@ -534,6 +545,7 @@ const ShopProvider = ({ children }) => {
             }
         }
 
+        // Se encontrou uma regra de frete grátis VÁLIDA para os itens atuais, retorna 0
         if (isFreeShippingActive) return 0;
 
         let finalPrice = basePrice;
