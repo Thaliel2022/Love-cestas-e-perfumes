@@ -352,6 +352,9 @@ const ShopProvider = ({ children }) => {
     const [couponMessage, setCouponMessage] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
 
+    // Novo estado para configuração de frete local
+    const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
+
     // Helpers internos para validação consistente
     const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     
@@ -360,6 +363,13 @@ const ShopProvider = ({ children }) => {
         if (Array.isArray(val)) return val;
         try { return JSON.parse(val) || []; } catch { return []; }
     };
+
+    // --- Fetch Configuração de Frete Local ---
+    useEffect(() => {
+        apiService('/settings/shipping-local')
+            .then(data => setLocalShippingConfig(data))
+            .catch(err => console.error("Falha ao buscar config de frete local:", err));
+    }, []);
 
     // --- Fetch com Merge Inteligente (Restaura variações perdidas) ---
     const fetchPersistentCart = useCallback(async () => {
@@ -469,6 +479,50 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
+    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL ---
+    const calculateLocalDeliveryPrice = useCallback((items) => {
+        let finalPrice = parseFloat(localShippingConfig.base_price) || 20;
+        let isFree = false;
+
+        // Processar regras
+        if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
+            items.forEach(item => {
+                const itemCategory = normalize(item.category || "");
+                const itemBrand = normalize(item.brand || "");
+
+                localShippingConfig.rules.forEach(rule => {
+                    const ruleValue = normalize(rule.value);
+                    const ruleAmount = parseFloat(rule.amount) || 0;
+                    let match = false;
+
+                    if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
+                    if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
+
+                    if (match) {
+                        switch (rule.action) {
+                            case 'free_shipping':
+                                isFree = true;
+                                break;
+                            case 'surcharge':
+                                finalPrice += ruleAmount;
+                                break;
+                            case 'discount':
+                                finalPrice -= ruleAmount;
+                                break;
+                            case 'fixed_price':
+                                finalPrice = ruleAmount;
+                                break;
+                            default: break;
+                        }
+                    }
+                });
+            });
+        }
+
+        if (isFree) return 0;
+        return Math.max(0, finalPrice); // Nunca negativo
+    }, [localShippingConfig]);
+
     useEffect(() => {
         if (!isAuthLoading) {
             if (cart.length > 0) {
@@ -534,10 +588,12 @@ const ShopProvider = ({ children }) => {
                         let finalOptions = [];
 
                         if (isJoaoPessoa) {
-                            // ✅ REGRA JOÃO PESSOA: Apenas Entrega Local (R$ 20) e Retirada
+                            // ✅ REGRA JOÃO PESSOA: Entrega Local Dinâmica e Retirada
+                            const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
+                            
                             const localDeliveryOption = { 
                                 name: "Entrega local (Motoboy / Uber)", 
-                                price: 20.00, 
+                                price: localPrice, 
                                 delivery_time: '1 dia útil', 
                                 isLocal: true 
                             };
@@ -580,7 +636,7 @@ const ShopProvider = ({ children }) => {
             }
         }, 500);
         return () => clearTimeout(debounceTimer);
-    }, [cart, shippingLocation, previewShippingItem, selectedShippingName]);
+    }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice]);
     
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
@@ -7592,10 +7648,11 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 { key: 'newsletter', label: 'Newsletter VIP', icon: <SparklesIcon className="h-5 w-5"/> },
             ]
         },
-        {
+       {
             title: "Sistema",
             items: [
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, // NOVO ITEM
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -7714,6 +7771,211 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
+
+const AdminShippingSettings = () => {
+    const [config, setConfig] = useState({ base_price: 20, rules: [] });
+    const [productsData, setProductsData] = useState({ brands: [], categories: [] });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+
+    // Estado para nova regra
+    const [newRule, setNewRule] = useState({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Busca configuração atual
+                const configData = await apiService('/settings/shipping-local');
+                setConfig(configData);
+
+                // Busca dados para os selects (Marcas e Categorias)
+                const [products, collections] = await Promise.all([
+                    apiService('/products/all'),
+                    apiService('/collections/admin')
+                ]);
+
+                const uniqueBrands = [...new Set(products.map(p => p.brand).filter(Boolean))].sort();
+                const uniqueCats = [...new Set([...products.map(p => p.category), ...collections.map(c => c.filter)].filter(Boolean))].sort();
+
+                setProductsData({ brands: uniqueBrands, categories: uniqueCats });
+            } catch (err) {
+                notification.show("Erro ao carregar configurações.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const handleAddRule = () => {
+        if (!newRule.value) {
+            notification.show("Selecione um valor para a regra.", "error");
+            return;
+        }
+        setConfig(prev => ({
+            ...prev,
+            rules: [...prev.rules, { ...newRule, id: Date.now() }]
+        }));
+        setNewRule({ type: 'category', value: '', action: 'free_shipping', amount: 0 });
+    };
+
+    const handleRemoveRule = (id) => {
+        setConfig(prev => ({
+            ...prev,
+            rules: prev.rules.filter(r => r.id !== id)
+        }));
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await apiService('/settings/shipping-local', 'PUT', config);
+            notification.show("Configurações de frete salvas com sucesso!");
+        } catch (err) {
+            notification.show(err.message, "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (isLoading) return <div className="flex justify-center p-10"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800">Configuração de Entrega Local</h1>
+                <p className="text-slate-500">Defina os preços para entregas via Motoboy (João Pessoa).</p>
+            </div>
+
+            {/* Configuração Base */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <TruckIcon className="h-5 w-5 text-indigo-600"/> Preço Base
+                </h3>
+                <div className="flex items-center gap-4">
+                    <div className="flex-1 max-w-xs">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Valor Padrão (R$)</label>
+                        <input 
+                            type="number" 
+                            step="0.01" 
+                            value={config.base_price} 
+                            onChange={(e) => setConfig({...config, base_price: e.target.value})}
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div className="flex-1 text-sm text-gray-500 pt-6">
+                        Este valor será cobrado se nenhuma regra específica for aplicada.
+                    </div>
+                </div>
+            </div>
+
+            {/* Regras Avançadas */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <TagIcon className="h-5 w-5 text-indigo-600"/> Regras Específicas
+                </h3>
+                
+                {/* Formulário de Nova Regra */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6 grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Se</label>
+                        <select 
+                            value={newRule.type} 
+                            onChange={(e) => setNewRule({...newRule, type: e.target.value, value: ''})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="category">Categoria</option>
+                            <option value="brand">Marca</option>
+                        </select>
+                    </div>
+                    <div className="md:col-span-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase">For Igual A</label>
+                        <select 
+                            value={newRule.value} 
+                            onChange={(e) => setNewRule({...newRule, value: e.target.value})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="">Selecione...</option>
+                            {newRule.type === 'category' 
+                                ? productsData.categories.map(c => <option key={c} value={c}>{c}</option>)
+                                : productsData.brands.map(b => <option key={b} value={b}>{b}</option>)
+                            }
+                        </select>
+                    </div>
+                    <div className="md:col-span-3">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Aplicar</label>
+                        <select 
+                            value={newRule.action} 
+                            onChange={(e) => setNewRule({...newRule, action: e.target.value})}
+                            className="w-full p-2 text-sm border rounded-md"
+                        >
+                            <option value="free_shipping">Frete Grátis</option>
+                            <option value="surcharge">Acréscimo (+R$)</option>
+                            <option value="discount">Desconto (-R$)</option>
+                            <option value="fixed_price">Preço Fixo (=R$)</option>
+                        </select>
+                    </div>
+                    <div className="md:col-span-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase">Valor</label>
+                        <input 
+                            type="number" 
+                            disabled={newRule.action === 'free_shipping'}
+                            value={newRule.amount}
+                            onChange={(e) => setNewRule({...newRule, amount: e.target.value})}
+                            className={`w-full p-2 text-sm border rounded-md ${newRule.action === 'free_shipping' ? 'bg-gray-200 cursor-not-allowed' : 'bg-white'}`}
+                            placeholder="0.00"
+                        />
+                    </div>
+                    <div className="md:col-span-2">
+                        <button 
+                            onClick={handleAddRule}
+                            className="w-full bg-indigo-600 text-white p-2 rounded-md font-bold text-sm hover:bg-indigo-700 transition-colors"
+                        >
+                            + Adicionar
+                        </button>
+                    </div>
+                </div>
+
+                {/* Lista de Regras */}
+                {config.rules.length === 0 ? (
+                    <p className="text-center text-gray-400 py-4 text-sm">Nenhuma regra configurada.</p>
+                ) : (
+                    <div className="space-y-2">
+                        {config.rules.map((rule, index) => (
+                            <div key={rule.id || index} className="flex items-center justify-between p-3 bg-white border rounded-md shadow-sm">
+                                <div className="flex items-center gap-2 text-sm">
+                                    <span className="font-bold bg-gray-100 px-2 py-1 rounded text-gray-600 capitalize">{rule.type === 'category' ? 'Categoria' : 'Marca'}</span>
+                                    <span className="text-gray-400">é</span>
+                                    <span className="font-bold text-indigo-700">{rule.value}</span>
+                                    <span className="text-gray-400">→</span>
+                                    {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
+                                    {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
+                                    {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
+                                    {rule.action === 'fixed_price' && <span className="text-amber-600 font-bold">Valor Fixo R$ {Number(rule.amount).toFixed(2)}</span>}
+                                </div>
+                                <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
+                                    <TrashIcon className="h-4 w-4"/>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div className="flex justify-end pt-4">
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70"
+                >
+                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
+                    Salvar Alterações
+                </button>
+            </div>
+        </div>
+    );
+};
 
 const AdminDashboard = ({ onNavigate }) => {
     const { user } = useAuth();
@@ -12866,7 +13128,8 @@ function AppContent({ deferredPrompt }) {
             'coupons': <AdminCoupons />,
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
-            'newsletter': <AdminNewsletter />, // Rota para gestão de Newsletter
+            'newsletter': <AdminNewsletter />, 
+            'shipping': <AdminShippingSettings />, // NOVA ROTA
         };
 
         return (
