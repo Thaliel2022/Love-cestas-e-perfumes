@@ -3496,8 +3496,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
 
                 // USA A FUNÇÃO DE CÁLCULO DO CONTEXTO PARA O PRODUTO ATUAL APENAS
+                // A função calculateLocalDeliveryPrice já retorna o valor final (0 se grátis)
                 const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
-                const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
+                
+                // Formatação rigorosa: Só mostra "Grátis" se for EXATAMENTE 0
+                const priceDisplay = (localPrice === 0) 
+                    ? "Grátis" 
+                    : `R$ ${Number(localPrice).toFixed(2).replace('.', ',')}`;
 
                 setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate} (1 dia útil).`);
                 setIsCardShippingLoading(false);
