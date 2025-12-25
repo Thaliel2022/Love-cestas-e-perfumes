@@ -7818,7 +7818,6 @@ const AdminShippingSettings = () => {
                             <option value="free_shipping">Frete Grátis</option>
                             <option value="surcharge">Acréscimo (+R$)</option>
                             <option value="discount">Desconto (-R$)</option>
-                            <option value="fixed_price">Preço Fixo (=R$)</option>
                         </select>
                     </div>
                     <div className="md:col-span-2">
@@ -7857,7 +7856,6 @@ const AdminShippingSettings = () => {
                                     {rule.action === 'free_shipping' && <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded border border-green-200">Frete Grátis</span>}
                                     {rule.action === 'surcharge' && <span className="text-red-600 font-bold">Acréscimo de R$ {Number(rule.amount).toFixed(2)}</span>}
                                     {rule.action === 'discount' && <span className="text-blue-600 font-bold">Desconto de R$ {Number(rule.amount).toFixed(2)}</span>}
-                                    {rule.action === 'fixed_price' && <span className="text-amber-600 font-bold">Valor Fixo R$ {Number(rule.amount).toFixed(2)}</span>}
                                 </div>
                                 <button onClick={() => handleRemoveRule(rule.id)} className="text-red-400 hover:text-red-600 p-1">
                                     <TrashIcon className="h-4 w-4"/>
