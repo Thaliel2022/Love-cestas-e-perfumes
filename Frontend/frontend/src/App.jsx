@@ -292,13 +292,19 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            window.location.hash = '#login';
+            // Removemos o redirecionamento forçado aqui para evitar loops indesejados
+            // O componente AppContent cuidará de redirecionar se a página exigir auth
+            if (window.location.hash !== '#home' && window.location.hash !== '') {
+                 window.location.hash = '#login';
+            }
         }
     }, []);
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            const userData = await apiService('/users/me');
+            // CORREÇÃO: Passamos suppressAuthError: true
+            // Se falhar (401), apenas define user como null e não dispara o evento global de logout/redirecionamento
+            const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
             setUser(null);
