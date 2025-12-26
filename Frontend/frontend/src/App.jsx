@@ -169,7 +169,10 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
                         })
                         .catch(err => {
                             processQueue(err);
-                            window.dispatchEvent(new Event('auth-error')); // Falha na renovação, desloga o usuário
+                            // Apenas dispara evento se não estiver suprimido
+                            if (!options.suppressAuthError) {
+                                window.dispatchEvent(new Event('auth-error'));
+                            }
                             reject(err);
                         })
                         .finally(() => {
@@ -177,8 +180,12 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
                         });
                 });
             }
+             
              if (response.status === 401 || response.status === 403) {
-                 window.dispatchEvent(new Event('auth-error'));
+                 // CORREÇÃO: Só redireciona se a chamada NÃO pediu para suprimir o erro (ex: checagem inicial)
+                 if (!options.suppressAuthError) {
+                    window.dispatchEvent(new Event('auth-error'));
+                 }
              }
 
             const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
