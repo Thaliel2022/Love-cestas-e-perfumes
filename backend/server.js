@@ -968,100 +968,26 @@ app.post('/api/refresh-token', (req, res) => {
     }
 });
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-    failedQueue.forEach(prom => {
-        if (error) {
-            prom.reject(error);
-        } else {
-            prom.resolve(token);
-        }
-    });
-    failedQueue = [];
-};
-
-async function apiService(endpoint, method = 'GET', body = null, options = {}) {
-    const config = {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Essencial para enviar cookies httpOnly
-        signal: options.signal,
+app.post('/api/logout', (req, res) => {
+    // Opções devem corresponder EXATAMENTE à criação (login)
+    const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/' 
     };
 
-    if (body) {
-        config.body = JSON.stringify(body);
-    }
+    // 1. Tenta limpar formalmente
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
 
-    try {
-        const finalUrl = `${API_URL}${endpoint}`;
-        const response = await fetch(finalUrl, config);
-        const contentType = response.headers.get("content-type");
-        
-        let data;
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            data = await response.json();
-        } else {
-            data = await response.text();
-        }
+    // 2. Força bruta: Sobrescreve o cookie com valor vazio e expiração imediata (0)
+    // Isso garante que, mesmo se o clearCookie falhar por detalhe de opção, o cookie fique inútil
+    res.cookie('accessToken', '', { ...cookieOptions, maxAge: 0, expires: new Date(0) });
+    res.cookie('refreshToken', '', { ...cookieOptions, maxAge: 0, expires: new Date(0) });
 
-        if (!response.ok) {
-            // Se o token expirou, tenta renová-lo
-            if (response.status === 401 && data.message && data.message.includes('Token expirado')) {
-                if (isRefreshing) {
-                    return new Promise((resolve, reject) => {
-                        failedQueue.push({ resolve, reject });
-                    }).then(() => apiService(endpoint, method, body, options));
-                }
-
-                isRefreshing = true;
-                return new Promise((resolve, reject) => {
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
-                            processQueue(null);
-                            resolve(apiService(endpoint, method, body, options));
-                        })
-                        .catch(err => {
-                            processQueue(err);
-                            // Apenas dispara evento se não estiver suprimido
-                            if (!options.suppressAuthError) {
-                                window.dispatchEvent(new Event('auth-error'));
-                            }
-                            reject(err);
-                        })
-                        .finally(() => {
-                            isRefreshing = false;
-                        });
-                });
-            }
-             
-             if (response.status === 401 || response.status === 403) {
-                 // CORREÇÃO: Só redireciona se a chamada NÃO pediu para suprimir o erro (ex: checagem inicial)
-                 if (!options.suppressAuthError) {
-                    window.dispatchEvent(new Event('auth-error'));
-                 }
-             }
-
-            const errorMessage = (typeof data === 'object' && data.message) ? data.message : (data || `Erro ${response.status}`);
-            throw new Error(errorMessage);
-        }
-
-        return data;
-
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            console.log(`API fetch aborted: ${endpoint}`);
-        } else {
-            console.error(`Erro na API (${endpoint}):`, error);
-        }
-        if (error instanceof TypeError) {
-            throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e se o backend está rodando.');
-        }
-        throw error;
-    }
-}
+    res.status(200).json({ message: 'Logout realizado com sucesso.' });
+});
 
 // --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
 
