@@ -11643,15 +11643,13 @@ const AdminReports = () => {
             });
             let lastY = doc.lastAutoTable.finalY + 10;
 
-            // Detalhamento de Vendas (NOVA TABELA)
+            // Detalhamento de Vendas
             if (reportData.detailedSales && reportData.detailedSales.length > 0) {
                 doc.setFontSize(12);
                 doc.text("Detalhamento de Vendas e Itens", 14, lastY);
                 
-                // Transforma dados hierárquicos em planos para o PDF
                 const tableBody = [];
                 reportData.detailedSales.forEach(order => {
-                    // Linha do Pedido
                     tableBody.push([
                         `#${order.id}`, 
                         order.customer_name, 
@@ -11660,7 +11658,6 @@ const AdminReports = () => {
                         order.status
                     ]);
                     
-                    // Linhas dos Itens (Indentadas visualmente com um caractere)
                     const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
                     items.forEach(item => {
                         tableBody.push([
@@ -11687,15 +11684,13 @@ const AdminReports = () => {
                         4: { cellWidth: 30 }
                     },
                     didParseCell: function(data) {
-                        // Estiliza linhas de itens (que começam com célula vazia na col 0)
                         if (data.section === 'body' && data.row.raw[0] === '') {
-                            data.cell.styles.textColor = [100, 100, 100]; // Cinza
+                            data.cell.styles.textColor = [100, 100, 100];
                             data.cell.styles.fontStyle = 'italic';
-                            data.cell.styles.fillColor = [250, 250, 250]; // Fundo bem claro
+                            data.cell.styles.fillColor = [250, 250, 250];
                         }
-                        // Estiliza linhas de pedido (que tem ID)
                         if (data.section === 'body' && data.row.raw[0] !== '') {
-                            data.cell.styles.fillColor = [240, 240, 240]; // Fundo cinza claro
+                            data.cell.styles.fillColor = [240, 240, 240];
                             data.cell.styles.fontStyle = 'bold';
                         }
                     }
@@ -11703,8 +11698,7 @@ const AdminReports = () => {
                 lastY = doc.lastAutoTable.finalY + 10;
             }
 
-            // Tabela de Produtos Mais Vendidos
-            doc.addPage(); // Nova página para não ficar apertado
+            doc.addPage();
             lastY = 20;
             doc.setFontSize(12);
             doc.text("Top Produtos", 14, lastY);
@@ -11737,7 +11731,7 @@ const AdminReports = () => {
                             id="startDate"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
                         />
                     </div>
                     <div>
@@ -11747,24 +11741,27 @@ const AdminReports = () => {
                             id="endDate"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="mt-1 p-2 border border-gray-300 rounded-md"
+                            className="mt-1 p-2 border border-gray-300 rounded-md w-full md:w-auto"
                         />
                     </div>
-                    <button
-                        onClick={handleGenerateReport}
-                        disabled={isLoading}
-                        className="w-full md:w-auto bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400 mt-3 md:mt-6"
-                    >
-                        {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
-                    </button>
-                    <button
-                        onClick={handleExportPDF}
-                        disabled={isLoading || !reportData}
-                        className="w-full md:w-auto bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 mt-3 md:mt-6 flex items-center justify-center gap-2"
-                    >
-                        <DownloadIcon className="h-5 w-5"/>
-                        Exportar PDF
-                    </button>
+                    <div className="flex gap-2 w-full md:w-auto mt-3 md:mt-6">
+                        <button
+                            onClick={handleGenerateReport}
+                            disabled={isLoading}
+                            className="flex-1 md:flex-none bg-gray-800 text-white px-6 py-2 rounded-md hover:bg-gray-900 disabled:bg-gray-400"
+                        >
+                            {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
+                        </button>
+                        <button
+                            onClick={handleExportPDF}
+                            disabled={isLoading || !reportData}
+                            className="flex-1 md:flex-none bg-red-600 text-white px-6 py-2 rounded-md hover:bg-red-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                        >
+                            <DownloadIcon className="h-5 w-5"/>
+                            <span className="hidden md:inline">Exportar PDF</span>
+                            <span className="md:hidden">PDF</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -11793,61 +11790,123 @@ const AdminReports = () => {
                             <h3 className="font-bold text-lg text-gray-800">Detalhamento de Vendas ({reportData.detailedSales ? reportData.detailedSales.length : 0})</h3>
                         </div>
                         {reportData.detailedSales && reportData.detailedSales.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
-                                        <tr>
-                                            <th className="p-4 w-10"></th>
-                                            <th className="p-4">Pedido</th>
-                                            <th className="p-4">Cliente</th>
-                                            <th className="p-4">Data</th>
-                                            <th className="p-4">Total</th>
-                                            <th className="p-4">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {reportData.detailedSales.map(order => {
-                                            const isExpanded = expandedRows.includes(order.id);
-                                            // Parse seguro dos itens (que podem vir como string do MySQL ou objeto)
-                                            const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                            <>
+                                {/* VISÃO DESKTOP (TABELA) */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                            <tr>
+                                                <th className="p-4 w-10"></th>
+                                                <th className="p-4">Pedido</th>
+                                                <th className="p-4">Cliente</th>
+                                                <th className="p-4">Data</th>
+                                                <th className="p-4">Total</th>
+                                                <th className="p-4">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                            {reportData.detailedSales.map(order => {
+                                                const isExpanded = expandedRows.includes(order.id);
+                                                const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
 
-                                            return (
-                                                <React.Fragment key={order.id}>
-                                                    <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`} onClick={() => toggleRow(order.id)}>
-                                                        <td className="p-4 text-center">
-                                                            <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
-                                                        </td>
-                                                        <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
-                                                        <td className="p-4">{order.customer_name}</td>
-                                                        <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
-                                                        <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
-                                                        <td className="p-4">
-                                                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
-                                                                {order.status}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
+                                                return (
+                                                    <React.Fragment key={order.id}>
+                                                        <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`} onClick={() => toggleRow(order.id)}>
+                                                            <td className="p-4 text-center">
+                                                                <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                                            </td>
+                                                            <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
+                                                            <td className="p-4">{order.customer_name}</td>
+                                                            <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
+                                                            <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
+                                                            <td className="p-4">
+                                                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                                                                    {order.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                        {isExpanded && (
+                                                            <tr className="bg-gray-50">
+                                                                <td colSpan="6" className="p-4 pl-12 border-t border-gray-200 shadow-inner">
+                                                                    <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Itens do Pedido:</h4>
+                                                                    <div className="space-y-2">
+                                                                        {items.map((item, idx) => (
+                                                                            <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
+                                                                                <span>{item.quantity}x {item.name}</span>
+                                                                                <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* VISÃO MOBILE (CARDS) */}
+                                <div className="md:hidden space-y-4 p-4">
+                                    {reportData.detailedSales.map(order => {
+                                        const isExpanded = expandedRows.includes(order.id);
+                                        const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+
+                                        return (
+                                            <div key={order.id} className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                                                <div 
+                                                    className={`p-4 flex justify-between items-start cursor-pointer ${isExpanded ? 'bg-blue-50 border-b border-blue-100' : ''}`}
+                                                    onClick={() => toggleRow(order.id)}
+                                                >
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-indigo-600">#{order.id}</span>
+                                                            <span className="text-xs text-gray-500">{new Date(order.date).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <p className="font-medium text-gray-800">{order.customer_name}</p>
+                                                        <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200">
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="font-bold text-green-600 mb-2">R$ {Number(order.total).toFixed(2)}</p>
+                                                        <ChevronDownIcon className={`h-5 w-5 text-gray-400 ml-auto transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Detalhes Mobile Expandidos */}
+                                                <AnimatePresence>
                                                     {isExpanded && (
-                                                        <tr className="bg-gray-50">
-                                                            <td colSpan="6" className="p-4 pl-12 border-t border-gray-200 shadow-inner">
-                                                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Itens do Pedido:</h4>
-                                                                <div className="space-y-2">
+                                                        <motion.div 
+                                                            initial={{ height: 0 }} 
+                                                            animate={{ height: 'auto' }} 
+                                                            exit={{ height: 0 }} 
+                                                            className="overflow-hidden bg-gray-50"
+                                                        >
+                                                            <div className="p-4 border-t border-gray-100">
+                                                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-1">
+                                                                    <BoxIcon className="h-3 w-3"/> Itens do Pedido
+                                                                </h4>
+                                                                <div className="space-y-3">
                                                                     {items.map((item, idx) => (
-                                                                        <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
-                                                                            <span>{item.quantity}x {item.name}</span>
-                                                                            <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                                                                        <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-2 last:border-0 last:pb-0">
+                                                                            <div className="flex-1 pr-2">
+                                                                                <span className="font-bold text-gray-900">{item.quantity}x</span> {item.name}
+                                                                            </div>
+                                                                            <span className="font-mono text-gray-600 whitespace-nowrap">R$ {Number(item.price).toFixed(2)}</span>
                                                                         </div>
                                                                     ))}
                                                                 </div>
-                                                            </td>
-                                                        </tr>
+                                                            </div>
+                                                        </motion.div>
                                                     )}
-                                                </React.Fragment>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                </AnimatePresence>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
                         ) : (
                             <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada neste período.</div>
                         )}
