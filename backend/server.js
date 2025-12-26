@@ -969,9 +969,16 @@ app.post('/api/refresh-token', (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
-    res.status(200).json({ message: 'Logout realizado com sucesso.' });
+    const cookieOptions = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/' // Garante que o cookie seja limpo em todo o domínio
+    };
+
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', cookieOptions);
+    res.status(200).json({ message: 'Logout realizado com sucesso.' });
 });
 
 // --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
