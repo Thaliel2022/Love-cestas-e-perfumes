@@ -13247,6 +13247,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 });
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -13439,25 +13440,21 @@ function AppContent({ deferredPrompt }) {
                     </div>
 
                     <div className="space-y-4">
-                        <h3 className="font-bold text-white tracking-wider">Formas de Pagamento</h3>
-                        <div className="flex flex-wrap justify-center md:justify-start items-center gap-2">
-                            <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <PixIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <VisaIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <MastercardIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <EloIcon className="h-full w-auto"/>
-                            </div>
-                             <div className="bg-white rounded-md p-1.5 flex items-center justify-center h-9 w-14">
-                                <BoletoIcon className="h-6 w-auto text-black"/>
-                            </div>
+                        <h3 className="font-bold text-white tracking-wider">Segurança e Qualidade</h3>
+                        <div className="flex flex-col gap-3 items-center md:items-start text-sm text-gray-400">
+                             <div className="flex items-center gap-2">
+                                <ShieldCheckIcon className="h-5 w-5 text-green-500"/>
+                                <span>Compra 100% Segura</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <CheckBadgeIcon className="h-5 w-5 text-blue-500"/>
+                                <span>Produtos Originais</span>
+                             </div>
+                             <div className="flex items-center gap-2">
+                                <TruckIcon className="h-5 w-5 text-amber-500"/>
+                                <span>Entrega Garantida</span>
+                             </div>
                         </div>
-                         <p className="text-xs text-gray-500">Parcele em até 4x sem juros.</p>
                     </div>
                 </div>
             </div>
