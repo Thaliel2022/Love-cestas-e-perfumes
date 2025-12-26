@@ -11471,6 +11471,7 @@ const AdminOrders = () => {
 const AdminReports = () => {
     const [reportData, setReportData] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [expandedRows, setExpandedRows] = useState([]); // Para controlar quais linhas da tabela estão expandidas
     const notification = useNotification();
     
     // Define as datas padrão
@@ -11478,21 +11479,27 @@ const AdminReports = () => {
         const date = new Date();
         date.setDate(1);
         date.setHours(0, 0, 0, 0);
-        return date.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        return date.toISOString().split('T')[0];
     };
     const getToday = () => {
-        return new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+        return new Date().toISOString().split('T')[0];
     };
 
     const [startDate, setStartDate] = useState(getFirstDayOfMonth());
     const [endDate, setEndDate] = useState(getToday());
 
+    const toggleRow = (orderId) => {
+        setExpandedRows(prev => 
+            prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+        );
+    };
+
     // Função para buscar os dados da API
     const handleGenerateReport = useCallback(() => {
         setIsLoading(true);
-        setReportData(null); // Limpa dados antigos
+        setReportData(null); 
+        setExpandedRows([]); // Reseta expansão
         
-        // Destrói gráficos antigos para evitar sobreposição
         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
 
@@ -11508,37 +11515,29 @@ const AdminReports = () => {
             });
     }, [startDate, endDate, notification]);
 
-    // Busca o relatório do mês atual ao carregar a página
     useEffect(() => {
         handleGenerateReport();
-    }, [handleGenerateReport]); // Roda apenas uma vez na montagem
+    }, [handleGenerateReport]); 
 
-    // Efeito para RENDERIZAR os gráficos DEPOIS que os dados chegarem
     useEffect(() => {
         if (reportData && !isLoading) {
             const renderCharts = () => {
                 if (window.Chart) {
-                    // Gráfico de Vendas ao Longo do Tempo
                     const salesCtx = document.getElementById('salesOverTimeChart')?.getContext('2d');
                     if (salesCtx && reportData.salesOverTime) {
                         if (window.mySalesOverTimeChart) window.mySalesOverTimeChart.destroy();
                         
-                        // --- CORREÇÃO DA DATA ---
                         const safeLabels = reportData.salesOverTime.map(d => {
                             if (!d.sale_date) return "Data Inválida";
-                            // Passa a string ISO completa (ex: 2025-10-18T03:00:00.000Z)
                             const dateObj = new Date(d.sale_date); 
-                            if (isNaN(dateObj.getTime())) {
-                                return "Data Inválida";
-                            }
-                            // Formata a data na localidade BR, tratando como UTC para evitar problemas de fuso
+                            if (isNaN(dateObj.getTime())) return "Data Inválida";
                             return dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                         });
 
                         window.mySalesOverTimeChart = new window.Chart(salesCtx, {
                             type: 'line',
                             data: {
-                                labels: safeLabels, // <-- USA AS LABELS CORRIGIDAS
+                                labels: safeLabels, 
                                 datasets: [{
                                     label: 'Faturamento (R$)',
                                     data: reportData.salesOverTime.map(d => d.daily_total),
@@ -11551,7 +11550,6 @@ const AdminReports = () => {
                         });
                     }
                     
-                    // Gráfico de Produtos Mais Vendidos
                     const productsCtx = document.getElementById('topProductsChart')?.getContext('2d');
                     if (productsCtx && reportData.topProducts) {
                         if (window.myTopProductsChart) window.myTopProductsChart.destroy();
@@ -11570,13 +11568,12 @@ const AdminReports = () => {
                         });
                     }
                 } else {
-                    console.warn("Chart.js não carregado, tentando renderizar gráficos novamente...");
                     setTimeout(renderCharts, 100);
                 }
             };
             renderCharts();
         }
-    }, [reportData, isLoading]); // Depende dos dados e do status de carregamento
+    }, [reportData, isLoading]);
 
     const StatCard = ({ title, value }) => (
         <div className="bg-white p-6 rounded-lg shadow-md text-center">
@@ -11585,7 +11582,6 @@ const AdminReports = () => {
         </div>
     );
 
-    // --- INÍCIO DAS FUNÇÕES DE EXPORTAÇÃO (Movidas para dentro do componente) ---
     const runWhenLibsReady = (callback, requiredLibs) => {
         const check = () => {
             const isPdfReady = requiredLibs.includes('pdf') ? (window.jspdf && window.jspdf.jsPDF && typeof window.jspdf.jsPDF.API.autoTable === 'function') : true;
@@ -11634,9 +11630,71 @@ const AdminReports = () => {
             });
             let lastY = doc.lastAutoTable.finalY + 10;
 
+            // Detalhamento de Vendas (NOVA TABELA)
+            if (reportData.detailedSales && reportData.detailedSales.length > 0) {
+                doc.setFontSize(12);
+                doc.text("Detalhamento de Vendas e Itens", 14, lastY);
+                
+                // Transforma dados hierárquicos em planos para o PDF
+                const tableBody = [];
+                reportData.detailedSales.forEach(order => {
+                    // Linha do Pedido
+                    tableBody.push([
+                        `#${order.id}`, 
+                        order.customer_name, 
+                        new Date(order.date).toLocaleDateString(), 
+                        `R$ ${Number(order.total).toFixed(2)}`,
+                        order.status
+                    ]);
+                    
+                    // Linhas dos Itens (Indentadas visualmente com um caractere)
+                    const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+                    items.forEach(item => {
+                        tableBody.push([
+                            '', 
+                            `-> ${item.quantity}x ${item.name}`, 
+                            '', 
+                            `R$ ${Number(item.price).toFixed(2)} un.`, 
+                            ''
+                        ]);
+                    });
+                });
+
+                doc.autoTable({
+                    startY: lastY + 5,
+                    head: [['ID', 'Cliente / Produto', 'Data', 'Valor', 'Status']],
+                    body: tableBody,
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    columnStyles: {
+                        0: { fontStyle: 'bold', cellWidth: 20 },
+                        1: { cellWidth: 'auto' },
+                        2: { cellWidth: 25 },
+                        3: { halign: 'right', cellWidth: 30 },
+                        4: { cellWidth: 30 }
+                    },
+                    didParseCell: function(data) {
+                        // Estiliza linhas de itens (que começam com célula vazia na col 0)
+                        if (data.section === 'body' && data.row.raw[0] === '') {
+                            data.cell.styles.textColor = [100, 100, 100]; // Cinza
+                            data.cell.styles.fontStyle = 'italic';
+                            data.cell.styles.fillColor = [250, 250, 250]; // Fundo bem claro
+                        }
+                        // Estiliza linhas de pedido (que tem ID)
+                        if (data.section === 'body' && data.row.raw[0] !== '') {
+                            data.cell.styles.fillColor = [240, 240, 240]; // Fundo cinza claro
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    }
+                });
+                lastY = doc.lastAutoTable.finalY + 10;
+            }
+
             // Tabela de Produtos Mais Vendidos
+            doc.addPage(); // Nova página para não ficar apertado
+            lastY = 20;
             doc.setFontSize(12);
-            doc.text("Produtos Mais Vendidos (por Unidade)", 14, lastY);
+            doc.text("Top Produtos", 14, lastY);
             doc.autoTable({
                 startY: lastY + 5,
                 head: [['Produto', 'Unidades Vendidas', 'Faturamento (R$)']],
@@ -11647,27 +11705,10 @@ const AdminReports = () => {
                 ]),
                 theme: 'striped'
             });
-            lastY = doc.lastAutoTable.finalY + 10;
-            
-            // Tabela de Clientes Mais Valiosos
-            doc.setFontSize(12);
-            doc.text("Clientes Mais Valiosos", 14, lastY);
-            doc.autoTable({
-                startY: lastY + 5,
-                head: [['Cliente', 'E-mail', 'Total de Pedidos', 'Valor Gasto (R$)']],
-                body: reportData.topCustomers.map(c => [
-                    c.name,
-                    c.email,
-                    c.total_orders,
-                    `R$ ${Number(c.total_spent).toFixed(2)}`
-                ]),
-                theme: 'striped'
-            });
 
             doc.save(`relatorio_detalhado_${startDate}_a_${endDate}.pdf`);
         }, ['pdf']);
     };
-    // --- FIM DAS FUNÇÕES DE EXPORTAÇÃO ---
 
     return (
         <div>
@@ -11703,7 +11744,6 @@ const AdminReports = () => {
                     >
                         {isLoading ? <SpinnerIcon /> : 'Gerar Relatório'}
                     </button>
-                    {/* --- NOVO BOTÃO DE EXPORTAR PDF --- */}
                     <button
                         onClick={handleExportPDF}
                         disabled={isLoading || !reportData}
@@ -11734,6 +11774,72 @@ const AdminReports = () => {
                         <StatCard title="Novos Clientes" value={reportData.kpis.newCustomers} />
                     </div>
 
+                    {/* NOVA SEÇÃO: DETALHAMENTO DE VENDAS */}
+                    <div className="bg-white rounded-lg shadow overflow-hidden border border-gray-200">
+                        <div className="p-4 border-b border-gray-200 bg-gray-50">
+                            <h3 className="font-bold text-lg text-gray-800">Detalhamento de Vendas ({reportData.detailedSales ? reportData.detailedSales.length : 0})</h3>
+                        </div>
+                        {reportData.detailedSales && reportData.detailedSales.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-100 text-gray-600 font-semibold uppercase text-xs">
+                                        <tr>
+                                            <th className="p-4 w-10"></th>
+                                            <th className="p-4">Pedido</th>
+                                            <th className="p-4">Cliente</th>
+                                            <th className="p-4">Data</th>
+                                            <th className="p-4">Total</th>
+                                            <th className="p-4">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                        {reportData.detailedSales.map(order => {
+                                            const isExpanded = expandedRows.includes(order.id);
+                                            // Parse seguro dos itens (que podem vir como string do MySQL ou objeto)
+                                            const items = typeof order.items === 'string' ? JSON.parse(order.items) : (order.items || []);
+
+                                            return (
+                                                <React.Fragment key={order.id}>
+                                                    <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-blue-50' : ''}`} onClick={() => toggleRow(order.id)}>
+                                                        <td className="p-4 text-center">
+                                                            <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`}/>
+                                                        </td>
+                                                        <td className="p-4 font-bold text-indigo-600">#{order.id}</td>
+                                                        <td className="p-4">{order.customer_name}</td>
+                                                        <td className="p-4 text-gray-500">{new Date(order.date).toLocaleDateString()}</td>
+                                                        <td className="p-4 font-bold text-green-600">R$ {Number(order.total).toFixed(2)}</td>
+                                                        <td className="p-4">
+                                                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-gray-200 text-gray-700">
+                                                                {order.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                    {isExpanded && (
+                                                        <tr className="bg-gray-50">
+                                                            <td colSpan="6" className="p-4 pl-12 border-t border-gray-200 shadow-inner">
+                                                                <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Itens do Pedido:</h4>
+                                                                <div className="space-y-2">
+                                                                    {items.map((item, idx) => (
+                                                                        <div key={idx} className="flex justify-between text-sm text-gray-700 border-b border-gray-200 pb-1 last:border-0 last:pb-0">
+                                                                            <span>{item.quantity}x {item.name}</span>
+                                                                            <span className="font-mono">R$ {Number(item.price).toFixed(2)}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className="p-8 text-center text-gray-500">Nenhuma venda encontrada neste período.</div>
+                        )}
+                    </div>
+
                     {/* Gráficos */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white p-6 rounded-lg shadow min-h-[300px]">
@@ -11749,36 +11855,8 @@ const AdminReports = () => {
                             </div>
                         </div>
                     </div>
-
-                    {/* Tabela de Clientes */}
-                    <div className="bg-white p-6 rounded-lg shadow">
-                        <h3 className="font-bold mb-4 text-lg">Clientes Mais Valiosos</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left text-sm">
-                                <thead className="bg-gray-100">
-                                    <tr>
-                                        <th className="p-3 font-semibold">Cliente</th>
-                                        <th className="p-3 font-semibold">E-mail</th>
-                                        <th className="p-3 font-semibold">Total de Pedidos</th>
-                                        <th className="p-3 font-semibold">Valor Gasto (R$)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {reportData.topCustomers.map((customer, index) => (
-                                        <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
-                                            <td className="p-3">{customer.name}</td>
-                                            <td className="p-3">{customer.email}</td>
-                                            <td className="p-3">{customer.total_orders}</td>
-                                            <td className="p-3 font-medium">R$ {Number(customer.total_spent).toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </motion.div>
             )}
-
         </div>
     );
 };

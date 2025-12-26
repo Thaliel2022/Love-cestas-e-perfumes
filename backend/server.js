@@ -4719,6 +4719,7 @@ app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => 
 });
 
 // (Admin) Rota para relatórios detalhados com intervalo de datas
+// (Admin) Rota para relatórios detalhados com intervalo de datas
 app.get('/api/reports/detailed', verifyToken, verifyAdmin, async (req, res) => {
     let { startDate, endDate } = req.query;
 
@@ -4797,11 +4798,39 @@ app.get('/api/reports/detailed', verifyToken, verifyAdmin, async (req, res) => {
             [validOrderStatus, startDate, endDate]
         );
 
+        // 5. (NOVO) Vendas Detalhadas com Itens
+        const [detailedSales] = await db.query(
+            `SELECT
+                o.id,
+                o.date,
+                o.total,
+                o.status,
+                u.name as customer_name,
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'name', p.name,
+                            'quantity', oi.quantity,
+                            'price', oi.price
+                        )
+                    )
+                    FROM order_items oi
+                    JOIN products p ON oi.product_id = p.id
+                    WHERE oi.order_id = o.id
+                ) as items
+             FROM orders o
+             JOIN users u ON o.user_id = u.id
+             WHERE o.status IN (?) AND o.date >= ? AND o.date <= ?
+             ORDER BY o.date DESC`,
+            [validOrderStatus, startDate, endDate]
+        );
+
         res.json({
             kpis: kpiStats[0],
             salesOverTime,
             topProducts,
-            topCustomers
+            topCustomers,
+            detailedSales // Enviando dados detalhados
         });
 
     } catch (err) {
