@@ -2405,9 +2405,14 @@ app.get('/api/cart', verifyToken, async (req, res) => {
             let variation = null;
             if (item.variation_details) {
                 try {
-                    // O valor já vem como objeto/null do DB, não precisa de parse.
-                    variation = typeof item.variation_details === 'string' ? JSON.parse(item.variation_details) : item.variation_details;
-                } catch(e) { console.error('Erro ao parsear variation_details do carrinho:', item.variation_details); }
+                    // CORREÇÃO: Garante que os detalhes da variação (cor/tamanho) sejam lidos corretamente do banco
+                    variation = (typeof item.variation_details === 'string') 
+                        ? JSON.parse(item.variation_details) 
+                        : item.variation_details;
+                } catch(e) { 
+                    console.error('Erro ao parsear variation_details do carrinho:', item.variation_details); 
+                    variation = null;
+                }
             }
             const cartItemId = variation
                 ? `${item.id}-${variation.color}-${variation.size}`
