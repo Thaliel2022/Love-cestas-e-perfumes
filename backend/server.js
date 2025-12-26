@@ -2432,7 +2432,8 @@ app.get('/api/cart', verifyToken, async (req, res) => {
 
 app.post('/api/cart', verifyToken, async (req, res) => {
     const userId = req.user.id;
-    const { productId, quantity, variationId } = req.body;
+    // ATUALIZAÇÃO: Extrai também 'variation' e 'variation_details' do corpo da requisição
+    const { productId, quantity, variationId, variation, variation_details } = req.body;
 
     if (!productId || !quantity || quantity < 1) {
         return res.status(400).json({ message: "ID do produto e quantidade são obrigatórios." });
@@ -2443,13 +2444,30 @@ app.post('/api/cart', verifyToken, async (req, res) => {
         await connection.beginTransaction();
 
         let variationDetailsString = null;
-        if (variationId) {
+
+        // Lógica de Prioridade para salvar a variação:
+        // 1. Tenta usar 'variation_details' (string pronta enviada pelo frontend)
+        if (variation_details) {
+            variationDetailsString = typeof variation_details === 'string' 
+                ? variation_details 
+                : JSON.stringify(variation_details);
+        } 
+        // 2. Se não, tenta usar o objeto 'variation' direto
+        else if (variation) {
+            variationDetailsString = JSON.stringify(variation);
+        }
+        // 3. Fallback: Tenta buscar pelo ID no banco (comportamento antigo)
+        else if (variationId) {
             const [productResult] = await connection.query("SELECT variations FROM products WHERE id = ?", [productId]);
             if (productResult.length > 0) {
-                const variations = JSON.parse(productResult[0].variations || '[]');
-                const foundVariation = variations.find(v => v.id === variationId);
-                if (foundVariation) {
-                    variationDetailsString = JSON.stringify(foundVariation);
+                try {
+                    const variations = JSON.parse(productResult[0].variations || '[]');
+                    const foundVariation = variations.find(v => v.id === variationId);
+                    if (foundVariation) {
+                        variationDetailsString = JSON.stringify(foundVariation);
+                    }
+                } catch(e) {
+                    console.error("Erro ao processar variações no backend:", e);
                 }
             }
         }
@@ -2480,7 +2498,6 @@ app.post('/api/cart', verifyToken, async (req, res) => {
         connection.release();
     }
 });
-
 app.delete('/api/cart/:productId', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { productId } = req.params;
