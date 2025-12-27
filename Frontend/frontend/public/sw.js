@@ -1,6 +1,4 @@
-// public/sw.js - Service Worker Completo para Push Notifications
 
-// v6 para forçar atualização e limpar caches antigos de imagem
 const CACHE_NAME = 'lovecestas-v6';
 
 self.addEventListener('install', (event) => {
