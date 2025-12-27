@@ -5589,7 +5589,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
       }
     ]);
 });
-
+a
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
