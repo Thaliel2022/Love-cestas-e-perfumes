@@ -478,12 +478,12 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
             let title = `Atualização do Pedido #${orderId}`;
             let body = `Status alterado para: ${newStatus}`;
             
-            // Definição de URLs absolutas para garantir que o Android encontre
-            const appBaseUrl = process.env.APP_URL || 'https://www.lovecestaseperfumes.com.br';
-            // Ícone grande colorido (ao lado do texto) - Mesma URL do manifesto ou local
+            // Ícone grande colorido
             const icon = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
-            // Ícone pequeno monocromático (barra de status) - Deve ser 96x96px branco/transparente
-            const badge = `${appBaseUrl}/badge-monochrome.png`;
+            
+            // Ícone pequeno monocromático (Badge) - Link Cloudinary REDIMENSIONADO para 96px
+            // Isso evita o erro do "W" por imagem muito grande
+            const badge = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
 
             if (newStatus === 'Saiu para Entrega') {
                 title = 'Seu pedido está chegando! 🛵';
@@ -500,14 +500,14 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
                 title: title,
                 body: body,
                 icon: icon,
-                badge: badge, // Ícone pequeno obrigatório para Android (redimensione para 96x96)
+                badge: badge, 
                 data: {
-                    url: `/#account/orders/${orderId}` // Link para abrir direto no pedido
+                    url: `/#account/orders/${orderId}` 
                 },
                 vibrate: [200, 100, 200]
             };
 
-            // Dispara a notificação (sem await para não travar o processo principal)
+            // Dispara a notificação
             sendPushNotificationToUser(userId, payload);
         }
     } catch (pushErr) {
