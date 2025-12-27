@@ -1,16 +1,16 @@
 // public/sw.js - Service Worker Completo para Push Notifications
 
-// v4 para forçar atualização do cache no celular
-const CACHE_NAME = 'lovecestas-v4';
+// v5 para forçar atualização do cache no celular
+const CACHE_NAME = 'lovecestas-v5';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  console.log('Service Worker: Instalado (v4)');
+  console.log('Service Worker: Instalado (v5)');
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
-  console.log('Service Worker: Ativo (v4)');
+  console.log('Service Worker: Ativo (v5)');
 });
 
 self.addEventListener('push', function(event) {
