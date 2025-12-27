@@ -481,10 +481,9 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
             // Ícone grande colorido
             const icon = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
             
-            // Ícone pequeno monocromático (Badge) - COM TRATAMENTO DE COR
-            // Adicionei 'e_grayscale,co_white,e_colorize:100' para forçar a imagem a ser BRANCA PURA
-            // Isso deve corrigir o problema do "W" no Android
-            const badge = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale,e_grayscale,co_white,e_colorize:100/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
+            // Ícone pequeno monocromático (Badge) - Link Cloudinary REDIMENSIONADO para 96px
+            // Isso evita o erro do "W" por imagem muito grande
+            const badge = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
 
             if (newStatus === 'Saiu para Entrega') {
                 title = 'Seu pedido está chegando! 🛵';
@@ -5569,11 +5568,6 @@ app.use((err, req, res, next) => {
 
 app.get('/.well-known/assetlinks.json', (req, res) => {
     res.header('Content-Type', 'application/json');
-    // Adiciona cabeçalhos para evitar cache e forçar revalidação imediata pelo Android
-    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.header('Pragma', 'no-cache');
-    res.header('Expires', '0');
-    
     res.json([
       {
         "relation": ["delegate_permission/common.handle_all_urls"],
@@ -5581,7 +5575,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
           "namespace": "android_app",
           // ID do pacote confirmado
           "package_name": process.env.ANDROID_PACKAGE_NAME || "br.com.lovecestaseperfumes.www.twa",
-          // Chave SHA-256 EXATA (Corrigida conforme seu JSON)
+          // Chave SHA-256 real fornecida pelo PWABuilder
           "sha256_cert_fingerprints": [
             process.env.ANDROID_SHA256_FINGERPRINT || "BE:48:3A:9F:BA:5C:2D:00:4F:BE:7D:BB:47:FF:EB:8D:97:0F:C4:27:FC:B5:BC:8A:67:5B:87:FD:40:AF:53:A1"
           ]
@@ -5589,7 +5583,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
       }
     ]);
 });
-a
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
