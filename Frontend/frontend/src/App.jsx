@@ -6926,6 +6926,8 @@ const MyAddressesSection = () => {
     );
 };
 
+// ... (código anterior do MyProfileSection)
+
 const MyProfileSection = () => {
     const { user, setUser } = useAuth();
     const notification = useNotification();
@@ -6944,6 +6946,60 @@ const MyProfileSection = () => {
     const [disablePassword, setDisablePassword] = useState('');
     const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
     const [is2faLoading, setIs2faLoading] = useState(false);
+
+    // --- FUNÇÕES DE TESTE DE NOTIFICAÇÃO ---
+    const handleTestLocalNotification = async () => {
+        if (!('serviceWorker' in navigator)) {
+            notification.show('Seu dispositivo não suporta notificações.', 'error');
+            return;
+        }
+        
+        // Verifica permissão
+        if (Notification.permission !== 'granted') {
+            notification.show(`Permissão atual: ${Notification.permission}. Ative nas configurações do Android.`, 'error');
+            return;
+        }
+
+        try {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification('Teste de Notificação', {
+                body: 'Se você está lendo isso, seu celular consegue exibir alertas! 📱',
+                icon: '/icon-192x192.png',
+                badge: '/badge-monochrome.png',
+                vibrate: [200, 100, 200]
+            });
+            notification.show('Notificação de teste enviada!', 'success');
+        } catch (e) {
+            notification.show(`Erro ao exibir notificação: ${e.message}`, 'error');
+        }
+    };
+
+    const handleForceRegistration = async () => {
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            
+            // Tenta obter inscrição existente
+            let subscription = await registration.pushManager.getSubscription();
+            
+            // Se não existir, cria nova
+            if (!subscription) {
+                const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+                });
+            }
+
+            // Força o envio para o backend
+            await apiService('/notifications/subscribe', 'POST', subscription);
+            notification.show('Dispositivo registrado no servidor com sucesso!', 'success');
+            
+        } catch (e) {
+            console.error(e);
+            notification.show(`Erro no registro: ${e.message}`, 'error');
+        }
+    };
+    // ----------------------------------------
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
@@ -7096,6 +7152,35 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
+            
+            {/* PAINEL DE DIAGNÓSTICO DE NOTIFICAÇÕES (Adicionado) */}
+            <div className="bg-gray-800 p-6 rounded-lg mt-6 border border-gray-700">
+                <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                    </span>
+                    Status das Notificações
+                </h3>
+                <p className="text-gray-400 text-sm mb-4">
+                    Se você não está recebendo alertas de pedidos no celular, use os botões abaixo para testar ou reativar.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                    <button 
+                        onClick={handleTestLocalNotification} 
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-blue-700 transition"
+                    >
+                        🔔 Testar Exibição no Celular
+                    </button>
+                    <button 
+                        onClick={handleForceRegistration} 
+                        className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-green-700 transition"
+                    >
+                        🔄 Sincronizar com Servidor
+                    </button>
+                </div>
+            </div>
+
             <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
             {user?.role === 'admin' && (
