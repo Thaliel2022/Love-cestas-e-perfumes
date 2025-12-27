@@ -38,7 +38,7 @@ self.addEventListener('push', function(event) {
   
   // 2. Ícone Pequeno (Badge - Barra de Status)
   // Deve ser a imagem BRANCA e TRANSPARENTE que você colocou na public
-  const DEFAULT_BADGE = 'https://www.lovecestaseperfumes.com.br/badge-monochrome.png';
+  const DEFAULT_BADGE = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1766856027/cgjkb0vagtya53xd8s3e.png';
 
   const title = data.title || 'Love Cestas e Perfumes';
   const options = {
