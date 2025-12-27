@@ -1,17 +1,17 @@
 // public/sw.js - Service Worker Completo para Push Notifications
 
-// Mudei para v2 para forçar o celular a baixar os ícones novos
-const CACHE_NAME = 'lovecestas-v2';
+// Mudei para v3 para forçar o celular a baixar a nova lógica imediatamente
+const CACHE_NAME = 'lovecestas-v3';
 
 // 1. Instalação e Ativação
 self.addEventListener('install', (event) => {
   self.skipWaiting(); // Força ativação imediata
-  console.log('Service Worker: Instalado (v2)');
+  console.log('Service Worker: Instalado (v3)');
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
-  console.log('Service Worker: Ativo (v2)');
+  console.log('Service Worker: Ativo (v3)');
 });
 
 // 2. Recebimento de Notificação (Push)
@@ -29,17 +29,24 @@ self.addEventListener('push', function(event) {
     }
   }
 
-  // Define URLs absolutas para garantir que o Android encontre a imagem
-  // self.registration.scope pega a URL base do site (ex: https://site.com/)
-  const baseUrl = self.registration.scope;
+  // --- CONFIGURAÇÃO DE IMAGENS ABSOLUTAS ---
+  // Usamos os links diretos para garantir que o Android encontre
+  
+  // 1. Ícone Grande (Colorido - Ao lado do texto)
+  // Usando o mesmo do seu manifesto para consistência
+  const DEFAULT_ICON = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+  
+  // 2. Ícone Pequeno (Badge - Barra de Status)
+  // Deve ser a imagem BRANCA e TRANSPARENTE que você colocou na public
+  const DEFAULT_BADGE = 'https://www.lovecestaseperfumes.com.br/badge-monochrome.png';
 
-  const title = data.title || 'Love Cestas';
+  const title = data.title || 'Love Cestas e Perfumes';
   const options = {
     body: data.body || 'Você tem uma nova notificação.',
     
-    // Força o caminho completo para evitar erro de "W"
-    icon: data.icon || (baseUrl + 'icon-192x192.png'),
-    badge: data.badge || (baseUrl + 'badge-monochrome.png'), 
+    // Define explicitamente as imagens
+    icon: data.icon || DEFAULT_ICON,
+    badge: data.badge || DEFAULT_BADGE, 
     
     vibrate: data.vibrate || [100, 50, 100],
     data: data.data || { url: '/' },
