@@ -1,30 +1,26 @@
 // public/sw.js - Service Worker Completo para Push Notifications
 
-// Nome do cache (opcional, mas bom para PWA)
-const CACHE_NAME = 'lovecestas-v1';
+// Mudei para v2 para forçar o celular a baixar os ícones novos
+const CACHE_NAME = 'lovecestas-v2';
 
-// 1. Instalação do Service Worker
+// 1. Instalação e Ativação
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Força o SW a ativar imediatamente
-  console.log('Service Worker: Instalado');
+  self.skipWaiting(); // Força ativação imediata
+  console.log('Service Worker: Instalado (v2)');
 });
 
-// 2. Ativação
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim()); // Assume o controle da página imediatamente
-  console.log('Service Worker: Ativo');
+  event.waitUntil(clients.claim());
+  console.log('Service Worker: Ativo (v2)');
 });
 
-// 3. Evento PUSH (Onde a mágica acontece!)
-// Este evento dispara quando o backend envia uma notificação
+// 2. Recebimento de Notificação (Push)
 self.addEventListener('push', function(event) {
   if (!(self.Notification && self.Notification.permission === 'granted')) {
     return;
   }
 
   let data = {};
-  
-  // Tenta ler os dados enviados pelo servidor
   if (event.data) {
     try {
       data = event.data.json();
@@ -33,51 +29,42 @@ self.addEventListener('push', function(event) {
     }
   }
 
-  // Configuração Visual da Notificação no Celular
-  const title = data.title || 'Love Cestas e Perfumes';
+  // Define URLs absolutas para garantir que o Android encontre a imagem
+  // self.registration.scope pega a URL base do site (ex: https://site.com/)
+  const baseUrl = self.registration.scope;
+
+  const title = data.title || 'Love Cestas';
   const options = {
-    body: data.body || 'Você tem uma nova atualização.',
+    body: data.body || 'Você tem uma nova notificação.',
     
-    // Ícone grande colorido (ao lado do texto)
-    // Certifique-se de que este arquivo existe em public/
-    icon: data.icon || '/icon-192x192.png', 
+    // Força o caminho completo para evitar erro de "W"
+    icon: data.icon || (baseUrl + 'icon-192x192.png'),
+    badge: data.badge || (baseUrl + 'badge-monochrome.png'), 
     
-    // Ícone pequeno para a barra de status (OBRIGATÓRIO ser branco/transparente para Android)
-    // Se não tiver esse arquivo, o Android pode mostrar um quadrado branco
-    badge: data.badge || '/badge-monochrome.png', 
-    
-    vibrate: data.vibrate || [100, 50, 100], // Padrão de vibração
-    data: data.data || { url: '/' }, // Link para abrir
-    tag: 'order-update', // Agrupa notificações do mesmo tipo
-    renotify: true, // Vibra novamente se chegar outra notificação igual
-    actions: [
-      { action: 'open', title: 'Ver Detalhes' }
-    ]
+    vibrate: data.vibrate || [100, 50, 100],
+    data: data.data || { url: '/' },
+    tag: 'order-update',
+    renotify: true
   };
 
-  // Exibe a notificação
   event.waitUntil(
     self.registration.showNotification(title, options)
   );
 });
 
-// 4. Evento CLIQUE (Quando o usuário toca na notificação)
+// 3. Clique na Notificação
 self.addEventListener('notificationclick', function(event) {
-  event.notification.close(); // Fecha a notificação da barra
-
-  // Pega a URL enviada pelo backend (ex: /#account/orders/123)
+  event.notification.close();
   const urlToOpen = event.notification.data.url || '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
-      // Se o app já estiver aberto em alguma aba/janela, foca nele
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i];
         if (client.url && 'focus' in client) {
           return client.focus().then(c => c.navigate(urlToOpen));
         }
       }
-      // Se não estiver aberto, abre uma nova janela
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
