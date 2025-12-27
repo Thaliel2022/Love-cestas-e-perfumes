@@ -44,7 +44,7 @@ const ORDER_STATUS = {
 // Adicione este bloco LOGO APÓS os imports e ANTES das rotas
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     webpush.setVapidDetails(
-        process.env.VAPID_SUBJECT || 'mailto:contato@lovecestas.com',
+        process.env.VAPID_SUBJECT || 'mailto:thaliel1994@hotmail.com',
         process.env.VAPID_PUBLIC_KEY,
         process.env.VAPID_PRIVATE_KEY
     );
