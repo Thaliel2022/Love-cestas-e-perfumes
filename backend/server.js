@@ -466,7 +466,7 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
     await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
     await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, newStatus, notes]);
     
-    // --- LÓGICA DE NOTIFICAÇÃO PUSH (Parte C) ---
+    // --- LÓGICA DE NOTIFICAÇÃO PUSH ---
     try {
         // Busca o ID do usuário dono do pedido
         const [orderData] = await connection.query("SELECT user_id FROM orders WHERE id = ?", [orderId]);
@@ -477,7 +477,13 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
             // Personaliza a mensagem baseada no status
             let title = `Atualização do Pedido #${orderId}`;
             let body = `Status alterado para: ${newStatus}`;
-            let icon = '/icon-192x192.png'; // Ícone padrão do app
+            
+            // Definição de URLs absolutas para garantir que o Android encontre
+            const appBaseUrl = process.env.APP_URL || 'https://www.lovecestaseperfumes.com.br';
+            // Ícone grande colorido (ao lado do texto) - Mesma URL do manifesto ou local
+            const icon = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+            // Ícone pequeno monocromático (barra de status) - Deve ser 96x96px branco/transparente
+            const badge = `${appBaseUrl}/badge-monochrome.png`;
 
             if (newStatus === 'Saiu para Entrega') {
                 title = 'Seu pedido está chegando! 🛵';
@@ -494,7 +500,7 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
                 title: title,
                 body: body,
                 icon: icon,
-                badge: '/badge-monochrome.png', // Ícone pequeno obrigatório para Android
+                badge: badge, // Ícone pequeno obrigatório para Android (redimensione para 96x96)
                 data: {
                     url: `/#account/orders/${orderId}` // Link para abrir direto no pedido
                 },
