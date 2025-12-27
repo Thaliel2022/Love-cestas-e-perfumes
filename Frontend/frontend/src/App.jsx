@@ -13262,8 +13262,13 @@ function urlBase64ToUint8Array(base64String) {
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
+// ... (imports e função urlBase64ToUint8Array mantidos iguais acima) ...
+
+// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const notification = useNotification(); // <--- ADICIONADO PARA DEBUG VISUAL
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
@@ -13297,43 +13302,62 @@ function AppContent({ deferredPrompt }) {
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
-  // --- NOVO: Lógica de Registro de Push Notifications ---
+  // --- Lógica de Registro de Push Notifications (COM DEBUG VISUAL) ---
   useEffect(() => {
     const registerPush = async () => {
-        // Só executa se estiver logado e se o navegador suportar Service Workers e Push API
-        if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        // Só executa se estiver logado
+        if (!isAuthenticated) return;
+
+        // Verifica suporte do navegador
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            console.log("Push notifications não suportadas neste navegador/webview.");
+            return;
+        }
 
         try {
             // 1. Aguarda o Service Worker estar ativo
             const registration = await navigator.serviceWorker.ready;
 
-            // 2. Verifica/Solicita permissão (No Android TWA isso geralmente é automático ou já concedido)
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                console.log('Permissão de notificação não concedida.');
+            // 2. Verifica permissão atual antes de pedir
+            if (Notification.permission === 'denied') {
+                // Se já estiver negado, avisa o usuário (opcional, bom para debug)
+                // notification.show("Ative as notificações nas configurações do seu celular.", "error");
+                console.log("Permissão de notificação negada anteriormente.");
                 return;
             }
 
-            // 3. Chave Pública VAPID (Sua chave real)
+            // 3. Solicita permissão
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.log('Permissão de notificação não concedida (Ignorada ou Fechada).');
+                return;
+            }
+
+            // 4. Chave Pública VAPID
             const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
 
-            // 4. Cria a inscrição no Push Manager do navegador
+            // 5. Cria a inscrição no Push Manager
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
             });
 
-            // 5. Envia para o backend salvar no banco de dados
+            // 6. Envia para o backend salvar no banco de dados
+            // Adicionado feedback visual para confirmar que chegou até aqui
             await apiService('/notifications/subscribe', 'POST', subscription);
-            console.log('✅ Dispositivo registrado para notificações push com sucesso!');
+            console.log('✅ Dispositivo registrado com sucesso!');
+            // Descomente a linha abaixo se quiser ver um balão verde de sucesso na tela ao entrar:
+            // notification.show("Notificações ativadas neste dispositivo!", "success");
 
         } catch (error) {
             console.error('Erro ao registrar push notification:', error);
+            // Mostra erro na tela para ajudar no diagnóstico
+            notification.show(`Erro ao ativar notificações: ${error.message}`, "error");
         }
     };
 
     registerPush();
-  }, [isAuthenticated]); // Executa sempre que o status de autenticação mudar para true
+  }, [isAuthenticated, notification]); // Dependência 'notification' adicionada
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
