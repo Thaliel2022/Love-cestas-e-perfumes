@@ -5362,6 +5362,24 @@ app.use((err, req, res, next) => {
     });
 });
 
+app.get('/.well-known/assetlinks.json', (req, res) => {
+    res.header('Content-Type', 'application/json');
+    res.json([
+      {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+          "namespace": "android_app",
+          // ID do pacote confirmado
+          "package_name": process.env.ANDROID_PACKAGE_NAME || "br.com.lovecestaseperfumes.www.twa",
+          // Chave SHA-256 real fornecida pelo PWABuilder
+          "sha256_cert_fingerprints": [
+            process.env.ANDROID_SHA256_FINGERPRINT || "0D:86:8A:D6:9F:92:2C:95:82:11:B3:94:EE:7C:3E:B9:02:FA:D2:19:B7:46:85:F6:BA:47:D6:97:F9:0D:43:E2"
+          ]
+        }
+      }
+    ]);
+});
+
 // --- INICIALIZAÇÃO DO SERVIDOR ---
 const PORT = process.env.PORT || 8081;
 app.listen(PORT, () => {
