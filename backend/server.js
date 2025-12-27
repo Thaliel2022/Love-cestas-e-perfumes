@@ -458,7 +458,6 @@ app.post('/api/notifications/subscribe', verifyToken, async (req, res) => {
     }
 });
 
-// ... existing code ...
 
 // 1. SUBSTITUA A FUNÇÃO updateOrderStatus EXISTENTE POR ESTA VERSÃO COMPLETA:
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
@@ -5567,7 +5566,14 @@ app.use((err, req, res, next) => {
 });
 
 app.get('/.well-known/assetlinks.json', (req, res) => {
+    // Cabeçalho OBRIGATÓRIO para o Android aceitar o arquivo
     res.header('Content-Type', 'application/json');
+    
+    // Evita cache para garantir que o Android sempre leia a versão mais nova da chave
+    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+    
     res.json([
       {
         "relation": ["delegate_permission/common.handle_all_urls"],
@@ -5575,7 +5581,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
           "namespace": "android_app",
           // ID do pacote confirmado
           "package_name": process.env.ANDROID_PACKAGE_NAME || "br.com.lovecestaseperfumes.www.twa",
-          // Chave SHA-256 real fornecida pelo PWABuilder
+          // Chave SHA-256 EXATA (Conforme seu último envio)
           "sha256_cert_fingerprints": [
             process.env.ANDROID_SHA256_FINGERPRINT || "BE:48:3A:9F:BA:5C:2D:00:4F:BE:7D:BB:47:FF:EB:8D:97:0F:C4:27:FC:B5:BC:8A:67:5B:87:FD:40:AF:53:A1"
           ]
