@@ -481,9 +481,10 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
             // Ícone grande colorido
             const icon = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
             
-            // Ícone pequeno monocromático (Badge) - Link Cloudinary REDIMENSIONADO para 96px
-            // Isso evita o erro do "W" por imagem muito grande
-            const badge = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
+            // Ícone pequeno monocromático (Badge) - COM TRATAMENTO DE COR
+            // Adicionei 'e_grayscale,co_white,e_colorize:100' para forçar a imagem a ser BRANCA PURA
+            // Isso deve corrigir o problema do "W" no Android
+            const badge = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale,e_grayscale,co_white,e_colorize:100/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
 
             if (newStatus === 'Saiu para Entrega') {
                 title = 'Seu pedido está chegando! 🛵';

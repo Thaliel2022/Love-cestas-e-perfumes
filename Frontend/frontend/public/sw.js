@@ -1,16 +1,16 @@
 // public/sw.js - Service Worker Completo para Push Notifications
 
-// v5 para forçar atualização do cache no celular
-const CACHE_NAME = 'lovecestas-v5';
+// v6 para forçar atualização e limpar caches antigos de imagem
+const CACHE_NAME = 'lovecestas-v6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  console.log('Service Worker: Instalado (v5)');
+  console.log('Service Worker: Instalado (v6)');
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
-  console.log('Service Worker: Ativo (v5)');
+  console.log('Service Worker: Ativo (v6)');
 });
 
 self.addEventListener('push', function(event) {
@@ -27,10 +27,12 @@ self.addEventListener('push', function(event) {
     }
   }
 
-  // URLs diretas do Cloudinary para garantir carregamento
+  // URLs diretas do Cloudinary
   const DEFAULT_ICON = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
-  // Badge redimensionado para 96px para conformidade Android
-  const DEFAULT_BADGE = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
+  
+  // Badge FORÇADO PARA BRANCO via Cloudinary
+  // Isso resolve o problema de ícones com cores sendo rejeitados pelo Android
+  const DEFAULT_BADGE = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale,e_grayscale,co_white,e_colorize:100/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
 
   const title = data.title || 'Love Cestas e Perfumes';
   const options = {
