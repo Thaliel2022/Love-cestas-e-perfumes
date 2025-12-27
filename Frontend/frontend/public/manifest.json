@@ -3,7 +3,7 @@
   "name": "Love Cestas e Perfumes",
   "icons": [
     {
-      "src": "",
+      "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png",
       "type": "image/png",
       "sizes": "192x192"
     },
@@ -11,6 +11,12 @@
       "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/w_512,h_512/v1752292990/uqw1twmffseqafkiet0t.png",
       "type": "image/png",
       "sizes": "512x512"
+    },
+    {
+      "src": "https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale,e_grayscale,co_white,e_colorize:100/v1766856538/ek6yjbqj5ozhup2yzlwp.png",
+      "type": "image/png",
+      "sizes": "96x96",
+      "purpose": "monochrome"
     }
   ],
   "start_url": ".",
