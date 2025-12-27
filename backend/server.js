@@ -474,9 +474,6 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
         if (orderData.length > 0) {
             const userId = orderData[0].user_id;
             
-            // Define a URL base para garantir que o link funcione em qualquer dispositivo
-            const appBaseUrl = process.env.APP_URL || 'https://www.lovecestaseperfumes.com.br';
-
             // Personaliza a mensagem baseada no status
             let title = `Atualização do Pedido #${orderId}`;
             let body = `Status alterado para: ${newStatus}`;
@@ -491,13 +488,13 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
 
             if (newStatus === 'Saiu para Entrega') {
                 title = 'Seu pedido está chegando! 🛵';
-                body = 'O entregador já saiu com sua encomenda. Fique atento! Toque para acompanhar.';
+                body = 'O entregador já saiu com sua encomenda. Fique atento!';
             } else if (newStatus === 'Pronto para Retirada') {
                 title = 'Pode vir buscar! 🛍️';
-                body = 'Seu pedido já está separado na loja aguardando você. Toque para ver o endereço.';
+                body = 'Seu pedido já está separado na loja aguardando você.';
             } else if (newStatus === 'Entregue') {
                 title = 'Pedido Entregue ✅';
-                body = 'Obrigado pela compra! Esperamos que ame seus produtos. Toque para avaliar.';
+                body = 'Obrigado pela compra! Esperamos que ame seus produtos.';
             }
 
             const payload = {
@@ -506,8 +503,7 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
                 icon: icon,
                 badge: badge, 
                 data: {
-                    // Usa URL absoluta para garantir que abra o app/site corretamente
-                    url: `${appBaseUrl}/#account/orders/${orderId}` 
+                    url: `/#account/orders/${orderId}` 
                 },
                 vibrate: [200, 100, 200]
             };
@@ -521,7 +517,6 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
     
     console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
 };
-
 
 // ... existing code ...
 
