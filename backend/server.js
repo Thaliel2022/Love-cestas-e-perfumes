@@ -5373,7 +5373,7 @@ app.get('/.well-known/assetlinks.json', (req, res) => {
           "package_name": process.env.ANDROID_PACKAGE_NAME || "br.com.lovecestaseperfumes.www.twa",
           // Chave SHA-256 real fornecida pelo PWABuilder
           "sha256_cert_fingerprints": [
-            process.env.ANDROID_SHA256_FINGERPRINT || "0D:86:8A:D6:9F:92:2C:95:82:11:B3:94:EE:7C:3E:B9:02:FA:D2:19:B7:46:85:F6:BA:47:D6:97:F9:0D:43:E2"
+            process.env.ANDROID_SHA256_FINGERPRINT || "BE:48:3A:9F:BA:5C:2D:00:4F:BE:7D:BB:47:FF:EB:8D:97:0F:C4:27:FC:B5:BC:8A:67:5B:87:FD:40:AF:53:A1"
           ]
         }
       }
