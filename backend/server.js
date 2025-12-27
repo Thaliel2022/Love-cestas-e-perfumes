@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
+const webpush = require('web-push');
 
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
@@ -39,6 +40,18 @@ const ORDER_STATUS = {
     CANCELLED: 'Cancelado',
     REFUNDED: 'Reembolsado'
 };
+// --- Configuração das Chaves de Notificação ---
+// Adicione este bloco LOGO APÓS os imports e ANTES das rotas
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    webpush.setVapidDetails(
+        process.env.VAPID_SUBJECT || 'mailto:contato@lovecestas.com',
+        process.env.VAPID_PUBLIC_KEY,
+        process.env.VAPID_PRIVATE_KEY
+    );
+    console.log('✅ Sistema de Notificação Push Ativado');
+} else {
+    console.warn('⚠️ AVISO: Chaves VAPID não encontradas no .env. Notificações não funcionarão.');
+}
 
 
 // Verificação de Variáveis de Ambiente Essenciais
@@ -138,6 +151,7 @@ app.use(helmet({
         },
     },
 }));
+
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
@@ -382,11 +396,195 @@ const checkMaintenanceMode = async (req, res, next) => {
     }
 };
 
-const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
-    await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
-    await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, newStatus, notes]);
-    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+// --- FUNÇÕES AUXILIARES DE NOTIFICAÇÃO ---
+
+// Função que dispara a mensagem para o celular
+const sendPushNotificationToUser = async (userId, payload) => {
+    try {
+        // Busca todos os celulares cadastrados para este usuário
+        const [subscriptions] = await db.query("SELECT * FROM push_subscriptions WHERE user_id = ?", [userId]);
+        
+        if (subscriptions.length === 0) return;
+
+        const notifications = subscriptions.map(sub => {
+            const pushSubscription = {
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.p256dh, auth: sub.auth }
+            };
+            return webpush.sendNotification(pushSubscription, JSON.stringify(payload))
+                .catch(err => {
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                        // Se o celular não existe mais, remove do banco para limpar
+                        db.query("DELETE FROM push_subscriptions WHERE id = ?", [sub.id]);
+                    } else {
+                        console.error("Erro ao enviar push:", err);
+                    }
+                });
+        });
+
+        await Promise.all(notifications);
+    } catch (error) {
+        console.error("Erro geral no envio de push:", error);
+    }
 };
+
+// --- ROTA PARA O FRONTEND SALVAR A INSCRIÇÃO ---
+// O React vai chamar essa rota quando o usuário clicar em "Permitir Notificações"
+app.post('/api/notifications/subscribe', verifyToken, async (req, res) => {
+    const subscription = req.body;
+    const userId = req.user.id;
+
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+        return res.status(400).json({ message: "Dados inválidos." });
+    }
+
+    try {
+        // Verifica se já existe para não duplicar
+        const [existing] = await db.query("SELECT id FROM push_subscriptions WHERE endpoint = ?", [subscription.endpoint]);
+        
+        if (existing.length === 0) {
+            await db.query(
+                "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES (?, ?, ?, ?)",
+                [userId, subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+            );
+        } else {
+            // Atualiza o dono do dispositivo se necessário
+            await db.query("UPDATE push_subscriptions SET user_id = ? WHERE id = ?", [userId, existing[0].id]);
+        }
+        res.status(201).json({ message: "Notificações ativadas com sucesso." });
+    } catch (err) {
+        console.error("Erro ao salvar push:", err);
+        res.status(500).json({ message: "Erro interno." });
+    }
+});
+
+// ... existing code ...
+
+// 1. SUBSTITUA A FUNÇÃO updateOrderStatus EXISTENTE POR ESTA VERSÃO COMPLETA:
+const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
+    // Atualiza o banco de dados
+    await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
+    await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, newStatus, notes]);
+    
+    // --- LÓGICA DE NOTIFICAÇÃO PUSH (Parte C) ---
+    try {
+        // Busca o ID do usuário dono do pedido
+        const [orderData] = await connection.query("SELECT user_id FROM orders WHERE id = ?", [orderId]);
+        
+        if (orderData.length > 0) {
+            const userId = orderData[0].user_id;
+            
+            // Personaliza a mensagem baseada no status
+            let title = `Atualização do Pedido #${orderId}`;
+            let body = `Status alterado para: ${newStatus}`;
+            let icon = '/icon-192x192.png'; // Ícone padrão do app
+
+            if (newStatus === 'Saiu para Entrega') {
+                title = 'Seu pedido está chegando! 🛵';
+                body = 'O entregador já saiu com sua encomenda. Fique atento!';
+            } else if (newStatus === 'Pronto para Retirada') {
+                title = 'Pode vir buscar! 🛍️';
+                body = 'Seu pedido já está separado na loja aguardando você.';
+            } else if (newStatus === 'Entregue') {
+                title = 'Pedido Entregue ✅';
+                body = 'Obrigado pela compra! Esperamos que ame seus produtos.';
+            }
+
+            const payload = {
+                title: title,
+                body: body,
+                icon: icon,
+                badge: '/badge-monochrome.png', // Ícone pequeno obrigatório para Android
+                data: {
+                    url: `/#account/orders/${orderId}` // Link para abrir direto no pedido
+                },
+                vibrate: [200, 100, 200]
+            };
+
+            // Dispara a notificação (sem await para não travar o processo principal)
+            sendPushNotificationToUser(userId, payload);
+        }
+    } catch (pushErr) {
+        console.error("Erro ao tentar disparar notificação automática:", pushErr);
+    }
+    
+    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+};
+
+// ... existing code ...
+
+// 2. SUBSTITUA A ROTA app.put('/api/orders/:id') COMPLETA POR ESTA:
+app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status, tracking_code } = req.body;
+
+    // --- BLOQUEIO DE SEGURANÇA ---
+    // Impede alteração manual para 'Reembolsado' (deve usar o fluxo de reembolso)
+    if (status === 'Reembolsado') {
+        return res.status(403).json({ message: "Ação bloqueada. Para reembolsar um pedido, utilize o sistema de 'Solicitar Reembolso'." });
+    }
+
+    const STATUS_PROGRESSION = [
+        'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 
+        'Pronto para Retirada', 'Enviado', 'Saiu para Entrega', 
+        'Entregue'
+    ];
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [currentOrderResult] = await connection.query("SELECT * FROM orders WHERE id = ? FOR UPDATE", [id]);
+        if (currentOrderResult.length === 0) {
+            throw new Error("Pedido não encontrado.");
+        }
+        const currentOrder = currentOrderResult[0];
+        const { status: currentStatus } = currentOrder;
+
+        if (status && status !== currentStatus) {
+            const currentIndex = STATUS_PROGRESSION.indexOf(currentStatus);
+            const newIndex = STATUS_PROGRESSION.indexOf(status);
+
+            // Se o novo status está mais à frente na linha do tempo, preenche os intermediários
+            if (currentIndex !== -1 && newIndex > currentIndex) {
+                const statusesToInsert = STATUS_PROGRESSION.slice(currentIndex + 1, newIndex + 1);
+                for (const intermediateStatus of statusesToInsert) {
+                    // Chama a função atualizada que dispara a notificação
+                    await updateOrderStatus(id, intermediateStatus, connection, "Status atualizado pelo administrador");
+                }
+            } else {
+                // Atualização direta (ex: Cancelado ou retorno de status)
+                await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
+            }
+            
+            // Lógica de reversão de estoque (se necessário)
+            if (status === 'Cancelado' || status === 'Pagamento Recusado') {
+                const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
+                for (const item of itemsToAdjust) {
+                    // (Lógica de devolução de estoque mantida conforme seu sistema original)
+                    // ...
+                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                }
+            }
+        }
+        
+        if (tracking_code !== undefined) {
+            await connection.query("UPDATE orders SET tracking_code = ? WHERE id = ?", [tracking_code, id]);
+        }
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'ATUALIZOU PEDIDO', `ID: ${id}, Novo Status: ${status}`);
+        res.json({ message: "Pedido atualizado com sucesso." });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar pedido:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar o pedido." });
+    } finally {
+        connection.release();
+    }
+});
 
 const sendEmailAsync = async (options) => {
     try {

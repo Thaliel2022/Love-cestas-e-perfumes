@@ -13248,6 +13248,20 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
+// Função auxiliar para converter a chave VAPID (Adicione antes do AppContent)
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -13282,6 +13296,44 @@ function AppContent({ deferredPrompt }) {
     const intervalId = setInterval(checkStatus, 30000); 
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
+
+  // --- NOVO: Lógica de Registro de Push Notifications ---
+  useEffect(() => {
+    const registerPush = async () => {
+        // Só executa se estiver logado e se o navegador suportar Service Workers e Push API
+        if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        try {
+            // 1. Aguarda o Service Worker estar ativo
+            const registration = await navigator.serviceWorker.ready;
+
+            // 2. Verifica/Solicita permissão (No Android TWA isso geralmente é automático ou já concedido)
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.log('Permissão de notificação não concedida.');
+                return;
+            }
+
+            // 3. Chave Pública VAPID (Sua chave real)
+            const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
+
+            // 4. Cria a inscrição no Push Manager do navegador
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
+
+            // 5. Envia para o backend salvar no banco de dados
+            await apiService('/notifications/subscribe', 'POST', subscription);
+            console.log('✅ Dispositivo registrado para notificações push com sucesso!');
+
+        } catch (error) {
+            console.error('Erro ao registrar push notification:', error);
+        }
+    };
+
+    registerPush();
+  }, [isAuthenticated]); // Executa sempre que o status de autenticação mudar para true
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -13356,7 +13408,7 @@ function AppContent({ deferredPrompt }) {
             'reports': <AdminReports />,
             'logs': <AdminLogsPage />,
             'newsletter': <AdminNewsletter />, 
-            'shipping': <AdminShippingSettings />, // NOVA ROTA
+            'shipping': <AdminShippingSettings />, 
         };
 
         return (
@@ -13385,7 +13437,7 @@ function AppContent({ deferredPrompt }) {
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
         'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
-        'categories': <CategoriesPage onNavigate={navigate} />, // Rota para o novo menu mobile
+        'categories': <CategoriesPage onNavigate={navigate} />, 
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
         'cart': <CartPage onNavigate={navigate} />,
