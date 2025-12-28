@@ -13202,225 +13202,14 @@ function urlBase64ToUint8Array(base64String) {
   }
   return outputArray;
 }
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-
-// ... (imports e função urlBase64ToUint8Array mantidos iguais acima) ...
-
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-
-// ... (código anterior do arquivo)
-
-const MyProfileSection = () => {
-    const { user, setUser } = useAuth();
-    const notification = useNotification();
-
-    // Estados Modais
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-    const [newPassword, setNewPassword] = useState('');
-    const [isPasswordLoading, setIsPasswordLoading] = useState(false);
-    const [is2faModalOpen, setIs2faModalOpen] = useState(false);
-    const [is2faDisableModalOpen, setIs2faDisableModalOpen] = useState(false);
-    const [qrCodeUrl, setQrCodeUrl] = useState('');
-    const [twoFactorSecret, setTwoFactorSecret] = useState('');
-    const [verificationCode, setVerificationCode] = useState('');
-    const [disablePassword, setDisablePassword] = useState('');
-    const [disableVerificationCode, setDisableVerificationCode] = useState('');
-    const [is2faLoading, setIs2faLoading] = useState(false);
-
-    // --- FUNÇÕES DE SEGURANÇA (Senha e 2FA) ---
-    const handlePasswordChange = async (e) => {
-        e.preventDefault();
-        if (newPassword.length < 6) {
-            notification.show("A nova senha deve ter pelo menos 6 caracteres.", "error");
-            return;
-        }
-        setIsPasswordLoading(true);
-        try {
-            await apiService('/users/me/password', 'PUT', { password: newPassword });
-            notification.show('Senha alterada com sucesso!');
-            setNewPassword('');
-            setIsPasswordModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro: ${error.message}`, 'error');
-        } finally {
-            setIsPasswordLoading(false);
-        }
-    };
-
-    const handleGenerate2FA = async () => {
-        setIs2faLoading(true);
-        try {
-            const data = await apiService('/2fa/generate', 'POST');
-            setQrCodeUrl(data.qrCodeUrl);
-            setTwoFactorSecret(data.secret);
-            setIs2faModalOpen(true);
-        } catch (error) {
-            notification.show(`Erro ao gerar código 2FA: ${error.message}`, 'error');
-        } finally {
-            setIs2faLoading(false);
-        }
-    };
-
-    const handleVerifyAndEnable2FA = async (e) => {
-        e.preventDefault();
-        setIs2faLoading(true);
-        try {
-            await apiService('/2fa/verify-enable', 'POST', { token: verificationCode });
-            notification.show('Autenticação de Dois Fatores ativada com sucesso!');
-            const updatedUser = { ...user, is_two_factor_enabled: 1 };
-            setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            setIs2faModalOpen(false);
-        } catch (error) {
-            notification.show(`Erro na verificação: ${error.message}`, 'error');
-        } finally {
-            setIs2faLoading(false);
-        }
-    };
-
-    const handleDisable2FA = async (e) => {
-        e.preventDefault();
-        setIs2faLoading(true);
-        try {
-            await apiService('/2fa/disable', 'POST', { 
-                password: disablePassword,
-                token: disableVerificationCode 
-            });
-            notification.show('Autenticação de Dois Fatores desativada.');
-            const updatedUser = { ...user, is_two_factor_enabled: 0 };
-            setUser(updatedUser);
-            localStorage.setItem('user', JSON.stringify(updatedUser));
-            setIs2faDisableModalOpen(false);
-            setDisablePassword('');
-            setDisableVerificationCode('');
-        } catch (error) {
-            notification.show(`Erro ao desativar: ${error.message}`, 'error');
-        } finally {
-            setIs2faLoading(false);
-        }
-    };
-
-    return (
-        <>
-            <AnimatePresence>
-                {isPasswordModalOpen && (
-                    <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} title="Alterar Senha">
-                        <form onSubmit={handlePasswordChange} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
-                            </div>
-                            <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
-                                {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
-                            </button>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {is2faModalOpen && (
-                    <Modal isOpen={true} onClose={() => setIs2faModalOpen(false)} title="Ativar Autenticação de Dois Fatores">
-                        <div className="text-center space-y-4">
-                            <p className="text-gray-600">1. Escaneie este QR Code com seu aplicativo autenticador (Google Authenticator, Authy, etc).</p>
-                            <img src={qrCodeUrl} alt="QR Code para 2FA" className="mx-auto border-4 border-white shadow-lg"/>
-                            <p className="text-gray-600 text-sm">Se não puder escanear, insira esta chave manualmente:</p>
-                            <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
-                            <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
-                                <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
-                                <input 
-                                    type="text" 
-                                    value={verificationCode} 
-                                    onChange={e => setVerificationCode(e.target.value)}
-                                    maxLength="6"
-                                    placeholder="123456"
-                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
-                                />
-                                <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
-                                    {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
-                                </button>
-                            </form>
-                        </div>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {is2faDisableModalOpen && (
-                     <Modal isOpen={true} onClose={() => setIs2faDisableModalOpen(false)} title="Desativar Autenticação de Dois Fatores">
-                        <form onSubmit={handleDisable2FA} className="space-y-4">
-                            <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
-                                <input 
-                                    type="text" 
-                                    value={disableVerificationCode} 
-                                    onChange={e => setDisableVerificationCode(e.target.value)}
-                                    maxLength="6"
-                                    required 
-                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
-                                />
-                            </div>
-                            <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
-                                {is2faLoading ? <SpinnerIcon/> : "Confirmar e Desativar"}
-                            </button>
-                        </form>
-                    </Modal>
-                )}
-            </AnimatePresence>
-
-            <h2 className="text-2xl font-bold text-amber-400 mb-6">Meus Dados</h2>
-            <div className="bg-gray-800 p-6 rounded-lg space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
-                <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
-            </div>
-
-            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
-
-            {user?.role === 'admin' && (
-                <div className="mt-8 pt-6 border-t border-gray-800">
-                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
-                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
-                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
-                        </div>
-                        {user.is_two_factor_enabled ? (
-                            <div className="text-center flex-shrink-0">
-                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
-                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
-                            </div>
-                        ) : (
-                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
-                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
-        </>
-    );
-};
-
-// ... (restante do código)
-
-
-
-
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const notification = useNotification();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção
+  // Efeito para buscar o status de manutenção (inicial e periodicamente)
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -13434,56 +13223,58 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar manutenção:", err);
+                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                if (isStatusLoading) setIsStatusLoading(false);
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
             });
     };
+
     checkStatus(); 
     const intervalId = setInterval(checkStatus, 30000); 
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
-  // --- Lógica de Registro de Push Notifications ---
+  // --- NOVO: Lógica de Registro de Push Notifications ---
   useEffect(() => {
     const registerPush = async () => {
+        // Só executa se estiver logado e se o navegador suportar Service Workers e Push API
         if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
 
         try {
-            // Tenta registrar/recuperar o SW
-            let registration = await navigator.serviceWorker.ready;
-            
-            // Se o ready demorar, tenta registrar manualmente de novo
-            if (!registration) {
-                 registration = await navigator.serviceWorker.register('/sw.js');
+            // 1. Aguarda o Service Worker estar ativo
+            const registration = await navigator.serviceWorker.ready;
+
+            // 2. Verifica/Solicita permissão (No Android TWA isso geralmente é automático ou já concedido)
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.log('Permissão de notificação não concedida.');
+                return;
             }
 
-            let subscription = await registration.pushManager.getSubscription();
+            // 3. Chave Pública VAPID (Sua chave real)
+            const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
 
-            if (!subscription) {
-                const permission = await Notification.requestPermission();
-                if (permission === 'granted') {
-                    const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
-                    subscription = await registration.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
-                    });
-                }
-            }
+            // 4. Cria a inscrição no Push Manager do navegador
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+            });
 
-            if (subscription) {
-                await apiService('/notifications/subscribe', 'POST', subscription);
-                console.log('✅ Push Notifications sincronizadas.');
-            }
+            // 5. Envia para o backend salvar no banco de dados
+            await apiService('/notifications/subscribe', 'POST', subscription);
+            console.log('✅ Dispositivo registrado para notificações push com sucesso!');
+
         } catch (error) {
-            console.error('Erro silencioso no registro auto de push:', error);
+            console.error('Erro ao registrar push notification:', error);
         }
     };
 
     registerPush();
-  }, [isAuthenticated]);
+  }, [isAuthenticated]); // Executa sempre que o status de autenticação mudar para true
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
@@ -13493,6 +13284,7 @@ function AppContent({ deferredPrompt }) {
     const pendingOrderId = sessionStorage.getItem('pendingOrderId');
     
     if (pendingOrderId && !currentPath.startsWith('order-success')) {
+      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
       sessionStorage.removeItem('pendingOrderId'); 
       navigate(`order-success/${pendingOrderId}`);
     } else if (currentPath.startsWith('order-success')) {
@@ -13501,32 +13293,49 @@ function AppContent({ deferredPrompt }) {
   }, [currentPath, navigate]); 
   
   useEffect(() => {
-    const handleHashChange = () => setCurrentPath(window.location.hash.slice(1) || 'home');
+    const handleHashChange = () => {
+      setCurrentPath(window.location.hash.slice(1) || 'home');
+    };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [currentPath]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentPath]);
   
   if (isLoading || isStatusLoading) {
-      return <div className="h-screen flex items-center justify-center bg-black"><SpinnerIcon className="h-8 w-8 text-amber-400"/></div>;
+      return (
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        </div>
+      );
   }
 
   const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
   const isAdminDomain = window.location.hostname.includes('vercel.app');
 
-  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) return <MaintenancePage />;
+  if (isInMaintenance && !isAdminLoggedIn && !isAdminDomain) {
+      return <MaintenancePage />;
+  }
 
   const renderPage = () => {
     const [path, queryString] = currentPath.split('?');
     const searchParams = new URLSearchParams(queryString);
+    const initialSearch = searchParams.get('search') || '';
+    const initialCategory = searchParams.get('category') || '';
+    const initialBrand = searchParams.get('brand') || '';
+    const initialIsPromo = searchParams.get('promo') === 'true';
     
     const pathParts = path.split('/');
     const mainPage = pathParts[0];
     const pageId = pathParts[1];
 
     if (mainPage === 'admin') {
-        if (!isAuthenticated || user.role !== 'admin') return <LoginPage onNavigate={navigate} />;
+        if (!isAuthenticated || user.role !== 'admin') {
+             return <LoginPage onNavigate={navigate} />;
+        }
+        
         const adminSubPage = pageId || 'dashboard';
         const adminPages = {
             'dashboard': <AdminDashboard onNavigate={navigate} />, 
@@ -13542,17 +13351,33 @@ function AppContent({ deferredPrompt }) {
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
         };
-        return <AdminLayout activePage={adminSubPage} onNavigate={navigate}>{adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}</AdminLayout>;
+
+        return (
+            <AdminLayout activePage={adminSubPage} onNavigate={navigate}>
+                {adminPages[adminSubPage] || <AdminDashboard onNavigate={navigate} />}
+            </AdminLayout>
+        );
     }
 
-    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) return <LoginPage onNavigate={navigate} />;
-    if (mainPage === 'product' && pageId) return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
-    if (mainPage === 'order-success' && pageId) return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
-    if (mainPage === 'account') return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
+    if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
+        return <LoginPage onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'product' && pageId) {
+        return <ProductDetailPage productId={parseInt(pageId)} onNavigate={navigate} />;
+    }
+
+    if (mainPage === 'order-success' && pageId) {
+        return <OrderSuccessPage orderId={pageId} onNavigate={navigate} />;
+    }
+    
+    if (mainPage === 'account') {
+        return <MyAccountPage onNavigate={navigate} path={pathParts.slice(1).join('/')} />;
+    }
 
    const pages = {
         'home': <HomePage onNavigate={navigate} />,
-        'products': <ProductsPage onNavigate={navigate} initialSearch={searchParams.get('search')||''} initialCategory={searchParams.get('category')||''} initialBrand={searchParams.get('brand')||''} initialIsPromo={searchParams.get('promo')==='true'} />,
+        'products': <ProductsPage onNavigate={navigate} initialSearch={initialSearch} initialCategory={initialCategory} initialBrand={initialBrand} initialIsPromo={initialIsPromo} />,
         'categories': <CategoriesPage onNavigate={navigate} />, 
         'login': <LoginPage onNavigate={navigate} />,
         'register': <RegisterPage onNavigate={navigate} />,
@@ -13636,6 +13461,7 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
