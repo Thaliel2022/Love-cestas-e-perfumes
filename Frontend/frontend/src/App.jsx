@@ -1666,7 +1666,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1690,7 +1690,6 @@ const Header = memo(({ onNavigate }) => {
         return () => window.removeEventListener('hashchange', handleHashChange);
      }, []);
 
-    // Efeito para controlar a visibilidade da BottomNavBar no scroll (APENAS IPHONE)
     useEffect(() => {
         const isIOS = () => {
             return [
@@ -1931,7 +1930,7 @@ const Header = memo(({ onNavigate }) => {
                         <BarsGripIcon className="h-6 w-6 mb-1"/>
                          {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
                         {isAuthenticated && orderNotificationCount > 0 && (
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black"></span>
+                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
                         )}
                     </div>
                     <span className="text-[10px]">Menu</span>
@@ -2031,7 +2030,7 @@ const Header = memo(({ onNavigate }) => {
                                 <PackageIcon className="h-6 w-6"/> 
                                 {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
                                 {orderNotificationCount > 0 && (
-                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2">
+                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
                                         {orderNotificationCount}
                                     </span>
                                 )}
@@ -2115,8 +2114,8 @@ const Header = memo(({ onNavigate }) => {
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
                                             <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
                                                 <span>Devoluções e Pedidos</span>
-                                                {/* --- NOTIFICAÇÃO NO MENU DRAWER MOBILE --- */}
-                                                {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">{orderNotificationCount}</span>}
+                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
+                                                {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
                                             </a> 
                                             {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
                                             <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
