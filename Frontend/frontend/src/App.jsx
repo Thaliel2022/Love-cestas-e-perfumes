@@ -5464,18 +5464,16 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         }
     };
 
-    // --- CORREÇÃO: Reset automático do botão de pagamento ao retornar à aba ---
+    // --- Reset automático do botão de pagamento ao retornar à aba ---
     useEffect(() => {
         const resetPaymentState = () => {
-            // Se o usuário voltar para a aba, removemos o estado de "carregando"
-            // para permitir que ele tente novamente se necessário.
             if (document.visibilityState === 'visible') {
                 setIsRetryingPayment(false);
             }
         };
 
         window.addEventListener('focus', resetPaymentState);
-        window.addEventListener('pageshow', resetPaymentState); // Crucial para o botão "Voltar" do navegador (BFcache)
+        window.addEventListener('pageshow', resetPaymentState);
         document.addEventListener('visibilitychange', resetPaymentState);
 
         return () => {
@@ -5486,8 +5484,15 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     }, []);
 
     useEffect(() => {
+        // Limpa o estado do carrinho
         clearOrderState(); 
         
+        // --- CORREÇÃO DE FLUXO ---
+        // Remove a flag de pedido pendente assim que esta página carrega com sucesso.
+        // Isso impede que o AppContent redirecione o usuário de volta para cá
+        // se ele tentar navegar para Home ou outras páginas.
+        sessionStorage.removeItem('pendingOrderId');
+
         let pollInterval;
         let timeout;
 
