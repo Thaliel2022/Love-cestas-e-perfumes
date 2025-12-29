@@ -379,7 +379,7 @@ const ShopProvider = ({ children }) => {
         try { return JSON.parse(val) || []; } catch { return []; }
     };
 
-    // --- NOVO: Busca notificações de pedidos (Polling) ---
+    // --- Busca notificações de pedidos (Polling) ---
     // Verifica no banco de dados se há pedidos com atualizações não vistas
     const checkNotifications = useCallback(async () => {
         if (!isAuthenticated) {
@@ -387,19 +387,17 @@ const ShopProvider = ({ children }) => {
             return;
         }
         try {
-            // Nota: Este endpoint deve ser implementado no backend para retornar { count: N }
-            // baseando-se em um campo 'is_seen' ou tabela de notificações.
             const data = await apiService('/notifications/orders/count', 'GET', null, { suppressAuthError: true });
             if (data && typeof data.count === 'number') {
                 setOrderNotificationCount(data.count);
             }
         } catch (error) {
             // Silencia erros de polling para não atrapalhar a UX
-            console.warn("Falha ao buscar notificações:", error);
+            // console.warn("Falha ao buscar notificações:", error);
         }
     }, [isAuthenticated]);
 
-    // --- NOVO: Marca pedido como visto ---
+    // --- Marca pedido como visto ---
     const markOrderAsSeen = useCallback(async (orderId) => {
         if (!isAuthenticated) return;
         try {
@@ -412,11 +410,11 @@ const ShopProvider = ({ children }) => {
         }
     }, [isAuthenticated, checkNotifications]);
 
-    // Efeito para Polling de Notificações
+    // Efeito para Polling de Notificações - INTERVALO REDUZIDO PARA 5 SEGUNDOS
     useEffect(() => {
         checkNotifications();
-        // Verifica a cada 60 segundos se há novas atualizações
-        const interval = setInterval(checkNotifications, 60000);
+        // Verifica a cada 5 segundos se há novas atualizações
+        const interval = setInterval(checkNotifications, 5000);
         return () => clearInterval(interval);
     }, [checkNotifications]);
 
@@ -455,8 +453,6 @@ const ShopProvider = ({ children }) => {
         }
         return date;
     }, []);
-
-    // ... (restante das funções: fetchShippingConfig, calculateLocalDeliveryPrice, fetchPersistentCart, etc. permanecem iguais)
     
     // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
