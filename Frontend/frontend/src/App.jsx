@@ -6724,6 +6724,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
 };
 const MyAccountPage = ({ onNavigate, path }) => {
     const { user, logout } = useAuth();
+    const { orderNotificationCount } = useShop(); // Hook para pegar a contagem
     
     // A lógica agora extrai a aba principal e o ID do detalhe
     const pathParts = (path || 'orders').split('/');
@@ -6735,7 +6736,13 @@ const MyAccountPage = ({ onNavigate, path }) => {
     };
 
     const tabs = [
-        { key: 'orders', label: 'Meus Pedidos', icon: <PackageIcon className="h-5 w-5"/> },
+        { 
+            key: 'orders', 
+            label: 'Meus Pedidos', 
+            icon: <PackageIcon className="h-5 w-5"/>,
+            // Adiciona a contagem apenas nesta aba
+            notification: orderNotificationCount 
+        },
         { key: 'addresses', label: 'Meus Endereços', icon: <MapPinIcon className="h-5 w-5"/> },
         { key: 'profile', label: 'Meus Dados', icon: <UserIcon className="h-5 w-5"/> },
     ];
@@ -6766,9 +6773,21 @@ const MyAccountPage = ({ onNavigate, path }) => {
                     <aside className="lg:col-span-1">
                         <div className="bg-gray-900 p-4 rounded-lg border border-gray-800 space-y-2">
                             {tabs.map(tab => (
-                                <button key={tab.key} onClick={() => handleNavigation(tab.key)} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}>
-                                    {tab.icon}
-                                    <span>{tab.label}</span>
+                                <button 
+                                    key={tab.key} 
+                                    onClick={() => handleNavigation(tab.key)} 
+                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-md text-left transition-colors ${activeTab === tab.key ? 'bg-amber-500 text-black font-bold' : 'hover:bg-gray-800'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {tab.icon}
+                                        <span>{tab.label}</span>
+                                    </div>
+                                    {/* Exibe o badge se houver notificações */}
+                                    {tab.notification > 0 && (
+                                        <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                                            {tab.notification}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                             <button onClick={() => { logout(); onNavigate('home'); }} className="w-full flex items-center space-x-3 px-4 py-3 rounded-md text-left transition-colors hover:bg-gray-800">
