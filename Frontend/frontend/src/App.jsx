@@ -4931,6 +4931,17 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
+    // --- NOVA PROTEÇÃO DE FLUXO ---
+    // Se o usuário já tiver um pedido pendente (ex: fechou o MP e voltou),
+    // redireciona para a tela de sucesso/pagamento ao invés de ficar preso no checkout.
+    useEffect(() => {
+        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+        if (pendingOrderId) {
+            console.log("Pedido pendente detectado no Checkout. Redirecionando...");
+            onNavigate(`order-success/${pendingOrderId}`);
+        }
+    }, [onNavigate]);
+
     // Efeito para preencher WhatsApp e dados iniciais
     useEffect(() => {
         setIsAddressLoading(true);
@@ -5077,7 +5088,6 @@ const CheckoutPage = ({ onNavigate }) => {
 
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     
-    // --- CORREÇÃO: Aceita texto direto para Entrega Local ---
     const getDeliveryDateText = (deliveryTime) => {
         // Se for string "1 dia útil", calcula a data
         if (typeof deliveryTime === 'string' && deliveryTime.includes('1 dia')) {
@@ -5398,10 +5408,14 @@ const CheckoutPage = ({ onNavigate }) => {
 
 const OrderSuccessPage = ({ orderId, onNavigate }) => {
     const { clearOrderState } = useShop();
-    const [pageStatus, setPageStatus] = useState('processing');
+    const notification = useNotification();
+    const [pageStatus, setPageStatus] = useState('processing'); // 'processing', 'success', 'timeout', 'pending_action'
     const [finalOrderStatus, setFinalOrderStatus] = useState('');
+    const [isRetryingPayment, setIsRetryingPayment] = useState(false);
 
     const statusRef = useRef(pageStatus);
+    const pollsCount = useRef(0);
+
     useEffect(() => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
@@ -5421,15 +5435,58 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         return false; 
     }, [orderId]);
 
+    const handleRetryPayment = async () => {
+        setIsRetryingPayment(true);
+        try {
+            const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
+            if (paymentResult && paymentResult.init_point) {
+                // ATUALIZAÇÃO: Usa assign para navegação explícita na mesma janela, 
+                // tentando manter o contexto do navegador original.
+                window.location.assign(paymentResult.init_point);
+            } else {
+                throw new Error("Não foi possível obter o link de pagamento.");
+            }
+        } catch (error) {
+            notification.show(`Erro ao tentar abrir o pagamento: ${error.message}`, 'error');
+            setIsRetryingPayment(false);
+        }
+    };
+
+    const handleManualCheck = async () => {
+        setPageStatus('processing');
+        const isFinished = await pollStatus();
+        if (!isFinished) {
+            // Se ainda estiver pendente após verificação manual, volta para 'pending_action'
+            // mas dá um feedback visual
+            setTimeout(() => {
+                 if (statusRef.current !== 'success') {
+                    setPageStatus('pending_action');
+                    notification.show("O pagamento ainda não foi confirmado. Aguarde alguns instantes.", "error");
+                 }
+            }, 2000);
+        }
+    };
+
     useEffect(() => {
-        clearOrderState();
+        // Limpa o estado do carrinho apenas uma vez ao montar
+        clearOrderState(); 
+        
         let pollInterval;
         let timeout;
 
+        // Função para forçar verificação ao focar na janela (usuário voltou da aba do MP)
         const forceCheck = () => {
-            if (statusRef.current === 'processing') {
+            if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
                 console.log("Forçando verificação de status (evento de visibilidade/foco)");
-                pollStatus();
+                setPageStatus('processing');
+                pollStatus().then(isFinished => {
+                    if (!isFinished) {
+                         // Se verificou e ainda não está pago, e já passou um tempo, mostra botões de ação
+                         if (pollsCount.current > 2) {
+                             setPageStatus('pending_action');
+                         }
+                    }
+                });
             }
         };
 
@@ -5438,13 +5495,18 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             if (isFinished) return; 
 
             pollInterval = setInterval(async () => {
+                 pollsCount.current += 1;
                  const finished = await pollStatus();
                  if (finished) {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
+                 } else if (pollsCount.current >= 4 && statusRef.current === 'processing') {
+                     // Se após ~20s (4 polls de 5s) ainda estiver pendente, muda UI para oferecer ação
+                     setPageStatus('pending_action');
                  }
             }, 5000);
             
+            // Timeout total de segurança
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
@@ -5475,40 +5537,75 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                 return {
                     icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
                     title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`
+                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`,
+                    actions: (
+                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ver Meus Pedidos</button>
+                    )
+                };
+            case 'pending_action':
+                return {
+                    icon: <ExclamationCircleIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
+                    title: "Aguardando Pagamento",
+                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago, clique abaixo para pagar.`,
+                    actions: (
+                        <div className="flex flex-col gap-3 w-full sm:w-auto">
+                             <button 
+                                onClick={handleRetryPayment} 
+                                disabled={isRetryingPayment}
+                                className="bg-green-600 text-white px-6 py-3 rounded-md font-bold hover:bg-green-700 flex items-center justify-center gap-2 w-full"
+                            >
+                                {isRetryingPayment ? <SpinnerIcon/> : <CreditCardIcon className="h-5 w-5"/>}
+                                Realizar Pagamento
+                            </button>
+                            <button 
+                                onClick={handleManualCheck} 
+                                className="bg-gray-700 text-white px-6 py-3 rounded-md font-bold hover:bg-gray-600 w-full"
+                            >
+                                Já Paguei (Atualizar)
+                            </button>
+                        </div>
+                    )
                 };
             case 'timeout':
                 return {
-                    icon: <ClockIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
-                    title: "Processando seu Pedido!",
-                    message: `Seu pedido #${orderId} foi recebido e estamos aguardando a confirmação final do pagamento. Isso é normal para alguns métodos de pagamento. Você pode acompanhar o status atualizado na sua área de "Meus Pedidos".`
+                    icon: <ClockIcon className="h-16 w-16 text-gray-500 mx-auto mb-4" />,
+                    title: "Processando...",
+                    message: `Seu pedido #${orderId} foi recebido. Estamos aguardando a confirmação do banco. Você pode verificar o status a qualquer momento em "Meus Pedidos".`,
+                    actions: (
+                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ir para Meus Pedidos</button>
+                    )
                 };
-     case 'processing':
+            case 'processing':
             default:
                 return {
                     icon: (
                         <div className="relative mb-6">
                             <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto animate-spin" />
-                            <ClockIcon className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-8 w-8 text-white" />
                         </div>
                     ),
                     title: "Confirmando Pagamento...",
-                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora."
+                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora.",
+                    actions: null
                 };
         }
     };
 
-    const { icon, title, message } = renderContent();
+    const { icon, title, message, actions } = renderContent();
 
     return (
         <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
             <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
                 {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-2">{title}</h1>
-                <p className="text-gray-300 mb-6">{message}</p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                    <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400">Ver Meus Pedidos</button>
-                    <button onClick={() => onNavigate('home')} className="bg-gray-700 text-white px-6 py-2 rounded-md font-bold hover:bg-gray-600">Voltar à Página Inicial</button>
+                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-4">{title}</h1>
+                <p className="text-gray-300 mb-8 leading-relaxed">{message}</p>
+                
+                <div className="flex flex-col items-center gap-4">
+                    {actions}
+                    {pageStatus !== 'processing' && (
+                        <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white underline text-sm mt-2">
+                            Voltar à Página Inicial
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -13335,17 +13432,33 @@ function AppContent({ deferredPrompt }) {
     window.location.hash = path;
   }, []);
   
+  // --- ATUALIZAÇÃO: Redirecionamento inteligente ---
+  // Verifica pendências não apenas na navegação, mas ao retomar o foco na aba
   useEffect(() => {
-    const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-    
-    if (pendingOrderId && !currentPath.startsWith('order-success')) {
-      console.log(`Detected return from payment for order ${pendingOrderId}. Redirecting to success page.`);
-      sessionStorage.removeItem('pendingOrderId'); 
-      navigate(`order-success/${pendingOrderId}`);
-    } else if (currentPath.startsWith('order-success')) {
-        sessionStorage.removeItem('pendingOrderId');
-    }
-  }, [currentPath, navigate]); 
+    const checkPendingOrder = () => {
+        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+        // Se existe um pedido pendente e NÃO estamos na página de sucesso, redireciona
+        if (pendingOrderId && !window.location.hash.includes('order-success')) {
+            console.log(`Retorno detectado. Redirecionando para sucesso do pedido ${pendingOrderId}.`);
+            // Limpeza opcional aqui se quiser forçar apenas uma vez, 
+            // mas manter o session ajuda se o usuário recarregar a página errada.
+            // A limpeza real é feita no OrderSuccessPage.
+            navigate(`order-success/${pendingOrderId}`);
+        }
+    };
+
+    // Verifica imediatamente
+    checkPendingOrder();
+
+    // Verifica quando a aba ganha foco (ex: usuário fechou MP e voltou pra cá)
+    window.addEventListener('focus', checkPendingOrder);
+    window.addEventListener('visibilitychange', checkPendingOrder);
+
+    return () => {
+        window.removeEventListener('focus', checkPendingOrder);
+        window.removeEventListener('visibilitychange', checkPendingOrder);
+    };
+  }, [navigate]); 
   
   useEffect(() => {
     const handleHashChange = () => {
@@ -13516,7 +13629,6 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
