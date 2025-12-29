@@ -461,11 +461,11 @@ app.post('/api/notifications/subscribe', verifyToken, async (req, res) => {
 
 // 1. SUBSTITUA A FUNÇÃO updateOrderStatus EXISTENTE POR ESTA VERSÃO COMPLETA:
 const updateOrderStatus = async (orderId, newStatus, connection, notes = null) => {
-    // Atualiza o banco de dados
-    await connection.query("UPDATE orders SET status = ? WHERE id = ?", [newStatus, orderId]);
+    // Atualiza o status E marca como "não visto" (has_unseen_update = 1) no banco de dados
+    await connection.query("UPDATE orders SET status = ?, has_unseen_update = 1 WHERE id = ?", [newStatus, orderId]);
     await connection.query("INSERT INTO order_status_history (order_id, status, notes) VALUES (?, ?, ?)", [orderId, newStatus, notes]);
     
-    // --- LÓGICA DE NOTIFICAÇÃO PUSH ---
+    // --- LÓGICA DE NOTIFICAÇÃO PUSH (COMPLETA) ---
     try {
         // Busca o ID do usuário dono do pedido
         const [orderData] = await connection.query("SELECT user_id FROM orders WHERE id = ?", [orderId]);
@@ -506,14 +506,14 @@ const updateOrderStatus = async (orderId, newStatus, connection, notes = null) =
                 vibrate: [200, 100, 200]
             };
 
-            // Dispara a notificação
-            sendPushNotificationToUser(userId, payload);
+            // Dispara a notificação usando a função auxiliar existente
+            await sendPushNotificationToUser(userId, payload);
         }
     } catch (pushErr) {
         console.error("Erro ao tentar disparar notificação automática:", pushErr);
     }
     
-    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}" e registrado no histórico.`);
+    console.log(`Status do pedido #${orderId} atualizado para "${newStatus}", marcado como não visto e registrado no histórico.`);
 };
 
 // ... existing code ...
@@ -2752,14 +2752,47 @@ app.delete('/api/cart', verifyToken, async (req, res) => {
     }
 });
 
+app.get('/api/notifications/orders/count', verifyToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        // Conta quantos pedidos deste usuário têm has_unseen_update = 1
+        const [rows] = await db.query(
+            "SELECT COUNT(*) as count FROM orders WHERE user_id = ? AND has_unseen_update = 1", 
+            [userId]
+        );
+        res.json({ count: rows[0].count });
+    } catch (err) {
+        console.error("Erro ao contar notificações:", err);
+        res.status(500).json({ count: 0 });
+    }
+});
+
+// Rota para marcar pedido como visto (Chamada ao abrir detalhes do pedido)
+app.put('/api/orders/:id/mark-seen', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.id;
+    try {
+        // Reseta o campo has_unseen_update para 0
+        await db.query(
+            "UPDATE orders SET has_unseen_update = 0 WHERE id = ? AND user_id = ?", 
+            [id, userId]
+        );
+        res.json({ message: "Pedido marcado como visto." });
+    } catch (err) {
+        console.error("Erro ao marcar pedido como visto:", err);
+        res.status(500).json({ message: "Erro ao atualizar status de visualização." });
+    }
+});
+
 // --- ROTAS DE PEDIDOS ---
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { id: orderId } = req.query; 
+    const userId = req.user.id;
+    const { id: orderId } = req.query; 
 
-   try {
+   try {
+        // INCLUI O CAMPO has_unseen_update NO SELECT
         let sql = `
-            SELECT o.*, r.status as refund_status, r.created_at as refund_created_at
+            SELECT o.*, o.has_unseen_update, r.status as refund_status, r.created_at as refund_created_at
             FROM orders o
             LEFT JOIN refunds r ON o.refund_id = r.id
             WHERE o.user_id = ?
@@ -2786,19 +2819,19 @@ app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
                 WHERE oi.order_id = ?
             `, [order.user_id, order.id]);
 
-            const parsedItems = items.map(item => ({
-                ...item,
-                is_reviewed: !!item.is_reviewed,
-                variation: item.variation_details ? JSON.parse(item.variation_details) : null
-            }));
-            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
-            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
-        }));
-        res.json(detailedOrders);
-    } catch (err) {
-        console.error("Erro ao buscar histórico de pedidos:", err);
-        res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
-    }
+            const parsedItems = items.map(item => ({
+                ...item,
+                is_reviewed: !!item.is_reviewed,
+                variation: item.variation_details ? JSON.parse(item.variation_details) : null
+            }));
+            const [history] = await db.query("SELECT * FROM order_status_history WHERE order_id = ? ORDER BY status_date ASC", [order.id]);
+            return { ...order, items: parsedItems, history: Array.isArray(history) ? history : [] };
+        }));
+        res.json(detailedOrders);
+    } catch (err) {
+        console.error("Erro ao buscar histórico de pedidos:", err);
+        res.status(500).json({ message: "Erro ao buscar histórico de pedidos." });
+    }
 });
 
 app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
