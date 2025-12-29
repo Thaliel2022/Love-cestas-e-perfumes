@@ -2522,6 +2522,7 @@ const CategoriesPage = ({ onNavigate }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
     const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
+    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2634,10 +2635,19 @@ const CategoriesPage = ({ onNavigate }) => {
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
                 <>
-                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
-                        <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
+                    {/* --- CORREÇÃO DO BOTÃO "MEUS PEDIDOS" NA TELA DE MENU --- */}
+                    <button onClick={() => onNavigate('account/orders')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all relative">
+                        <div className="relative">
+                            <PackageIcon className="h-6 w-6 text-amber-400 mb-2"/>
+                            {orderNotificationCount > 0 && (
+                                <span className="absolute -top-1 -right-2 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black animate-pulse">
+                                    {orderNotificationCount}
+                                </span>
+                            )}
+                        </div>
                         <span className="text-sm font-bold text-gray-200">Meus Pedidos</span>
                     </button>
+
                     <button onClick={() => onNavigate('account')} className="bg-black border border-gray-700 p-4 rounded-lg flex flex-col items-center justify-center text-center hover:bg-gray-800 active:scale-95 transition-all">
                         <UserIcon className="h-6 w-6 text-amber-400 mb-2"/>
                         <span className="text-sm font-bold text-gray-200">Minha Conta</span>
