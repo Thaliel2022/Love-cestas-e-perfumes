@@ -368,6 +368,9 @@ const ShopProvider = ({ children }) => {
     // Novo estado para configuração de frete local
     const [localShippingConfig, setLocalShippingConfig] = useState({ base_price: 20, rules: [] });
 
+    // --- NOVO: Estado para Notificações de Pedidos ---
+    const [orderNotificationCount, setOrderNotificationCount] = useState(0);
+
     // Helpers internos
     const normalize = (str) => str ? String(str).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const safeParse = (val) => {
@@ -375,6 +378,47 @@ const ShopProvider = ({ children }) => {
         if (Array.isArray(val)) return val;
         try { return JSON.parse(val) || []; } catch { return []; }
     };
+
+    // --- NOVO: Busca notificações de pedidos (Polling) ---
+    // Verifica no banco de dados se há pedidos com atualizações não vistas
+    const checkNotifications = useCallback(async () => {
+        if (!isAuthenticated) {
+            setOrderNotificationCount(0);
+            return;
+        }
+        try {
+            // Nota: Este endpoint deve ser implementado no backend para retornar { count: N }
+            // baseando-se em um campo 'is_seen' ou tabela de notificações.
+            const data = await apiService('/notifications/orders/count', 'GET', null, { suppressAuthError: true });
+            if (data && typeof data.count === 'number') {
+                setOrderNotificationCount(data.count);
+            }
+        } catch (error) {
+            // Silencia erros de polling para não atrapalhar a UX
+            console.warn("Falha ao buscar notificações:", error);
+        }
+    }, [isAuthenticated]);
+
+    // --- NOVO: Marca pedido como visto ---
+    const markOrderAsSeen = useCallback(async (orderId) => {
+        if (!isAuthenticated) return;
+        try {
+            // Chama API para atualizar o status da notificação no banco
+            await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
+            // Atualiza o contador localmente imediatamente para UX instantânea
+            checkNotifications(); 
+        } catch (error) {
+            console.error("Erro ao marcar pedido como visto:", error);
+        }
+    }, [isAuthenticated, checkNotifications]);
+
+    // Efeito para Polling de Notificações
+    useEffect(() => {
+        checkNotifications();
+        // Verifica a cada 60 segundos se há novas atualizações
+        const interval = setInterval(checkNotifications, 60000);
+        return () => clearInterval(interval);
+    }, [checkNotifications]);
 
     // --- LÓGICA DE CÁLCULO DE DATA (FERIADOS) ---
     const calculateDeliveryDate = useCallback((daysToAdd) => {
@@ -412,12 +456,12 @@ const ShopProvider = ({ children }) => {
         return date;
     }, []);
 
+    // ... (restante das funções: fetchShippingConfig, calculateLocalDeliveryPrice, fetchPersistentCart, etc. permanecem iguais)
+    
     // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
             .then(data => {
-                // Atualiza apenas se houver mudança para evitar re-render desnecessário, 
-                // mas como é objeto, o React geralmente atualiza.
                 setLocalShippingConfig(prev => {
                     if (JSON.stringify(prev) !== JSON.stringify(data)) {
                         return data;
@@ -429,32 +473,22 @@ const ShopProvider = ({ children }) => {
     }, []);
 
     useEffect(() => {
-        fetchShippingConfig(); // Busca inicial imediata
-        
-        // Define um intervalo para buscar atualizações a cada 5 segundos
+        fetchShippingConfig(); 
         const intervalId = setInterval(fetchShippingConfig, 5000);
-        
-        // Limpa o intervalo ao desmontar
         return () => clearInterval(intervalId);
     }, [fetchShippingConfig]);
 
-    // --- NOVA LÓGICA DE CÁLCULO DE FRETE LOCAL (CORRIGIDA) ---
     const calculateLocalDeliveryPrice = useCallback((items) => {
         const defaultBasePrice = parseFloat(localShippingConfig.base_price) || 20;
-        
         if (!items || items.length === 0) return defaultBasePrice;
 
         let highestBasePriceFound = 0;
         let totalSurcharges = 0;
         let totalDiscounts = 0;
 
-        // Itera sobre cada item para determinar o custo de envio individual
-        // O custo base do pedido será o MAIOR custo base individual encontrado
         for (const item of items) {
             const itemCategory = normalize(item.category || "");
             const itemBrand = normalize(item.brand || "");
-            
-            // Começa assumindo o preço base global para este item
             let itemEffectiveBasePrice = defaultBasePrice; 
             
             if (localShippingConfig.rules && localShippingConfig.rules.length > 0) {
@@ -464,41 +498,27 @@ const ShopProvider = ({ children }) => {
                     if (!ruleValue) continue;
 
                     let match = false;
-                    // Lógica de match flexível (contém ou igual)
                     if (rule.type === 'category' && (itemCategory === ruleValue || itemCategory.includes(ruleValue))) match = true;
                     if (rule.type === 'brand' && (itemBrand === ruleValue || itemBrand.includes(ruleValue))) match = true;
 
                     if (match) {
                         switch (rule.action) {
-                            case 'free_shipping':
-                                // Para este item, o custo base é 0
-                                itemEffectiveBasePrice = 0;
-                                break;
-                            case 'surcharge':
-                                // Acréscimo é somado ao total global de acréscimos
-                                totalSurcharges += ruleAmount; 
-                                break;
-                            case 'discount':
-                                // Desconto é somado ao total global de descontos.
-                                totalDiscounts += ruleAmount;
-                                break;
+                            case 'free_shipping': itemEffectiveBasePrice = 0; break;
+                            case 'surcharge': totalSurcharges += ruleAmount; break;
+                            case 'discount': totalDiscounts += ruleAmount; break;
                             default: break;
                         }
                     }
                 }
             }
-            
-            // O custo base do pedido será o maior custo base individual encontrado entre os itens
             if (itemEffectiveBasePrice > highestBasePriceFound) {
                 highestBasePriceFound = itemEffectiveBasePrice;
             }
         }
-
         let finalPrice = highestBasePriceFound + totalSurcharges - totalDiscounts;
         return Math.max(0, finalPrice); 
     }, [localShippingConfig]);
 
-    // --- Fetch Carrinho ---
     const fetchPersistentCart = useCallback(async () => {
         if (!isAuthenticated) return;
         try {
@@ -523,7 +543,6 @@ const ShopProvider = ({ children }) => {
         } catch (err) { console.error("Falha ao buscar carrinho:", err); }
     }, [isAuthenticated]);
 
-    // --- Sincroniza Carrinho ---
     const syncGuestCartToDB = useCallback(async () => {
         const localCartStr = localStorage.getItem('lovecestas_cart');
         if (!localCartStr) return;
@@ -596,14 +615,15 @@ const ShopProvider = ({ children }) => {
                 await fetchPersistentCart();
                 determineShippingLocation();
                 apiService('/wishlist').then(setWishlist).catch(console.error);
+                checkNotifications(); // Checa notificações ao iniciar
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
-                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation();
+                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation(); setOrderNotificationCount(0);
             }
         };
         initializeShop();
-    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB]);
+    }, [isAuthenticated, isAuthLoading, fetchPersistentCart, determineShippingLocation, syncGuestCartToDB, checkNotifications]);
     
     useEffect(() => {
         if (cart.length > 0 && isAuthenticated) {
@@ -612,11 +632,8 @@ const ShopProvider = ({ children }) => {
         }
     }, [cart.length, isAuthenticated, fetchPersistentCart]);
 
-    // --- NOVA LÓGICA DE FRETE: JOÃO PESSOA VS RESTO ---
     useEffect(() => {
-        // Prioriza o previewShippingItem (do ProductDetail) sobre o cart
         const itemsToCalculate = previewShippingItem && previewShippingItem.length > 0 ? previewShippingItem : cart;
-        
         const debounceTimer = setTimeout(() => {
             if (itemsToCalculate && itemsToCalculate.length > 0 && shippingLocation.cep.replace(/\D/g, '').length === 8) {
                 setIsLoadingShipping(true);
@@ -633,8 +650,6 @@ const ShopProvider = ({ children }) => {
 
                         if (isJoaoPessoa) {
                             const localPrice = calculateLocalDeliveryPrice(itemsToCalculate);
-                            
-                            // Calcula data usando o helper centralizado
                             const date = calculateDeliveryDate(1);
                             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
                             const deliveryString = `Receba até ${formattedDate}`;
@@ -668,6 +683,7 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
+    // ... (restante das funções addToCart, removeFromCart, etc. - inalteradas)
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
@@ -675,12 +691,10 @@ const ShopProvider = ({ children }) => {
         const availableStock = variation ? variation.stock : productToAdd.stock;
         const currentQtyInCart = existing ? existing.qty : 0;
         if (currentQtyInCart + qty > availableStock) throw new Error(`Estoque insuficiente. Apenas ${availableStock} unid.`);
-        
         setCart(currentCart => {
             if (existing) return currentCart.map(item => item.cartItemId === cartItemId ? { ...item, qty: item.qty + qty } : item);
             return [...currentCart, { ...productToAdd, qty, variation, cartItemId }];
         });
-        
         if (isAuthenticated) {
             apiService('/cart', 'POST', { productId: productToAdd.id, quantity: existing ? existing.qty + qty : qty, variationId: variation?.id, variation: variation, variation_details: variation ? JSON.stringify(variation) : null }).catch(console.error);
         }
@@ -772,7 +786,6 @@ const ShopProvider = ({ children }) => {
 
     const clearOrderState = useCallback(() => { clearCart(); removeCoupon(); determineShippingLocation(); }, [clearCart, removeCoupon, determineShippingLocation]);
 
-    // Agora EXPOMOS setPreviewShippingItem
     return (
         <ShopContext.Provider value={{
             cart, setCart, clearOrderState, wishlist, addToCart, addToWishlist, removeFromWishlist, updateQuantity, removeFromCart, 
@@ -780,7 +793,8 @@ const ShopProvider = ({ children }) => {
             autoCalculatedShipping, setAutoCalculatedShipping, shippingOptions, isLoadingShipping, shippingError, 
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
-            calculateLocalDeliveryPrice, calculateDeliveryDate // EXPOSTO
+            calculateLocalDeliveryPrice, calculateDeliveryDate,
+            orderNotificationCount, markOrderAsSeen, checkNotifications // EXPOSTO
         }}>
             {children}
         </ShopContext.Provider>
@@ -1656,7 +1670,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1760,7 +1774,6 @@ const Header = memo(({ onNavigate }) => {
 
     useEffect(() => {
         if (isMobileMenuOpen && dynamicMenuItems.length === 0) {
-            console.log("Menu móvel aberto, mas sem itens. Tentando buscar categorias novamente...");
             fetchAndBuildMenu();
         }
     }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
@@ -1917,8 +1930,14 @@ const Header = memo(({ onNavigate }) => {
                     <span className="text-[10px]">Conta</span>
                 </button>
 
-                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <BarsGripIcon className="h-6 w-6 mb-1"/>
+                <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <div className="relative">
+                        <BarsGripIcon className="h-6 w-6 mb-1"/>
+                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
+                        {isAuthenticated && orderNotificationCount > 0 && (
+                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black"></span>
+                        )}
+                    </div>
                     <span className="text-[10px]">Menu</span>
                 </button>
             </motion.div>
@@ -2011,7 +2030,18 @@ const Header = memo(({ onNavigate }) => {
                         </form>
                     </div>
                     <div className="flex items-center space-x-2 sm:space-x-4">
-                        {isAuthenticated && ( <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <PackageIcon className="h-6 w-6"/> <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> </button> )}
+                        {isAuthenticated && ( 
+                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
+                                <PackageIcon className="h-6 w-6"/> 
+                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
+                                {orderNotificationCount > 0 && (
+                                    <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2">
+                                        {orderNotificationCount}
+                                    </span>
+                                )}
+                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> 
+                            </button> 
+                        )}
                         <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
                         <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
@@ -2084,7 +2114,18 @@ const Header = memo(({ onNavigate }) => {
                                 <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
                                 <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
                                 <div className="pt-4 space-y-3">
-                                    {isAuthenticated ? ( <> <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Devoluções e Pedidos</a> {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> </> ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                    {isAuthenticated ? ( 
+                                        <> 
+                                            <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
+                                            <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
+                                                <span>Devoluções e Pedidos</span>
+                                                {/* --- NOTIFICAÇÃO NO MENU DRAWER MOBILE --- */}
+                                                {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">{orderNotificationCount}</span>}
+                                            </a> 
+                                            {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
+                                        </> 
+                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
                                 </div>
                             </div>
                         </motion.div>
@@ -5962,7 +6003,7 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 };
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
-    const { addToCart } = useShop();
+    const { addToCart, markOrderAsSeen } = useShop(); // Importa markOrderAsSeen
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -5979,6 +6020,13 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
+
+    // --- NOVO: Marca o pedido como visto ao montar o componente ---
+    useEffect(() => {
+        if (orderId) {
+            markOrderAsSeen(orderId);
+        }
+    }, [orderId, markOrderAsSeen]);
 
     const fetchOrderDetails = useCallback(() => {
         setIsLoading(true);
@@ -10893,14 +10941,19 @@ const AdminOrders = () => {
         );
     };
 
-    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (ATUALIZADA) ---
     const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
         const customerName = order.user_name;
         const orderId = order.id;
         const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
         const isPickup = order.shipping_method === 'Retirar na loja';
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
+        
+        // Link principal para detalhes (acompanhamento)
         const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
+        // Link específico para pagamento direto (Página de Sucesso/Checkout)
+        const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
+
         const EMOJI = {
             PACKAGE: String.fromCodePoint(0x1F4E6),
             TRUCK: String.fromCodePoint(0x1F69A),
@@ -10917,10 +10970,31 @@ const AdminOrders = () => {
             NEW: String.fromCodePoint(0x1F195),
             PHONE: String.fromCodePoint(0x1F4F1),
             HOUSE: String.fromCodePoint(0x1F3E0),
-            ROCKET: String.fromCodePoint(0x1F680)
+            ROCKET: String.fromCodePoint(0x1F680),
+            PAY: String.fromCodePoint(0x1F4B3)
         };
 
         let text = `Olá, *${firstName}*.\n\n`;
+
+        // --- LÓGICA ESPECIAL PARA COBRANÇA (PENDENTE) ---
+        if (status === 'Pendente') {
+             text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
+             text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
+             
+             text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
+             
+             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
+             
+             text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
+             
+             text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
+             
+             // Encerra a mensagem aqui para focar na ação de pagamento
+             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+             return text;
+        }
+
+        // --- LÓGICA PADRÃO PARA OUTROS STATUS ---
         text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
 
         switch (status) {
@@ -10972,7 +11046,6 @@ const AdminOrders = () => {
                 text += `${EMOJI.NEW} *Novo Status:* ${status}`;
         }
 
-        // --- LÓGICA DE EXIBIÇÃO DE ENDEREÇO ---
         // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
         if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
              text += `\n\n--------------------------------\n`;
@@ -11002,7 +11075,6 @@ const AdminOrders = () => {
     };
 
     const handleManualWhatsAppNotification = () => {
-        // ... (Mesma lógica de envio)
         if (!editingOrder || !editingOrder.user_phone) {
             notification.show("Telefone do cliente não disponível.", "error");
             return;
