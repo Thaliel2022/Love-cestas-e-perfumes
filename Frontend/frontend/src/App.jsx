@@ -5440,8 +5440,7 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // ATUALIZAÇÃO: Usa assign para navegação explícita na mesma janela, 
-                // tentando manter o contexto do navegador original.
+                // Usa assign para navegação, mas o estado de loading será limpo pelo useEffect abaixo se o usuário voltar
                 window.location.assign(paymentResult.init_point);
             } else {
                 throw new Error("Não foi possível obter o link de pagamento.");
@@ -5456,8 +5455,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         setPageStatus('processing');
         const isFinished = await pollStatus();
         if (!isFinished) {
-            // Se ainda estiver pendente após verificação manual, volta para 'pending_action'
-            // mas dá um feedback visual
             setTimeout(() => {
                  if (statusRef.current !== 'success') {
                     setPageStatus('pending_action');
@@ -5467,21 +5464,39 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         }
     };
 
+    // --- CORREÇÃO: Reset automático do botão de pagamento ao retornar à aba ---
     useEffect(() => {
-        // Limpa o estado do carrinho apenas uma vez ao montar
+        const resetPaymentState = () => {
+            // Se o usuário voltar para a aba, removemos o estado de "carregando"
+            // para permitir que ele tente novamente se necessário.
+            if (document.visibilityState === 'visible') {
+                setIsRetryingPayment(false);
+            }
+        };
+
+        window.addEventListener('focus', resetPaymentState);
+        window.addEventListener('pageshow', resetPaymentState); // Crucial para o botão "Voltar" do navegador (BFcache)
+        document.addEventListener('visibilitychange', resetPaymentState);
+
+        return () => {
+            window.removeEventListener('focus', resetPaymentState);
+            window.removeEventListener('pageshow', resetPaymentState);
+            document.removeEventListener('visibilitychange', resetPaymentState);
+        };
+    }, []);
+
+    useEffect(() => {
         clearOrderState(); 
         
         let pollInterval;
         let timeout;
 
-        // Função para forçar verificação ao focar na janela (usuário voltou da aba do MP)
         const forceCheck = () => {
             if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
                 console.log("Forçando verificação de status (evento de visibilidade/foco)");
                 setPageStatus('processing');
                 pollStatus().then(isFinished => {
                     if (!isFinished) {
-                         // Se verificou e ainda não está pago, e já passou um tempo, mostra botões de ação
                          if (pollsCount.current > 2) {
                              setPageStatus('pending_action');
                          }
@@ -5501,12 +5516,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                      clearInterval(pollInterval);
                      clearTimeout(timeout);
                  } else if (pollsCount.current >= 4 && statusRef.current === 'processing') {
-                     // Se após ~20s (4 polls de 5s) ainda estiver pendente, muda UI para oferecer ação
                      setPageStatus('pending_action');
                  }
             }, 5000);
             
-            // Timeout total de segurança
             timeout = setTimeout(() => {
                 clearInterval(pollInterval);
                 if (statusRef.current === 'processing') {
@@ -5552,10 +5565,10 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
                              <button 
                                 onClick={handleRetryPayment} 
                                 disabled={isRetryingPayment}
-                                className="bg-green-600 text-white px-6 py-3 rounded-md font-bold hover:bg-green-700 flex items-center justify-center gap-2 w-full"
+                                className={`px-6 py-3 rounded-md font-bold flex items-center justify-center gap-2 w-full transition-colors ${isRetryingPayment ? 'bg-green-700 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
                             >
-                                {isRetryingPayment ? <SpinnerIcon/> : <CreditCardIcon className="h-5 w-5"/>}
-                                Realizar Pagamento
+                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
+                                {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
                             </button>
                             <button 
                                 onClick={handleManualCheck} 
