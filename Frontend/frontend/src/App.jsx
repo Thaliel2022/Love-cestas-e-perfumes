@@ -8780,58 +8780,92 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
+        <div className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
+            {/* Número da Variação (Visual) */}
+            <div className="absolute -left-2 -top-2 w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold border border-gray-200 shadow-sm z-10">
+                {index + 1}
+            </div>
+
             <div className="md:col-span-3">
-                <label className="text-xs text-gray-500">Cor</label>
-                <select value={variation.color} onChange={(e) => onVariationChange(index, 'color', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white">
-                    <option value="">Selecione a Cor</option>
-                    {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Cor</label>
+                <div className="relative">
+                    <select 
+                        value={variation.color} 
+                        onChange={(e) => onVariationChange(index, 'color', e.target.value)} 
+                        className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block transition-colors"
+                    >
+                        <option value="">Selecione...</option>
+                        {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {variation.color && (
+                        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-300 shadow-sm" style={{ backgroundColor: variation.color === 'Multicolorido' ? 'transparent' : variation.color.toLowerCase() }}></div>
+                    )}
+                </div>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Tamanho</label>
-                <input type="text" list="available-sizes" value={variation.size} onChange={(e) => onVariationChange(index, 'size', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: M ou 42"/>
-                <datalist id="available-sizes">{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tamanho</label>
+                <input 
+                    type="text" 
+                    list={`available-sizes-${index}`} 
+                    value={variation.size} 
+                    onChange={(e) => onVariationChange(index, 'size', e.target.value)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase transition-colors" 
+                    placeholder="M, 42..."
+                />
+                <datalist id={`available-sizes-${index}`}>{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Estoque</label>
-                <input type="number" min="0" value={variation.stock} onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="0"/>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Estoque</label>
+                <input 
+                    type="number" 
+                    min="0" 
+                    value={variation.stock} 
+                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
+                    placeholder="0"
+                />
             </div>
-            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
+
+            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor ? 'opacity-50 grayscale' : ''}`}>
                  {isFirstOfColor ? (
                     <>
-                        <label className="text-xs text-gray-500 font-semibold">Imagens para a cor "{variation.color || '...'}"</label>
-                        <div className="p-2 border rounded-md bg-white min-h-[60px]">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Imagens ({variation.color || 'Geral'})</label>
+                        <div className="p-2 border border-dashed border-gray-300 rounded-lg bg-gray-50 min-h-[64px] flex flex-wrap gap-2 items-center transition-colors hover:bg-gray-100">
                             {variation.images && variation.images.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {variation.images.map((img, imgIndex) => (
-                                        <div key={imgIndex} className="relative group">
-                                            <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
-                                            <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><XMarkIcon className="h-3 w-3" /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : ( <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p> )}
-                        </div>
-                        <div>
-                            <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
-                            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
-                            <div className="flex gap-2 mt-1">
-                                <button type="button" onClick={() => galleryInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><UploadIcon className="h-4 w-4" /> Galeria</button>
-                                <button type="button" onClick={() => cameraInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><CameraIcon className="h-4 w-4" /> Câmera</button>
+                                variation.images.map((img, imgIndex) => (
+                                    <div key={imgIndex} className="relative group/img w-10 h-10">
+                                        <img src={img} alt="Var" className="w-full h-full object-cover rounded-md border border-gray-200 shadow-sm" />
+                                        <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-all shadow-sm hover:bg-red-600 transform hover:scale-110">
+                                            <XMarkIcon className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : ( 
+                                <span className="text-xs text-gray-400 w-full text-center">Sem imagens</span> 
+                            )}
+                            
+                            <div className="flex gap-1 ml-auto">
+                                <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
+                                <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
+                                <button type="button" onClick={() => galleryInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Galeria"><UploadIcon className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => cameraInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Câmera"><CameraIcon className="h-4 w-4" /></button>
                             </div>
-                            {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                         </div>
+                        {uploadStatus && <p className={`text-[10px] font-medium mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600 flex items-center gap-1'} animate-pulse`}><CheckCircleIcon className="h-3 w-3 inline"/> {uploadStatus}</p>}
                     </>
                  ) : (
-                    <div>
-                        <label className="text-xs text-gray-500">Imagens</label>
-                        <p className="text-xs text-gray-500 p-2 border rounded-md bg-gray-100">As imagens são definidas na primeira variação desta cor.</p>
+                    <div className="flex items-center h-full pt-4">
+                        <p className="text-xs text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100 w-full text-center">Imagens vinculadas à 1ª variação desta cor.</p>
                     </div>
                  )}
             </div>
-            <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
-                <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
+
+            <div className="md:col-span-1 flex items-center justify-end h-full pt-6">
+                <button type="button" onClick={() => onRemoveVariation(index)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all" title="Remover variação">
+                    <TrashIcon className="h-5 w-5"/>
+                </button>
             </div>
         </div>
     );
