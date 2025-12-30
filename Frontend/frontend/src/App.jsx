@@ -1426,6 +1426,7 @@ const ProductCard = memo(({ product, onNavigate }) => {
                 <img
                     src={imageUrl} 
                     alt={product.name}
+                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
                     className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
                 />
                 <WishlistButton product={product} /> 

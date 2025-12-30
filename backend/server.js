@@ -18,6 +18,7 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
+const compression = require('compression'); 
 
 
 // Carrega variáveis de ambiente do arquivo .env
@@ -143,6 +144,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(compression()); 
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
