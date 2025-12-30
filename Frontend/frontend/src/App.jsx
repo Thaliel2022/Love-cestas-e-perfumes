@@ -3962,7 +3962,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate }) => {
+const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -3979,24 +3979,31 @@ const LoginPage = ({ onNavigate }) => {
     const [tempAuthToken, setTempAuthToken] = useState('');
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
-    const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
+    
+    // --- Lógica de Navegação Pós-Login ---
+    const handleSuccessRedirect = () => {
+        if (redirectPath) {
+            // Se houver um caminho salvo (ex: link do WhatsApp), vai para ele
+            onNavigate(redirectPath);
+        } else {
+            // Caso contrário, vai para a home
+            onNavigate('home');
+        }
+    };
 
    const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
         try {
-            // Usa a função centralizada do AuthContext
             const response = await login(email, password);
 
             if (response.twoFactorEnabled) {
-                // Se 2FA for necessário, muda para a próxima etapa
                 setTempAuthToken(response.token);
                 setIsTwoFactorStep(true);
             } else {
-                // Login normal bem-sucedido
                 notification.show('Login bem-sucedido!');
-                onNavigate('home'); // Usa a navegação controlada pelo App
+                handleSuccessRedirect(); // Usa a nova função de redirecionamento
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -4014,12 +4021,11 @@ const LoginPage = ({ onNavigate }) => {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
             const { user } = response;
 
-            // Define manualmente o usuário no contexto e no localStorage
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
 
             notification.show('Login bem-sucedido!');
-            onNavigate('home'); // Usa a navegação controlada pelo App
+            handleSuccessRedirect(); // Usa a nova função de redirecionamento
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -4030,32 +4036,37 @@ const LoginPage = ({ onNavigate }) => {
     };
 
     return (
-        // --- MODIFICAÇÃO: Estilo do container principal e padding ---
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> {/* Fundo preto sólido, padding ajustado */}
+        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                // --- MODIFICAÇÃO: Estilo do card de login, cores e responsividade ---
-                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" // Fundo mais escuro, padding ajustado, tamanho máximo ajustado para mobile
+                className="w-full max-w-sm sm:max-w-md bg-gray-900 text-white p-6 sm:p-8 rounded-lg shadow-lg border border-gray-800" 
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
+                
+                {/* --- AVISO DE REDIRECIONAMENTO --- */}
+                {redirectPath && !isTwoFactorStep && (
+                    <div className="mb-6 p-3 bg-amber-900/40 border border-amber-600 rounded-md flex items-center gap-3">
+                        <ExclamationCircleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                        <p className="text-xs text-amber-200">
+                            Faça login para acessar os detalhes do pedido ou a página solicitada.
+                        </p>
+                    </div>
+                )}
 
                 <AnimatePresence mode="wait">
                     {!isTwoFactorStep ? (
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
-                                {/* --- MODIFICAÇÃO: Tamanho da imagem e margem --- */}
-                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> {/* Tamanho menor no mobile */}
+                                <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> 
                                   <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" />
                                 </div>
-                                {/* --- MODIFICAÇÃO: Tamanho do título --- */}
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
-                            <form onSubmit={handleLogin} className="space-y-5"> {/* Espaçamento ligeiramente menor */}
+                            <form onSubmit={handleLogin} className="space-y-5"> 
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Email</label>
-                                    {/* --- MODIFICAÇÃO: Padding e tamanho de texto dos inputs --- */}
                                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
                                 </div>
                                 <div>
@@ -4067,18 +4078,16 @@ const LoginPage = ({ onNavigate }) => {
                                         </button>
                                     </div>
                                 </div>
-                                {/* --- MODIFICAÇÃO: Padding e tamanho de texto do botão --- */}
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Entrar'}
                                 </button>
                             </form>
-                             {/* --- MODIFICAÇÃO: Tamanho de texto dos links --- */}
                              <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
                                 <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
                             </div>
                         </motion.div>
-                    ) : ( // Formulário 2FA (estilos mantidos, pois já eram adequados)
+                    ) : ( 
                         <motion.div key="2fa-form" initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-4 inline-block rounded-full bg-gray-800 p-4 border border-gray-700"><CheckBadgeIcon className="h-8 w-8 text-amber-400" /></div>
@@ -4097,7 +4106,7 @@ const LoginPage = ({ onNavigate }) => {
                                         value={twoFactorCode}
                                         onChange={e => setTwoFactorCode(e.target.value)}
                                         required
-                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" /> {/* Ajuste no tracking para mobile */}
+                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" />
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Verificar'}
@@ -6008,7 +6017,9 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 };
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
-    const { addToCart, markOrderAsSeen } = useShop(); // Importa markOrderAsSeen
+    // --- ATUALIZAÇÃO: Extraindo 'logout' do hook useAuth ---
+    const { user, logout } = useAuth(); 
+    const { addToCart, markOrderAsSeen } = useShop(); 
     const notification = useNotification();
     const [order, setOrder] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -6021,12 +6032,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     
     const [reviewingItem, setReviewingItem] = useState(null);
     
-    // --- Estados para o Modal de Reembolso/Cancelamento do Cliente ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
-    // --- NOVO: Marca o pedido como visto ao montar o componente ---
     useEffect(() => {
         if (orderId) {
             markOrderAsSeen(orderId);
@@ -6040,17 +6049,23 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
                 } else {
-                    throw new Error("Pedido não encontrado.");
+                    // Se a API retornar array vazio, significa que não encontrou para este usuário
+                    // Não lançamos erro aqui para tratar na renderização
+                    setOrder(null);
                 }
             })
-            .catch(err => notification.show(err.message, 'error'))
+            .catch(err => {
+                console.error(err);
+                // Não mostra notificação de erro intrusiva, pois vamos mostrar a UI de "Não encontrado"
+            })
             .finally(() => setIsLoading(false));
-    }, [orderId, notification]);
+    }, [orderId]);
 
     useEffect(() => {
         fetchOrderDetails();
     }, [fetchOrderDetails]);
 
+    // ... (restante das funções: handleReviewSuccess, handleOpenStatusModal, etc. permanecem iguais)
     const handleReviewSuccess = () => {
         setReviewingItem(null);
         fetchOrderDetails();
@@ -6140,7 +6155,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
         // Ajuste para pedidos entregues
-        if (order.status === 'Entregue' && status === 'pending_approval') {
+        if (order && order.status === 'Entregue' && status === 'pending_approval') {
             statuses['pending_approval'].text = 'Reembolso em análise';
         }
         return statuses[status] || { text: `Status: ${status}`, class: 'text-gray-400 bg-gray-700', icon: null };
@@ -6208,7 +6223,36 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     };
 
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
-    if (!order) return <p className="text-center text-gray-400 py-20">Pedido não encontrado.</p>;
+    
+    // --- NOVA UI PARA PEDIDO NÃO ENCONTRADO / CONTA ERRADA ---
+    if (!order) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
+                <div className="bg-gray-900 p-6 rounded-full mb-6 border-2 border-gray-800 shadow-xl">
+                    <ExclamationCircleIcon className="h-16 w-16 text-gray-500" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-3">Pedido não encontrado</h2>
+                <p className="text-gray-400 mb-8 max-w-md leading-relaxed">
+                    Não conseguimos localizar este pedido. Isso pode acontecer se você estiver logado em uma conta diferente da que realizou a compra.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                    <button 
+                        onClick={() => { logout(); onNavigate('login'); }} 
+                        className="flex-1 px-6 py-3 bg-amber-500 text-black font-bold rounded-lg hover:bg-amber-400 transition-colors shadow-lg flex items-center justify-center gap-2"
+                    >
+                        <UserIcon className="h-5 w-5"/>
+                        Sair e Trocar de Conta
+                    </button>
+                    <button 
+                        onClick={() => onNavigate('home')} 
+                        className="flex-1 px-6 py-3 bg-gray-800 text-white font-bold rounded-lg hover:bg-gray-700 transition-colors border border-gray-700"
+                    >
+                        Voltar ao Início
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     const isPickupOrder = order.shipping_method === 'Retirar na loja';
     const isLocalDelivery = order.shipping_method && order.shipping_method.includes('Motoboy'); // Detecta entrega local
@@ -6234,7 +6278,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL (CORRIGIDA) ---
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
-        // Define as labels visuais personalizadas para o cliente
+        // ... (Mantém a lógica da timeline como estava)
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
             'Pagamento Aprovado': 'Pagamento Aprovado',
@@ -6265,7 +6309,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
         };
 
-        // Verifica status especiais
         if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(currentStatus)) {
             const specialStatus = STATUS_DEFINITIONS[currentStatus];
             const specialClasses = colorClasses[specialStatus.color] || colorClasses.gray;
@@ -6285,7 +6328,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             );
         }
 
-        // Timeline padrão para fluxo normal
         const timelineOrder = [
             'Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'
         ];
@@ -6295,12 +6337,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
         return (
             <div className="w-full">
-                {/* Desktop View */}
                 <div className="hidden md:flex justify-between items-center flex-wrap gap-2">
                     {timelineOrder.map((statusKey, index) => {
                         const statusInfo = historyMap.get(statusKey);
                         const isStepActive = index <= currentStatusIndex;
-                        const isCurrent = statusKey === currentStatus;
                         const definition = STATUS_DEFINITIONS[statusKey];
                         if (!definition) return null;
                         const currentClasses = isStepActive ? colorClasses[definition.color] : colorClasses.gray;
@@ -6310,7 +6350,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 <div 
                                     className={`flex flex-col items-center ${isStepActive && statusInfo ? 'cursor-pointer group' : 'cursor-default'}`} 
                                     onClick={isStepActive && statusInfo ? () => onStatusClick(definition) : undefined}>
-                                    <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isCurrent ? 'animate-pulse' : ''}`}>
+                                    <div className={`relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${currentClasses.bg} ${currentClasses.border} ${isStepActive ? 'animate-pulse' : ''}`}>
                                         {React.cloneElement(definition.icon, { className: 'h-5 w-5 text-white' })}
                                     </div>
                                     <p className={`mt-2 text-xs text-center font-semibold transition-all ${currentClasses.text}`}>{displayLabels[statusKey]}</p>
@@ -6321,7 +6361,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                         );
                     })}
                 </div>
-                 {/* Mobile View */}
                 <div className="md:hidden flex flex-col">
                     {timelineOrder.map((statusKey, index) => {
                         const statusInfo = historyMap.get(statusKey);
@@ -13494,7 +13533,7 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção (inicial e periodicamente)
+  // Efeito para buscar o status de manutenção
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -13508,7 +13547,7 @@ function AppContent({ deferredPrompt }) {
                 });
             })
             .catch(err => {
-                console.error("Falha ao verificar o modo de manutenção, o site continuará online por segurança.", err);
+                console.error("Falha ao verificar manutenção.", err);
                 setIsInMaintenance(false);
             })
             .finally(() => {
@@ -13523,70 +13562,43 @@ function AppContent({ deferredPrompt }) {
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
-  // --- NOVO: Lógica de Registro de Push Notifications ---
+  // Lógica de Registro de Push Notifications
   useEffect(() => {
     const registerPush = async () => {
-        // Só executa se estiver logado e se o navegador suportar Service Workers e Push API
         if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
-
         try {
-            // 1. Aguarda o Service Worker estar ativo
             const registration = await navigator.serviceWorker.ready;
-
-            // 2. Verifica/Solicita permissão (No Android TWA isso geralmente é automático ou já concedido)
             const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                console.log('Permissão de notificação não concedida.');
-                return;
-            }
+            if (permission !== 'granted') return;
 
-            // 3. Chave Pública VAPID (Sua chave real)
             const publicVapidKey = "BGDEC_rvB5lgb2pzKg8bZMwAfOwohu0sf_777oDMYHV1dTQzV1Q4UgU2eFXj_2IVoFlKvN3YkrETqNJVSje0t4g";
-
-            // 4. Cria a inscrição no Push Manager do navegador
             const subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
             });
-
-            // 5. Envia para o backend salvar no banco de dados
             await apiService('/notifications/subscribe', 'POST', subscription);
-            console.log('✅ Dispositivo registrado para notificações push com sucesso!');
-
         } catch (error) {
-            console.error('Erro ao registrar push notification:', error);
+            console.error('Erro ao registrar push:', error);
         }
     };
-
     registerPush();
-  }, [isAuthenticated]); // Executa sempre que o status de autenticação mudar para true
+  }, [isAuthenticated]); 
 
   const navigate = useCallback((path) => {
     window.location.hash = path;
   }, []);
   
-  // --- ATUALIZAÇÃO: Redirecionamento inteligente ---
-  // Verifica pendências não apenas na navegação, mas ao retomar o foco na aba
+  // Redirecionamento de retorno do MP
   useEffect(() => {
     const checkPendingOrder = () => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-        // Se existe um pedido pendente e NÃO estamos na página de sucesso, redireciona
         if (pendingOrderId && !window.location.hash.includes('order-success')) {
-            console.log(`Retorno detectado. Redirecionando para sucesso do pedido ${pendingOrderId}.`);
-            // Limpeza opcional aqui se quiser forçar apenas uma vez, 
-            // mas manter o session ajuda se o usuário recarregar a página errada.
-            // A limpeza real é feita no OrderSuccessPage.
             navigate(`order-success/${pendingOrderId}`);
         }
     };
-
-    // Verifica imediatamente
     checkPendingOrder();
-
-    // Verifica quando a aba ganha foco (ex: usuário fechou MP e voltou pra cá)
     window.addEventListener('focus', checkPendingOrder);
     window.addEventListener('visibilitychange', checkPendingOrder);
-
     return () => {
         window.removeEventListener('focus', checkPendingOrder);
         window.removeEventListener('visibilitychange', checkPendingOrder);
@@ -13660,8 +13672,11 @@ function AppContent({ deferredPrompt }) {
         );
     }
 
+    // --- ATUALIZAÇÃO AQUI ---
+    // Se o usuário tenta acessar uma página protegida (como account ou checkout) sem estar logado,
+    // passamos o 'redirectPath' para a LoginPage. Assim, ao logar, ele volta para cá.
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
-        return <LoginPage onNavigate={navigate} />;
+        return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
     
     if (mainPage === 'product' && pageId) {
