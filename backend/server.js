@@ -2948,14 +2948,21 @@ app.put('/api/orders/:id/mark-seen', verifyToken, async (req, res) => {
 });
 
 // --- ROTAS DE PEDIDOS ---
+// Substitua a rota existente app.get('/api/orders/my-orders'...) por esta versão:
 app.get('/api/orders/my-orders', verifyToken, async (req, res) => {
     const userId = req.user.id;
     const { id: orderId } = req.query; 
 
    try {
-        // INCLUI O CAMPO has_unseen_update NO SELECT
+        // CORREÇÃO CRÍTICA: Adicionado 'r.notes as refund_notes'
+        // Agora o motivo da recusa será enviado para o frontend
         let sql = `
-            SELECT o.*, o.has_unseen_update, r.status as refund_status, r.created_at as refund_created_at
+            SELECT 
+                o.*, 
+                o.has_unseen_update, 
+                r.status as refund_status, 
+                r.created_at as refund_created_at, 
+                r.notes as refund_notes
             FROM orders o
             LEFT JOIN refunds r ON o.refund_id = r.id
             WHERE o.user_id = ?
