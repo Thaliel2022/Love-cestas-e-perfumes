@@ -6065,14 +6065,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
                 } else {
-                    // Se a API retornar array vazio, significa que não encontrou para este usuário
-                    // Não lançamos erro aqui para tratar na renderização
                     setOrder(null);
                 }
             })
             .catch(err => {
                 console.error(err);
-                // Não mostra notificação de erro intrusiva, pois vamos mostrar a UI de "Não encontrado"
             })
             .finally(() => setIsLoading(false));
     }, [orderId]);
@@ -6081,7 +6078,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         fetchOrderDetails();
     }, [fetchOrderDetails]);
 
-    // ... (restante das funções: handleReviewSuccess, handleOpenStatusModal, etc. permanecem iguais)
     const handleReviewSuccess = () => {
         setReviewingItem(null);
         fetchOrderDetails();
@@ -6226,7 +6222,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             }
         }
 
-        // Fallback
         return (
             <div className="flex items-center gap-3">
                 <CreditCardIcon className="h-7 w-7 text-gray-300 flex-shrink-0" />
@@ -6240,7 +6235,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
     
-    // --- NOVA UI PARA PEDIDO NÃO ENCONTRADO / CONTA ERRADA ---
     if (!order) {
         return (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
@@ -6282,19 +6276,25 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
+    // --- LÓGICA DE REEMBOLSO ATUALIZADA ---
+    const refundStatus = order.refund_status;
+    const isRefundDenied = refundStatus === 'denied';
+    const refundDeniedReason = order.refund_notes; // Supondo que a query traga o campo 'notes' da tabela refunds como 'refund_notes'
+
+    // Permite nova solicitação se nunca houve, ou se a anterior foi negada
     const canRequest = 
         order.payment_status === 'approved' && 
         cancellableStatuses.includes(order.status) && 
-        !order.refund_id && 
+        (!order.refund_id || isRefundDenied) && // Agora permite se foi negado
         (order.status !== 'Entregue' || isWithinRefundPeriod);
+        
     const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
     
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
     const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
-    // --- NOVA LINHA DO TEMPO PARA ENTREGA LOCAL (CORRIGIDA) ---
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
-        // ... (Mantém a lógica da timeline como estava)
+        // ... (Mantido código da timeline)
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
             'Pagamento Aprovado': 'Pagamento Aprovado',
@@ -6468,6 +6468,29 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             </button>
                         </div>
                     )}
+                    
+                    {/* --- ÁREA DE AVISO DE REEMBOLSO NEGADO (NOVO) --- */}
+                    {isRefundDenied && (
+                        <div className="my-4 p-4 bg-red-900/40 border border-red-700 rounded-lg animate-fade-in">
+                            <div className="flex items-start gap-3">
+                                <ExclamationCircleIcon className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+                                <div>
+                                    <h4 className="font-bold text-red-200 text-lg mb-1">Solicitação de Reembolso Negada</h4>
+                                    <p className="text-sm text-gray-300 mb-2">
+                                        Nossa equipe analisou sua solicitação e ela não pôde ser aprovada.
+                                    </p>
+                                    {order.refund_notes && ( // Assumindo que o backend retorna 'refund_notes'
+                                        <div className="bg-black/30 p-3 rounded text-sm text-gray-200 border border-red-900/50">
+                                            <strong>Motivo:</strong> {order.refund_notes}
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-2">
+                                        Caso tenha dúvidas ou queira enviar novas informações, você pode entrar em contato conosco ou fazer uma nova solicitação abaixo.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="my-6">
                         {isLocalDelivery ? (
@@ -6605,7 +6628,9 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                                 order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">Solicitar {actionText}</button>
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700">
+                                    {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
+                                </button>
                             )}
                             {refundInfo && (
                                 <div className={`flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-md ${refundInfo.class}`}>
