@@ -332,11 +332,39 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-const verifyAdmin = (req, res, next) => {
-    if (req.user.role !== 'admin') {
-        return res.status(403).json({ message: "Acesso negado. Apenas administradores." });
-    }
-    next();
+const verifyAdmin = async (req, res, next) => {
+    try {
+        // 1. Verifica se o usuário foi autenticado pelo verifyToken
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({ message: "Token inválido ou usuário não identificado." });
+        }
+        
+        // 2. Consulta o banco de dados para verificar a role ATUAL
+        // Isso impede que alguém que era admin e foi rebaixado continue acessando com token antigo
+        const [users] = await db.query("SELECT role, status FROM users WHERE id = ?", [req.user.id]);
+        
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado no banco de dados." });
+        }
+
+        const user = users[0];
+
+        if (user.status === 'blocked') {
+            return res.status(403).json({ message: "Sua conta está bloqueada." });
+        }
+
+        if (user.role !== 'admin') {
+            // Log de tentativa de acesso não autorizado (Opcional, mas recomendado)
+            console.warn(`[SEGURANÇA] Tentativa de acesso admin negada para usuário ID ${req.user.id}`);
+            return res.status(403).json({ message: "Acesso negado. Requer privilégios de administrador." });
+        }
+        
+        // Se passou, prossegue
+        next();
+    } catch (error) {
+        console.error("Erro na verificação de admin:", error);
+        return res.status(500).json({ message: "Erro interno na verificação de permissões." });
+    }
 };
 // --- ATUALIZAÇÃO: Função de Log com Suporte a IP ---
 const logAdminAction = async (user, action, details = null, ip = null) => {
@@ -1854,8 +1882,7 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// --- ROTA DE CRIAÇÃO DE PRODUTOS (POST) ---
-// Substitua sua rota app.post('/api/products'...) atual por esta versão completa:
+// 1. Criação de Produto (Bloqueado)
 app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
@@ -1907,8 +1934,7 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao criar produto." });
     }
 });
-// --- TEMPLATE DE E-MAIL PARA LISTA DE DESEJOS ---
-// --- TEMPLATE DE E-MAIL PARA LISTA DE DESEJOS (AGRUPADO) ---
+
 const createWishlistPromoEmail = (customerName, products) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     
@@ -2043,7 +2069,7 @@ const notifyWishlistUsers = async (productIds, connection) => {
         console.error(`[Wishlist Notify] Erro crítico ao notificar usuários:`, err);
     }
 };
-// --- ROTA PARA APLICAR PROMOÇÃO EM MASSA (PUT) ---
+// 3. Promoções em Massa (Bloqueado)
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
     const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
 
@@ -2083,8 +2109,7 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`);
         res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
 
-        // Chama a função de notificação UMA VEZ com a lista completa de IDs
-        // Ela cuidará de agrupar por usuário e enviar apenas um e-mail
+        // Chama a função de notificação
         if (productsToNotify.length > 0) {
             notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
         }
@@ -2767,7 +2792,7 @@ app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
             SELECT 
                 o.*, 
                 u.name as user_name,
-                u.phone as user_phone, -- CAMPO ADICIONADO
+                u.phone as user_phone,
                 r.status as refund_status
             FROM orders o 
             JOIN users u ON o.user_id = u.id
@@ -3038,6 +3063,7 @@ const createLocalDeliveryTrackingEmail = (customerName, orderId, trackingLink, i
     return createEmailBase(content);
 };
 
+// Esta rota deve substituir a existente app.put('/api/orders/:id')
 app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, tracking_code } = req.body;
@@ -3083,15 +3109,27 @@ app.put('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
                 await updateOrderStatus(id, status, connection, "Status atualizado pelo administrador");
             }
             
-            // Lógica de reversão de estoque (mantida igual)
+            // Lógica de reversão de estoque
             const isRevertingStock = (status === ORDER_STATUS.CANCELLED || status === ORDER_STATUS.PAYMENT_REJECTED);
             const wasAlreadyReverted = (currentStatus === ORDER_STATUS.CANCELLED || currentStatus === ORDER_STATUS.REFUNDED || currentStatus === ORDER_STATUS.PAYMENT_REJECTED);
 
             if (isRevertingStock && !wasAlreadyReverted) {
                 const [itemsToAdjust] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [id]);
                 for (const item of itemsToAdjust) {
-                    // ... (Lógica de reversão de estoque mantida)
-                    await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                    const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+                    const product = productResult[0];
+                    if (product.product_type === 'clothing' && item.variation_details) {
+                        const variation = JSON.parse(item.variation_details);
+                        let variations = JSON.parse(product.variations || '[]');
+                        const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                        if (variationIndex !== -1) {
+                            variations[variationIndex].stock += item.quantity;
+                            const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                            await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                        }
+                    } else {
+                        await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+                    }
                 }
             }
         }
@@ -4600,7 +4638,7 @@ app.get('/api/settings/shipping-local', async (req, res) => {
     }
 });
 
-// --- ROTA DE CONFIGURAÇÃO DE FRETE (Com Auditoria de IP) ---
+// 2. Edição de Frete Local (Bloqueado)
 app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, res) => {
     const { base_price, rules, password, token } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress; // Captura o IP
