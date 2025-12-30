@@ -272,9 +272,21 @@ const parseJsonString = (jsonString, fallbackValue) => {
     }
 };
 
+// --- OTIMIZAÇÃO AUTOMÁTICA CLOUDINARY ---
+// Transforma URLs do Cloudinary para entregar WebP e qualidade automática
+const optimizeCloudinaryUrl = (url, width = 'auto') => {
+    if (!url || typeof url !== 'string') return url;
+    if (url.includes('res.cloudinary.com')) {
+        // Insere parâmetros de otimização após '/upload/'
+        return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    }
+    return url;
+};
+
 const getFirstImage = (imagesJsonString, placeholder = 'https://placehold.co/600x400/222/fff?text=Produto') => {
     const images = parseJsonString(imagesJsonString, []);
-    return (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
+    const rawUrl = (Array.isArray(images) && images.length > 0) ? images[0] : placeholder;
+    return optimizeCloudinaryUrl(rawUrl);
 };
 
 // --- CONTEXTOS GLOBAIS ---
