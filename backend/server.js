@@ -158,30 +158,16 @@ app.use(helmet({
 }));
 
 // --- MIDDLEWARE DE PROTEÇÃO CONTRA XSS (ALTA SEGURANÇA) ---
-// Sanitiza recursivamente strings em body, query e params
 const xssProtectionMiddleware = (req, res, next) => {
     const sanitizeValue = (value) => {
         if (typeof value !== 'string') return value;
-        
         let sanitized = value;
-        
-        // 1. Bloqueia e remove tags <script> e seu conteúdo
-        // Regex flag 'i' para case-insensitive (Script, SCRIPT, script)
+        // Bloqueia tags script e handlers de eventos
         sanitized = sanitized.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "");
-        
-        // 2. Bloqueia handlers de eventos maliciosos (onerror, onclick, onload, etc.)
-        // Remove atributos que começam com 'on' seguidos de '='
         sanitized = sanitized.replace(/on\w+\s*=\s*['"][^'"]*['"]/gim, "");
-        
-        // 3. Bloqueia protocolo javascript: em links/src
         sanitized = sanitized.replace(/javascript:/gim, "");
-        
-        // 4. Proteção extra para caracteres especiais HTML (opcional, mas recomendado)
-        // Evita que tags HTML não autorizadas sejam renderizadas
-        sanitized = sanitized
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
-
+        // Escape básico HTML
+        sanitized = sanitized.replace(/</g, "&lt;").replace(/>/g, "&gt;");
         return sanitized;
     };
 
@@ -190,17 +176,14 @@ const xssProtectionMiddleware = (req, res, next) => {
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 if (typeof obj[key] === 'string') {
-                    // Sanitiza campos de texto (nome, descrição, endereço, observações)
                     obj[key] = sanitizeValue(obj[key]);
                 } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                    // Recursão para objetos aninhados (ex: shipping_address JSON)
                     sanitizeObject(obj[key]);
                 }
             }
         }
     };
 
-    // Aplica a sanitização em todos os pontos de entrada
     if (req.body) sanitizeObject(req.body);
     if (req.query) sanitizeObject(req.query);
     if (req.params) sanitizeObject(req.params);
@@ -208,8 +191,8 @@ const xssProtectionMiddleware = (req, res, next) => {
     next();
 };
 
-// ATIVAÇÃO: Adicione esta linha no server.js logo após app.use(express.json());
-// app.use(xssProtectionMiddleware);
+// ATIVAÇÃO DO XSS (CRÍTICO)
+app.use(xssProtectionMiddleware);
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
