@@ -241,12 +241,6 @@ const sanitizeInput = (req, res, next) => {
 };
 app.use(sanitizeInput);
 
-// ... (Imports anteriores mantidos)
-const webpush = require('web-push');
-const { z } = require('zod'); // Substitui express-validator
-
-// ... (Configurações de env e constantes mantidas)
-
 // --- MIDDLEWARE DE VALIDAÇÃO ZOD (NOVO) ---
 const validate = (schema) => (req, res, next) => {
     try {
