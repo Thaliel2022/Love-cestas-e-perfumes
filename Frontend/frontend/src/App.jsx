@@ -11141,7 +11141,6 @@ const AdminOrders = () => {
         } catch(e) { notification.show(e.message, 'error'); }
     };
 
-    // --- CARD DE DETALHES (Estilo Profissional) ---
     const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
         <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
@@ -11159,7 +11158,7 @@ const AdminOrders = () => {
     const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
     const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
-    const getStatusLabel = (status) => {
+    const getStatusLabel = (status, order) => {
         const isLocal = editingOrder?.shipping_method?.toLowerCase().includes('motoboy');
         if (isLocal) {
             if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
@@ -11219,13 +11218,13 @@ const AdminOrders = () => {
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
         if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
         if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
         return 'bg-blue-100 text-blue-800';
     };
 
-    // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO E CORRIGIDO) ---
-    const UpdateOrderForm = () => {
+    // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO) ---
+    const renderUpdateOrderForm = () => {
         const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = editingOrder.shipping_method === 'Retirar na loja';
         const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
@@ -11305,7 +11304,6 @@ const AdminOrders = () => {
 
     return (
         <div>
-            {/* Modal de Reembolso */}
             <AnimatePresence>
                 {isRefundModalOpen && editingOrder && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
@@ -11330,10 +11328,9 @@ const AdminOrders = () => {
                     </Modal>
                 )}
             </AnimatePresence>
-
-            {/* --- MODAL DE DETALHES PROFISSIONAL --- */}
             <AnimatePresence>
                 {editingOrder && (() => {
+                    // --- VARIÁVEIS DE ESTADO ---
                     const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
 
@@ -11360,7 +11357,7 @@ const AdminOrders = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA PRINCIPAL: Itens */}
+                                    {/* COLUNA DA ESQUERDA: Itens */}
                                     <div className="lg:col-span-2 space-y-6">
                                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
@@ -11415,13 +11412,13 @@ const AdminOrders = () => {
                                             </div>
                                         </div>
                                         
-                                        {/* ATUALIZAR PEDIDO (Desktop: Esquerda / Mobile: Fim) */}
+                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
                                         <div className="hidden lg:block">
-                                            <UpdateOrderForm />
+                                            {renderUpdateOrderForm()}
                                         </div>
                                     </div>
 
-                                    {/* COLUNA LATERAL: Informações */}
+                                    {/* COLUNA DA DIREITA: Informações */}
                                     <div className="space-y-6">
                                         <DetailCard title="Cliente" icon={UserIcon}>
                                             <div className="flex items-center gap-3 mb-3">
@@ -11444,23 +11441,26 @@ const AdminOrders = () => {
                                                         {maskPhone(editingOrder.user_phone || '')}
                                                     </a>
                                                 </div>
+                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
+                                                {editingOrder.user_phone && (
+                                                    <a 
+                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
+                                                        title="Abrir conversa no WhatsApp"
+                                                    >
+                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
+                                                    </a>
+                                                )}
                                             </div>
                                         </DetailCard>
 
                                         <DetailCard title="Entrega" icon={MapPinIcon}>
-                                            {/* --- MÉTODO DE ENVIO --- */}
+                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
                                             <div className="mb-3 pb-2 border-b border-gray-100">
                                                 <span className="text-xs text-gray-500 block">Método Escolhido</span>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    {editingOrder.shipping_method === 'Retirar na loja' ? (
-                                                        <BoxIcon className="h-4 w-4 text-amber-500" />
-                                                    ) : isLocalDelivery ? (
-                                                        <TruckIcon className="h-4 w-4 text-yellow-600" />
-                                                    ) : (
-                                                        <TruckIcon className="h-4 w-4 text-blue-500" />
-                                                    )}
-                                                    <p className="font-bold text-gray-800 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
-                                                </div>
+                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
                                             </div>
 
                                             {isPickup ? (
@@ -11523,9 +11523,9 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
                                 
-                                {/* ATUALIZAR PEDIDO (Mobile: Fim) */}
+                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
                                 <div className="lg:hidden mt-6">
-                                    <UpdateOrderForm />
+                                    {renderUpdateOrderForm()}
                                 </div>
 
                             </div>
@@ -11585,119 +11585,86 @@ const AdminOrders = () => {
                             <tr>
                                 <th className="p-4 font-semibold">Pedido ID</th>
                                 <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Contato</th>
+                                <th className="p-4 font-semibold">Envio</th>
                                 <th className="p-4 font-semibold">Data</th>
                                 <th className="p-4 font-semibold">Total</th>
-                                <th className="p-4 font-semibold">Entrega</th>
                                 <th className="p-4 font-semibold">Status</th>
                                 <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
                          <tbody>
-                            {currentOrders.map(o => {
-                                const orderDate = new Date(o.date);
-                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
-                                return (
-                                    <tr key={o.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-4 font-mono">#{o.id}</td>
-                                        <td className="p-4">
-                                            <div>
-                                                <p className="font-semibold text-gray-800">{o.user_name}</p>
-                                                {/* --- Ícone de WhatsApp na Tabela --- */}
-                                                {o.user_phone && (
-                                                    <a 
-                                                        href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-0.5"
-                                                        title="Conversar"
-                                                    >
-                                                        <WhatsappIcon className="h-3 w-3" />
-                                                        {maskPhone(o.user_phone)}
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4">{formattedDate}</td>
-                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                        <td className="p-4">
-                                            {o.shipping_method === 'Retirar na loja' ? (
-                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                            ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
-                                                <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
-                                            ) : (
-                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col items-start gap-1">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                                {o.refund_status === 'pending_approval' && (
-                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
-                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
-                                                        Reembolso Solicitado
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
-                                    </tr>
-                                );
-                            })}
+                            {currentOrders.map(o => (
+                                <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 font-mono font-bold text-indigo-600">#{o.id}</td>
+                                    <td className="p-4 font-medium text-gray-800">{o.user_name}</td>
+                                    <td className="p-4 text-xs">
+                                        <p className="font-mono text-gray-500 mb-1">{maskCPF(o.user_cpf || '')}</p>
+                                        <p className="flex items-center gap-1 text-green-600 font-bold"><WhatsappIcon className="h-3 w-3"/> {maskPhone(o.user_phone || '')}</p>
+                                    </td>
+                                    <td className="p-4 text-sm text-gray-700 font-medium">
+                                        {o.shipping_method || 'N/A'}
+                                    </td>
+                                    <td className="p-4 text-gray-500">{new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                                    <td className="p-4 font-bold text-green-600">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                            o.status === 'Entregue' ? 'bg-green-100 text-green-800' : 
+                                            o.status === 'Pendente' ? 'bg-amber-100 text-amber-800' : 
+                                            'bg-blue-100 text-blue-800'
+                                        }`}>{o.status}</span>
+                                    </td>
+                                    <td className="p-4">
+                                        <button onClick={() => handleOpenEditModal(o)} className="text-indigo-600 hover:text-indigo-900 font-semibold text-sm flex items-center gap-1">
+                                            <EyeIcon className="h-4 w-4"/> Detalhes
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
                          </tbody>
                      </table>
                 </div>
-                {/* Mobile List View - CORRIGIDO PARA MOSTRAR DETALHES E MÉTODO */}
+                {/* Mobile List View */}
                 <div className="lg:hidden space-y-4 p-4">
-                    {currentOrders.map(o => {
-                        const orderDate = new Date(o.date);
-                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
-                        const isPickup = o.shipping_method === 'Retirar na loja';
-                        const isLocal = o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local'));
-
-                        return (
-                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold text-indigo-600">#{o.id}</p>
-                                        <p className="text-sm font-medium">{o.user_name}</p>
-                                        <p className="text-xs text-gray-500">{formattedDateOnly}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-green-600">R$ {Number(o.total).toFixed(2)}</p>
-                                        <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                            o.status === 'Entregue' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                        }`}>{o.status}</span>
-                                    </div>
+                    {currentOrders.map(o => (
+                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <p className="font-bold text-indigo-600 text-lg">#{o.id}</p>
+                                    <p className="text-sm font-medium text-gray-800">{o.user_name}</p>
+                                    <p className="text-xs text-gray-500">{new Date(o.date).toLocaleDateString()}</p>
                                 </div>
-                                
-                                {/* --- NOVA LINHA DE ENTREGA E BOTÃO DETALHES --- */}
-                                <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-2 text-gray-700">
-                                        {isPickup ? <BoxIcon className="h-4 w-4 text-blue-600"/> : <TruckIcon className={`h-4 w-4 ${isLocal ? 'text-yellow-600' : 'text-gray-500'}`}/>}
-                                        <span className="font-medium text-xs">
-                                            {isPickup ? 'Retirada na Loja' : (isLocal ? 'Entrega Local' : 'Envio Correios')}
-                                        </span>
-                                    </div>
-                                    
-                                    <button 
-                                        onClick={() => handleOpenEditModal(o)} 
-                                        className="bg-gray-100 hover:bg-gray-200 text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors"
-                                    >
-                                        <EyeIcon className="h-3 w-3"/> Detalhes
-                                    </button>
+                                <div className="text-right">
+                                     <span className={`inline-block px-2 py-0.5 text-xs font-semibold rounded-full mb-1 ${
+                                        o.status === 'Entregue' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>{o.status}</span>
+                                    <p className="font-bold text-green-600">R$ {Number(o.total).toFixed(2)}</p>
                                 </div>
                             </div>
-                        );
-                    })}
+                            
+                            {/* NOVOS CAMPOS NO CARD MOBILE */}
+                            <div className="text-xs text-gray-600 border-t pt-2 mt-2 space-y-1.5 bg-gray-50 p-2 rounded">
+                                <p><span className="font-bold text-gray-500">Envio:</span> {o.shipping_method || 'Não informado'}</p>
+                                <div className="flex justify-between">
+                                    <p><span className="font-bold text-gray-500">CPF:</span> {maskCPF(o.user_cpf || '')}</p>
+                                    <p className="flex items-center gap-1 text-green-700 font-bold"><WhatsappIcon className="h-3 w-3"/> {maskPhone(o.user_phone || '')}</p>
+                                </div>
+                            </div>
+
+                            <button onClick={() => handleOpenEditModal(o)} className="w-full mt-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-colors border border-indigo-200">
+                                <EyeIcon className="h-4 w-4"/> Ver Detalhes
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
             
             {/* Paginação */}
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-semibold">Anterior</button>
-                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-semibold">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50">Anterior</button>
+                    <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50">Próxima</button>
                 </div>
             )}
         </div>
