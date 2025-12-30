@@ -18,9 +18,14 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const webpush = require('web-push');
 
+
 // Carrega variáveis de ambiente do arquivo .env
 require('dotenv').config();
 
+// --- CONFIGURAÇÕES DE SEGURANÇA JWT ---
+const ACCESS_TOKEN_EXPIRY = '15m'; // Curta duração (Segurança)
+const REFRESH_TOKEN_EXPIRY = '7d'; // Longa duração (Conveniência)
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
 
 // --- Configuração do Resend ---
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -313,23 +318,26 @@ const csvUpload = multer({
 // --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
 
+// --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN (ATUALIZADO) ---
 const verifyToken = (req, res, next) => {
-    const token = req.cookies.accessToken;
+    const token = req.cookies.accessToken;
 
-    if (!token) {
-        return res.status(401).json({ message: 'Acesso negado. Nenhum token fornecido.' });
-    }
+    if (!token) {
+        // Se não tem token, tenta verificar se tem refresh token para tentar renovar silenciosamente no frontend
+        // Mas aqui retornamos 401 para o frontend disparar o fluxo de refresh
+        return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
+    }
 
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        if (err.name === 'TokenExpiredError') {
-            return res.status(401).json({ message: 'Token expirado. Por favor, atualize sua sessão.' });
-        }
-        return res.status(403).json({ message: 'Token inválido.' });
-    }
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Token expirado', code: 'TOKEN_EXPIRED' });
+        }
+        return res.status(403).json({ message: 'Token inválido.' });
+    }
 };
 
 const verifyAdmin = async (req, res, next) => {
@@ -967,80 +975,64 @@ app.post('/api/register', [
     }
 });
 
-
+// --- ROTA DE LOGIN (COM ROTAÇÃO E DB) ---
 app.post('/api/login', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('password', 'Senha não pode estar vazia').notEmpty()
+    body('email', 'Email inválido').isEmail().normalizeEmail(),
+    body('password', 'Senha obrigatória').notEmpty()
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { email, password } = req.body;
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
+        const { email, password } = req.body;
+        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+        const user = users[0];
 
-    if (loginAttempts[email] && loginAttempts[email].lockUntil > Date.now()) {
-        return res.status(429).json({ message: `Muitas tentativas de login. Tente novamente em ${LOCK_TIME_IN_MINUTES} minutos.` });
-    }
+        // Validações básicas (existência, senha, bloqueio)
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ message: "Email ou senha inválidos." });
+        }
+        if (user.status === 'blocked') {
+            return res.status(403).json({ message: "Conta bloqueada." });
+        }
 
-    try {
-        const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-        const user = users[0];
+        // Lógica de 2FA (se aplicável, retorna token temporário)
+        if (user.role === 'admin' && user.is_two_factor_enabled) {
+             const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
+             return res.json({ twoFactorEnabled: true, token: tempToken });
+        }
 
-        const logLoginAttempt = async (userId, status) => {
-            await db.query(
-                "INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, ?)",
-                [userId, email, ipAddress, userAgent, status]
-            );
-        };
+        // --- GERAÇÃO DE TOKENS SEGUROS ---
+        const userPayload = { id: user.id, name: user.name, role: user.role };
+        
+        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-        if (!user || !(await bcrypt.compare(password, user.password))) {
-            loginAttempts[email] = loginAttempts[email] || { count: 0, lockUntil: null };
-            loginAttempts[email].count++;
-            if (loginAttempts[email].count >= MAX_LOGIN_ATTEMPTS) {
-                loginAttempts[email].lockUntil = Date.now() + LOCK_TIME_IN_MINUTES * 60 * 1000;
-            }
-            if (user) await logLoginAttempt(user.id, 'failure');
-            return res.status(401).json({ message: "Email ou senha inválidos." });
-        }
+        // Armazena Refresh Token no Banco (Rotação)
+        // Calcula data de expiração para o banco
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-        if (user.status === 'blocked') {
-            await logLoginAttempt(user.id, 'failure');
-            return res.status(403).json({ message: "Esta conta está bloqueada. Por favor, entre em contato com o suporte." });
-        }
+        // Cookies HttpOnly
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        };
 
-        delete loginAttempts[email];
-        await logLoginAttempt(user.id, 'success');
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 }); // 15 min
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
-        // Lógica de 2FA para Admins
-        if (user.role === 'admin' && user.is_two_factor_enabled) {
-            const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, JWT_SECRET, { expiresIn: '5m' }); // Token temporário para a verificação 2FA
-            return res.json({ twoFactorEnabled: true, token: tempToken });
-        }
+        // Log de sucesso
+        await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, email, req.ip, req.headers['user-agent']]);
 
-        // Geração de Tokens para usuários normais ou admins sem 2FA
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+        const { password: _, two_factor_secret, ...userData } = user;
+        res.json({ message: "Login realizado com sucesso.", user: userData });
 
-       const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
-
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-
-        const { password: _, two_factor_secret, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData });
-
-    } catch (err) {
-        console.error("Erro ao fazer login:", err);
-        res.status(500).json({ message: "Erro interno ao fazer login." });
-    }
+    } catch (err) {
+        console.error("Erro no login:", err);
+        res.status(500).json({ message: "Erro interno." });
+    }
 });
 
 app.post('/api/login/2fa/verify', [
@@ -1099,35 +1091,103 @@ app.post('/api/login/2fa/verify', [
     }
 });
 
-app.post('/api/refresh-token', (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) {
-        return res.status(401).json({ message: 'Refresh token não encontrado.' });
-    }
+// --- ROTA DE REFRESH TOKEN (ROTAÇÃO SEGURA) ---
+app.post('/api/refresh-token', async (req, res) => {
+    const oldRefreshToken = req.cookies.refreshToken;
+    
+    if (!oldRefreshToken) {
+        return res.status(401).json({ message: 'Sessão expirada. Faça login novamente.' });
+    }
 
-    try {
-        const decoded = jwt.verify(refreshToken, JWT_SECRET);
-        
-        // Opcional: Verificar se o token de refresh ainda é válido no banco (se você implementar uma blacklist)
-        
-        const userPayload = { id: decoded.id, name: decoded.name, role: decoded.role, cpf: decoded.cpf };
-        const newAccessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        res.cookie('accessToken', newAccessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            maxAge: 4 * 60 * 60 * 1000 // 4 horas
-        });
+        // 1. Verifica se o token existe no banco e é válido
+        const [storedToken] = await connection.query("SELECT * FROM refresh_tokens WHERE token = ?", [oldRefreshToken]);
 
-        res.json({ message: 'Token atualizado com sucesso.' });
-    } catch (err) {
-        return res.status(403).json({ message: 'Refresh token inválido ou expirado.' });
-    }
+        // DETECÇÃO DE REUSO DE TOKEN (Roubo de Sessão)
+        // Se o token é válido criptograficamente mas não está no banco, ele já foi usado/rotacionado.
+        // Possível ataque: Alguém roubou o token antigo e está tentando usar.
+        if (storedToken.length === 0) {
+            try {
+                const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET);
+                // Se decodificou, sabemos quem é o usuário. Invalida TUDO dele por segurança.
+                console.warn(`[SEGURANÇA] Tentativa de reuso de Refresh Token detectada para User ID ${decoded.id}. Invalidando todas as sessões.`);
+                await connection.query("DELETE FROM refresh_tokens WHERE user_id = ?", [decoded.id]);
+            } catch (e) {
+                // Token inválido/expirado, apenas ignora
+            }
+            await connection.commit();
+            return res.status(403).json({ message: 'Sessão inválida (Reuso detectado). Faça login novamente.' });
+        }
+
+        const currentTokenData = storedToken[0];
+
+        // Verifica validade criptográfica
+        const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET);
+        
+        // Verifica expiração do banco
+        if (new Date() > new Date(currentTokenData.expires_at)) {
+            await connection.query("DELETE FROM refresh_tokens WHERE id = ?", [currentTokenData.id]);
+            await connection.commit();
+            return res.status(403).json({ message: 'Sessão expirada.' });
+        }
+
+        // --- ROTAÇÃO DE TOKEN ---
+        // 2. Deleta o token antigo (Single Use)
+        await connection.query("DELETE FROM refresh_tokens WHERE id = ?", [currentTokenData.id]);
+
+        // 3. Gera novos tokens
+        // Busca dados atualizados do usuário (caso role/permissões tenham mudado)
+        const [users] = await connection.query("SELECT id, name, role, cpf FROM users WHERE id = ?", [decoded.id]);
+        if (users.length === 0) throw new Error("Usuário não encontrado.");
+        const user = users[0];
+
+        const userPayload = { id: user.id, name: user.name, role: user.role };
+        const newAccessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+        const newRefreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+        
+        // 4. Salva novo Refresh Token
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+        await connection.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, newRefreshToken, expiresAt]);
+
+        await connection.commit();
+
+        // 5. Envia Cookies
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        };
+
+        res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+        res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+
+        res.json({ message: 'Sessão renovada.' });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro no refresh token:", err);
+        return res.status(403).json({ message: 'Sessão inválida.' });
+    } finally {
+        connection.release();
+    }
 });
 
-app.post('/api/logout', (req, res) => {
-    // Opções devem corresponder EXATAMENTE à criação (login)
+// --- ROTA DE LOGOUT (LIMPEZA SEGURA) ---
+app.post('/api/logout', async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (refreshToken) {
+        try {
+            // Remove o token específico do banco
+            await db.query("DELETE FROM refresh_tokens WHERE token = ?", [refreshToken]);
+        } catch (e) {
+            console.error("Erro ao limpar token no logout:", e);
+        }
+    }
+
     const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -1135,12 +1195,9 @@ app.post('/api/logout', (req, res) => {
         path: '/' 
     };
 
-    // 1. Tenta limpar formalmente
     res.clearCookie('accessToken', cookieOptions);
     res.clearCookie('refreshToken', cookieOptions);
-
-    // 2. Força bruta: Sobrescreve o cookie com valor vazio e expiração imediata (0)
-    // Isso garante que, mesmo se o clearCookie falhar por detalhe de opção, o cookie fique inútil
+    // Força bruta para garantir limpeza
     res.cookie('accessToken', '', { ...cookieOptions, maxAge: 0, expires: new Date(0) });
     res.cookie('refreshToken', '', { ...cookieOptions, maxAge: 0, expires: new Date(0) });
 
