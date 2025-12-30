@@ -8780,58 +8780,92 @@ const VariationInputRow = ({ variation, index, onVariationChange, onRemoveVariat
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 bg-gray-50 rounded-md border">
+        <div className="group relative grid grid-cols-1 md:grid-cols-12 gap-4 items-start p-4 bg-white rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
+            {/* Número da Variação (Visual) */}
+            <div className="absolute -left-2 -top-2 w-6 h-6 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center text-xs font-bold border border-gray-200 shadow-sm z-10">
+                {index + 1}
+            </div>
+
             <div className="md:col-span-3">
-                <label className="text-xs text-gray-500">Cor</label>
-                <select value={variation.color} onChange={(e) => onVariationChange(index, 'color', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-white">
-                    <option value="">Selecione a Cor</option>
-                    {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Cor</label>
+                <div className="relative">
+                    <select 
+                        value={variation.color} 
+                        onChange={(e) => onVariationChange(index, 'color', e.target.value)} 
+                        className="w-full pl-3 pr-8 py-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block transition-colors"
+                    >
+                        <option value="">Selecione...</option>
+                        {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {variation.color && (
+                        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border border-gray-300 shadow-sm" style={{ backgroundColor: variation.color === 'Multicolorido' ? 'transparent' : variation.color.toLowerCase() }}></div>
+                    )}
+                </div>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Tamanho</label>
-                <input type="text" list="available-sizes" value={variation.size} onChange={(e) => onVariationChange(index, 'size', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: M ou 42"/>
-                <datalist id="available-sizes">{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Tamanho</label>
+                <input 
+                    type="text" 
+                    list={`available-sizes-${index}`} 
+                    value={variation.size} 
+                    onChange={(e) => onVariationChange(index, 'size', e.target.value)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 uppercase transition-colors" 
+                    placeholder="M, 42..."
+                />
+                <datalist id={`available-sizes-${index}`}>{availableSizes.map(s => <option key={s} value={s}>{s}</option>)}</datalist>
             </div>
+            
             <div className="md:col-span-2">
-                <label className="text-xs text-gray-500">Estoque</label>
-                <input type="number" min="0" value={variation.stock} onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} className="w-full p-2 border border-gray-300 rounded-md" placeholder="0"/>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Estoque</label>
+                <input 
+                    type="number" 
+                    min="0" 
+                    value={variation.stock} 
+                    onChange={(e) => onVariationChange(index, 'stock', parseInt(e.target.value, 10) || 0)} 
+                    className="w-full p-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
+                    placeholder="0"
+                />
             </div>
-            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor && 'opacity-40'}`}>
+
+            <div className={`md:col-span-4 space-y-2 ${!isFirstOfColor ? 'opacity-50 grayscale' : ''}`}>
                  {isFirstOfColor ? (
                     <>
-                        <label className="text-xs text-gray-500 font-semibold">Imagens para a cor "{variation.color || '...'}"</label>
-                        <div className="p-2 border rounded-md bg-white min-h-[60px]">
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Imagens ({variation.color || 'Geral'})</label>
+                        <div className="p-2 border border-dashed border-gray-300 rounded-lg bg-gray-50 min-h-[64px] flex flex-wrap gap-2 items-center transition-colors hover:bg-gray-100">
                             {variation.images && variation.images.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {variation.images.map((img, imgIndex) => (
-                                        <div key={imgIndex} className="relative group">
-                                            <img src={img} alt="Variação" className="w-12 h-12 object-cover rounded-md border" />
-                                            <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><XMarkIcon className="h-3 w-3" /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : ( <p className="text-xs text-gray-400 text-center py-2">Nenhuma imagem</p> )}
-                        </div>
-                        <div>
-                            <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
-                            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
-                            <div className="flex gap-2 mt-1">
-                                <button type="button" onClick={() => galleryInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><UploadIcon className="h-4 w-4" /> Galeria</button>
-                                <button type="button" onClick={() => cameraInputRef.current.click()} className="w-1/2 text-xs bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-2 rounded-md flex items-center justify-center gap-1"><CameraIcon className="h-4 w-4" /> Câmera</button>
+                                variation.images.map((img, imgIndex) => (
+                                    <div key={imgIndex} className="relative group/img w-10 h-10">
+                                        <img src={img} alt="Var" className="w-full h-full object-cover rounded-md border border-gray-200 shadow-sm" />
+                                        <button type="button" onClick={() => handleRemoveImage(imgIndex)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/img:opacity-100 transition-all shadow-sm hover:bg-red-600 transform hover:scale-110">
+                                            <XMarkIcon className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))
+                            ) : ( 
+                                <span className="text-xs text-gray-400 w-full text-center">Sem imagens</span> 
+                            )}
+                            
+                            <div className="flex gap-1 ml-auto">
+                                <input type="file" multiple accept="image/*" ref={galleryInputRef} onChange={handleFileChange} className="hidden" />
+                                <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={handleFileChange} className="hidden" />
+                                <button type="button" onClick={() => galleryInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Galeria"><UploadIcon className="h-4 w-4" /></button>
+                                <button type="button" onClick={() => cameraInputRef.current.click()} className="p-1.5 bg-white border border-gray-200 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors" title="Câmera"><CameraIcon className="h-4 w-4" /></button>
                             </div>
-                            {uploadStatus && <p className={`text-xs mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
                         </div>
+                        {uploadStatus && <p className={`text-[10px] font-medium mt-1 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600 flex items-center gap-1'} animate-pulse`}><CheckCircleIcon className="h-3 w-3 inline"/> {uploadStatus}</p>}
                     </>
                  ) : (
-                    <div>
-                        <label className="text-xs text-gray-500">Imagens</label>
-                        <p className="text-xs text-gray-500 p-2 border rounded-md bg-gray-100">As imagens são definidas na primeira variação desta cor.</p>
+                    <div className="flex items-center h-full pt-4">
+                        <p className="text-xs text-gray-400 italic bg-gray-50 px-2 py-1 rounded border border-gray-100 w-full text-center">Imagens vinculadas à 1ª variação desta cor.</p>
                     </div>
                  )}
             </div>
-            <div className="md:col-span-1 flex items-center justify-center h-full pt-4 md:pt-0">
-                <button type="button" onClick={() => onRemoveVariation(index)} className="bg-red-100 text-red-600 p-2 rounded-md hover:bg-red-200"><TrashIcon className="h-5 w-5 mx-auto"/></button>
+
+            <div className="md:col-span-1 flex items-center justify-end h-full pt-6">
+                <button type="button" onClick={() => onRemoveVariation(index)} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-lg transition-all" title="Remover variação">
+                    <TrashIcon className="h-5 w-5"/>
+                </button>
             </div>
         </div>
     );
@@ -8949,32 +8983,32 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     const perfumeBrands = ["O Boticário", "Avon", "Natura", "Eudora"];
 
     const perfumeFields = [
-        { name: 'stock', label: 'Estoque', type: 'number', required: true },
-        { name: 'notes', label: 'Notas Olfativas (Ex: Topo: Maçã\\nCorpo: Canela)', type: 'textarea' },
-        { name: 'how_to_use', label: 'Como Usar', type: 'textarea' },
-        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea' },
-        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text' },
+        { name: 'stock', label: 'Estoque Total', type: 'number', required: true, placeholder: '0' },
+        { name: 'volume', label: 'Volume (ex: 100ml)', type: 'text', placeholder: '100ml' },
+        { name: 'notes', label: 'Notas Olfativas', type: 'textarea', placeholder: 'Topo: ...\nCorpo: ...\nFundo: ...' },
+        { name: 'how_to_use', label: 'Como Usar', type: 'textarea', placeholder: 'Instruções de aplicação...' },
+        { name: 'ideal_for', label: 'Ideal Para', type: 'textarea', placeholder: 'Ocasiões, tipo de pele...' },
     ];
     
     const clothingFields = [
-        { name: 'variations', label: 'Variações (Cor, Tamanho, Estoque, Imagens)', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML permitido)', type: 'textarea' },
-        { name: 'care_instructions', label: 'Cuidados com a Peça (um por linha)', type: 'textarea' },
+        { name: 'variations', label: 'Grade de Variações', type: 'variations' },
+        { name: 'size_guide', label: 'Guia de Medidas (HTML/Texto)', type: 'textarea', placeholder: '<p>P: 38cm</p>...' },
+        { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
     ];
 
    const commonFields = [
-        { name: 'name', label: 'Nome do Produto', type: 'text', required: true },
-        { name: 'brand', label: 'Marca', type: 'text', required: true },
-        { name: 'category', label: 'Categoria', type: 'text', required: true },
-        { name: 'price', label: 'Preço Original', type: 'number', required: true, step: '0.01' },
-        { name: 'video_url', label: 'Link do Vídeo do YouTube (Opcional)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
+        { name: 'name', label: 'Nome do Produto', type: 'text', required: true, placeholder: 'Ex: Perfume Floral ou Vestido Longo' },
+        { name: 'brand', label: 'Marca', type: 'text', required: true, placeholder: 'Selecione ou digite...' },
+        { name: 'category', label: 'Categoria', type: 'text', required: true, placeholder: 'Selecione...' },
+        { name: 'price', label: 'Preço Original (R$)', type: 'number', required: true, step: '0.01', placeholder: '0.00' },
+        { name: 'video_url', label: 'Vídeo do YouTube (URL)', type: 'url', placeholder: 'https://www.youtube.com/watch?v=...' },
         { name: 'images_upload', label: 'Upload de Imagens Principais', type: 'file' },
         { name: 'images', label: 'URLs das Imagens Principais', type: 'text_array' },
-        { name: 'description', label: 'Descrição', type: 'textarea' },
-        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true },
-        { name: 'width', label: 'Largura (cm)', type: 'number', required: true },
-        { name: 'height', label: 'Altura (cm)', type: 'number', required: true },
-        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true },
+        { name: 'description', label: 'Descrição Detalhada', type: 'textarea', placeholder: 'Descreva os detalhes e benefícios do produto...' },
+        { name: 'weight', label: 'Peso (kg)', type: 'number', step: '0.01', required: true, placeholder: '0.5' },
+        { name: 'width', label: 'Largura (cm)', type: 'number', required: true, placeholder: '10' },
+        { name: 'height', label: 'Altura (cm)', type: 'number', required: true, placeholder: '10' },
+        { name: 'length', label: 'Comprimento (cm)', type: 'number', required: true, placeholder: '10' },
         { name: 'is_active', label: 'Produto Ativo', type: 'checkbox' },
     ];
 
@@ -9289,276 +9323,318 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
 
     const availableSizes = useMemo(() => [...new Set(categories.filter(c => c.type === 'size').map(c => c.name))], [categories]);
 
+    // Componente Auxiliar para Seções
+    const FormSection = ({ title, icon: Icon, children }) => (
+        <div className="bg-white p-5 md:p-6 rounded-xl border border-gray-200 shadow-sm space-y-4">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2 border-b border-gray-100 pb-3">
+                {Icon && <Icon className="h-5 w-5 text-indigo-600" />}
+                {title}
+            </h3>
+            {children}
+        </div>
+    );
+
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="p-4 bg-gray-100 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Produto</label>
-                <div className="flex gap-4">
-                    <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'perfume' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <SparklesIcon className="h-5 w-5" /> Perfume
-                    </button>
-                    <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 p-3 rounded-md border-2 font-semibold flex items-center justify-center gap-2 ${productType === 'clothing' ? 'bg-amber-100 border-amber-500 text-amber-800' : 'bg-white border-gray-300 hover:border-amber-400'}`}>
-                        <ShirtIcon className="h-5 w-5" /> Roupa
-                    </button>
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6 bg-gray-50/50 p-1">
+            {/* --- SELETOR DE TIPO --- */}
+            <div className="bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm flex relative">
+                <button type="button" onClick={() => setProductType('perfume')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'perfume' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    <SparklesIcon className="h-5 w-5" /> Perfume
+                </button>
+                <button type="button" onClick={() => setProductType('clothing')} className={`flex-1 py-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 z-10 ${productType === 'clothing' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}>
+                    <ShirtIcon className="h-5 w-5" /> Roupa
+                </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {commonFields.map(field => {
-                    if (field.type === 'checkbox' || field.name === 'images' || field.name === 'images_upload') return null;
-
-                    if (field.name === 'category') {
-                         return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <select 
-                                    name="category" 
-                                    value={formData.category || ''} 
-                                    onChange={handleChange} 
-                                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white" 
-                                    required={field.required}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
-                                </select>
-                            </div>
-                        );
-                    }
-                    if (field.name === 'brand') {
-                        if (productType === 'perfume') {
-                            return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <select
-                                        name="brand"
-                                        value={formData.brand || ''}
-                                        onChange={handleChange}
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white"
-                                        required={field.required}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                    </select>
-                                </div>
-                            )
-                        } else {
-                             return (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                    <input
-                                        type="text"
-                                        name={field.name}
-                                        value={formData[field.name] || ''}
-                                        onChange={handleChange}
-                                        list="brand-datalist"
-                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                                        required={field.required}
-                                    />
-                                    <datalist id="brand-datalist">
-                                        {brands.map(opt => <option key={opt} value={opt} />)}
-                                    </datalist>
-                                </div>
-                            );
-                        }
-                    }
-                   
-                    if (field.type === 'textarea') {
-                         return (
-                            <div key={field.name} className="lg:col-span-3">
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                         )
-                    }
-                    
-                    const isNameField = field.name === 'name';
-                    if (field.name === 'sale_price') return null;
-                    
-                    return (
-                        <div key={field.name} className={`${isNameField ? 'lg:col-span-3' : ''}`}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} step={field.step} />
-                        </div>
-                    );
-                })}
-
-                {/* --- ÁREA DE DESTAQUE PARA PROMOÇÃO --- */}
-                <div className="lg:col-span-3 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-5 space-y-4 shadow-sm">
-                    <div className="flex items-center">
-                        <input 
-                            type="checkbox" 
-                            name="is_on_sale" 
-                            id="is_on_sale_checkbox" 
-                            checked={!!formData['is_on_sale']} // CORREÇÃO: !! Garante booleano e evita o "0" na tela
-                            onChange={handlePromoToggle} 
-                            className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" 
-                        />
-                        <label htmlFor="is_on_sale_checkbox" className="ml-2 text-base font-bold text-gray-800 cursor-pointer">Produto em Promoção?</label>
+            {/* --- INFORMAÇÕES BÁSICAS --- */}
+            <FormSection title="Informações Básicas" icon={FileIcon}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Produto <span className="text-red-500">*</span></label>
+                        <input type="text" name="name" value={formData.name || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm font-medium" placeholder="Ex: Perfume Floral ou Vestido Longo" required />
                     </div>
                     
-                    {/* CORREÇÃO: !! Garante que só renderiza se for true, evitando o "0" */}
-                    {!!formData['is_on_sale'] && (
-                        <motion.div 
-                            initial={{ opacity: 0, height: 0 }} 
-                            animate={{ opacity: 1, height: 'auto' }} 
-                            className="space-y-4"
-                        >
-                            <div className="flex gap-4 border-b border-yellow-200 pb-3">
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium text-gray-800">Preço Fixo (R$)</span>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Categoria <span className="text-red-500">*</span></label>
+                        <select name="category" value={formData.category || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
+                            <option value="">Selecione...</option>
+                            {availableProductCategories.map(cat => <option key={cat.id} value={cat.filter}>{cat.name}</option>)}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Marca <span className="text-red-500">*</span></label>
+                        {productType === 'perfume' ? (
+                             <select name="brand" value={formData.brand || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required>
+                                <option value="">Selecione...</option>
+                                {perfumeBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                        ) : (
+                            <>
+                                <input type="text" name="brand" value={formData.brand || ''} onChange={handleChange} list="brand-datalist" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm" required placeholder="Digite ou selecione..." />
+                                <datalist id="brand-datalist">{brands.map(opt => <option key={opt} value={opt} />)}</datalist>
+                            </>
+                        )}
+                    </div>
+                    
+                    <div className="md:col-span-2 flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="relative flex items-start">
+                            <div className="flex items-center h-5">
+                                <input id="is_active" name="is_active" type="checkbox" checked={!!formData.is_active} onChange={handleChange} className="focus:ring-indigo-500 h-5 w-5 text-indigo-600 border-gray-300 rounded cursor-pointer" />
+                            </div>
+                            <div className="ml-3 text-sm">
+                                <label htmlFor="is_active" className="font-bold text-gray-700 cursor-pointer">Produto Ativo</label>
+                                <p className="text-gray-500 text-xs">Se desmarcado, o produto ficará oculto na loja.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </FormSection>
+
+             {/* --- PREÇO E ESTOQUE --- */}
+             <FormSection title="Preço e Promoção" icon={CurrencyDollarIcon}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                     <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Preço Original (R$) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">R$</span>
+                            <input type="number" name="price" value={formData.price || ''} onChange={handleChange} className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold text-gray-900" placeholder="0.00" step="0.01" required />
+                        </div>
+                    </div>
+
+                    {/* Lógica de Estoque para Perfumes (Roupas usam variações) */}
+                    {productType === 'perfume' && (
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Estoque Total <span className="text-red-500">*</span></label>
+                             <input type="number" name="stock" value={formData.stock || ''} onChange={handleChange} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold" placeholder="0" min="0" required />
+                        </div>
+                    )}
+                </div>
+
+                {/* Card de Promoção */}
+                <div className={`mt-4 border-2 rounded-xl p-5 transition-all ${!!formData.is_on_sale ? 'bg-amber-50 border-amber-300 shadow-inner' : 'bg-gray-50 border-dashed border-gray-300'}`}>
+                    <div className="flex items-center mb-4">
+                         <input type="checkbox" id="is_on_sale" name="is_on_sale" checked={!!formData.is_on_sale} onChange={handlePromoToggle} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer" />
+                         <label htmlFor="is_on_sale" className="ml-3 font-bold text-gray-800 cursor-pointer select-none">Habilitar Promoção</label>
+                    </div>
+
+                    {!!formData.is_on_sale && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-4">
+                            <div className="flex gap-4 p-2 bg-white rounded-lg border border-amber-100">
+                                <label className="flex items-center cursor-pointer px-2">
+                                    <input type="radio" name="promoMode" value="fixed" checked={promoMode === 'fixed'} onChange={() => handlePromoModeChange('fixed')} className="text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium">Preço Fixo</span>
                                 </label>
-                                <label className="flex items-center cursor-pointer">
-                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="h-4 w-4 text-amber-600 focus:ring-amber-500"/>
-                                    <span className="ml-2 text-sm font-medium text-gray-800">Porcentagem (%)</span>
+                                <label className="flex items-center cursor-pointer px-2">
+                                    <input type="radio" name="promoMode" value="percentage" checked={promoMode === 'percentage'} onChange={() => handlePromoModeChange('percentage')} className="text-amber-600 focus:ring-amber-500"/>
+                                    <span className="ml-2 text-sm font-medium">Porcentagem (%)</span>
                                 </label>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-1">Desconto (%)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desconto (%)</label>
                                     <div className="relative">
-                                        <input type="number" value={promoPercent} onChange={handlePercentChange} disabled={promoMode !== 'percentage'} className={`block w-full pr-8 pl-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'percentage' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} min="0" max="100"/>
-                                        <span className="absolute right-3 top-2 text-gray-500">%</span>
+                                        <input type="number" value={promoPercent} onChange={handlePercentChange} disabled={promoMode !== 'percentage'} className={`w-full p-2 border rounded-lg text-sm ${promoMode !== 'percentage' ? 'bg-gray-100 text-gray-400' : 'bg-white border-amber-300 text-amber-700 font-bold'}`} placeholder="0" />
+                                        <span className="absolute right-3 top-2 text-xs text-gray-400">%</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-800 mb-1">Preço Final (R$)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Preço Final</label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-2 text-gray-500">R$</span>
-                                        <input type="number" name="sale_price" value={formData.sale_price || ''} onChange={handleChange} disabled={promoMode !== 'fixed'} className={`block w-full pl-8 pr-3 py-2 border rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 ${promoMode !== 'fixed' ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'}`} step="0.01" />
+                                        <span className="absolute left-3 top-2 text-xs text-gray-500">R$</span>
+                                        <input type="number" name="sale_price" value={formData.sale_price || ''} onChange={handleChange} disabled={promoMode !== 'fixed'} className={`w-full pl-8 p-2 border rounded-lg text-sm ${promoMode !== 'fixed' ? 'bg-gray-100 text-gray-400' : 'bg-white border-amber-300 text-amber-700 font-bold'}`} placeholder="0.00" step="0.01" />
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-red-700 mb-1">Data/Hora Fim (Opcional)</label>
-                                    <input type="datetime-local" name="sale_end_date" value={formData.sale_end_date || ''} onChange={handleChange} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 bg-white" />
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Fim da Promoção (Opcional)</label>
+                                    <input type="datetime-local" name="sale_end_date" value={formData.sale_end_date || ''} onChange={handleChange} className="w-full p-2 border border-amber-200 rounded-lg text-sm text-gray-700 bg-white" />
                                 </div>
                             </div>
-
-                            {/* --- SELEÇÃO DE CORES PARA ROUPAS --- */}
+                            
+                            {/* Seleção de Cores para Promoção (Roupas) */}
                             {productType === 'clothing' && currentVariationColors.length > 0 && (
-                                <div className="mt-4 pt-4 border-t border-yellow-200">
-                                    <label className="block text-sm font-bold text-gray-800 mb-2">Aplicar Desconto nas Cores:</label>
+                                <div className="pt-4 border-t border-amber-200">
+                                    <p className="text-xs font-bold text-amber-800 mb-2 uppercase">Aplicar desconto apenas nas cores:</p>
                                     <div className="flex flex-wrap gap-2">
                                         {currentVariationColors.map(color => (
-                                            <label key={color} className={`flex items-center space-x-2 px-3 py-1.5 rounded-md border cursor-pointer select-none transition-colors ${promoSelectedColors.includes(color) ? 'bg-green-100 border-green-500 text-green-800' : 'bg-white border-gray-300 text-gray-500 opacity-60'}`}>
+                                            <label key={color} className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${promoSelectedColors.includes(color) ? 'bg-amber-500 text-white border-amber-600 shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
                                                 <input 
                                                     type="checkbox" 
                                                     checked={promoSelectedColors.includes(color)}
                                                     onChange={() => togglePromoColor(color)}
-                                                    className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                                                />
-                                                <span className="text-sm font-bold">{color}</span>
+                                                    className="hidden" />
+                                                <span className="text-xs font-bold">{color}</span>
                                             </label>
                                         ))}
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-2">Novas cores adicionadas entrarão automaticamente na promoção.</p>
                                 </div>
                             )}
                         </motion.div>
                     )}
                 </div>
+             </FormSection>
 
-                <div className="lg:col-span-3 grid grid-cols-1 gap-4">
-                    <div className="flex items-center pt-2">
-                        <input type="checkbox" name="is_active" id="is_active_checkbox" checked={!!formData['is_active']} onChange={handleChange} className="h-5 w-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                        <label htmlFor="is_active_checkbox" className="ml-2 text-sm font-medium text-gray-700">Produto Ativo</label>
+            {/* --- DETALHES ESPECÍFICOS --- */}
+            {productType === 'perfume' && (
+                <FormSection title="Detalhes do Perfume" icon={SparklesIcon}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                         <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Volume</label>
+                            <input type="text" name="volume" value={formData.volume || ''} onChange={handleChange} onBlur={handleVolumeBlur} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="Ex: 100ml" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Notas Olfativas</label>
+                            <textarea name="notes" value={formData.notes || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-24" placeholder="Topo: ...&#10;Corpo: ...&#10;Fundo: ..."></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Como Usar</label>
+                            <textarea name="how_to_use" value={formData.how_to_use || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Ideal Para</label>
+                            <textarea name="ideal_for" value={formData.ideal_for || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-20"></textarea>
+                        </div>
+                    </div>
+                </FormSection>
+            )}
+
+            {productType === 'clothing' && (
+                 <FormSection title="Variações e Tamanhos" icon={ShirtIcon}>
+                    {/* Lista de Variações */}
+                    <div className="space-y-4 mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="text-sm font-bold text-gray-700">Grade de Cores e Tamanhos</label>
+                            <button type="button" onClick={addVariation} className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-bold border border-indigo-200 transition-colors">
+                                + Adicionar Variação
+                            </button>
+                        </div>
+                        
+                        {(formData.variations || []).length > 0 ? (
+                            (formData.variations || []).map((v, i) => {
+                                const seenColors = new Set();
+                                // Helper simples para identificar primeira ocorrência visualmente
+                                const isFirst = (formData.variations || []).findIndex(va => va.color === v.color) === i;
+                                return (
+                                    <VariationInputRow 
+                                        key={i} 
+                                        variation={v} 
+                                        index={i} 
+                                        onVariationChange={handleVariationChange}
+                                        onRemoveVariation={removeVariation}
+                                        availableColors={allColors}
+                                        availableSizes={availableSizes}
+                                        onImageUpload={(e) => handleVariationImageUpload(i, e)}
+                                        uploadStatus={uploadingStatus[i]}
+                                        isFirstOfColor={isFirst}
+                                    />
+                                );
+                            })
+                        ) : (
+                            <div className="text-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
+                                <p className="text-gray-500 text-sm mb-2">Nenhuma variação adicionada.</p>
+                                <button type="button" onClick={addVariation} className="text-indigo-600 font-bold text-sm hover:underline">Clique para adicionar cor/tamanho</button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (HTML/Texto)</label>
+                            <textarea name="size_guide" value={formData.size_guide || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32 font-mono text-xs"></textarea>
+                        </div>
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
+                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                        </div>
+                    </div>
+                 </FormSection>
+            )}
+
+            {/* --- MÍDIA --- */}
+            <FormSection title="Imagens Principais e Vídeo" icon={PhotoIcon}>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-1">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Upload Rápido</label>
+                         <div className="flex gap-2 mb-2">
+                             <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
+                             <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
+                                <UploadIcon className="h-6 w-6 text-gray-500" />
+                                <span className="text-xs font-bold">Galeria</span>
+                             </button>
+                             <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
+                             <button type="button" onClick={() => mainCameraInputRef.current.click()} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-4 rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-300 transition-colors">
+                                <CameraIcon className="h-6 w-6 text-gray-500" />
+                                <span className="text-xs font-bold">Câmera</span>
+                             </button>
+                         </div>
+                         {uploadStatus && <p className={`text-xs font-bold text-center ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-600'} animate-pulse`}>{uploadStatus}</p>}
+                    </div>
+
+                    <div className="lg:col-span-2 space-y-3">
+                        <label className="block text-sm font-bold text-gray-700">URLs das Imagens (Ou gerenciamento)</label>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                            {(formData.images || []).map((img, index) => (
+                                <div key={index} className="flex items-center gap-2 group">
+                                    <div className="w-10 h-10 rounded border border-gray-200 bg-gray-100 flex-shrink-0 overflow-hidden">
+                                        <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumb" className="w-full h-full object-cover" />
+                                    </div>
+                                    <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-indigo-500 text-gray-600" placeholder="https://..." />
+                                    <button type="button" onClick={() => removeImageField(index)} className="p-2 text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="h-4 w-4"/></button>
+                                </div>
+                            ))}
+                        </div>
+                        <button type="button" onClick={addImageField} className="text-xs font-bold text-indigo-600 hover:underline">+ Adicionar campo de URL</button>
+                    </div>
+
+                    <div className="lg:col-span-3">
+                         <label className="block text-sm font-bold text-gray-700 mb-1">Link do Vídeo (YouTube)</label>
+                         <input type="url" name="video_url" value={formData.video_url || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm" placeholder="https://www.youtube.com/watch?v=..." />
                     </div>
                 </div>
+            </FormSection>
 
-            </div>
-            
-            {/* ... restante do código mantido igual (uploads e variações) ... */}
-            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <h3 className="font-semibold text-gray-800">Gerenciamento de Imagens Principais</h3>
-                <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">Fazer Upload de Novas Imagens</label>
-                     <input type="file" multiple accept="image/*" ref={mainGalleryInputRef} onChange={handleImageChange} className="hidden" />
-                     <input type="file" accept="image/*" capture="environment" ref={mainCameraInputRef} onChange={handleImageChange} className="hidden" />
-                     <div className="flex gap-2">
-                        <button type="button" onClick={() => mainGalleryInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><UploadIcon className="h-5 w-5" /> Galeria</button>
-                        <button type="button" onClick={() => mainCameraInputRef.current.click()} className="w-1/2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md flex items-center justify-center gap-2"><CameraIcon className="h-5 w-5" /> Câmera</button>
-                     </div>
-                     {uploadStatus && <p className={`text-sm mt-2 ${uploadStatus.startsWith('Erro') ? 'text-red-500' : 'text-green-500'}`}>{uploadStatus}</p>}
-                </div>
-                 <div>
-                     <label className="block text-sm font-medium text-gray-700 mt-4">URLs das Imagens</label>
-                     {(formData.images || []).map((img, index) => (
-                        <div key={index} className="flex items-center space-x-2 mt-2">
-                            <img src={img || 'https://placehold.co/40x40/eee/ccc?text=?'} alt="Thumbnail" className="w-10 h-10 object-cover rounded-md border" />
-                            <input type="text" value={img} onChange={(e) => handleImageArrayChange(index, e.target.value)} className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" placeholder={`URL da Imagem ${index + 1}`} />
-                            <button type="button" onClick={() => removeImageField(index)} className="p-2 bg-red-100 text-red-600 rounded-md flex-shrink-0 hover:bg-red-200"><TrashIcon className="h-4 w-4"/></button>
+            {/* --- DETALHES GERAIS E DIMENSÕES --- */}
+            <FormSection title="Descrição e Entrega" icon={BoxIcon}>
+                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Descrição Completa</label>
+                        <textarea name="description" value={formData.description || ''} onChange={handleChange} className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32" placeholder="Descreva os detalhes, benefícios e diferenciais do produto..."></textarea>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                        <div className="md:col-span-4 mb-1">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Dimensões para Frete</p>
                         </div>
-                     ))}
-                     <button type="button" onClick={addImageField} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Adicionar URL manualmente</button>
-                </div>
-            </div>
-
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={productType}
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="space-y-4"
-                >
-                    {productType === 'perfume' && perfumeFields.map(field => (
-                        <div key={field.name}>
-                            <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                            {field.type === 'textarea' ? (
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            ) : (
-                            <input type={field.type} name={field.name} value={formData[field.name] || ''} onChange={handleChange} onBlur={field.name === 'volume' ? handleVolumeBlur : null} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm" required={field.required} />
-                            )}
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
+                            <input type="number" name="weight" value={formData.weight || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" step="0.01" required />
                         </div>
-                    ))}
-                    {productType === 'clothing' && clothingFields.map(field => {
-                        if (field.name === 'variations') {
-                             const seenColors = new Set();
-                            return (
-                                <div key={field.name} className="p-4 border rounded-lg bg-gray-50 space-y-3">
-                                    <h3 className="font-semibold text-gray-800">{field.label}</h3>
-                                    {(formData.variations || []).map((v, i) => {
-                                        let isFirst = false;
-                                        if (v.color && !seenColors.has(v.color)) {
-                                            seenColors.add(v.color);
-                                            isFirst = true;
-                                        }
-                                        return (
-                                            <VariationInputRow 
-                                                key={i} 
-                                                variation={v} 
-                                                index={i} 
-                                                onVariationChange={handleVariationChange}
-                                                onRemoveVariation={removeVariation}
-                                                availableColors={allColors} // Usa a lista completa de cores padrão
-                                                availableSizes={availableSizes}
-                                                onImageUpload={(e) => handleVariationImageUpload(i, e)}
-                                                uploadStatus={uploadingStatus[i]}
-                                                isFirstOfColor={isFirst}
-                                            />
-                                        )
-                                    })}
-                                    <button type="button" onClick={addVariation} className="w-full text-sm text-blue-600 hover:text-blue-800 border-dashed border-2 p-2 rounded-md hover:border-blue-500">
-                                        + Adicionar Variação
-                                    </button>
-                                </div>
-                            );
-                        }
-                        return (
-                            <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700">{field.label}</label>
-                                <textarea name={field.name} value={formData[field.name] || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm h-24" required={field.required}></textarea>
-                            </div>
-                        );
-                    })}
-                </motion.div>
-            </AnimatePresence>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Largura (cm)</label>
+                            <input type="number" name="width" value={formData.width || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Altura (cm)</label>
+                            <input type="number" name="height" value={formData.height || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Comp. (cm)</label>
+                            <input type="number" name="length" value={formData.length || ''} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded-md text-sm" required />
+                        </div>
+                    </div>
+                 </div>
+            </FormSection>
 
-            <div className="flex justify-end space-x-3 pt-4 border-t mt-6">
-                <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 rounded-md hover:bg-gray-300 font-semibold">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-semibold">Salvar</button>
+            {/* --- AÇÕES FIXAS --- */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 -mx-1 flex justify-end gap-3 rounded-b-lg shadow-lg z-20">
+                <button type="button" onClick={onCancel} className="px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors">
+                    Cancelar
+                </button>
+                <button type="submit" className="px-8 py-2.5 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-md transition-all transform active:scale-95 flex items-center gap-2">
+                    <CheckIcon className="h-5 w-5"/>
+                    Salvar Produto
+                </button>
             </div>
         </form>
     );
