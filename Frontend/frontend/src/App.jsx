@@ -11141,6 +11141,7 @@ const AdminOrders = () => {
         } catch(e) { notification.show(e.message, 'error'); }
     };
 
+    // --- CARD DE DETALHES (Estilo Profissional) ---
     const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
         <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
@@ -11158,7 +11159,7 @@ const AdminOrders = () => {
     const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
     const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
-    const getStatusLabel = (status, order) => {
+    const getStatusLabel = (status) => {
         const isLocal = editingOrder?.shipping_method?.toLowerCase().includes('motoboy');
         if (isLocal) {
             if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
@@ -11224,8 +11225,7 @@ const AdminOrders = () => {
     };
 
     // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO E CORRIGIDO) ---
-    const renderUpdateOrderForm = () => {
-        // CORREÇÃO: Declarar variáveis DENTRO da função para evitar ReferenceError
+    const UpdateOrderForm = () => {
         const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = editingOrder.shipping_method === 'Retirar na loja';
         const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
@@ -11305,6 +11305,7 @@ const AdminOrders = () => {
 
     return (
         <div>
+            {/* Modal de Reembolso */}
             <AnimatePresence>
                 {isRefundModalOpen && editingOrder && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
@@ -11330,9 +11331,9 @@ const AdminOrders = () => {
                 )}
             </AnimatePresence>
 
+            {/* --- MODAL DE DETALHES PROFISSIONAL --- */}
             <AnimatePresence>
                 {editingOrder && (() => {
-                    // --- VARIÁVEIS DE ESTADO ---
                     const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
 
@@ -11359,7 +11360,7 @@ const AdminOrders = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA DA ESQUERDA: Itens */}
+                                    {/* COLUNA PRINCIPAL: Itens */}
                                     <div className="lg:col-span-2 space-y-6">
                                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
@@ -11414,13 +11415,13 @@ const AdminOrders = () => {
                                             </div>
                                         </div>
                                         
-                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
+                                        {/* ATUALIZAR PEDIDO (Desktop: Esquerda / Mobile: Fim) */}
                                         <div className="hidden lg:block">
-                                            {renderUpdateOrderForm()}
+                                            <UpdateOrderForm />
                                         </div>
                                     </div>
 
-                                    {/* COLUNA DA DIREITA: Informações */}
+                                    {/* COLUNA LATERAL: Informações */}
                                     <div className="space-y-6">
                                         <DetailCard title="Cliente" icon={UserIcon}>
                                             <div className="flex items-center gap-3 mb-3">
@@ -11443,29 +11444,17 @@ const AdminOrders = () => {
                                                         {maskPhone(editingOrder.user_phone || '')}
                                                     </a>
                                                 </div>
-                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
-                                                {editingOrder.user_phone && (
-                                                    <a 
-                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
-                                                        title="Abrir conversa no WhatsApp"
-                                                    >
-                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
-                                                    </a>
-                                                )}
                                             </div>
                                         </DetailCard>
 
                                         <DetailCard title="Entrega" icon={MapPinIcon}>
-                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
+                                            {/* --- MÉTODO DE ENVIO --- */}
                                             <div className="mb-3 pb-2 border-b border-gray-100">
                                                 <span className="text-xs text-gray-500 block">Método Escolhido</span>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     {editingOrder.shipping_method === 'Retirar na loja' ? (
                                                         <BoxIcon className="h-4 w-4 text-amber-500" />
-                                                    ) : editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local')) ? (
+                                                    ) : isLocalDelivery ? (
                                                         <TruckIcon className="h-4 w-4 text-yellow-600" />
                                                     ) : (
                                                         <TruckIcon className="h-4 w-4 text-blue-500" />
@@ -11534,9 +11523,9 @@ const AdminOrders = () => {
                                     </div>
                                 </div>
                                 
-                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
+                                {/* ATUALIZAR PEDIDO (Mobile: Fim) */}
                                 <div className="lg:hidden mt-6">
-                                    {renderUpdateOrderForm()}
+                                    <UpdateOrderForm />
                                 </div>
 
                             </div>
@@ -11657,7 +11646,7 @@ const AdminOrders = () => {
                          </tbody>
                      </table>
                 </div>
-                {/* Mobile List View - NOVO LAYOUT COM DETALHES E ENTREGA */}
+                {/* Mobile List View - CORRIGIDO PARA MOSTRAR DETALHES E MÉTODO */}
                 <div className="lg:hidden space-y-4 p-4">
                     {currentOrders.map(o => {
                         const orderDate = new Date(o.date);
