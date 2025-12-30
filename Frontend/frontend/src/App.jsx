@@ -4036,7 +4036,10 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6"> 
+        // --- CORREÇÃO DE LAYOUT MOBILE ---
+        // Alterado de 'min-h-screen' para 'min-h-[calc(100vh-4rem)]'
+        // Isso desconta a altura do Header (4rem/64px) para centralizar perfeitamente na área visível
+        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
