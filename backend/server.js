@@ -17,6 +17,8 @@ const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const webpush = require('web-push');
+const webpush = require('web-push');
+const { z } = require('zod'); // Substitui express-validator
 
 
 // Carrega variáveis de ambiente do arquivo .env
@@ -239,6 +241,153 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 app.use(sanitizeInput);
+
+// ... (Imports anteriores mantidos)
+const webpush = require('web-push');
+const { z } = require('zod'); // Substitui express-validator
+
+// ... (Configurações de env e constantes mantidas)
+
+// --- MIDDLEWARE DE VALIDAÇÃO ZOD (NOVO) ---
+const validate = (schema) => (req, res, next) => {
+    try {
+        // Valida body, query e params contra o schema
+        schema.parse({
+            body: req.body,
+            query: req.query,
+            params: req.params
+        });
+        next();
+    } catch (err) {
+        if (err instanceof z.ZodError) {
+            // Formata erros do Zod para resposta amigável
+            const errors = err.errors.map(e => ({ 
+                field: e.path.join('.'), 
+                message: e.message 
+            }));
+            return res.status(400).json({ 
+                message: "Dados inválidos.", 
+                errors: errors 
+            });
+        }
+        next(err);
+    }
+};
+
+// --- SCHEMAS DE VALIDAÇÃO (DEFINIÇÕES) ---
+
+// Schemas de Autenticação
+const authSchemas = {
+    login: z.object({
+        body: z.object({
+            email: z.string().email("E-mail inválido"),
+            password: z.string().min(1, "Senha obrigatória")
+        })
+    }),
+    register: z.object({
+        body: z.object({
+            name: z.string().min(3, "Nome muito curto"),
+            email: z.string().email("E-mail inválido"),
+            password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+            cpf: z.string().min(11, "CPF inválido"), // Validação lógica continua no controller
+            phone: z.string().optional()
+        })
+    }),
+    verify2FA: z.object({
+        body: z.object({
+            token: z.string().length(6, "O código deve ter 6 dígitos"),
+            tempAuthToken: z.string().min(1, "Token de autorização ausente")
+        })
+    }),
+    enable2FA: z.object({
+        body: z.object({
+            token: z.string().length(6, "O código deve ter 6 dígitos")
+        })
+    }),
+    disable2FA: z.object({
+        body: z.object({
+            password: z.string().min(1, "Senha obrigatória"),
+            token: z.string().length(6, "O código deve ter 6 dígitos")
+        })
+    }),
+    forgotPassword: z.object({
+        body: z.object({
+            email: z.string().email("E-mail inválido"),
+            cpf: z.string().min(1, "CPF obrigatório")
+        })
+    }),
+    resetPassword: z.object({
+        body: z.object({
+            email: z.string().email("E-mail inválido"),
+            cpf: z.string().min(1, "CPF obrigatório"),
+            newPassword: z.string().min(6, "A nova senha deve ter no mínimo 6 caracteres")
+        })
+    }),
+    verifyAction: z.object({
+        body: z.object({
+            password: z.string().optional(),
+            token: z.string().length(6).optional()
+        }).refine(data => data.password || data.token, {
+            message: "Senha ou código 2FA é necessário"
+        })
+    })
+};
+
+// Schema de Produtos (Admin)
+const productSchema = z.object({
+    body: z.object({
+        name: z.string().min(1),
+        brand: z.string().min(1),
+        category: z.string().min(1),
+        price: z.preprocess((val) => parseFloat(val), z.number().positive()), // Força número
+        sale_price: z.preprocess((val) => val ? parseFloat(val) : null, z.number().positive().nullable().optional()),
+        is_on_sale: z.preprocess((val) => Boolean(val), z.boolean()),
+        stock: z.preprocess((val) => parseInt(val, 10), z.number().int().nonnegative()),
+        description: z.string().optional(),
+        images: z.string().optional(), // JSON string
+        variations: z.string().optional(), // JSON string
+        product_type: z.enum(['perfume', 'clothing']).optional(),
+        // Campos opcionais para evitar erro de strip
+        weight: z.any().optional(),
+        width: z.any().optional(),
+        height: z.any().optional(),
+        length: z.any().optional(),
+        is_active: z.any().optional(),
+        video_url: z.string().optional().nullable(),
+        sale_end_date: z.string().optional().nullable(),
+        // Campos específicos
+        notes: z.string().optional(),
+        how_to_use: z.string().optional(),
+        ideal_for: z.string().optional(),
+        volume: z.string().optional(),
+        size_guide: z.string().optional(),
+        care_instructions: z.string().optional()
+    })
+});
+
+// Schema de Pedidos
+const orderSchema = z.object({
+    body: z.object({
+        items: z.array(z.object({
+            id: z.number().int().positive(),
+            qty: z.number().int().positive(),
+            // Permite outros campos mas valida os críticos
+            price: z.any().optional(),
+            variation: z.any().optional()
+        })).min(1, "O pedido deve ter pelo menos um item"),
+        paymentMethod: z.string(),
+        shipping_method: z.string(),
+        shipping_cost: z.number().nonnegative(),
+        total: z.number().nonnegative(),
+        shippingAddress: z.any().optional(),
+        coupon_code: z.string().optional().nullable(),
+        discount_amount: z.number().optional(),
+        pickup_details: z.any().optional(),
+        phone: z.string().optional()
+    })
+});
+
+// ... (Resto dos middlewares existentes: verifyToken, verifyAdmin, etc.)
 
 // --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
 const initializeData = async () => {
@@ -966,48 +1115,46 @@ app.post('/api/upload/image', verifyToken, imageUpload, async (req, res) => {
 });
 
 
-// --- ROTAS DE AUTENTICAÇÃO E USUÁRIOS ---
-app.post('/api/register', [
-    body('name', 'O nome é obrigatório').notEmpty().trim().escape(),
-    body('email', 'Por favor, inclua um e-mail válido').isEmail().normalizeEmail(),
-    body('password', 'A senha deve ter no mínimo 6 caracteres').isLength({ min: 6 }),
-    body('cpf').custom(value => {
-        const cpf = String(value).replace(/[^\d]/g, '');
-        if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) throw new Error('CPF inválido');
-        let sum = 0, remainder;
-        for (let i = 1; i <= 9; i++) sum += parseInt(cpf.substring(i - 1, i)) * (11 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(9, 10))) throw new Error('CPF inválido');
-        sum = 0;
-        for (let i = 1; i <= 10; i++) sum += parseInt(cpf.substring(i - 1, i)) * (12 - i);
-        remainder = (sum * 10) % 11;
-        if ((remainder === 10) || (remainder === 11)) remainder = 0;
-        if (remainder !== parseInt(cpf.substring(10, 11))) throw new Error('CPF inválido');
-        return true;
-    }),
-    body('phone', 'Número de telefone inválido').optional().isLength({ min: 10 }) // Validação
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
+app.post('/api/register', validate(authSchemas.register), async (req, res) => {
+    // O Zod já validou formato de email, tamanho de senha e presença dos campos.
+    // Mantemos a validação lógica de CPF (algoritmo) e duplicidade aqui.
+    
     const { name, email, password, cpf, phone } = req.body;
 
-    if (!isValidEmail(email)) {
-        return res.status(400).json({ message: "Formato de e-mail inválido." });
-    }
-    if (password.length < 6) {
-        return res.status(400).json({ message: "A senha deve ter no mínimo 6 caracteres." });
+    // Validação Manual de CPF (Algoritmo)
+    const cleanCpf = String(cpf).replace(/[^\d]/g, '');
+    
+    // Função auxiliar de validação de CPF (mantida da lógica original)
+    const isValidCPF = (strCPF) => {
+        let sum = 0, remainder;
+        if (strCPF === "00000000000" || strCPF.length !== 11) return false;
+        for (let i = 1; i <= 9; i++) sum += parseInt(strCPF.substring(i - 1, i)) * (11 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(strCPF.substring(9, 10))) return false;
+        sum = 0;
+        for (let i = 1; i <= 10; i++) sum += parseInt(strCPF.substring(i - 1, i)) * (12 - i);
+        remainder = (sum * 10) % 11;
+        if ((remainder === 10) || (remainder === 11)) remainder = 0;
+        if (remainder !== parseInt(strCPF.substring(10, 11))) return false;
+        return true;
+    };
+
+    if (!isValidCPF(cleanCpf)) {
+        return res.status(400).json({ message: "CPF inválido (falha na verificação do dígito)." });
     }
 
     try {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
-        // INSERT ATUALIZADO: Salva o campo 'phone' no banco
-        const [result] = await db.query("INSERT INTO users (`name`, `email`, `cpf`, `password`, `phone`) VALUES (?, ?, ?, ?, ?)", [name, email, cpf.replace(/\D/g, ''), hashedPassword, phone ? phone.replace(/\D/g, '') : null]);
         
-        sendEmailAsync({
+        // INSERT completo mantendo a lógica de telefone opcional
+        const [result] = await db.query(
+            "INSERT INTO users (`name`, `email`, `cpf`, `password`, `phone`) VALUES (?, ?, ?, ?, ?)", 
+            [name, email, cleanCpf, hashedPassword, phone ? phone.replace(/\D/g, '') : null]
+        );
+        
+        // Envio de E-mail de Boas-vindas
+        await sendEmailAsync({
             from: FROM_EMAIL,
             to: email,
             subject: 'Bem-vindo(a) à Love Cestas e Perfumes!',
@@ -1029,14 +1176,10 @@ app.post('/api/register', [
 });
 
 // --- ROTA DE LOGIN (COM ROTAÇÃO E DB) ---
-app.post('/api/login', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('password', 'Senha obrigatória').notEmpty()
-], async (req, res) => {
+app.post('/api/login', validate(authSchemas.login), async (req, res) => {
+    // A validação de campos vazios/formato email já foi feita pelo Zod.
+    
     try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-
         const { email, password } = req.body;
         const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
         const user = users[0];
@@ -1055,14 +1198,13 @@ app.post('/api/login', [
              return res.json({ twoFactorEnabled: true, token: tempToken });
         }
 
-        // --- GERAÇÃO DE TOKENS SEGUROS ---
+        // --- GERAÇÃO DE TOKENS SEGUROS (Lógica Blindada) ---
         const userPayload = { id: user.id, name: user.name, role: user.role };
         
         const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
         const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
         // Armazena Refresh Token no Banco (Rotação)
-        // Calcula data de expiração para o banco
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
         await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
@@ -1992,11 +2134,11 @@ setInterval(async () => {
     }
 }, 60000); // Verifica a cada minuto
 
-// 1. Criação de Produto (Bloqueado)
-app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
+// 1. Criação de Produto (Bloqueado e Validado)
+app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-    // Lista de campos base, agora incluindo sale_end_date
+    // Lista de campos base
     const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
@@ -2011,7 +2153,7 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         productData.category, 
         productData.price, 
         productData.sale_price || null, 
-        saleEndDate, // Novo campo de data inserido
+        saleEndDate,
         productData.is_on_sale ? 1 : 0,
         productData.images, 
         productData.description, 
@@ -2029,6 +2171,7 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
     } else if (product_type === 'clothing') {
         fields.push('variations', 'size_guide', 'care_instructions', 'stock');
+        // O Zod valida que é string, mas aqui parseamos para calcular o estoque total
         const variations = JSON.parse(productData.variations || '[]');
         const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
         values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
@@ -2037,6 +2180,7 @@ app.post('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     try {
         const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
         const [result] = await db.query(sql, values);
+        
         logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
         res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
     } catch (err) {
@@ -2350,9 +2494,8 @@ app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res)
         }
     }
 });
-// --- ROTA DE EDIÇÃO DE PRODUTOS (PUT) ---
-// Substitua sua rota app.put('/api/products/:id'...) atual por esta versão completa:
-app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
+// 2. Edição de Produto (Bloqueado e Validado)
+app.put('/api/products/:id', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
     const { id } = req.params;
     const { product_type = 'perfume', ...productData } = req.body;
 
@@ -2370,14 +2513,14 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
         productData.price, 
         productData.sale_price || null, 
         saleEndDate, 
-        productData.is_on_sale,
+        productData.is_on_sale ? 1 : 0,
         productData.images, 
         productData.description, 
         productData.weight, 
         productData.width,
         productData.height, 
         productData.length, 
-        productData.is_active, 
+        productData.is_active ? 1 : 0, 
         product_type, 
         productData.video_url || null
     ];
@@ -2398,7 +2541,7 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 1. Verifica estado ANTERIOR
+        // 1. Verifica estado ANTERIOR para notificação de promoção
         const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
         const wasOnSale = current[0] ? current[0].is_on_sale : 0;
 
@@ -2425,43 +2568,6 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     } finally {
         connection.release();
     }
-});
-app.put('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { product_type = 'perfume', ...productData } = req.body;
-
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-    let values = [
-        productData.name, productData.brand, productData.category, productData.price, productData.sale_price || null, productData.is_on_sale,
-        productData.images, productData.description, productData.weight, productData.width,
-        productData.height, productData.length, productData.is_active, product_type, productData.video_url || null
-    ];
-
-    if (product_type === 'perfume') {
-        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
-    
-    values.push(id);
-
-    try {
-        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
-        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
-        await db.query(sql, values);
-        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
-        res.json({ message: "Produto atualizado com sucesso!" });
-    } catch (err) {
-        console.error("Erro ao atualizar produto:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar produto." });
-    }
 });
 
 
@@ -2941,25 +3047,24 @@ app.get('/api/orders/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/orders', verifyToken, async (req, res) => {
+// 3. Criação de Pedido (Validado - CRÍTICO)
+app.post('/api/orders', verifyToken, validate(orderSchema), async (req, res) => {
     const { items, shippingAddress, paymentMethod, shipping_method, shipping_cost, coupon_code, pickup_details, phone } = req.body;
     
-    if (!req.user.id || !items || items.length === 0) return res.status(400).json({ message: "Faltam dados para criar o pedido." });
+    // Validações lógicas extras que o Zod já filtrou parcialmente (ex: items.length > 0)
+    if (!req.user.id) return res.status(400).json({ message: "Usuário não identificado." });
     
     const connection = await db.getConnection();
     
     // --- ATUALIZAÇÃO DO TELEFONE (ISOLADA) ---
-    // Executamos isso ANTES de iniciar a transação do pedido.
-    // Se der erro aqui (ex: coluna não existe), pegamos o erro e NÃO afetamos a venda.
     if (phone) {
         try {
             const cleanPhone = String(phone).replace(/\D/g, '');
             if (cleanPhone.length >= 10) {
-                // Note que usamos 'connection.query' diretamente, sem estar dentro do 'beginTransaction' ainda
                 await connection.query("UPDATE users SET phone = ? WHERE id = ?", [cleanPhone, req.user.id]);
             }
         } catch (phoneError) {
-            console.error("Aviso (Não Crítico): Falha ao atualizar telefone. O pedido seguirá normalmente.", phoneError.message);
+            console.error("Aviso (Não Crítico): Falha ao atualizar telefone.", phoneError.message);
         }
     }
 
@@ -2978,8 +3083,6 @@ app.post('/api/orders', verifyToken, async (req, res) => {
 
             // Validação de Estoque
             if (product.product_type === 'clothing') {
-                // CORREÇÃO: Usa o nome do produto do banco de dados na mensagem de erro
-                // Verifica se item.variation existe e tem as propriedades necessárias
                 if (!item.variation || !item.variation.color || !item.variation.size) {
                     throw new Error(`Variação (cor/tamanho) inválida ou ausente para o produto "${product.name}".`);
                 }
@@ -2999,7 +3102,7 @@ app.post('/api/orders', verifyToken, async (req, res) => {
                 }
             }
 
-            // Preço Oficial do Banco
+            // Preço Oficial do Banco (Ignora preço vindo do front)
             const unitPrice = (product.is_on_sale && product.sale_price) ? parseFloat(product.sale_price) : parseFloat(product.price);
             calculatedSubtotal += unitPrice * item.qty;
             
@@ -3021,24 +3124,23 @@ app.post('/api/orders', verifyToken, async (req, res) => {
             if (coupons.length > 0) {
                 const coupon = coupons[0];
                 let isValid = true;
-                let errorMsg = "";
 
-                if (!coupon.is_active) { isValid = false; errorMsg = "Cupom inativo."; }
+                if (!coupon.is_active) isValid = false;
                 
                 if (coupon.validity_days) {
                     const createdAt = new Date(coupon.created_at);
                     const expiryDate = new Date(createdAt.setDate(createdAt.getDate() + coupon.validity_days));
-                    if (new Date() > expiryDate) { isValid = false; errorMsg = "Cupom expirado."; }
+                    if (new Date() > expiryDate) isValid = false;
                 }
 
                 if (coupon.is_first_purchase) {
                     const [pastOrders] = await connection.query("SELECT id FROM orders WHERE user_id = ? LIMIT 1", [req.user.id]);
-                    if (pastOrders.length > 0) { isValid = false; errorMsg = "Cupom válido apenas para primeira compra."; }
+                    if (pastOrders.length > 0) isValid = false;
                 }
 
                 if (coupon.is_single_use_per_user) {
                     const [usage] = await connection.query("SELECT id FROM coupon_usage WHERE user_id = ? AND coupon_id = ?", [req.user.id, coupon.id]);
-                    if (usage.length > 0) { isValid = false; errorMsg = "Cupom já utilizado."; }
+                    if (usage.length > 0) isValid = false;
                 }
 
                 if (isValid) {
