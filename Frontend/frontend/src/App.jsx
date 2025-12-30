@@ -4036,10 +4036,11 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     };
 
     return (
-        // --- CORREÇÃO DE LAYOUT MOBILE ---
-        // Alterado de 'min-h-screen' para 'min-h-[calc(100vh-4rem)]'
-        // Isso desconta a altura do Header (4rem/64px) para centralizar perfeitamente na área visível
-        <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
+        // --- CORREÇÃO DE LAYOUT MOBILE (FINAL) ---
+        // pt-24: Adiciona padding no topo para compensar o Header fixo e dar respiro
+        // min-h-screen: Garante altura total
+        // flex-col justify-center: Centraliza verticalmente se sobrar espaço
+        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black px-4 pt-24 pb-10">
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
@@ -4210,7 +4211,11 @@ const RegisterPage = ({ onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-black p-4 sm:p-6">
+        // --- CORREÇÃO DE LAYOUT MOBILE ---
+        // pt-24: Espaço para o header
+        // pb-10: Espaço no rodapé para rolagem confortável
+        // flex-col justify-center: Centraliza se couber, rola se não couber
+        <div className="min-h-screen w-full flex flex-col items-center justify-center bg-black px-4 pt-24 pb-10">
             <motion.div
                 variants={containerVariants}
                 initial="hidden"
