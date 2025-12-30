@@ -17,6 +17,7 @@ const { Resend } = require('resend');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const webpush = require('web-push');
+const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 
 
