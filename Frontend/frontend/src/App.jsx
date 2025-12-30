@@ -12221,7 +12221,7 @@ const AdminLogsPage = () => {
 
     return (
         <div>
-            <h1 className="text-3xl font-bold mb-6">Histórico de Ações</h1>
+            <h1 className="text-3xl font-bold mb-6">Histórico de Ações e Auditoria</h1>
             {isLoading ? (
                 <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-500"/></div>
             ) : (
@@ -12233,6 +12233,7 @@ const AdminLogsPage = () => {
                                 <tr>
                                     <th className="p-4 font-semibold">Data</th>
                                     <th className="p-4 font-semibold">Administrador</th>
+                                    <th className="p-4 font-semibold">IP</th> {/* Nova Coluna */}
                                     <th className="p-4 font-semibold">Ação</th>
                                     <th className="p-4 font-semibold">Detalhes</th>
                                 </tr>
@@ -12242,6 +12243,7 @@ const AdminLogsPage = () => {
                                     <tr key={log.id} className="border-b hover:bg-gray-50">
                                         <td className="p-4 whitespace-nowrap text-gray-600">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                                         <td className="p-4 font-medium">{log.user_name}</td>
+                                        <td className="p-4 font-mono text-xs text-gray-500">{log.ip_address || 'N/A'}</td> {/* Exibição do IP */}
                                         <td className="p-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span></td>
                                         <td className="p-4 text-gray-700 break-words">{log.details}</td>
                                     </tr>
@@ -12259,6 +12261,9 @@ const AdminLogsPage = () => {
                                         <p className="text-xs text-gray-500">{new Date(log.created_at).toLocaleString('pt-BR')}</p>
                                     </div>
                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full capitalize">{log.action.replace(/_/g, ' ')}</span>
+                                </div>
+                                <div className="mb-2">
+                                    <span className="text-xs font-bold text-gray-500 uppercase">IP:</span> <span className="font-mono text-xs">{log.ip_address || 'N/A'}</span>
                                 </div>
                                 <div>
                                     <p className="text-gray-700 break-words">{log.details}</p>
