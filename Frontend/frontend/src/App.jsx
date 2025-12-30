@@ -11085,6 +11085,7 @@ const AdminOrders = () => {
             return;
         }
         const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
+        // Lógica simples de mensagem
         const text = `Olá ${editingOrder.user_name.split(' ')[0]}! O status do seu pedido #${editingOrder.id} mudou para: *${editFormData.status || editingOrder.status}*. ${editFormData.tracking_code ? `Rastreio: ${editFormData.tracking_code}` : ''}`;
         
         if (cleanPhone.length >= 10) {
@@ -11270,7 +11271,11 @@ const AdminOrders = () => {
                             ) : null}
 
                             {editingOrder.user_phone && (
-                                <button type="button" onClick={handleManualWhatsAppNotification} className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
+                                <button 
+                                    type="button" 
+                                    onClick={handleManualWhatsAppNotification}
+                                    className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center"
+                                >
                                     <WhatsappIcon className="h-5 w-5"/> Notificar
                                 </button>
                             )}
@@ -11425,6 +11430,18 @@ const AdminOrders = () => {
                                                     {maskPhone(editingOrder.user_phone || '')}
                                                 </a>
                                             </div>
+                                            {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
+                                            {editingOrder.user_phone && (
+                                                <a 
+                                                    href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
+                                                    title="Abrir conversa no WhatsApp"
+                                                >
+                                                    <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
+                                                </a>
+                                            )}
                                         </div>
                                     </DetailCard>
 
