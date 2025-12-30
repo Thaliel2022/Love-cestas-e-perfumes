@@ -11218,7 +11218,7 @@ const AdminOrders = () => {
     const getStatusChipClass = (status) => {
         const lowerStatus = status ? status.toLowerCase() : '';
         if (lowerStatus.includes('entregue')) return 'bg-green-100 text-green-800';
-        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-100 text-red-800';
+        if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado') || lowerStatus.includes('reembolsado')) return 'bg-red-100 text-red-800';
         if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
         return 'bg-blue-100 text-blue-800';
     };
@@ -11328,214 +11328,210 @@ const AdminOrders = () => {
                     </Modal>
                 )}
             </AnimatePresence>
-
             <AnimatePresence>
-                {editingOrder && (
-                    <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
-                        <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
-                            
-                            {/* 1. Timeline */}
-                            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-                                    <div>
-                                        <p className="text-xs text-gray-500 font-medium">Realizado em</p>
-                                        <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
-                                    </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
-                                        editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
-                                        editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
-                                        'bg-blue-50 text-blue-700 border-blue-200'
-                                    }`}>
-                                        {editingOrder.status}
-                                    </span>
-                                </div>
-                                <TimelineDisplay order={editingOrder} />
-                            </div>
+                {editingOrder && (() => {
+                    // --- VARIÁVEIS DE ESTADO ---
+                    const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
+                    const isPickup = editingOrder.shipping_method === 'Retirar na loja';
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* COLUNA DA ESQUERDA: Itens */}
-                                <div className="lg:col-span-2 space-y-6">
-                                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                            <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
-                                            <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                    return (
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
+                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
+                                
+                                {/* 1. Timeline */}
+                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-medium">Realizado em</p>
+                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
                                         </div>
-                                        <div className="divide-y divide-gray-100">
-                                            {editingOrder.items?.map((item, idx) => (
-                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
-                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
-                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
-                                                    </div>
-                                                    <div className="flex-grow">
-                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                                                        {item.variation && (
-                                                            <div className="flex items-center gap-2 mt-1">
-                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                    Cor: {item.variation.color}
-                                                                </span>
-                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                    Tam: {item.variation.size}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-right w-full sm:w-auto">
-                                                        <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
-                                            <div className="flex justify-between text-xs text-gray-600">
-                                                <span>Subtotal</span>
-                                                <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
-                                            </div>
-                                            <div className="flex justify-between text-xs text-gray-600">
-                                                <span>Frete ({editingOrder.shipping_method})</span>
-                                                <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
-                                            </div>
-                                            {Number(editingOrder.discount_amount) > 0 && (
-                                                <div className="flex justify-between text-xs text-green-600 font-medium">
-                                                    <span>Desconto ({editingOrder.coupon_code})</span>
-                                                    <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                                                <span>Total Geral</span>
-                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
-                                            </div>
-                                        </div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
+                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
+                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            'bg-blue-50 text-blue-700 border-blue-200'
+                                        }`}>
+                                            {editingOrder.status}
+                                        </span>
                                     </div>
-                                    
-                                    {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
-                                    <div className="hidden lg:block">
-                                        {renderUpdateOrderForm()}
-                                    </div>
+                                    <TimelineDisplay order={editingOrder} />
                                 </div>
 
-                                {/* COLUNA DA DIREITA: Informações */}
-                                <div className="space-y-6">
-                                    <DetailCard title="Cliente" icon={UserIcon}>
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-                                                {editingOrder.user_name.charAt(0)}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    {/* COLUNA DA ESQUERDA: Itens */}
+                                    <div className="lg:col-span-2 space-y-6">
+                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
+                                                <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
                                             </div>
-                                            <div className="overflow-hidden">
-                                                <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
-                                                <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2 text-xs">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 text-center"><span className="text-gray-400">CPF</span></div>
-                                                <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{maskCPF(editingOrder.user_cpf || '')}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 text-center"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
-                                                <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
-                                                    {maskPhone(editingOrder.user_phone || '')}
-                                                </a>
-                                            </div>
-                                            {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
-                                            {editingOrder.user_phone && (
-                                                <a 
-                                                    href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
-                                                    title="Abrir conversa no WhatsApp"
-                                                >
-                                                    <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
-                                                </a>
-                                            )}
-                                        </div>
-                                    </DetailCard>
-
-                                    <DetailCard title="Entrega" icon={MapPinIcon}>
-                                        {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
-                                        <div className="mb-3 pb-2 border-b border-gray-100">
-                                            <span className="text-xs text-gray-500 block">Método Escolhido</span>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {editingOrder.shipping_method === 'Retirar na loja' ? (
-                                                    <BoxIcon className="h-4 w-4 text-amber-500" />
-                                                ) : editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local')) ? (
-                                                    <TruckIcon className="h-4 w-4 text-yellow-600" />
-                                                ) : (
-                                                    <TruckIcon className="h-4 w-4 text-blue-500" />
-                                                )}
-                                                <p className="font-bold text-gray-800 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
-                                            </div>
-                                        </div>
-
-                                        {isPickup ? (
-                                            <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
-                                                <strong>Retirada na Loja</strong>
-                                                {editingOrder.pickup_details && (() => {
-                                                    try {
-                                                        const p = JSON.parse(editingOrder.pickup_details);
-                                                        return <p className="mt-1">Retirado por: {p.personName} (CPF: {p.personCpf})</p>
-                                                    } catch { return null; }
-                                                })()}
-                                            </div>
-                                        ) : (
-                                            <div className="text-xs space-y-1">
-                                                {(() => {
-                                                    try {
-                                                        const addr = JSON.parse(editingOrder.shipping_address);
-                                                        return (
-                                                            <>
-                                                                <p className="font-bold text-gray-800">{addr.logradouro}, {addr.numero}</p>
-                                                                <p>{addr.bairro} {addr.complemento ? `- ${addr.complemento}` : ''}</p>
-                                                                <p>{addr.localidade} - {addr.uf}</p>
-                                                                <p className="font-mono text-gray-500 mt-1">{addr.cep}</p>
-                                                            </>
-                                                        );
-                                                    } catch { return <p>Endereço inválido</p>; }
-                                                })()}
-                                            </div>
-                                        )}
-                                    </DetailCard>
-
-                                    <DetailCard title="Pagamento" icon={CreditCardIcon}>
-                                        <div className="flex flex-col gap-2">
-                                            {(() => {
-                                                let details = {};
-                                                try { details = JSON.parse(editingOrder.payment_details); } catch{}
-                                                
-                                                return (
-                                                    <>
-                                                        <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                                                            {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : 'Cartão'}
-                                                        </span>
-                                                        {details.method === 'credit_card' && (
-                                                            <div className="text-xs text-gray-600">
-                                                                <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
-                                                                <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
-                                                            </div>
-                                                        )}
-                                                        <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
-                                                            <span className="text-xs text-gray-500">Status</span>
-                                                            <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
-                                                            </span>
+                                            <div className="divide-y divide-gray-100">
+                                                {editingOrder.items?.map((item, idx) => (
+                                                    <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
+                                                        <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
+                                                            <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
                                                         </div>
-                                                    </>
-                                                )
-                                            })()}
+                                                        <div className="flex-grow">
+                                                            <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
+                                                            {item.variation && (
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                        Cor: {item.variation.color}
+                                                                    </span>
+                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                        Tam: {item.variation.size}
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-right w-full sm:w-auto">
+                                                            <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                            <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
+                                                <div className="flex justify-between text-xs text-gray-600">
+                                                    <span>Subtotal</span>
+                                                    <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between text-xs text-gray-600">
+                                                    <span>Frete ({editingOrder.shipping_method})</span>
+                                                    <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
+                                                </div>
+                                                {Number(editingOrder.discount_amount) > 0 && (
+                                                    <div className="flex justify-between text-xs text-green-600 font-medium">
+                                                        <span>Desconto ({editingOrder.coupon_code})</span>
+                                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                                    <span>Total Geral</span>
+                                                    <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </DetailCard>
-                                </div>
-                            </div>
-                            
-                            {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
-                            <div className="lg:hidden mt-6">
-                                {renderUpdateOrderForm()}
-                            </div>
+                                        
+                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
+                                        <div className="hidden lg:block">
+                                            {renderUpdateOrderForm()}
+                                        </div>
+                                    </div>
 
-                        </div>
-                    </Modal>
-                )}
+                                    {/* COLUNA DA DIREITA: Informações */}
+                                    <div className="space-y-6">
+                                        <DetailCard title="Cliente" icon={UserIcon}>
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
+                                                    {editingOrder.user_name.charAt(0)}
+                                                </div>
+                                                <div className="overflow-hidden">
+                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
+                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 text-center"><span className="text-gray-400">CPF</span></div>
+                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{maskCPF(editingOrder.user_cpf || '')}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 text-center"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
+                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
+                                                        {maskPhone(editingOrder.user_phone || '')}
+                                                    </a>
+                                                </div>
+                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
+                                                {editingOrder.user_phone && (
+                                                    <a 
+                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
+                                                        title="Abrir conversa no WhatsApp"
+                                                    >
+                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </DetailCard>
+
+                                        <DetailCard title="Entrega" icon={MapPinIcon}>
+                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
+                                            <div className="mb-3 pb-2 border-b border-gray-100">
+                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
+                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
+                                            </div>
+
+                                            {isPickup ? (
+                                                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
+                                                    <strong>Retirada na Loja</strong>
+                                                    {editingOrder.pickup_details && (() => {
+                                                        try {
+                                                            const p = JSON.parse(editingOrder.pickup_details);
+                                                            return <p className="mt-1">Retirado por: {p.personName} (CPF: {p.personCpf})</p>
+                                                        } catch { return null; }
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs space-y-1">
+                                                    {(() => {
+                                                        try {
+                                                            const addr = JSON.parse(editingOrder.shipping_address);
+                                                            return (
+                                                                <>
+                                                                    <p className="font-bold text-gray-800">{addr.logradouro}, {addr.numero}</p>
+                                                                    <p>{addr.bairro} {addr.complemento ? `- ${addr.complemento}` : ''}</p>
+                                                                    <p>{addr.localidade} - {addr.uf}</p>
+                                                                    <p className="font-mono text-gray-500 mt-1">{addr.cep}</p>
+                                                                </>
+                                                            );
+                                                        } catch { return <p>Endereço inválido</p>; }
+                                                    })()}
+                                                </div>
+                                            )}
+                                        </DetailCard>
+
+                                        <DetailCard title="Pagamento" icon={CreditCardIcon}>
+                                            <div className="flex flex-col gap-2">
+                                                {(() => {
+                                                    let details = {};
+                                                    try { details = JSON.parse(editingOrder.payment_details); } catch{}
+                                                    
+                                                    return (
+                                                        <>
+                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
+                                                                {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : 'Cartão'}
+                                                            </span>
+                                                            {details.method === 'credit_card' && (
+                                                                <div className="text-xs text-gray-600">
+                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
+                                                                    <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
+                                                                </div>
+                                                            )}
+                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
+                                                                <span className="text-xs text-gray-500">Status</span>
+                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
+                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
+                                                                </span>
+                                                            </div>
+                                                        </>
+                                                    )
+                                                })()}
+                                            </div>
+                                        </DetailCard>
+                                    </div>
+                                </div>
+                                
+                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
+                                <div className="lg:hidden mt-6">
+                                    {renderUpdateOrderForm()}
+                                </div>
+
+                            </div>
+                        </Modal>
+                    );
+                })()}
             </AnimatePresence>
             
             <AnimatePresence>
@@ -11591,127 +11587,62 @@ const AdminOrders = () => {
                                 <th className="p-4 font-semibold">Cliente</th>
                                 <th className="p-4 font-semibold">Data</th>
                                 <th className="p-4 font-semibold">Total</th>
-                                <th className="p-4 font-semibold">Entrega</th>
                                 <th className="p-4 font-semibold">Status</th>
                                 <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
                          <tbody>
-                            {currentOrders.map(o => {
-                                const orderDate = new Date(o.date);
-                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
-                                return (
-                                    <tr key={o.id} className="border-b hover:bg-gray-50">
-                                        <td className="p-4 font-mono">#{o.id}</td>
-                                        <td className="p-4">
-                                            <div>
-                                                <p className="font-semibold text-gray-800">{o.user_name}</p>
-                                                {/* --- Ícone de WhatsApp na Tabela --- */}
-                                                {o.user_phone && (
-                                                    <a 
-                                                        href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-0.5"
-                                                        title="Conversar"
-                                                    >
-                                                        <WhatsappIcon className="h-3 w-3" />
-                                                        {maskPhone(o.user_phone)}
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4">{formattedDate}</td>
-                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
-                                        <td className="p-4">
-                                            {o.shipping_method === 'Retirar na loja' ? (
-                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
-                                            ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
-                                                <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
-                                            ) : (
-                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex flex-col items-start gap-1">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                                {o.refund_status === 'pending_approval' && (
-                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
-                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
-                                                        Reembolso Solicitado
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
-                                    </tr>
-                                );
-                            })}
+                            {currentOrders.map(o => (
+                                <tr key={o.id} className="border-b hover:bg-gray-50">
+                                    <td className="p-4 font-mono font-bold text-indigo-600">#{o.id}</td>
+                                    <td className="p-4 font-medium text-gray-800">{o.user_name}</td>
+                                    <td className="p-4 text-gray-500">{new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                                    <td className="p-4 font-bold text-green-600">R$ {Number(o.total).toFixed(2)}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                            o.status === 'Entregue' ? 'bg-green-100 text-green-800' : 
+                                            o.status === 'Pendente' ? 'bg-amber-100 text-amber-800' : 
+                                            'bg-blue-100 text-blue-800'
+                                        }`}>{o.status}</span>
+                                    </td>
+                                    <td className="p-4">
+                                        <button onClick={() => handleOpenEditModal(o)} className="text-indigo-600 hover:text-indigo-900 font-semibold text-sm flex items-center gap-1">
+                                            <EyeIcon className="h-4 w-4"/> Detalhes
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
                          </tbody>
                      </table>
                 </div>
                 {/* Mobile List View */}
                 <div className="lg:hidden space-y-4 p-4">
-                    {currentOrders.map(o => {
-                        const orderDate = new Date(o.date);
-                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
-                        return (
-                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold">Pedido #{o.id}</p>
-                                        <p className="text-sm text-gray-600">{o.user_name}</p>
-                                        {/* --- Ícone de WhatsApp no Card Mobile --- */}
-                                        {o.user_phone && (
-                                            <a 
-                                                href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-100"
-                                            >
-                                                <WhatsappIcon className="h-3 w-3" />
-                                                Conversar
-                                            </a>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                        {o.refund_status === 'pending_approval' && (
-                                            <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
-                                                <ArrowUturnLeftIcon className="h-3 w-3"/>
-                                                Reembolso Solicitado
-                                            </span>
-                                        )}
-                                    </div>
+                    {currentOrders.map(o => (
+                        <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm" onClick={() => handleOpenEditModal(o)}>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-bold text-indigo-600">#{o.id}</p>
+                                    <p className="text-sm font-medium">{o.user_name}</p>
+                                    <p className="text-xs text-gray-500">{new Date(o.date).toLocaleDateString()}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
-                                     <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
-                                     <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
-                                     <div className="col-span-2">
-                                        <strong className="text-gray-500 block">Entrega</strong>
-                                        {o.shipping_method === 'Retirar na loja' ? (
-                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
-                                        ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
-                                            <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
-                                       ) : (
-                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
-                                        )}
-                                    </div>
-                                </div>
-                                 <div className="flex justify-end mt-4 pt-2 border-t">
-                                    <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
+                                <div className="text-right">
+                                    <p className="font-bold text-green-600">R$ {Number(o.total).toFixed(2)}</p>
+                                    <span className={`inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                        o.status === 'Entregue' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>{o.status}</span>
                                 </div>
                             </div>
-                        );
-                    })}
+                        </div>
+                    ))}
                 </div>
             </div>
-
+            
+            {/* Paginação */}
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-semibold">Anterior</button>
-                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-semibold">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50">Anterior</button>
+                    <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50">Próxima</button>
                 </div>
             )}
         </div>
