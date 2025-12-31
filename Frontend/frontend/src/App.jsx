@@ -10995,8 +10995,7 @@ const AdminOrders = () => {
     const notification = useNotification();
 
     const [currentPage, setCurrentPage] = useState(1);
-    // CORREÇÃO: Variável de estado unificada para busca
-    const [searchTerm, setSearchTerm] = useState(''); 
+    const [searchTerm, setSearchTerm] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
     const [itemsExpanded, setItemsExpanded] = useState(true);
@@ -11147,7 +11146,6 @@ const AdminOrders = () => {
     useEffect(() => {
         let temp = [...orders];
 
-        // CORREÇÃO: Lógica de pesquisa unificada usando searchTerm
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             temp = temp.filter(o => 
@@ -11265,9 +11263,8 @@ const AdminOrders = () => {
 
     const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
     
-    // CORREÇÃO: Limpar filtros agora usa setSearchTerm corretamente
     const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' });
         setSearchTerm('');
         setCurrentPage(1);
     }
@@ -11682,7 +11679,7 @@ const AdminOrders = () => {
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
+                    {/* Campo de nome do cliente removido pois está na busca global */}
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
                         {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
