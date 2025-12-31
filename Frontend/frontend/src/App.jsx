@@ -11021,59 +11021,98 @@ const AdminOrders = () => {
         'Entregue', 'Pagamento Recusado', 'Cancelado'
     ];
 
-    // --- HELPER VISUAL DE ENVIO ---
-    const getShippingDisplay = (method) => {
-        const lower = method ? method.toLowerCase() : '';
-        if (lower.includes('retirar') || lower.includes('loja')) {
-            return { 
-                icon: <BoxIcon className="h-4 w-4"/>, 
-                label: 'Retirada',
-                fullText: 'Retirada na Loja', 
-                classes: 'bg-purple-100 text-purple-700 border border-purple-200' 
-            };
-        }
-        if (lower.includes('motoboy') || lower.includes('delivery') || lower.includes('local')) {
-            return { 
-                icon: <TruckIcon className="h-4 w-4"/>, 
-                label: 'Motoboy',
-                fullText: 'Entrega Local (Moto)', 
-                classes: 'bg-blue-100 text-blue-700 border border-blue-200' 
-            };
-        }
-        return { 
-            icon: <TruckIcon className="h-4 w-4"/>, 
-            label: 'Correios',
-            fullText: method || 'Envio Padrão', 
-            classes: 'bg-amber-100 text-amber-700 border border-amber-200' 
-        };
-    };
-
-    // --- COMPONENTE DE TIMELINE INTERNO ---
+    // --- COMPONENTES DE TIMELINE PARA O ADMIN ---
     const TimelineDisplay = ({ order }) => {
+        // Verifica se é entrega local (contém "Motoboy" ou "Entrega local" no nome)
         const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
         const isPickup = order.shipping_method === 'Retirar na loja';
         
         let timelineOrder = [];
         let displayLabels = {};
+        let statusDefinitions = {};
 
+        const colorClasses = {
+            amber: { bg: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
+            green: { bg: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
+            blue:  { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
+            red:   { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
+            gray:  { bg: 'bg-gray-700', text: 'text-gray-500', border: 'border-gray-600' }
+        };
+
+        const icons = {
+            clock: <ClockIcon className="h-5 w-5 text-white" />,
+            check: <CheckBadgeIcon className="h-5 w-5 text-white" />,
+            package: <PackageIcon className="h-5 w-5 text-white" />,
+            truck: <TruckIcon className="h-5 w-5 text-white" />,
+            home: <HomeIcon className="h-5 w-5 text-white" />,
+            cancel: <XCircleIcon className="h-5 w-5 text-white" />,
+            dollar: <CurrencyDollarIcon className="h-5 w-5 text-white" />,
+            checkCircle: <CheckCircleIcon className="h-5 w-5 text-white" />
+        };
+
+        // --- CONFIGURAÇÃO DAS TIMELINES ---
         if (isLocalDelivery) {
+            // TIMELINE: ENTREGA LOCAL (MOTOBOY)
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Saiu para Entrega': 'Em Rota', 'Entregue': 'Entregue' };
+            displayLabels = {
+                'Pendente': 'Pedido Pendente',
+                'Pagamento Aprovado': 'Pagamento Aprovado',
+                'Separando Pedido': 'Preparado p/ Envio',
+                'Saiu para Entrega': 'Saiu (Motoboy)',
+                'Entregue': 'Pedido Entregue'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Saiu para Entrega': { icon: icons.truck, color: 'blue' },
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
         } else if (isPickup) {
+            // TIMELINE: RETIRADA
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Pronto para Retirada': 'Pronto', 'Entregue': 'Retirado' };
+            displayLabels = {
+                'Pendente': 'Pendente',
+                'Pagamento Aprovado': 'Aprovado',
+                'Separando Pedido': 'Separando',
+                'Pronto para Retirada': 'Pronto p/ Retirada',
+                'Entregue': 'Retirado'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Pronto para Retirada': { icon: icons.checkCircle, color: 'blue' },
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
         } else { 
+            // TIMELINE: CORREIOS (PADRÃO)
             timelineOrder = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue'];
-            displayLabels = { 'Pendente': 'Pendente', 'Pagamento Aprovado': 'Aprovado', 'Separando Pedido': 'Separando', 'Enviado': 'Enviado', 'Saiu para Entrega': 'Saiu p/ Entrega', 'Entregue': 'Entregue' };
+            displayLabels = {
+                'Pendente': 'Pendente',
+                'Pagamento Aprovado': 'Aprovado',
+                'Separando Pedido': 'Separando',
+                'Enviado': 'Enviado',
+                'Saiu para Entrega': 'Saiu p/ Entrega',
+                'Entregue': 'Entregue'
+            };
+            statusDefinitions = {
+                'Pendente': { icon: icons.clock, color: 'amber' },
+                'Pagamento Aprovado': { icon: icons.check, color: 'green' },
+                'Separando Pedido': { icon: icons.package, color: 'blue' },
+                'Enviado': { icon: icons.truck, color: 'blue' },
+                'Saiu para Entrega': { icon: icons.truck, color: 'blue' },
+                'Entregue': { icon: icons.home, color: 'green' }
+            };
         }
 
         if (['Cancelado', 'Pagamento Recusado', 'Reembolsado'].includes(order.status)) {
             return (
-                <div className="w-full p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center gap-3 mb-6">
-                     <XCircleIcon className="h-6 w-6 text-red-600" />
-                     <div className="text-center">
-                         <p className="font-bold text-red-800 text-lg uppercase tracking-wide">{order.status}</p>
-                         <p className="text-xs text-red-600">O fluxo deste pedido foi interrompido.</p>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                     <div className="p-2 bg-red-100 rounded-full">{icons.cancel}</div>
+                     <div>
+                         <p className="font-bold text-red-800">{order.status}</p>
+                         <p className="text-xs text-red-600">O fluxo normal foi interrompido.</p>
                      </div>
                 </div>
             );
@@ -11082,22 +11121,28 @@ const AdminOrders = () => {
         const currentStatusIndex = timelineOrder.indexOf(order.status);
 
         return (
-            <div className="w-full py-6 mb-4">
-                <div className="flex items-center justify-between relative">
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${(currentStatusIndex / (timelineOrder.length - 1)) * 100}%` }}></div>
+            <div className="w-full py-4 overflow-x-auto">
+                <div className="flex items-center justify-between min-w-[300px]">
                     {timelineOrder.map((statusKey, index) => {
-                        const isCompleted = index <= currentStatusIndex;
+                        const isStepActive = index <= currentStatusIndex;
                         const isCurrent = statusKey === order.status;
+                        const def = statusDefinitions[statusKey];
+                        const style = isStepActive ? colorClasses[def.color] : colorClasses.gray;
+
                         return (
-                            <div key={statusKey} className="flex flex-col items-center group">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-4 transition-all duration-300 z-10 ${isCompleted ? 'bg-green-500 border-green-500 scale-110' : 'bg-white border-gray-300'}`}>
-                                    {isCompleted && <CheckIcon className="h-4 w-4 text-white stroke-2" />}
+                            <React.Fragment key={statusKey}>
+                                <div className="flex flex-col items-center z-10">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${style.bg} ${style.border} ${isCurrent ? 'ring-4 ring-opacity-50 ring-offset-1 ' + style.border : ''}`}>
+                                        {React.cloneElement(def.icon, { className: "h-4 w-4 text-white" })}
+                                    </div>
+                                    <p className={`text-[10px] mt-1 font-bold text-center ${isStepActive ? 'text-gray-800' : 'text-gray-400'}`}>
+                                        {displayLabels[statusKey]}
+                                    </p>
                                 </div>
-                                <p className={`absolute -bottom-8 text-[10px] font-bold text-center w-20 transition-colors ${isCurrent ? 'text-green-700' : (isCompleted ? 'text-gray-600' : 'text-gray-400')}`}>
-                                    {displayLabels[statusKey]}
-                                </p>
-                            </div>
+                                {index < timelineOrder.length - 1 && (
+                                    <div className={`flex-1 h-1 mx-1 rounded ${index < currentStatusIndex ? style.bg : 'bg-gray-200'}`}></div>
+                                )}
+                            </React.Fragment>
                         );
                     })}
                 </div>
@@ -11105,93 +11150,199 @@ const AdminOrders = () => {
         );
     };
 
-    // --- FUNÇÃO DE WHATSAPP ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (ATUALIZADA) ---
+    const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
+        const customerName = order.user_name;
+        const orderId = order.id;
+        const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
+        
+        // Link principal para detalhes (acompanhamento)
+        const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
+        // Link específico para pagamento direto (Página de Sucesso/Checkout)
+        const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
+
+        const EMOJI = {
+            PACKAGE: String.fromCodePoint(0x1F4E6),
+            TRUCK: String.fromCodePoint(0x1F69A),
+            DOC: String.fromCodePoint(0x1F4C4),
+            LINK: String.fromCodePoint(0x1F517),
+            MOTO: String.fromCodePoint(0x1F6F5),
+            CHECK: String.fromCodePoint(0x2705),
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F),
+            PIN: String.fromCodePoint(0x1F4CD),
+            CLOCK: String.fromCodePoint(0x23F0),
+            MONEY: String.fromCodePoint(0x1F4B8),
+            CROSS: String.fromCodePoint(0x274C),
+            WARN: String.fromCodePoint(0x26A0, 0xFE0F),
+            NEW: String.fromCodePoint(0x1F195),
+            PHONE: String.fromCodePoint(0x1F4F1),
+            HOUSE: String.fromCodePoint(0x1F3E0),
+            ROCKET: String.fromCodePoint(0x1F680),
+            PAY: String.fromCodePoint(0x1F4B3)
+        };
+
+        let text = `Olá, *${firstName}*.\n\n`;
+
+        // --- LÓGICA ESPECIAL PARA COBRANÇA (PENDENTE) ---
+        if (status === 'Pendente') {
+             text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
+             text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
+             
+             text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
+             
+             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
+             
+             text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
+             
+             text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
+             
+             // Encerra a mensagem aqui para focar na ação de pagamento
+             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+             return text;
+        }
+
+        // --- LÓGICA PADRÃO PARA OUTROS STATUS ---
+        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
+
+        switch (status) {
+            case 'Separando Pedido':
+                text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\n`;
+                text += `Estamos separando seus itens com cuidado.`;
+                break;
+            case 'Enviado': 
+                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
+                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
+                break;
+            case 'Saiu para Entrega':
+                if (isLocalDelivery) {
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\n`;
+                    text += `O motorista já está a caminho do seu endereço.`;
+                    if (trackingCode && trackingCode.startsWith('http')) {
+                        text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
+                    }
+                } else {
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
+                    text += `Seu pedido está em rota de entrega pelos Correios.`;
+                }
+                break;
+            case 'Entregue':
+                text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\n`;
+                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
+                break;
+            case 'Pronto para Retirada':
+                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
+                text += `Já disponível em nossa loja.`;
+                break;
+            case 'Pagamento Aprovado':
+                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
+                text += `Pagamento confirmado. Iniciaremos a separação.`;
+                break;
+            case 'Cancelado':
+                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
+                text += `O pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`;
+                break;
+            case 'Pagamento Recusado':
+                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
+                text += `O pagamento não foi autorizado. Tente novamente ou entre em contato.`;
+                break;
+            case 'Reembolsado':
+                text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\n`;
+                text += `O reembolso do seu pedido foi processado.`;
+                break;
+            default:
+                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
+        }
+
+        // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
+        if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
+             text += `\n\n--------------------------------\n`;
+             if (isPickup) {
+                text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
+                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
+                text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
+            } else {
+                try {
+                    const addr = JSON.parse(order.shipping_address);
+                    if (addr) {
+                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
+                        text += `${addr.logradouro}, ${addr.numero}\n`;
+                        if (addr.bairro) text += `${addr.bairro} - `;
+                        text += `${addr.localidade}/${addr.uf}`;
+                    }
+                } catch (e) {
+                    text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
+                }
+            }
+        }
+
+        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        
+        return text;
+    };
+
     const handleManualWhatsAppNotification = () => {
         if (!editingOrder || !editingOrder.user_phone) {
             notification.show("Telefone do cliente não disponível.", "error");
             return;
         }
+
+        const statusToSend = editFormData.status || editingOrder.status;
+        const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
+
+        const message = generateWhatsAppStatusMessage(
+            statusToSend,
+            editingOrder,
+            trackingToSend
+        );
+
         const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
-        const text = `Olá ${editingOrder.user_name.split(' ')[0]}! O status do seu pedido #${editingOrder.id} mudou para: *${editFormData.status || editingOrder.status}*. ${editFormData.tracking_code ? `Rastreio: ${editFormData.tracking_code}` : ''}`;
-        
+
         if (cleanPhone.length >= 10) {
-            window.open(`https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
+            const waUrl = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`;
+            window.open(waUrl, '_blank');
         } else {
-            notification.show("Número inválido.", "error");
+            notification.show("Número de telefone do cliente inválido.", "error");
         }
     };
     
+    // ... (Resto do código do componente permanece igual: fetchOrders, handlers, etc.)
     const fetchOrders = useCallback(() => {
         apiService('/orders')
             .then(data => {
                 const sortedData = data.sort((a,b) => new Date(b.date) - new Date(a.date));
                 setOrders(sortedData);
+
                 const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const recent = sortedData.filter(o => {
+                const recentOrders = sortedData.filter(o => {
                     if (!o || !o.date) return false;
-                    const d = new Date(o.date);
-                    return !isNaN(d) && d > twentyFourHoursAgo;
+                    const orderDate = new Date(o.date);
+                    return !isNaN(orderDate) && orderDate > twentyFourHoursAgo;
                 });
-                setNewOrdersCount(recent.length);
+                setNewOrdersCount(recentOrders.length);
             })
-            .catch(console.error);
+            .catch(err => console.error("Falha ao buscar pedidos:", err));
     }, []);
 
-    useEffect(() => { fetchOrders(); }, [fetchOrders]);
-    
     useEffect(() => {
-        let temp = [...orders];
-        if (orderIdSearch) temp = temp.filter(o => String(o.id).includes(orderIdSearch));
-        if (filters.status) temp = temp.filter(o => o.status === filters.status);
-        if (filters.customerName) temp = temp.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
-        setFilteredOrders(temp);
-        setCurrentPage(1);
-    }, [orders, filters, orderIdSearch]);
-
+        fetchOrders();
+    }, [fetchOrders]);
+    
     const handleOpenEditModal = async (order) => {
         try {
-            const fullDetails = await apiService(`/orders/${order.id}`);
-            setEditingOrder(fullDetails);
-            setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
+            const fullOrderDetails = await apiService(`/orders/${order.id}`);
+            setEditingOrder(fullOrderDetails);
+            setEditFormData({
+                status: fullOrderDetails.status,
+                tracking_code: fullOrderDetails.tracking_code || ''
+            });
             setIsEditModalOpen(true);
-        } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
-    };
-
-    const handleSaveOrder = async (e) => {
-        e.preventDefault();
-        if (!editingOrder) return;
-        try {
-            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
-            notification.show('Pedido atualizado!');
-            fetchOrders();
-            setIsEditModalOpen(false);
-        } catch(e) { notification.show(e.message, 'error'); }
-    };
-
-    const DetailCard = ({ title, icon: Icon, children, className = "" }) => (
-        <div className={`bg-white p-5 rounded-xl border border-gray-200 shadow-sm ${className}`}>
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-gray-100 pb-2">
-                {Icon && <Icon className="h-4 w-4 text-indigo-500"/>}
-                {title}
-            </h4>
-            <div className="text-sm text-gray-700 space-y-2">
-                {children}
-            </div>
-        </div>
-    );
-
-    const indexOfLastOrder = currentPage * ordersPerPage;
-    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
-    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
-    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
-
-    const getStatusLabel = (status, order) => {
-        const isLocal = editingOrder?.shipping_method?.toLowerCase().includes('motoboy');
-        if (isLocal) {
-            if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
-            if (status === 'Separando Pedido') return 'Preparado p/ envio';
+        } catch (error) {
+            notification.show("Erro ao buscar detalhes do pedido.", 'error');
+            console.error(error);
         }
-        return status;
     };
 
     const handleOpenRefundModal = () => {
@@ -11229,13 +11380,61 @@ const AdminOrders = () => {
         setEditFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleSaveOrder = async (e) => {
+        e.preventDefault();
+        if (!editingOrder) return;
+        try {
+            await apiService(`/orders/${editingOrder.id}`, 'PUT', editFormData);
+            fetchOrders();
+            setIsEditModalOpen(false);
+            setEditingOrder(null);
+            notification.show('Pedido atualizado com sucesso!');
+        } catch(error) {
+            notification.show(`Erro ao atualizar pedido: ${error.message}`, 'error');
+        }
+    };
+
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
         setFilters(prev => ({ ...prev, [name]: value }));
     };
 
-    const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
+    const applyFilters = useCallback(() => {
+        let tempOrders = [...orders];
+
+        if (orderIdSearch) {
+            tempOrders = tempOrders.filter(o => String(o.id).includes(orderIdSearch));
+        }
+        
+        if (filters.startDate) {
+            tempOrders = tempOrders.filter(o => new Date(o.date) >= new Date(filters.startDate));
+        }
+        if (filters.endDate) {
+            const endOfDay = new Date(filters.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            tempOrders = tempOrders.filter(o => new Date(o.date) <= endOfDay);
+        }
+        if (filters.status) {
+            tempOrders = tempOrders.filter(o => o.status === filters.status);
+        }
+        if (filters.customerName) {
+            tempOrders = tempOrders.filter(o => o.user_name.toLowerCase().includes(filters.customerName.toLowerCase()));
+        }
+        if (filters.minPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) >= parseFloat(filters.minPrice));
+        }
+        if (filters.maxPrice) {
+            tempOrders = tempOrders.filter(o => parseFloat(o.total) <= parseFloat(filters.maxPrice));
+        }
+        
+        setFilteredOrders(tempOrders);
+        setCurrentPage(1);
+    }, [orders, filters, orderIdSearch]);
     
+    useEffect(() => {
+        applyFilters();
+    }, [filters, orderIdSearch, orders, applyFilters]);
+
     const clearFilters = () => {
         setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
         setOrderIdSearch('');
@@ -11249,88 +11448,15 @@ const AdminOrders = () => {
         if (lowerStatus.includes('pendente')) return 'bg-yellow-100 text-yellow-800';
         return 'bg-blue-100 text-blue-800';
     };
-
-    // --- RENDERIZAÇÃO DO FORMULÁRIO DE ATUALIZAÇÃO (COMPONENTIZADO) ---
-    const renderUpdateOrderForm = () => {
-        const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
-        const isPickup = editingOrder.shipping_method === 'Retirar na loja';
-        const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
-
-        let availableStatuses = [];
-        if (isLocalDelivery) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-        else if (isPickup) availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-        else availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
-
-        if (!availableStatuses.includes(editingOrder.status)) availableStatuses.push(editingOrder.status);
-
-        return (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-indigo-100 mt-6 lg:mt-0">
-                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2 border-b pb-3">
-                    <EditIcon className="h-5 w-5 text-indigo-600"/> Atualizar Status e Entrega
-                </h4>
-                <form onSubmit={handleSaveOrder} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
-                            <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 bg-white">
-                                {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
-                            </select>
-                        </div>
-                        {!isPickup && (
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                                    {isLocalDelivery ? "Link de Acompanhamento (Uber/Moto)" : "Código de Rastreio"}
-                                </label>
-                                <input 
-                                    type="text" 
-                                    name="tracking_code" 
-                                    value={editFormData.tracking_code} 
-                                    onChange={handleEditFormChange} 
-                                    placeholder={isLocalDelivery ? "Cole o link da viagem aqui" : "Ex: AA123456789BR"}
-                                    className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
-                                />
-                                {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Link para o cliente acompanhar o motoboy.</p>}
-                            </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex flex-col-reverse md:flex-row justify-between items-center pt-4 border-t border-gray-100 gap-4">
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto justify-start">
-                            {canRequestRefund ? (
-                                <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center">
-                                    <CurrencyDollarIcon className="h-5 w-5"/> Reembolso
-                                </button>
-                            ) : editingOrder.refund_id ? (
-                                <span className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full border border-orange-200 self-center">Reembolso Solicitado</span>
-                            ) : null}
-
-                            {editingOrder.user_phone && (
-                                <button 
-                                    type="button" 
-                                    onClick={handleManualWhatsAppNotification}
-                                    className="px-4 py-2.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 font-bold text-sm flex items-center gap-2 transition-colors flex-grow md:flex-grow-0 justify-center"
-                                >
-                                    <WhatsappIcon className="h-5 w-5"/> Notificar
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                            <button type="button" onClick={() => setIsEditModalOpen(false)} className="flex-1 md:flex-none px-6 py-2.5 border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 text-sm transition-colors">
-                                Cancelar
-                            </button>
-                            <button type="submit" className="flex-1 md:flex-none px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md text-sm transition-colors flex items-center justify-center gap-2">
-                                <CheckIcon className="h-5 w-5"/> Salvar
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        );
-    };
+    
+    const indexOfLastOrder = currentPage * ordersPerPage;
+    const indexOfFirstOrder = indexOfLastOrder - ordersPerPage;
+    const currentOrders = filteredOrders.slice(indexOfFirstOrder, indexOfLastOrder);
+    const totalPages = Math.ceil(filteredOrders.length / ordersPerPage);
 
     return (
         <div>
+            {/* Modal e restante do JSX mantido para AdminOrders */}
             <AnimatePresence>
                 {isRefundModalOpen && editingOrder && (
                     <Modal isOpen={true} onClose={() => setIsRefundModalOpen(false)} title={`Solicitar Reembolso para Pedido #${editingOrder.id}`}>
@@ -11357,204 +11483,214 @@ const AdminOrders = () => {
             </AnimatePresence>
             <AnimatePresence>
                 {editingOrder && (() => {
-                    // --- VARIÁVEIS DE ESTADO ---
                     const isLocalDelivery = editingOrder.shipping_method && (editingOrder.shipping_method.toLowerCase().includes('motoboy') || editingOrder.shipping_method.toLowerCase().includes('entrega local'));
                     const isPickup = editingOrder.shipping_method === 'Retirar na loja';
+                    
+                    const canRequestRefund = editingOrder.payment_status === 'approved' && !editingOrder.refund_id && editingOrder.status !== 'Cancelado' && editingOrder.status !== 'Reembolsado';
+
+                    // --- DEFINIÇÃO DOS STATUS DISPONÍVEIS NO SELECT ---
+                    let availableStatuses = [];
+                    if (isLocalDelivery) {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    } else if (isPickup) {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Pronto para Retirada', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    } else {
+                        availableStatuses = ['Pendente', 'Pagamento Aprovado', 'Separando Pedido', 'Enviado', 'Saiu para Entrega', 'Entregue', 'Cancelado', 'Pagamento Recusado'];
+                    }
+
+                    // Função para converter status do DB para nome amigável no select
+                    const getStatusLabel = (status) => {
+                        if (isLocalDelivery) {
+                            if (status === 'Saiu para Entrega') return 'Saiu para entrega (Motoboy)';
+                            if (status === 'Separando Pedido') return 'Preparado o pedido para envio';
+                            if (status === 'Entregue') return 'Pedido entregue';
+                            if (status === 'Pendente') return 'Pedido pendente';
+                        }
+                        return status;
+                    };
+
+                    if (!availableStatuses.includes(editingOrder.status)) {
+                        availableStatuses.push(editingOrder.status);
+                    }
 
                     return (
-                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Pedido #${editingOrder.id}`} size="3xl">
-                            <div className="bg-gray-50/50 -m-6 p-4 sm:p-6 pb-24">
+                        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title={`Detalhes do Pedido #${editingOrder.id}`}>
+                            <div className="space-y-4">
                                 
-                                {/* 1. Timeline */}
-                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-                                        <div>
-                                            <p className="text-xs text-gray-500 font-medium">Realizado em</p>
-                                            <p className="text-sm font-bold text-gray-900">{new Date(editingOrder.date).toLocaleString('pt-BR')}</p>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide border self-start sm:self-auto ${
-                                            editingOrder.status === 'Entregue' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            editingOrder.status === 'Cancelado' ? 'bg-red-50 text-red-700 border-red-200' :
-                                            'bg-blue-50 text-blue-700 border-blue-200'
-                                        }`}>
-                                            {editingOrder.status}
-                                        </span>
-                                    </div>
-                                    <TimelineDisplay order={editingOrder} />
-                                </div>
+                                {/* --- TIMELINE DINÂMICA --- */}
+                                <TimelineDisplay order={editingOrder} />
 
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA DA ESQUERDA: Itens */}
-                                    <div className="lg:col-span-2 space-y-6">
-                                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
-                                                <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
-                                            </div>
-                                            <div className="divide-y divide-gray-100">
-                                                {editingOrder.items?.map((item, idx) => (
-                                                    <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
-                                                        <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
-                                                            <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
-                                                        </div>
-                                                        <div className="flex-grow">
-                                                            <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                                                            {item.variation && (
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Cor: {item.variation.color}
-                                                                    </span>
-                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Tam: {item.variation.size}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-right w-full sm:w-auto">
-                                                            <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                            <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
-                                                <div className="flex justify-between text-xs text-gray-600">
-                                                    <span>Subtotal</span>
-                                                    <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
+                                <div className="grid grid-cols-2 gap-4 text-sm items-start">
+                                    <div className="bg-gray-50 p-3 rounded-md border border-gray-200">
+                                        <h4 className="font-bold text-gray-800 mb-2 border-b pb-1">Dados do Cliente</h4>
+                                        <div className="space-y-1.5">
+                                            <p className="font-semibold text-gray-900 text-base">{editingOrder.user_name}</p>
+                                            {editingOrder.user_cpf && <p className="text-gray-600 flex items-center gap-1"><span className="font-medium text-gray-700">CPF:</span> {maskCPF(editingOrder.user_cpf)}</p>}
+                                            {editingOrder.user_phone ? (
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-2 py-1 rounded-md text-sm font-bold border border-green-100">
+                                                        <WhatsappIcon className="h-4 w-4" />
+                                                        {maskPhone(editingOrder.user_phone)}
+                                                    </span>
                                                 </div>
-                                                <div className="flex justify-between text-xs text-gray-600">
-                                                    <span>Frete ({editingOrder.shipping_method})</span>
-                                                    <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
-                                                </div>
-                                                {Number(editingOrder.discount_amount) > 0 && (
-                                                    <div className="flex justify-between text-xs text-green-600 font-medium">
-                                                        <span>Desconto ({editingOrder.coupon_code})</span>
-                                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
-                                                    </div>
-                                                )}
-                                                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                                                    <span>Total Geral</span>
-                                                    <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
-                                        <div className="hidden lg:block">
-                                            {renderUpdateOrderForm()}
+                                            ) : <p className="text-gray-400 italic text-xs">Telefone não informado</p>}
                                         </div>
                                     </div>
 
-                                    {/* COLUNA DA DIREITA: Informações */}
-                                    <div className="space-y-6">
-                                        <DetailCard title="Cliente" icon={UserIcon}>
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-lg">
-                                                    {editingOrder.user_name.charAt(0)}
-                                                </div>
-                                                <div className="overflow-hidden">
-                                                    <p className="font-bold text-gray-900 leading-tight truncate">{editingOrder.user_name}</p>
-                                                    <p className="text-xs text-gray-500">ID: {editingOrder.user_id}</p>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2 text-xs">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 text-center"><span className="text-gray-400">CPF</span></div>
-                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{maskCPF(editingOrder.user_cpf || '')}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 text-center"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
-                                                    <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
-                                                        {maskPhone(editingOrder.user_phone || '')}
-                                                    </a>
-                                                </div>
-                                                {/* BOTÃO ADICIONADO: CONVERSAR NO WHATSAPP */}
-                                                {editingOrder.user_phone && (
-                                                    <a 
-                                                        href={`https://api.whatsapp.com/send?phone=55${editingOrder.user_phone.replace(/\D/g, '')}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="mt-3 w-full flex items-center justify-center gap-2 bg-green-500 text-white py-2 rounded-md hover:bg-green-600 font-bold transition-colors shadow-sm"
-                                                        title="Abrir conversa no WhatsApp"
-                                                    >
-                                                        <WhatsappIcon className="h-4 w-4 text-white"/> Conversar no WhatsApp
-                                                    </a>
-                                                )}
-                                            </div>
-                                        </DetailCard>
-
-                                        <DetailCard title="Entrega" icon={MapPinIcon}>
-                                            {/* --- EXIBIÇÃO EXPLÍCITA DO MÉTODO --- */}
-                                            <div className="mb-3 pb-2 border-b border-gray-100">
-                                                <span className="text-xs text-gray-500 block">Método Escolhido</span>
-                                                <p className="font-bold text-indigo-700 text-sm">{editingOrder.shipping_method || 'Não informado'}</p>
-                                            </div>
-
-                                            {isPickup ? (
-                                                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-800">
-                                                    <strong>Retirada na Loja</strong>
-                                                    {editingOrder.pickup_details && (() => {
-                                                        try {
-                                                            const p = JSON.parse(editingOrder.pickup_details);
-                                                            return <p className="mt-1">Retirado por: {p.personName} (CPF: {p.personCpf})</p>
-                                                        } catch { return null; }
-                                                    })()}
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs space-y-1">
-                                                    {(() => {
-                                                        try {
-                                                            const addr = JSON.parse(editingOrder.shipping_address);
-                                                            return (
-                                                                <>
-                                                                    <p className="font-bold text-gray-800">{addr.logradouro}, {addr.numero}</p>
-                                                                    <p>{addr.bairro} {addr.complemento ? `- ${addr.complemento}` : ''}</p>
-                                                                    <p>{addr.localidade} - {addr.uf}</p>
-                                                                    <p className="font-mono text-gray-500 mt-1">{addr.cep}</p>
-                                                                </>
-                                                            );
-                                                        } catch { return <p>Endereço inválido</p>; }
-                                                    })()}
-                                                </div>
-                                            )}
-                                        </DetailCard>
-
-                                        <DetailCard title="Pagamento" icon={CreditCardIcon}>
-                                            <div className="flex flex-col gap-2">
-                                                {(() => {
-                                                    let details = {};
-                                                    try { details = JSON.parse(editingOrder.payment_details); } catch{}
-                                                    
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Pagamento</h4>
+                                        {(() => {
+                                            if (!editingOrder.payment_details) return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            try {
+                                                const details = JSON.parse(editingOrder.payment_details);
+                                                if (details.method === 'credit_card') {
                                                     return (
-                                                        <>
-                                                            <span className="inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 capitalize">
-                                                                {details.method === 'pix' ? 'Pix' : details.method === 'boleto' ? 'Boleto' : 'Cartão'}
-                                                            </span>
-                                                            {details.method === 'credit_card' && (
-                                                                <div className="text-xs text-gray-600">
-                                                                    <p className="capitalize">{details.card_brand} •••• {details.card_last_four}</p>
-                                                                    <p>{details.installments}x de R$ {(Number(editingOrder.total)/details.installments).toFixed(2)}</p>
-                                                                </div>
-                                                            )}
-                                                            <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center">
-                                                                <span className="text-xs text-gray-500">Status</span>
-                                                                <span className={`text-xs font-bold ${editingOrder.payment_status === 'approved' ? 'text-green-600' : 'text-amber-600'}`}>
-                                                                    {editingOrder.payment_status === 'approved' ? 'Aprovado' : 'Pendente'}
-                                                                </span>
-                                                            </div>
-                                                        </>
-                                                    )
-                                                })()}
-                                            </div>
-                                        </DetailCard>
+                                                        <div className="text-sm">
+                                                            <p className="font-semibold text-gray-800">Cartão de Crédito</p>
+                                                            <p className="text-gray-600">Bandeira: <span className="uppercase">{details.card_brand}</span></p>
+                                                            <p className="text-gray-600">Final: •••• {details.card_last_four}</p>
+                                                            <p className="text-gray-600">Parcelas: {details.installments}x</p>
+                                                        </div>
+                                                    );
+                                                }
+                                                if (details.method === 'pix') return <p className="font-semibold text-gray-800">Pix</p>;
+                                                if (details.method === 'boleto') return <p className="font-semibold text-gray-800">Boleto</p>;
+                                            } catch (e) {
+                                                return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                            }
+                                            return <p className="capitalize">{editingOrder.payment_method || 'N/A'}</p>;
+                                        })()}
                                     </div>
                                 </div>
-                                
-                                {/* ATUALIZAR PEDIDO (Visível apenas em Mobile - FINAL DO FORMULÁRIO) */}
-                                <div className="lg:hidden mt-6">
-                                    {renderUpdateOrderForm()}
-                                </div>
 
+                                {isPickup ? (
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Detalhes da Retirada</h4>
+                                        <div className="text-sm bg-blue-50 p-3 rounded-md border border-blue-200">
+                                            <p className="font-semibold text-blue-800 flex items-center gap-2"><BoxIcon className="h-5 w-5"/> Este pedido será retirado na loja.</p>
+                                            {(() => {
+                                                try {
+                                                    const details = JSON.parse(editingOrder.pickup_details);
+                                                    return (
+                                                        <div className="mt-2 pt-2 border-t">
+                                                            <p><strong>Nome:</strong> {details.personName}</p>
+                                                            <p><strong>CPF:</strong> {maskCPF(details.personCpf)}</p>
+                                                        </div>
+                                                    )
+                                                } catch { return <p className="text-red-600 mt-2">Erro: Detalhes de retirada mal formatados.</p> }
+                                            })()}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h4 className="font-bold text-gray-700 mb-1">Endereço de Entrega</h4>
+                                        <div className="text-sm bg-gray-100 p-3 rounded-md">
+                                            {editingOrder.shipping_address ? (() => {
+                                                try {
+                                                    const addr = JSON.parse(editingOrder.shipping_address);
+                                                    return (
+                                                        <div className="space-y-1">
+                                                            <p><span className="font-semibold text-gray-500">Rua:</span> {addr.logradouro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Nº:</span> {addr.numero} {addr.complemento && `- ${addr.complemento}`}</p>
+                                                            <p><span className="font-semibold text-gray-500">Bairro:</span> {addr.bairro}</p>
+                                                            <p><span className="font-semibold text-gray-500">Cidade:</span> {addr.localidade} - {addr.uf}</p>
+                                                            <p><span className="font-semibold text-gray-500">CEP:</span> {addr.cep}</p>
+                                                        </div>
+                                                    )
+                                                } catch { return <p>Endereço mal formatado.</p> }
+                                            })() : <p>Nenhum endereço de entrega.</p>}
+                                        </div>
+                                        {/* Badge visual de Entrega Local */}
+                                        {isLocalDelivery && (
+                                            <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 text-yellow-800 text-xs font-bold rounded flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-yellow-600 animate-pulse"></div>
+                                                Entrega Local (Motoboy / Uber)
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2">Itens do Pedido</h4>
+                                    <div className="space-y-2 border-t pt-2 max-h-48 overflow-y-auto">
+                                        {editingOrder.items?.map(item => (
+                                            <div key={item.id} className="flex items-center text-sm">
+                                                <img src={getFirstImage(item.images)} alt={item.name} className="h-12 w-12 object-contain mr-3 bg-gray-100 rounded"/>
+                                                <div>
+                                                    <p className="font-semibold text-gray-800">{item.name}</p>
+                                                    <p className="text-gray-600">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                    {item.variation && typeof item.variation === 'object' && (
+                                                        <p className="text-xs text-indigo-600 bg-indigo-100 font-medium rounded-full px-2 py-1 w-fit mt-1">Cor: {item.variation.color} / Tamanho: {item.variation.size}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="font-bold text-gray-700 mb-2">Resumo Financeiro</h4>
+                                    <div className="text-sm bg-gray-100 p-3 rounded-md space-y-1">
+                                        <div className="flex justify-between"><span>Subtotal:</span> <span>R$ {(editingOrder.items?.reduce((acc, item) => acc + (Number(item.price) * item.quantity), 0) || 0).toFixed(2)}</span></div>
+                                        <div className="flex justify-between"><span>Frete ({editingOrder.shipping_method || 'N/A'}):</span> <span>R$ {Number(editingOrder.shipping_cost || 0).toFixed(2)}</span></div>
+                                        {Number(editingOrder.discount_amount) > 0 && (<div className="flex justify-between text-green-600"><span>Desconto ({editingOrder.coupon_code || ''}):</span><span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span></div>)}
+                                        <div className="flex justify-between font-bold text-base border-t mt-2 pt-2"><span>Total:</span> <span>R$ {Number(editingOrder.total).toFixed(2)}</span></div>
+                                    </div>
+                                </div>
+                                <form onSubmit={handleSaveOrder} className="space-y-4 border-t pt-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700">Status do Pedido</label>
+                                        <select name="status" value={editFormData.status} onChange={handleEditFormChange} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500">
+                                            {/* --- OPÇÕES FILTRADAS PELO TIPO DE ENTREGA --- */}
+                                            {availableStatuses.map(s => <option key={s} value={s}>{getStatusLabel(s)}</option>)}
+                                        </select>
+                                    </div>
+                                    {!isPickup && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700">
+                                                {isLocalDelivery ? "Link de Acompanhamento (Uber)" : "Código de Rastreio"}
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                name="tracking_code" 
+                                                value={editFormData.tracking_code} 
+                                                onChange={handleEditFormChange} 
+                                                placeholder={isLocalDelivery ? "Cole o link da Uber aqui" : "Ex: AA123456789BR"}
+                                                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-amber-500 focus:border-amber-500" 
+                                            />
+                                            {isLocalDelivery && <p className="text-xs text-gray-500 mt-1">Cole o link completo de compartilhamento da viagem Uber Flash.</p>}
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col gap-4 pt-2">
+                                        {editingOrder.user_phone && (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleManualWhatsAppNotification}
+                                                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-2.5 rounded-md hover:bg-green-700 font-bold transition-colors shadow-sm"
+                                            >
+                                                <WhatsappIcon className="h-5 w-5" />
+                                                Enviar atualização pelo WhatsApp
+                                            </button>
+                                        )}
+
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                {canRequestRefund ? (
+                                                    <button type="button" onClick={handleOpenRefundModal} className="px-4 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-semibold text-sm">
+                                                        Solicitar Reembolso
+                                                    </button>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500">
+                                                        {editingOrder.refund_id ? "Reembolso já solicitado." : "Pedido não elegível para reembolso."}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-sm font-medium">Cancelar</button>
+                                                <button type="submit" className="px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 text-sm font-bold">Salvar Alterações</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
                         </Modal>
                     );
@@ -11583,7 +11719,7 @@ const AdminOrders = () => {
             </AnimatePresence>
 
             <h1 className="text-3xl font-bold mb-6">Gerenciar Pedidos</h1>
-            {/* ... Filtros ... */}
+            
             <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
                 <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -11603,122 +11739,137 @@ const AdminOrders = () => {
                     <button onClick={clearFilters} className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500">Limpar Filtros</button>
                 </div>
             </div>
-            
-            {/* Tabela de Listagem de Pedidos */}
+
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
                 <div className="hidden lg:block overflow-x-auto">
                      <table className="w-full text-left">
                          <thead className="bg-gray-100">
                             <tr>
-                                <th className="p-4 font-semibold text-gray-600">ID</th>
-                                <th className="p-4 font-semibold text-gray-600">Cliente</th>
-                                <th className="p-4 font-semibold text-gray-600">Contato</th>
-                                <th className="p-4 font-semibold text-gray-600">Envio</th>
-                                <th className="p-4 font-semibold text-gray-600">Total</th>
-                                <th className="p-4 font-semibold text-gray-600">Status</th>
-                                <th className="p-4 font-semibold text-gray-600">Ações</th>
+                                <th className="p-4 font-semibold">Pedido ID</th>
+                                <th className="p-4 font-semibold">Cliente</th>
+                                <th className="p-4 font-semibold">Data</th>
+                                <th className="p-4 font-semibold">Total</th>
+                                <th className="p-4 font-semibold">Entrega</th>
+                                <th className="p-4 font-semibold">Status</th>
+                                <th className="p-4 font-semibold">Ações</th>
                             </tr>
                          </thead>
-                         <tbody className="divide-y divide-gray-100">
+                         <tbody>
                             {currentOrders.map(o => {
-                                const shipInfo = getShippingDisplay(o.shipping_method);
+                                const orderDate = new Date(o.date);
+                                const formattedDate = !isNaN(orderDate) ? orderDate.toLocaleString('pt-BR') : 'Data Inválida';
                                 return (
-                                <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="p-4">
-                                        <span className="font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded">#{o.id}</span>
-                                        <p className="text-xs text-gray-400 mt-1">{new Date(o.date).toLocaleDateString('pt-BR')}</p>
-                                    </td>
-                                    <td className="p-4">
-                                        <p className="font-bold text-gray-900">{o.user_name}</p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                            <UserIcon className="h-3 w-3"/> {maskCPF(o.user_cpf || '')}
-                                        </p>
-                                    </td>
-                                    <td className="p-4">
-                                        {o.user_phone ? (
-                                            <a href={`https://wa.me/55${o.user_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-green-600 font-bold hover:underline text-sm bg-green-50 px-2 py-1 rounded w-fit">
-                                                <WhatsappIcon className="h-4 w-4"/> {maskPhone(o.user_phone)}
-                                            </a>
-                                        ) : <span className="text-gray-400 text-xs">Sem contato</span>}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className={`flex items-center gap-2 px-2 py-1 rounded-md w-fit ${shipInfo.classes}`}>
-                                            {shipInfo.icon}
-                                            <span className="text-xs font-bold">{shipInfo.label}</span>
-                                        </div>
-                                    </td>
-                                    <td className="p-4 font-bold text-gray-800">R$ {Number(o.total).toFixed(2)}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
-                                    </td>
-                                    <td className="p-4">
-                                        <button onClick={() => handleOpenEditModal(o)} className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50" title="Ver Detalhes">
-                                            <EyeIcon className="h-5 w-5"/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            )})}
+                                    <tr key={o.id} className="border-b hover:bg-gray-50">
+                                        <td className="p-4 font-mono">#{o.id}</td>
+                                        <td className="p-4">
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{o.user_name}</p>
+                                                {/* --- Ícone de WhatsApp na Tabela --- */}
+                                                {o.user_phone && (
+                                                    <a 
+                                                        href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-0.5"
+                                                        title="Conversar"
+                                                    >
+                                                        <WhatsappIcon className="h-3 w-3" />
+                                                        {maskPhone(o.user_phone)}
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-4">{formattedDate}</td>
+                                        <td className="p-4">R$ {Number(o.total).toFixed(2)}</td>
+                                        <td className="p-4">
+                                            {o.shipping_method === 'Retirar na loja' ? (
+                                                <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada</span>
+                                            ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
+                                                <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
+                                            ) : (
+                                                <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-col items-start gap-1">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                                {o.refund_status === 'pending_approval' && (
+                                                    <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                        <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                        Reembolso Solicitado
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-4"><button onClick={() => handleOpenEditModal(o)} className="text-blue-600 hover:text-blue-800"><EditIcon className="h-5 w-5"/></button></td>
+                                    </tr>
+                                );
+                            })}
                          </tbody>
                      </table>
                 </div>
-                
-                {/* Mobile List View (Cards Melhorados) */}
-                <div className="lg:hidden space-y-4 p-4 bg-gray-50">
+
+                <div className="lg:hidden space-y-4 p-4">
                     {currentOrders.map(o => {
-                        const shipInfo = getShippingDisplay(o.shipping_method);
+                        const orderDate = new Date(o.date);
+                        const formattedDateOnly = !isNaN(orderDate) ? orderDate.toLocaleDateString('pt-BR') : 'Data Inválida';
                         return (
-                        <div key={o.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            {/* Faixa lateral de status */}
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${o.status === 'Entregue' ? 'bg-green-500' : (o.status === 'Cancelado' ? 'bg-red-500' : 'bg-indigo-500')}`}></div>
-                            
-                            <div className="pl-3">
-                                <div className="flex justify-between items-start mb-3">
+                            <div key={o.id} className="bg-white border rounded-lg p-4 shadow-sm">
+                                <div className="flex justify-between items-start">
                                     <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
-                                            <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
-                                        </div>
-                                        <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
+                                        <p className="font-bold">Pedido #{o.id}</p>
+                                        <p className="text-sm text-gray-600">{o.user_name}</p>
+                                        {/* --- Ícone de WhatsApp no Card Mobile --- */}
+                                        {o.user_phone && (
+                                            <a 
+                                                href={`https://api.whatsapp.com/send?phone=55${o.user_phone.replace(/\D/g, '')}`} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="inline-flex items-center gap-1 text-green-600 hover:text-green-800 text-xs mt-1 bg-green-50 px-1.5 py-0.5 rounded border border-green-100"
+                                            >
+                                                <WhatsappIcon className="h-3 w-3" />
+                                                Conversar
+                                            </a>
+                                        )}
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-gray-900">R$ {Number(o.total).toFixed(2)}</p>
-                                        <span className={`inline-block mt-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusChipClass(o.status)}`}>{o.status}</span>
+                                        {o.refund_status === 'pending_approval' && (
+                                            <span className="flex items-center gap-1 mt-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800 animate-pulse">
+                                                <ArrowUturnLeftIcon className="h-3 w-3"/>
+                                                Reembolso Solicitado
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Dados do Cliente (Mobile) */}
-                                <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-                                    <div className="flex items-center gap-1.5">
-                                        <UserIcon className="h-3.5 w-3.5 text-gray-400"/>
-                                        <span className="font-mono">{maskCPF(o.user_cpf || '---')}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <WhatsappIcon className="h-3.5 w-3.5 text-green-500"/>
-                                        <span className="font-bold text-green-700">{maskPhone(o.user_phone || '---')}</span>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-4 text-sm border-t pt-4">
+                                     <div><strong className="text-gray-500 block">Data</strong> {formattedDateOnly}</div>
+                                     <div><strong className="text-gray-500 block">Total</strong> R$ {Number(o.total).toFixed(2)}</div>
+                                     <div className="col-span-2">
+                                        <strong className="text-gray-500 block">Entrega</strong>
+                                        {o.shipping_method === 'Retirar na loja' ? (
+                                            <span className="flex items-center gap-2 text-sm text-blue-800"><BoxIcon className="h-5 w-5"/> Retirada na Loja</span>
+                                        ) : o.shipping_method && (o.shipping_method.toLowerCase().includes('motoboy') || o.shipping_method.toLowerCase().includes('entrega local')) ? (
+                                            <span className="flex items-center gap-2 text-sm text-yellow-700 font-bold"><TruckIcon className="h-5 w-5"/> Entrega Local</span>
+                                       ) : (
+                                            <span className="flex items-center gap-2 text-sm text-gray-700"><TruckIcon className="h-5 w-5"/> Envio Padrão</span>
+                                        )}
                                     </div>
                                 </div>
-
-                                {/* Dados de Envio (Mobile) */}
-                                <div className={`flex items-center gap-2 p-2 rounded-lg mb-3 ${shipInfo.classes}`}>
-                                    {shipInfo.icon}
-                                    <span className="text-xs font-bold">{shipInfo.fullText}</span>
+                                 <div className="flex justify-end mt-4 pt-2 border-t">
+                                    <button onClick={() => handleOpenEditModal(o)} className="flex items-center space-x-2 text-sm text-blue-600 font-semibold"><EditIcon className="h-4 w-4"/> <span>Detalhes</span></button>
                                 </div>
-
-                                <button onClick={() => handleOpenEditModal(o)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-md active:scale-95">
-                                    <EyeIcon className="h-4 w-4"/> Ver Detalhes do Pedido
-                                </button>
                             </div>
-                        </div>
-                    )})}
+                        );
+                    })}
                 </div>
             </div>
-            
-            {/* Paginação */}
+
             {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-6">
-                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Anterior</button>
-                    <span className="text-sm font-medium text-gray-600">Página {currentPage} de {totalPages}</span>
-                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border rounded-md disabled:opacity-50 font-bold text-gray-700">Próxima</button>
+                    <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Anterior</button>
+                    <span className="text-sm font-semibold">Página {currentPage} de {totalPages}</span>
+                    <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-4 py-2 bg-gray-200 rounded disabled:opacity-50 font-semibold">Próxima</button>
                 </div>
             )}
         </div>
