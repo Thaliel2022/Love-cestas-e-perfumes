@@ -3984,22 +3984,23 @@ app.get('/api/users', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.get('/api/users/:id/details', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [users] = await db.query("SELECT id, name, email, cpf, role, status FROM users WHERE id = ?", [id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        const user = users[0];
+    const { id } = req.params;
+    try {
+        // ATUALIZAÇÃO: Adicionado phone e cpf explicitamente
+        const [users] = await db.query("SELECT id, name, email, cpf, phone, role, status FROM users WHERE id = ?", [id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        const user = users[0];
 
-        const [orders] = await db.query("SELECT id, date, total, status FROM orders WHERE user_id = ? ORDER BY date DESC LIMIT 5", [id]);
-        const [loginHistory] = await db.query("SELECT ip_address, user_agent, status, created_at FROM login_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 10", [id]);
+        const [orders] = await db.query("SELECT id, date, total, status FROM orders WHERE user_id = ? ORDER BY date DESC LIMIT 5", [id]);
+        const [loginHistory] = await db.query("SELECT ip_address, user_agent, status, created_at FROM login_history WHERE user_id = ? ORDER BY created_at DESC LIMIT 10", [id]);
 
-        res.json({ ...user, orders, loginHistory });
-    } catch (err) {
-        console.error(`Erro ao buscar detalhes do usuário ${id}:`, err);
-        res.status(500).json({ message: "Erro ao buscar detalhes do usuário." });
-    }
+        res.json({ ...user, orders, loginHistory });
+    } catch (err) {
+        console.error(`Erro ao buscar detalhes do usuário ${id}:`, err);
+        res.status(500).json({ message: "Erro ao buscar detalhes do usuário." });
+    }
 });
 
 app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
@@ -4037,50 +4038,57 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
 });
 
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { name, email, role, password } = req.body;
+    const { id } = req.params;
+    // ATUALIZAÇÃO: Recebendo cpf e phone
+    const { name, email, role, password, cpf, phone } = req.body;
 
-    if (!name || !email || !role) {
-        return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
-    }
+    if (!name || !email || !role) {
+        return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
+    }
 
-    // Impede que um admin se auto-remova do status de admin
-    if (String(req.user.id) === String(id) && role !== 'admin') {
-        return res.status(403).json({ message: "Você não pode remover sua própria permissão de administrador." });
-    }
+    // Impede que um admin se auto-remova do status de admin
+    if (String(req.user.id) === String(id) && role !== 'admin') {
+        return res.status(403).json({ message: "Você não pode remover sua própria permissão de administrador." });
+    }
 
-    try {
-        let queryParams = [name, email, role];
-        let sql = "UPDATE users SET name = ?, email = ?, role = ?";
+    try {
+        // Limpeza básica dos dados
+        const cleanCpf = cpf ? String(cpf).replace(/\D/g, '') : null;
+        const cleanPhone = phone ? String(phone).replace(/\D/g, '') : null;
 
-        if (password && password.trim() !== '') {
-            if (password.length < 6) {
-                return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
-            }
-            const hashedPassword = await bcrypt.hash(password, saltRounds);
-            sql += ", password = ?";
-            queryParams.push(hashedPassword);
-        }
+        let queryParams = [name, email, role, cleanCpf, cleanPhone];
+        let sql = "UPDATE users SET name = ?, email = ?, role = ?, cpf = ?, phone = ?";
 
-        sql += " WHERE id = ?";
-        queryParams.push(id);
+        if (password && password.trim() !== '') {
+            if (password.length < 6) {
+                return res.status(400).json({ message: "A nova senha deve ter pelo menos 6 caracteres." });
+            }
+            const hashedPassword = await bcrypt.hash(password, saltRounds);
+            sql += ", password = ?";
+            queryParams.push(hashedPassword);
+        }
 
-        const [result] = await db.query(sql, queryParams);
+        sql += " WHERE id = ?";
+        queryParams.push(id);
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        
-        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`);
+        const [result] = await db.query(sql, queryParams);
 
-        res.json({ message: "Usuário atualizado com sucesso!" });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Este e-mail já está em uso por outro usuário." });
-        }
-        console.error("Erro ao atualizar usuário:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar usuário." });
-    }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        
+        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`);
+
+        res.json({ message: "Usuário atualizado com sucesso!" });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            if (err.message.includes('email')) return res.status(409).json({ message: "Este e-mail já está em uso." });
+            if (err.message.includes('cpf')) return res.status(409).json({ message: "Este CPF já está em uso." });
+            return res.status(409).json({ message: "Dados duplicados (Email ou CPF)." });
+        }
+        console.error("Erro ao atualizar usuário:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar usuário." });
+    }
 });
 
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
