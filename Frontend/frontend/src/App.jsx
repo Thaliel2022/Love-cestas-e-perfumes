@@ -11080,12 +11080,15 @@ const AdminOrders = () => {
         }
 
         const currentStatusIndex = timelineOrder.indexOf(order.status);
+        const progressWidth = currentStatusIndex >= 0 
+            ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 
+            : 0;
 
         return (
             <div className="w-full py-6 mb-4">
                 <div className="flex items-center justify-between relative">
                     <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${(currentStatusIndex / (timelineOrder.length - 1)) * 100}%` }}></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
                     {timelineOrder.map((statusKey, index) => {
                         const isCompleted = index <= currentStatusIndex;
                         const isCurrent = statusKey === order.status;
