@@ -10998,7 +10998,7 @@ const AdminOrders = () => {
     const [orderIdSearch, setOrderIdSearch] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
-    // Novo estado para o Accordion de itens no modal de detalhes
+    // Estado para controlar o Accordion dos itens no modal
     const [itemsExpanded, setItemsExpanded] = useState(true);
 
     const ordersPerPage = 10;
@@ -11415,14 +11415,18 @@ const AdminOrders = () => {
                                                         exit={{ height: 0, opacity: 0 }}
                                                         transition={{ duration: 0.3 }}
                                                     >
-                                                        {/* CORREÇÃO AQUI: Adicionado container com scroll */}
+                                                        {/* Lista de Itens com Scroll e Badges */}
                                                         <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                             {editingOrder.items?.map((item, idx) => {
-                                                                // Parse manual seguro se vier string do banco (apenas precaução extra)
                                                                 let variation = item.variation;
                                                                 if (typeof variation === 'string') {
                                                                     try { variation = JSON.parse(variation); } catch(e) {}
                                                                 }
+                                                                
+                                                                // Lógica de Badge baseada na presença de variação
+                                                                const isClothing = !!variation;
+                                                                const itemTypeLabel = isClothing ? 'ROUPA' : 'PERFUME';
+                                                                const itemTypeClass = isClothing ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200';
                                                                 
                                                                 return (
                                                                 <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
@@ -11430,6 +11434,11 @@ const AdminOrders = () => {
                                                                         <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
                                                                     </div>
                                                                     <div className="flex-grow">
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase ${itemTypeClass}`}>
+                                                                                {itemTypeLabel}
+                                                                            </span>
+                                                                        </div>
                                                                         <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
                                                                         {variation && (
                                                                             <div className="flex items-center gap-2 mt-1">
@@ -11494,11 +11503,11 @@ const AdminOrders = () => {
                                             </div>
                                             <div className="space-y-2 text-xs">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-6 text-center"><span className="text-gray-400">CPF</span></div>
-                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded">{maskCPF(editingOrder.user_cpf || '')}</span>
+                                                    <div className="w-8 text-right font-semibold text-gray-500">CPF:</div>
+                                                    <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">{maskCPF(editingOrder.user_cpf || '---')}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-6 text-center"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
+                                                    <div className="w-8 text-right"><WhatsappIcon className="h-4 w-4 text-green-500 mx-auto"/></div>
                                                     <a href={`https://wa.me/55${editingOrder.user_phone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-green-600">
                                                         {maskPhone(editingOrder.user_phone || '')}
                                                     </a>
@@ -11536,19 +11545,37 @@ const AdminOrders = () => {
                                                     })()}
                                                 </div>
                                             ) : (
-                                                <div className="text-xs space-y-1">
+                                                <div className="text-xs space-y-2">
                                                     {(() => {
                                                         try {
                                                             const addr = JSON.parse(editingOrder.shipping_address);
                                                             return (
-                                                                <div className="space-y-1 mt-1">
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Rua:</span> {addr.logradouro}</p>
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Nº:</span> {addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</p>
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Bairro:</span> {addr.bairro}</p>
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Cidade:</span> {addr.localidade}</p>
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Estado:</span> {addr.uf}</p>
-                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">CEP:</span> <span className="font-mono">{addr.cep}</span></p>
-                                                                </div>
+                                                                <>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Rua:</span>
+                                                                        <span className="text-gray-800 font-medium">{addr.logradouro}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Nº:</span>
+                                                                        <span className="text-gray-800">{addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Bairro:</span>
+                                                                        <span className="text-gray-800">{addr.bairro}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Cidade:</span>
+                                                                        <span className="text-gray-800">{addr.localidade}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">Estado:</span>
+                                                                        <span className="text-gray-800">{addr.uf}</span>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <span className="font-semibold text-gray-500 w-12 flex-shrink-0 text-right">CEP:</span>
+                                                                        <span className="font-mono text-gray-800 bg-gray-100 px-1 rounded">{addr.cep}</span>
+                                                                    </div>
+                                                                </>
                                                             );
                                                         } catch { return <p>Endereço inválido</p>; }
                                                     })()}
@@ -11715,7 +11742,7 @@ const AdminOrders = () => {
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-bold text-indigo-600">#{o.id}</span>
+                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
                                             <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
                                         </div>
                                         <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
