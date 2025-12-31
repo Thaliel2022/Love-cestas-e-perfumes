@@ -11080,15 +11080,12 @@ const AdminOrders = () => {
         }
 
         const currentStatusIndex = timelineOrder.indexOf(order.status);
-        const progressWidth = currentStatusIndex >= 0 
-            ? (currentStatusIndex / (timelineOrder.length - 1)) * 100 
-            : 0;
 
         return (
             <div className="w-full py-6 mb-4">
                 <div className="flex items-center justify-between relative">
                     <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-200 -z-10 rounded-full"></div>
-                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${progressWidth}%` }}></div>
+                    <div className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-green-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${(currentStatusIndex / (timelineOrder.length - 1)) * 100}%` }}></div>
                     {timelineOrder.map((statusKey, index) => {
                         const isCompleted = index <= currentStatusIndex;
                         const isCurrent = statusKey === order.status;
@@ -11394,29 +11391,21 @@ const AdminOrders = () => {
                                                 <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
                                                 <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
                                             </div>
-                                            {/* CORREÇÃO AQUI: Adicionado container com scroll */}
-                                            <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                {editingOrder.items?.map((item, idx) => {
-                                                    // Parse manual seguro se vier string do banco (apenas precaução extra)
-                                                    let variation = item.variation;
-                                                    if (typeof variation === 'string') {
-                                                        try { variation = JSON.parse(variation); } catch(e) {}
-                                                    }
-                                                    
-                                                    return (
+                                            <div className="divide-y divide-gray-100">
+                                                {editingOrder.items?.map((item, idx) => (
                                                     <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
                                                         <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
                                                             <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
                                                         </div>
                                                         <div className="flex-grow">
                                                             <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                                                            {variation && (
+                                                            {item.variation && (
                                                                 <div className="flex items-center gap-2 mt-1">
                                                                     <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Cor: {variation.color}
+                                                                        Cor: {item.variation.color}
                                                                     </span>
                                                                     <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Tam: {variation.size}
+                                                                        Tam: {item.variation.size}
                                                                     </span>
                                                                 </div>
                                                             )}
@@ -11426,7 +11415,7 @@ const AdminOrders = () => {
                                                             <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
                                                         </div>
                                                     </div>
-                                                )})}
+                                                ))}
                                             </div>
                                             <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
                                                 <div className="flex justify-between text-xs text-gray-600">
