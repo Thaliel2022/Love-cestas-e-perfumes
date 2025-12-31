@@ -10998,7 +10998,7 @@ const AdminOrders = () => {
     const [orderIdSearch, setOrderIdSearch] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
-    // Estado para controlar o Accordion dos itens no modal
+    // Novo estado para o Accordion de itens no modal de detalhes
     const [itemsExpanded, setItemsExpanded] = useState(true);
 
     const ordersPerPage = 10;
@@ -11159,8 +11159,7 @@ const AdminOrders = () => {
             const fullDetails = await apiService(`/orders/${order.id}`);
             setEditingOrder(fullDetails);
             setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
-            // Ao abrir o modal, reseta o accordion para aberto
-            setItemsExpanded(true);
+            setItemsExpanded(true); // Abre o accordion por padrão
             setIsEditModalOpen(true);
         } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
     };
@@ -11392,7 +11391,7 @@ const AdminOrders = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA DA ESQUERDA: Itens com Accordion */}
+                                    {/* COLUNA DA ESQUERDA: Itens */}
                                     <div className="lg:col-span-2 space-y-6">
                                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                             {/* Header do Accordion */}
@@ -11400,15 +11399,13 @@ const AdminOrders = () => {
                                                 className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
                                                 onClick={() => setItemsExpanded(!itemsExpanded)}
                                             >
-                                                <h4 className="font-bold text-gray-700 flex items-center gap-2">
-                                                    <BoxIcon className="h-4 w-4"/> Itens do Pedido
-                                                </h4>
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
                                                     <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Conteúdo do Accordion */}
                                             <AnimatePresence initial={false}>
                                                 {itemsExpanded && (
@@ -11418,7 +11415,7 @@ const AdminOrders = () => {
                                                         exit={{ height: 0, opacity: 0 }}
                                                         transition={{ duration: 0.3 }}
                                                     >
-                                                        {/* Lista de Itens */}
+                                                        {/* CORREÇÃO AQUI: Adicionado container com scroll */}
                                                         <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                                             {editingOrder.items?.map((item, idx) => {
                                                                 // Parse manual seguro se vier string do banco (apenas precaução extra)
@@ -11452,8 +11449,6 @@ const AdminOrders = () => {
                                                                 </div>
                                                             )})}
                                                         </div>
-
-                                                        {/* Totais (dentro do accordion para esconder tudo junto) */}
                                                         <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
                                                             <div className="flex justify-between text-xs text-gray-600">
                                                                 <span>Subtotal</span>
@@ -11546,12 +11541,14 @@ const AdminOrders = () => {
                                                         try {
                                                             const addr = JSON.parse(editingOrder.shipping_address);
                                                             return (
-                                                                <>
-                                                                    <p className="font-bold text-gray-800">{addr.logradouro}, {addr.numero}</p>
-                                                                    <p>{addr.bairro} {addr.complemento ? `- ${addr.complemento}` : ''}</p>
-                                                                    <p>{addr.localidade} - {addr.uf}</p>
-                                                                    <p className="font-mono text-gray-500 mt-1">{addr.cep}</p>
-                                                                </>
+                                                                <div className="space-y-1 mt-1">
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Rua:</span> {addr.logradouro}</p>
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Nº:</span> {addr.numero} {addr.complemento ? `(${addr.complemento})` : ''}</p>
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Bairro:</span> {addr.bairro}</p>
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Cidade:</span> {addr.localidade}</p>
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">Estado:</span> {addr.uf}</p>
+                                                                    <p><span className="font-semibold text-gray-500 w-12 inline-block">CEP:</span> <span className="font-mono">{addr.cep}</span></p>
+                                                                </div>
                                                             );
                                                         } catch { return <p>Endereço inválido</p>; }
                                                     })()}
@@ -11718,7 +11715,7 @@ const AdminOrders = () => {
                                 <div className="flex justify-between items-start mb-3">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span className="font-mono font-bold text-indigo-700 text-lg">#{o.id}</span>
+                                            <span className="font-bold text-indigo-600">#{o.id}</span>
                                             <span className="text-xs text-gray-400">{new Date(o.date).toLocaleDateString('pt-BR')}</span>
                                         </div>
                                         <p className="font-bold text-gray-800 text-sm">{o.user_name}</p>
