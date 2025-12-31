@@ -3011,6 +3011,7 @@ app.get('/api/orders', verifyToken, verifyAdmin, async (req, res) => {
                 o.*, 
                 u.name as user_name,
                 u.phone as user_phone,
+                u.cpf as user_cpf,
                 r.status as refund_status
             FROM orders o 
             JOIN users u ON o.user_id = u.id
