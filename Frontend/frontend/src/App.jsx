@@ -10998,6 +10998,9 @@ const AdminOrders = () => {
     const [orderIdSearch, setOrderIdSearch] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
+    // Estado para controlar o Accordion dos itens no modal
+    const [itemsExpanded, setItemsExpanded] = useState(true);
+
     const ordersPerPage = 10;
 
     const [filters, setFilters] = useState({
@@ -11156,6 +11159,8 @@ const AdminOrders = () => {
             const fullDetails = await apiService(`/orders/${order.id}`);
             setEditingOrder(fullDetails);
             setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
+            // Ao abrir o modal, reseta o accordion para aberto
+            setItemsExpanded(true);
             setIsEditModalOpen(true);
         } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
     };
@@ -11387,67 +11392,91 @@ const AdminOrders = () => {
                                 </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    {/* COLUNA DA ESQUERDA: Itens */}
+                                    {/* COLUNA DA ESQUERDA: Itens com Accordion */}
                                     <div className="lg:col-span-2 space-y-6">
                                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                                <h4 className="font-bold text-gray-700 flex items-center gap-2"><BoxIcon className="h-4 w-4"/> Itens do Pedido</h4>
-                                                <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                                            {/* Header do Accordion */}
+                                            <div 
+                                                className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center cursor-pointer select-none hover:bg-gray-100 transition-colors"
+                                                onClick={() => setItemsExpanded(!itemsExpanded)}
+                                            >
+                                                <h4 className="font-bold text-gray-700 flex items-center gap-2">
+                                                    <BoxIcon className="h-4 w-4"/> Itens do Pedido
+                                                </h4>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-gray-500">{editingOrder.items?.length || 0} itens</span>
+                                                    <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform duration-300 ${itemsExpanded ? 'rotate-180' : ''}`} />
+                                                </div>
                                             </div>
-                                            {/* CORREÇÃO AQUI: Adicionado container com scroll */}
-                                            <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                {editingOrder.items?.map((item, idx) => {
-                                                    // Parse manual seguro se vier string do banco (apenas precaução extra)
-                                                    let variation = item.variation;
-                                                    if (typeof variation === 'string') {
-                                                        try { variation = JSON.parse(variation); } catch(e) {}
-                                                    }
-                                                    
-                                                    return (
-                                                    <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
-                                                        <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
-                                                            <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
+                                            
+                                            {/* Conteúdo do Accordion */}
+                                            <AnimatePresence initial={false}>
+                                                {itemsExpanded && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: "auto", opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.3 }}
+                                                    >
+                                                        {/* Lista de Itens */}
+                                                        <div className="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                                            {editingOrder.items?.map((item, idx) => {
+                                                                // Parse manual seguro se vier string do banco (apenas precaução extra)
+                                                                let variation = item.variation;
+                                                                if (typeof variation === 'string') {
+                                                                    try { variation = JSON.parse(variation); } catch(e) {}
+                                                                }
+                                                                
+                                                                return (
+                                                                <div key={idx} className="p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-gray-50 transition-colors">
+                                                                    <div className="w-12 h-12 rounded-lg border border-gray-200 bg-white flex-shrink-0 p-1">
+                                                                        <img src={getFirstImage(item.images)} alt="" className="w-full h-full object-contain"/>
+                                                                    </div>
+                                                                    <div className="flex-grow">
+                                                                        <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
+                                                                        {variation && (
+                                                                            <div className="flex items-center gap-2 mt-1">
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Cor: {variation.color}
+                                                                                </span>
+                                                                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                                                                                    Tam: {variation.size}
+                                                                                </span>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-right w-full sm:w-auto">
+                                                                        <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
+                                                                        <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )})}
                                                         </div>
-                                                        <div className="flex-grow">
-                                                            <p className="text-sm font-bold text-gray-800 line-clamp-1">{item.name}</p>
-                                                            {variation && (
-                                                                <div className="flex items-center gap-2 mt-1">
-                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Cor: {variation.color}
-                                                                    </span>
-                                                                    <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
-                                                                        Tam: {variation.size}
-                                                                    </span>
+
+                                                        {/* Totais (dentro do accordion para esconder tudo junto) */}
+                                                        <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
+                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                <span>Subtotal</span>
+                                                                <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs text-gray-600">
+                                                                <span>Frete ({editingOrder.shipping_method})</span>
+                                                                <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
+                                                            </div>
+                                                            {Number(editingOrder.discount_amount) > 0 && (
+                                                                <div className="flex justify-between text-xs text-green-600 font-medium">
+                                                                    <span>Desconto ({editingOrder.coupon_code})</span>
+                                                                    <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
                                                                 </div>
                                                             )}
+                                                            <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
+                                                                <span>Total Geral</span>
+                                                                <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-right w-full sm:w-auto">
-                                                            <p className="text-xs text-gray-500">{item.quantity} x R$ {Number(item.price).toFixed(2)}</p>
-                                                            <p className="text-sm font-bold text-gray-900">R$ {(item.quantity * item.price).toFixed(2)}</p>
-                                                        </div>
-                                                    </div>
-                                                )})}
-                                            </div>
-                                            <div className="bg-gray-50 p-4 border-t border-gray-200 space-y-2">
-                                                <div className="flex justify-between text-xs text-gray-600">
-                                                    <span>Subtotal</span>
-                                                    <span>R$ {(Number(editingOrder.total) - Number(editingOrder.shipping_cost) + Number(editingOrder.discount_amount)).toFixed(2)}</span>
-                                                </div>
-                                                <div className="flex justify-between text-xs text-gray-600">
-                                                    <span>Frete ({editingOrder.shipping_method})</span>
-                                                    <span>R$ {Number(editingOrder.shipping_cost).toFixed(2)}</span>
-                                                </div>
-                                                {Number(editingOrder.discount_amount) > 0 && (
-                                                    <div className="flex justify-between text-xs text-green-600 font-medium">
-                                                        <span>Desconto ({editingOrder.coupon_code})</span>
-                                                        <span>- R$ {Number(editingOrder.discount_amount).toFixed(2)}</span>
-                                                    </div>
+                                                    </motion.div>
                                                 )}
-                                                <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-200">
-                                                    <span>Total Geral</span>
-                                                    <span>R$ {Number(editingOrder.total).toFixed(2)}</span>
-                                                </div>
-                                            </div>
+                                            </AnimatePresence>
                                         </div>
                                         
                                         {/* ATUALIZAR PEDIDO (Visível apenas em Desktop) */}
@@ -11536,7 +11565,6 @@ const AdminOrders = () => {
                                                     let details = {};
                                                     try { 
                                                         const parsed = JSON.parse(editingOrder.payment_details); 
-                                                        // Garante que details não seja null se o parse retornar null
                                                         if (parsed && typeof parsed === 'object') details = parsed; 
                                                     } catch {}
                                                     
