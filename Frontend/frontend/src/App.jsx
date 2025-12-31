@@ -10995,8 +10995,8 @@ const AdminOrders = () => {
     const notification = useNotification();
 
     const [currentPage, setCurrentPage] = useState(1);
-    // Alterado de orderIdSearch para searchTerm (busca global)
-    const [searchTerm, setSearchTerm] = useState('');
+    // CORREÇÃO: Variável de estado unificada para busca
+    const [searchTerm, setSearchTerm] = useState(''); 
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
     const [itemsExpanded, setItemsExpanded] = useState(true);
@@ -11007,7 +11007,6 @@ const AdminOrders = () => {
         startDate: '',
         endDate: '',
         status: '',
-        // customerName removido dos filtros individuais pois agora está na busca global
         minPrice: '',
         maxPrice: '',
     });
@@ -11148,7 +11147,7 @@ const AdminOrders = () => {
     useEffect(() => {
         let temp = [...orders];
 
-        // LÓGICA DE PESQUISA UNIFICADA (ID, NOME, CPF)
+        // CORREÇÃO: Lógica de pesquisa unificada usando searchTerm
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             temp = temp.filter(o => 
@@ -11159,7 +11158,6 @@ const AdminOrders = () => {
         }
 
         if (filters.status) temp = temp.filter(o => o.status === filters.status);
-        // Filtro de nome individual removido em favor da busca global, mas mantido lógica de datas/preço
         if (filters.minPrice) temp = temp.filter(o => Number(o.total) >= Number(filters.minPrice));
         if (filters.maxPrice) temp = temp.filter(o => Number(o.total) <= Number(filters.maxPrice));
         
@@ -11183,7 +11181,7 @@ const AdminOrders = () => {
             const fullDetails = await apiService(`/orders/${order.id}`);
             setEditingOrder(fullDetails);
             setEditFormData({ status: fullDetails.status, tracking_code: fullDetails.tracking_code || '' });
-            setItemsExpanded(true); // Abre o accordion por padrão
+            setItemsExpanded(true); 
             setIsEditModalOpen(true);
         } catch (e) { notification.show("Erro ao abrir pedido.", "error"); }
     };
@@ -11267,9 +11265,10 @@ const AdminOrders = () => {
 
     const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
     
+    // CORREÇÃO: Limpar filtros agora usa setSearchTerm corretamente
     const clearFilters = () => {
         setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
-        setOrderIdSearch('');
+        setSearchTerm('');
         setCurrentPage(1);
     }
 
@@ -11678,7 +11677,7 @@ const AdminOrders = () => {
             <div className="bg-white p-4 rounded-lg shadow-md mb-6 space-y-4">
                 <h2 className="text-xl font-semibold">Pesquisa Avançada</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={orderIdSearch} onChange={e => setOrderIdSearch(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
+                    <input type="text" name="orderIdSearch" placeholder="Pesquisar por ID, Nome ou CPF..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 border rounded-md col-span-1 md:col-span-2 lg:col-span-4"/>
                     <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data de Início"/>
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
