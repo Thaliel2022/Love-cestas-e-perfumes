@@ -10995,8 +10995,7 @@ const AdminOrders = () => {
     const notification = useNotification();
 
     const [currentPage, setCurrentPage] = useState(1);
-    // CORREÇÃO: Variável de estado unificada para busca
-    const [searchTerm, setSearchTerm] = useState(''); 
+    const [searchTerm, setSearchTerm] = useState('');
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [showNewOrderNotification, setShowNewOrderNotification] = useState(true);
     const [itemsExpanded, setItemsExpanded] = useState(true);
@@ -11110,19 +11109,161 @@ const AdminOrders = () => {
         );
     };
 
-    // --- FUNÇÃO DE WHATSAPP ---
+    // --- FUNÇÃO GERADORA DE MENSAGENS AUTOMÁTICAS (RESTAURADA) ---
+    const generateWhatsAppStatusMessage = (status, order, trackingCode) => {
+        const customerName = order.user_name;
+        const orderId = order.id;
+        const firstName = customerName ? customerName.split(' ')[0] : 'Cliente';
+        const isPickup = order.shipping_method === 'Retirar na loja';
+        const isLocalDelivery = order.shipping_method && (order.shipping_method.toLowerCase().includes('motoboy') || order.shipping_method.toLowerCase().includes('entrega local'));
+        
+        // Link principal para detalhes (acompanhamento)
+        const orderLink = `${window.location.origin}/#account/orders/${orderId}`;
+        // Link específico para pagamento direto (Página de Sucesso/Checkout)
+        const paymentLink = `${window.location.origin}/#order-success/${orderId}`;
+
+        const EMOJI = {
+            PACKAGE: String.fromCodePoint(0x1F4E6),
+            TRUCK: String.fromCodePoint(0x1F69A),
+            DOC: String.fromCodePoint(0x1F4C4),
+            LINK: String.fromCodePoint(0x1F517),
+            MOTO: String.fromCodePoint(0x1F6F5),
+            CHECK: String.fromCodePoint(0x2705),
+            BAGS: String.fromCodePoint(0x1F6CD, 0xFE0F),
+            PIN: String.fromCodePoint(0x1F4CD),
+            CLOCK: String.fromCodePoint(0x23F0),
+            MONEY: String.fromCodePoint(0x1F4B8),
+            CROSS: String.fromCodePoint(0x274C),
+            WARN: String.fromCodePoint(0x26A0, 0xFE0F),
+            NEW: String.fromCodePoint(0x1F195),
+            PHONE: String.fromCodePoint(0x1F4F1),
+            HOUSE: String.fromCodePoint(0x1F3E0),
+            ROCKET: String.fromCodePoint(0x1F680),
+            PAY: String.fromCodePoint(0x1F4B3)
+        };
+
+        let text = `Olá, *${firstName}*.\n\n`;
+
+        // --- LÓGICA ESPECIAL PARA COBRANÇA (PENDENTE) ---
+        if (status === 'Pendente') {
+             text += `🔔 *Lembrete de Pagamento: Pedido #${orderId}*\n\n`;
+             text += `Recebemos seu pedido, mas ainda não identificamos a confirmação do pagamento.\n\n`;
+             
+             text += `${EMOJI.PAY} *Para realizar o pagamento, acesse:* \n${paymentLink}\n\n`;
+             
+             text += `⚠️ *Caso já tenha efetuado o pagamento:* \nPor favor, desconsidere esta mensagem. O sistema pode levar alguns instantes para processar.\n\n`;
+             
+             text += `${EMOJI.DOC} *Acompanhe o status do pedido aqui:* \n${orderLink}\n\n`;
+             
+             text += `${EMOJI.CHECK} Assim que confirmado, você será notificado automaticamente por aqui e por e-mail.\n`;
+             
+             // Encerra a mensagem aqui para focar na ação de pagamento
+             text += `\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+             return text;
+        }
+
+        // --- LÓGICA PADRÃO PARA OUTROS STATUS ---
+        text += `O status do seu pedido *#${orderId}* foi atualizado:\n\n`;
+
+        switch (status) {
+            case 'Separando Pedido':
+                text += `${EMOJI.PACKAGE} *Novo Status: Preparado o pedido para envio*\n`;
+                text += `Estamos separando seus itens com cuidado.`;
+                break;
+            case 'Enviado': 
+                text += `${EMOJI.TRUCK} *Novo Status: Pedido Enviado*\n`;
+                if (trackingCode) text += `\n\n${EMOJI.DOC} *Rastreio:* ${trackingCode}\n${EMOJI.LINK} *Acompanhe:* https://linketrack.com/track?codigo=${trackingCode}`;
+                break;
+            case 'Saiu para Entrega':
+                if (isLocalDelivery) {
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para entrega (Motoboy)*\n`;
+                    text += `O motorista já está a caminho do seu endereço.`;
+                    if (trackingCode && trackingCode.startsWith('http')) {
+                        text += `\n\n${EMOJI.LINK} *Acompanhe em tempo real:*\n${trackingCode}`;
+                    }
+                } else {
+                    text += `${EMOJI.MOTO} *Novo Status: Saiu para Entrega*\n`;
+                    text += `Seu pedido está em rota de entrega pelos Correios.`;
+                }
+                break;
+            case 'Entregue':
+                text += `${EMOJI.CHECK} *Novo Status: Pedido entregue*\n`;
+                text += `Confirmamos a entrega. Esperamos que goste dos produtos!`;
+                break;
+            case 'Pronto para Retirada':
+                text += `${EMOJI.BAGS} *Novo Status: Pronto para Retirada*\n`;
+                text += `Já disponível em nossa loja.`;
+                break;
+            case 'Pagamento Aprovado':
+                text += `${EMOJI.MONEY} *Novo Status: Pagamento Aprovado*\n`;
+                text += `Pagamento confirmado. Iniciaremos a separação.`;
+                break;
+            case 'Cancelado':
+                text += `${EMOJI.CROSS} *Novo Status: Cancelado*\n`;
+                text += `O pedido foi cancelado. Se tiver dúvidas, estamos à disposição.`;
+                break;
+            case 'Pagamento Recusado':
+                text += `${EMOJI.WARN} *Novo Status: Pagamento Recusado*\n`;
+                text += `O pagamento não foi autorizado. Tente novamente ou entre em contato.`;
+                break;
+            case 'Reembolsado':
+                text += `${EMOJI.MONEY} *Novo Status: Reembolsado*\n`;
+                text += `O reembolso do seu pedido foi processado.`;
+                break;
+            default:
+                text += `${EMOJI.NEW} *Novo Status:* ${status}`;
+        }
+
+        // Se cancelado, recusado ou reembolsado, NÃO mostra endereço
+        if (status !== 'Cancelado' && status !== 'Reembolsado' && status !== 'Pagamento Recusado') {
+             text += `\n\n--------------------------------\n`;
+             if (isPickup) {
+                text += `${EMOJI.PIN} *Local de Retirada:*\nR. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB\n\n`;
+                text += `${EMOJI.CLOCK} *Horário:* Seg a Sáb, 09h-11h30 e 15h-17h30\n`;
+                text += `${EMOJI.DOC} *Necessário:* Documento com foto e número do pedido.`;
+            } else {
+                try {
+                    const addr = JSON.parse(order.shipping_address);
+                    if (addr) {
+                        text += `${EMOJI.HOUSE} *Endereço de Entrega:*\n`;
+                        text += `${addr.logradouro}, ${addr.numero}\n`;
+                        if (addr.bairro) text += `${addr.bairro} - `;
+                        text += `${addr.localidade}/${addr.uf}`;
+                    }
+                } catch (e) {
+                    text += `${EMOJI.TRUCK} Envio para o endereço cadastrado.`;
+                }
+            }
+        }
+
+        text += `\n\n${EMOJI.LINK} *Detalhes no site:*\n${orderLink}`;
+        text += `\n\nAtenciosamente,\n*Equipe Love Cestas e Perfumes*\n${EMOJI.PHONE} (83) 98737-9573`;
+        
+        return text;
+    };
+
     const handleManualWhatsAppNotification = () => {
         if (!editingOrder || !editingOrder.user_phone) {
             notification.show("Telefone do cliente não disponível.", "error");
             return;
         }
+
+        const statusToSend = editFormData.status || editingOrder.status;
+        const trackingToSend = editFormData.tracking_code || editingOrder.tracking_code;
+
+        const message = generateWhatsAppStatusMessage(
+            statusToSend,
+            editingOrder,
+            trackingToSend
+        );
+
         const cleanPhone = editingOrder.user_phone.replace(/\D/g, '');
-        const text = `Olá ${editingOrder.user_name.split(' ')[0]}! O status do seu pedido #${editingOrder.id} mudou para: *${editFormData.status || editingOrder.status}*. ${editFormData.tracking_code ? `Rastreio: ${editFormData.tracking_code}` : ''}`;
-        
+
         if (cleanPhone.length >= 10) {
-            window.open(`https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(text)}`, '_blank');
+            const waUrl = `https://api.whatsapp.com/send?phone=55${cleanPhone}&text=${encodeURIComponent(message)}`;
+            window.open(waUrl, '_blank');
         } else {
-            notification.show("Número inválido.", "error");
+            notification.show("Número de telefone do cliente inválido.", "error");
         }
     };
     
@@ -11147,7 +11288,6 @@ const AdminOrders = () => {
     useEffect(() => {
         let temp = [...orders];
 
-        // CORREÇÃO: Lógica de pesquisa unificada usando searchTerm
         if (searchTerm) {
             const lowerTerm = searchTerm.toLowerCase();
             temp = temp.filter(o => 
@@ -11265,9 +11405,8 @@ const AdminOrders = () => {
 
     const applyFilters = useCallback(() => { /* Lógica mantida */ }, []);
     
-    // CORREÇÃO: Limpar filtros agora usa setSearchTerm corretamente
     const clearFilters = () => {
-        setFilters({ startDate: '', endDate: '', status: '', customerName: '', minPrice: '', maxPrice: '' });
+        setFilters({ startDate: '', endDate: '', status: '', minPrice: '', maxPrice: '' });
         setSearchTerm('');
         setCurrentPage(1);
     }
@@ -11682,7 +11821,6 @@ const AdminOrders = () => {
                     <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="p-2 border rounded-md" title="Data Final"/>
                     <input type="number" name="minPrice" placeholder="Preço Mín." value={filters.minPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
                     <input type="number" name="maxPrice" placeholder="Preço Máx." value={filters.maxPrice} onChange={handleFilterChange} className="p-2 border rounded-md"/>
-                    <input type="text" name="customerName" placeholder="Nome do Cliente" value={filters.customerName} onChange={handleFilterChange} className="p-2 border rounded-md md:col-span-2"/>
                     <select name="status" value={filters.status} onChange={handleFilterChange} className="p-2 border rounded-md bg-white">
                         <option value="">Todos os Status</option>
                         {[...new Set(allStatuses)].map(s => <option key={s} value={s}>{s}</option>)}
