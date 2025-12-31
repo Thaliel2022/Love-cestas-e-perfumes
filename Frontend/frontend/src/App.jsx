@@ -13057,12 +13057,22 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
         name: user.name || '',
         email: user.email || '',
         role: user.role || 'user',
+        cpf: user.cpf || '',
+        phone: user.phone || '',
         password: ''
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCpfChange = (e) => {
+        setFormData(prev => ({ ...prev, cpf: maskCPF(e.target.value) }));
+    };
+
+    const handlePhoneChange = (e) => {
+        setFormData(prev => ({ ...prev, phone: maskPhone(e.target.value) }));
     };
 
     const handleSubmit = (e) => {
@@ -13076,6 +13086,21 @@ const UserEditForm = ({ user, onSave, onCancel }) => {
                 <label className="block text-sm font-medium text-gray-700">Nome</label>
                 <input type="text" name="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">CPF</label>
+                    <input type="text" name="cpf" value={formData.cpf} onChange={handleCpfChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Celular / WhatsApp</label>
+                    <div className="relative">
+                        <input type="text" name="phone" value={formData.phone} onChange={handlePhoneChange} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md pl-10"/>
+                        <WhatsappIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                    </div>
+                </div>
+            </div>
+
             <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input type="email" name="email" value={formData.email} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"/>
