@@ -13852,12 +13852,9 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
+  // --- MUDANÇA AQUI: Substituí a tela preta pelo BrandSplashSkeleton ---
   if (isLoading || isStatusLoading) {
-      return (
-        <div className="h-screen flex items-center justify-center bg-black">
-            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
-        </div>
-      );
+      return <BrandSplashSkeleton />;
   }
 
   const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
@@ -13907,9 +13904,6 @@ function AppContent({ deferredPrompt }) {
         );
     }
 
-    // --- ATUALIZAÇÃO AQUI ---
-    // Se o usuário tenta acessar uma página protegida (como account ou checkout) sem estar logado,
-    // passamos o 'redirectPath' para a LoginPage. Assim, ao logar, ele volta para cá.
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
@@ -14014,12 +14008,11 @@ function AppContent({ deferredPrompt }) {
 }
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-    const [isAppLoading, setIsAppLoading] = useState(true); // Estado de carregamento inicial
+    const [isAppLoading, setIsAppLoading] = useState(true);
 
     useEffect(() => {
         window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setDeferredPrompt(e); });
         
-        // Registro do Service Worker
         if ('serviceWorker' in navigator) {
             const registerSW = () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -14034,7 +14027,6 @@ export default function App() {
             }
         }
 
-        // Carregamento de Scripts Externos com Splash Screen
         const initializeApp = async () => {
             const loadScript = (src, id) => {
                 return new Promise((resolve, reject) => {
@@ -14042,13 +14034,12 @@ export default function App() {
                     const script = document.createElement('script');
                     script.src = src; script.id = id; script.async = true;
                     script.onload = () => resolve();
-                    script.onerror = () => reject(); // Não bloqueia o app se falhar script não essencial
+                    script.onerror = () => reject();
                     document.body.appendChild(script);
                 });
             };
 
             try {
-                // Carrega scripts essenciais em paralelo
                 await Promise.all([
                     loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script'),
                     loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script'),
@@ -14056,8 +14047,7 @@ export default function App() {
                         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script')
                     ),
                     loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk'),
-                    // Força um tempo mínimo de 2.5s para o splash screen aparecer e dar sensação de fluidez
-                    new Promise(resolve => setTimeout(resolve, 2500))
+                    new Promise(resolve => setTimeout(resolve, 2000))
                 ]);
             } catch (error) {
                 console.warn("Alguns scripts externos falharam, mas o app será carregado.", error);
@@ -14069,7 +14059,7 @@ export default function App() {
         initializeApp();
     }, []);
 
-    // Exibe o Splash Screen enquanto carrega (Antes de renderizar qualquer outra coisa)
+    // Se estiver carregando inicialmente, mostra o Skeleton
     if (isAppLoading) {
         return <BrandSplashSkeleton />;
     }
