@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import BrandSplashSkeleton from './components/BrandSplashSkeleton';
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -13786,10 +13785,9 @@ function AppContent({ deferredPrompt }) {
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                // Pequeno delay para garantir que a transição não pisque
-                setTimeout(() => {
-                    if (isStatusLoading) setIsStatusLoading(false);
-                }, 500);
+                if (isStatusLoading) {
+                    setIsStatusLoading(false);
+                }
             });
     };
 
@@ -13853,9 +13851,12 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- CORREÇÃO AQUI: Substituição da tela preta pelo Skeleton ---
   if (isLoading || isStatusLoading) {
-      return <BrandSplashSkeleton />;
+      return (
+        <div className="h-screen flex items-center justify-center bg-black">
+            <SpinnerIcon className="h-8 w-8 text-amber-400"/>
+        </div>
+      );
   }
 
   const isAdminLoggedIn = isAuthenticated && user.role === 'admin';
@@ -13905,6 +13906,9 @@ function AppContent({ deferredPrompt }) {
         );
     }
 
+    // --- ATUALIZAÇÃO AQUI ---
+    // Se o usuário tenta acessar uma página protegida (como account ou checkout) sem estar logado,
+    // passamos o 'redirectPath' para a LoginPage. Assim, ao logar, ele volta para cá.
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
@@ -14009,11 +14013,13 @@ function AppContent({ deferredPrompt }) {
 }
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-    const [isAppLoading, setIsAppLoading] = useState(true);
 
     useEffect(() => {
         window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setDeferredPrompt(e); });
         
+        // --- CORREÇÃO DO REGISTRO DO SERVICE WORKER ---
+        // O código anterior esperava o evento 'load' que pode já ter passado.
+        // Agora verificamos se a página já carregou.
         if ('serviceWorker' in navigator) {
             const registerSW = () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -14028,42 +14034,21 @@ export default function App() {
             }
         }
 
-        const initializeApp = async () => {
-            const loadScript = (src, id) => {
-                return new Promise((resolve, reject) => {
-                    if (document.getElementById(id)) { resolve(); return; }
-                    const script = document.createElement('script');
-                    script.src = src; script.id = id; script.async = true;
-                    script.onload = () => resolve();
-                    script.onerror = () => reject();
-                    document.body.appendChild(script);
-                });
-            };
-
-            try {
-                await Promise.all([
-                    loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script'),
-                    loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script'),
-                    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script').then(() => 
-                        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script')
-                    ),
-                    loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk'),
-                    new Promise(resolve => setTimeout(resolve, 2000))
-                ]);
-            } catch (error) {
-                console.warn("Alguns scripts externos falharam, mas o app será carregado.", error);
-            } finally {
-                setIsAppLoading(false);
-            }
+        // Scripts externos
+        const loadScript = (src, id, callback) => {
+            if (document.getElementById(id)) { if (callback) callback(); return; }
+            const script = document.createElement('script');
+            script.src = src; script.id = id; script.async = true;
+            script.onload = () => { if (callback) callback(); };
+            document.body.appendChild(script);
         };
-
-        initializeApp();
+        loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js', 'jspdf-autotable-script');
+        });
+        loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
     }, []);
-
-    // Se estiver carregando inicialmente, mostra o Skeleton
-    if (isAppLoading) {
-        return <BrandSplashSkeleton />;
-    }
 
     return (
         <AuthProvider>
