@@ -13786,9 +13786,10 @@ function AppContent({ deferredPrompt }) {
                 setIsInMaintenance(false);
             })
             .finally(() => {
-                if (isStatusLoading) {
-                    setIsStatusLoading(false);
-                }
+                // Pequeno delay para garantir que a transição não pisque
+                setTimeout(() => {
+                    if (isStatusLoading) setIsStatusLoading(false);
+                }, 500);
             });
     };
 
@@ -13852,7 +13853,7 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- MUDANÇA AQUI: Substituí a tela preta pelo BrandSplashSkeleton ---
+  // --- CORREÇÃO AQUI: Substituição da tela preta pelo Skeleton ---
   if (isLoading || isStatusLoading) {
       return <BrandSplashSkeleton />;
   }
