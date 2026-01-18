@@ -1677,9 +1677,9 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 });
 
 
-const Header = memo(({ onNavigate }) => {
+const Header = memo(({ onNavigate, hideOnMobile }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -1986,7 +1986,7 @@ const Header = memo(({ onNavigate }) => {
             )}
         </AnimatePresence>
 
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+        <header className={`bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40 ${hideOnMobile ? 'hidden md:block' : ''}`}>
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
@@ -2142,7 +2142,7 @@ const Header = memo(({ onNavigate }) => {
             </AnimatePresence>
         </header>
 
-        <BottomNavBar />
+        {!hideOnMobile && <BottomNavBar />}
         </>
     );
 });
@@ -3386,7 +3386,7 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); // Adicionado calculateLocalDeliveryPrice e shippingLocation
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation, cart } = useShop(); // ATUALIZAÇÃO: 'cart' desestruturado aqui
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3415,6 +3415,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+
+    // ATUALIZAÇÃO: Cálculo de itens no carrinho para o header mobile
+    const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -3733,8 +3736,37 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
+            {/* ATUALIZAÇÃO: Cabeçalho Fixo Simplificado (Mobile Only) */}
+            <div className="md:hidden sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800 px-4 py-3 flex items-center justify-between shadow-lg">
+                <button 
+                    onClick={() => onNavigate('products')} 
+                    className="p-2 -ml-2 text-gray-300 hover:text-white transition-colors"
+                >
+                    <ArrowUturnLeftIcon className="h-6 w-6" />
+                </button>
+                
+                {/* Nome do produto truncado no centro */}
+                <h1 className="text-sm font-bold text-white truncate max-w-[60%] text-center">
+                    {product.name}
+                </h1>
+
+                {/* Ícone de Carrinho no topo (como apps nativos) */}
+                <button 
+                    onClick={() => onNavigate('cart')} 
+                    className="p-2 -mr-2 text-gray-300 hover:text-white relative"
+                >
+                    <CartIcon className="h-6 w-6"/>
+                    {totalCartItems > 0 && (
+                        <span className="absolute top-1 right-1 bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold">
+                            {totalCartItems}
+                        </span>
+                    )}
+                </button>
+            </div>
+
             <div className="container mx-auto px-4 py-8 lg:py-12">
-                <div className="mb-6">
+                {/* Botão voltar desktop mantido, mas oculto no mobile agora para evitar duplicidade */}
+                <div className="mb-6 hidden md:block">
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
@@ -13948,10 +13980,12 @@ function AppContent({ deferredPrompt }) {
   };
 
   const showHeaderFooter = !currentPath.startsWith('admin');
+  // Verifica se é página de produto para esconder o Header no mobile
+  const isProductPage = currentPath.startsWith('product/');
   
   return (
     <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} />}
+      {showHeaderFooter && <Header onNavigate={navigate} hideOnMobile={isProductPage} />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
