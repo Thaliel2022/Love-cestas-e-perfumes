@@ -3599,8 +3599,27 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [notification]);
 
     // ... (Handlers) ...
-    const handleDeleteReview = (reviewId) => { /* ... */ };
-    const handleShare = async () => { /* ... */ };
+    const handleDeleteReview = (reviewId) => {
+        confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
+            try {
+                await apiService(`/reviews/${reviewId}`, 'DELETE');
+                notification.show('Avaliação excluída com sucesso.');
+                fetchProductData(productId);
+            } catch (error) {
+                notification.show(`Erro ao excluir avaliação: ${error.message}`, 'error');
+            }
+        });
+    };
+    const handleShare = async () => {
+        const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
+        const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
+        if (navigator.share) {
+            try { await navigator.share(shareData); } catch (err) { if (err.name !== 'AbortError') { notification.show('Compartilhamento cancelado.', 'error'); } }
+        } else {
+            try { await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`); notification.show('Link do produto copiado!'); } catch (err) { notification.show('Não foi possível copiar o link.', 'error'); }
+        }
+    };
+
     const handleQuantityChange = (amount) => {
         setQuantity(prev => {
             const newQty = prev + amount;
@@ -3649,9 +3668,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
     useEffect(() => { /* Installments logic */ const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
-    const checkScrollButtons = useCallback(() => { /* ... */ }, []);
-    useEffect(() => { /* ... */ }, [galleryImages, checkScrollButtons]);
-    const scrollGallery = (direction) => { /* ... */ };
+    const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
+    useEffect(() => { checkScrollButtons(); const gallery = galleryRef.current; if (gallery) { gallery.addEventListener('scroll', checkScrollButtons); window.addEventListener('resize', checkScrollButtons); return () => { gallery.removeEventListener('scroll', checkScrollButtons); window.removeEventListener('resize', checkScrollButtons); }; } }, [galleryImages, checkScrollButtons]);
+    const scrollGallery = (direction) => { const gallery = galleryRef.current; if (gallery) { const scrollAmount = gallery.clientWidth * 0.7; gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); } };
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
@@ -3824,6 +3843,30 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
                                         <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- BLOCO DE PREÇO ESPECIAL (SEM TEMPO/EXPIRADO) RESTAURADO --- */}
+                        {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
+                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
+                                <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                                    <TagIcon className="h-24 w-24 text-green-500" />
+                                </div>
+                                <div className="flex items-center gap-2 mb-2 text-green-400 font-bold uppercase tracking-wide text-sm">
+                                    <SaleIcon className="h-5 w-5" />
+                                    Preço Especial
+                                </div>
+                                <div className="flex items-center justify-between relative z-10">
+                                    <div>
+                                        <p className="text-gray-400 text-sm">De: <span className="line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</span></p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-white font-bold text-2xl">Por: <span className="text-green-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
+                                        </div>
+                                    </div>
+                                    <div className="bg-green-600 text-white font-bold px-3 py-1 rounded-full text-sm shadow-lg">
+                                        -{discountPercent}%
                                     </div>
                                 </div>
                             </div>
