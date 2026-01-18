@@ -2840,7 +2840,8 @@ const HomePage = ({ onNavigate }) => {
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
+            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
+            <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
@@ -13673,7 +13674,8 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            // ATUALIZAÇÃO: Alterado de h-[90vh] para h-[55vh] no mobile para reduzir a altura
+            className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -13703,7 +13705,8 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    // ATUALIZAÇÃO: Ajustado tamanho da fonte mobile para text-3xl (era 4xl) para melhor proporção
+                                    className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -13711,14 +13714,16 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
+                                    // ATUALIZAÇÃO: Ajustado margem superior para ficar mais compacto
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
+                                    {/* ATUALIZAÇÃO: Botão ajustado (padding e margem menores no mobile) */}
+                                    <button className="mt-5 md:mt-8 bg-amber-400 text-black px-6 py-2 md:px-10 md:py-3 rounded-md text-sm md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-lg">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
@@ -13746,7 +13751,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
         </section>
     );
 });
-
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
 // --- Função auxiliar para converter a chave VAPID ---
