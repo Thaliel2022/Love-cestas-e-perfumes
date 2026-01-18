@@ -3525,7 +3525,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
-                // IMPORTANTE: Não desativar aqui visualmente, deixar o backend ou próxima renderização tratar
             }
         };
         calculateTimeLeft();
@@ -3562,7 +3561,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
-        // ... (Mesma lógica de fetch)
         const controller = new AbortController();
         const signal = controller.signal;
         setIsLoading(true);
@@ -3685,43 +3683,49 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
+            {/* --- MODAL DE SELEÇÃO ATUALIZADO (FLEXBOX CENTERING) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
+                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/70 z-[60] backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        <motion.div
-                            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 30, stiffness: 350 }}
-                            className="fixed bottom-0 left-0 right-0 z-[70] md:top-1/2 md:bottom-auto md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md"
-                        >
-                            <div className="bg-gray-900 border border-gray-800 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10">
-                                <div className="p-5 pb-0 flex justify-between items-start">
-                                    <div className="pr-8">
+                        
+                        {/* Wrapper Flexbox para Centralização Correta no Desktop */}
+                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                            <motion.div
+                                initial={{ y: "100%" }} 
+                                animate={{ y: 0 }} 
+                                exit={{ y: "100%" }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
+                            >
+                                <div className="p-6 pb-0 flex justify-between items-start">
+                                    <div className="pr-4">
                                         <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <p className="text-amber-400 font-bold text-xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
-                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded">-{discountPercent}%</span>}
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
                                         </div>
                                     </div>
                                     <button 
                                         onClick={() => setIsSelectionModalOpen(false)} 
                                         className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                                     >
-                                        <XMarkIcon className="h-5 w-5"/>
+                                        <XMarkIcon className="h-6 w-6"/>
                                     </button>
                                 </div>
 
-                                <div className="p-5">
-                                    <div className="py-4 border-t border-gray-800 border-b mb-5">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <div className="bg-blue-600/20 text-blue-400 p-1.5 rounded-md">
-                                                <ShirtIcon className="h-4 w-4" />
+                                <div className="p-6">
+                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
+                                        <div className="flex items-center gap-2 mb-5">
+                                            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                <ShirtIcon className="h-5 w-5" />
                                             </div>
-                                            <p className="text-sm text-gray-300 font-medium">Configure sua peça</p>
+                                            <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                         </div>
                                         
                                         <VariationSelector 
@@ -3737,22 +3741,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                                     <button 
                                         onClick={handleConfirmSelection}
-                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-2
+                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
                                             ${selectionError && !selectedSize 
                                                 ? 'bg-red-600 text-white animate-pulse' 
                                                 : 'bg-amber-400 hover:bg-amber-300 text-black'}`
                                         }
                                     >
-                                        {selectionError && !selectedSize ? 'Escolha um Tamanho!' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
+                                        {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
                                         {!selectionError && <CheckIcon className="h-5 w-5" />}
                                     </button>
                                     
-                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1">
-                                        <ShieldCheckIcon className="h-3 w-3" /> Compra 100% Segura e Garantida
+                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
+                                        <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
                                     </p>
                                 </div>
-                            </div>
-                        </motion.div>
+                            </motion.div>
+                        </div>
                     </>
                 )}
             </AnimatePresence>
