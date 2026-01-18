@@ -13674,7 +13674,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            // ATUALIZAÇÃO: Alterado de h-[90vh] para h-[55vh] no mobile para reduzir a altura
             className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
@@ -13705,7 +13704,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    // ATUALIZAÇÃO: Ajustado tamanho da fonte mobile para text-3xl (era 4xl) para melhor proporção
                                     className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
@@ -13714,7 +13712,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    // ATUALIZAÇÃO: Ajustado margem superior para ficar mais compacto
                                     className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
                                 >
                                     {currentBanner.subtitle}
@@ -13722,8 +13719,8 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    {/* ATUALIZAÇÃO: Botão ajustado (padding e margem menores no mobile) */}
-                                    <button className="mt-5 md:mt-8 bg-amber-400 text-black px-6 py-2 md:px-10 md:py-3 rounded-md text-sm md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-lg">
+                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
+                                    <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
