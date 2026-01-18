@@ -4508,17 +4508,20 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
+        setCart, // Necessário para atualização otimista
         updateQuantity,
         removeFromCart,
+        addToCart, // Necessário para trocar a variação (remove old, add new)
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon,
-        discount // Usando o desconto calculado no Contexto (que tem a validação correta)
+        discount
     } = useShop();
     const notification = useNotification();
+    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -4535,7 +4538,6 @@ const CartPage = ({ onNavigate }) => {
     }
 
     const total = useMemo(() => {
-        // O desconto já vem calculado corretamente do ShopProvider, respeitando as restrições
         const calculatedTotal = subtotal - discount + shippingCost;
         return calculatedTotal < 0 ? 0 : calculatedTotal; 
     }, [subtotal, discount, shippingCost]);
@@ -4548,6 +4550,73 @@ const CartPage = ({ onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
+
+    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
+    const handleSizeChange = async (item, newSize) => {
+        if (!item.variation || item.variation.size === newSize) return;
+
+        // 1. Encontrar a variação completa correspondente ao novo tamanho
+        const allVariations = parseJsonString(item.variations, []);
+        const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
+
+        if (!newVariation) {
+            notification.show("Tamanho indisponível.", "error");
+            return;
+        }
+
+        if (newVariation.stock < item.qty) {
+            notification.show(`Estoque insuficiente para o tamanho ${newSize}.`, "error");
+            return;
+        }
+
+        // 2. Criar o ID do novo item
+        const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
+        
+        // 3. Verificar se já existe esse item no carrinho (para mesclar)
+        const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
+        
+        let newCart = [...cart];
+
+        if (existingItemIndex > -1) {
+            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
+            newCart[existingItemIndex].qty += item.qty;
+            // Remove o item "antigo" (que tinha o tamanho anterior)
+            newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
+        } else {
+            // Se não existe, atualiza o item atual com a nova variação e ID
+            newCart = newCart.map(i => {
+                if (i.cartItemId === item.cartItemId) {
+                    return { ...i, variation: newVariation, cartItemId: newCartItemId };
+                }
+                return i;
+            });
+        }
+
+        // 4. Atualiza Estado Local (UI Instantânea)
+        setCart(newCart);
+        notification.show(`Tamanho alterado para ${newSize}`);
+
+        // 5. Sincroniza com Backend (se logado)
+        if (isAuthenticated) {
+            try {
+                // Remove o antigo
+                await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
+                // Adiciona o novo (ou atualiza se mesclou)
+                // Para simplificar, o backend trata adição como "insert or update qty"
+                await apiService('/cart', 'POST', { 
+                    productId: item.id, 
+                    quantity: item.qty, // Quantidade que estava no item sendo movido
+                    variationId: newVariation.id, 
+                    variation: newVariation,
+                    variation_details: JSON.stringify(newVariation)
+                });
+            } catch (error) {
+                console.error("Erro ao sincronizar troca de tamanho:", error);
+            }
+        }
+    };
+
+    const itemsForShipping = useMemo(() => cart, [cart]);
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -4573,10 +4642,20 @@ const CartPage = ({ onNavigate }) => {
                                         const isOnSale = item.is_on_sale && item.sale_price > 0;
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
+                                        
+                                        // Preparar opções de tamanho se for roupa
+                                        let availableSizes = [];
+                                        if (item.product_type === 'clothing' && item.variation) {
+                                            const allVars = parseJsonString(item.variations, []);
+                                            availableSizes = allVars
+                                                .filter(v => v.color === item.variation.color && v.stock > 0)
+                                                .map(v => v.size);
+                                        }
+
                                         return (
                                         <motion.div
                                             key={item.cartItemId}
-                                            layout // Anima a remoção
+                                            layout 
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0, x: -50 }}
@@ -4592,18 +4671,38 @@ const CartPage = ({ onNavigate }) => {
                                                 </div>
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                    
+                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
-                                                        <p className="text-xs text-gray-400 mt-1">
-                                                            {item.variation.color} / {item.variation.size}
-                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                                                            <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
+                                                                <span className="text-gray-500">Cor:</span>
+                                                                <span className="font-bold text-white">{item.variation.color}</span>
+                                                            </div>
+
+                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-xs text-gray-500">Tam:</label>
+                                                                <select 
+                                                                    value={item.variation.size} 
+                                                                    onChange={(e) => handleSizeChange(item, e.target.value)}
+                                                                    className="bg-gray-800 text-white text-xs font-bold border border-gray-600 rounded px-2 py-1 focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+                                                                >
+                                                                    {availableSizes.map(size => (
+                                                                        <option key={size} value={size}>{size}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     )}
+
                                                     {isOnSale ? (
-                                                        <div className="flex items-baseline gap-2 mt-1">
+                                                        <div className="flex items-baseline gap-2 mt-2">
                                                             <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
                                                             <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-1">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -4631,8 +4730,7 @@ const CartPage = ({ onNavigate }) => {
                                     </button>
                                 </div>
                             </div>
-                            {/* Calculadora de Frete (mantém componente externo) */}
-                            <ShippingCalculator items={cart} />
+                            <ShippingCalculator items={itemsForShipping} />
                         </div>
 
                         {/* Coluna de Resumo */}
@@ -5449,10 +5547,19 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
-                                            <div className="flex items-center gap-2 overflow-hidden">
+                                        <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
+                                            <div className="flex items-start gap-3 overflow-hidden">
                                                  <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                                <div>
+                                                    <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
+                                                    {/* DISPLAY DE VARIAÇÃO NO CHECKOUT - CORRIGIDO */}
+                                                    {item.variation && (
+                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
+                                                            <span>Cor: {item.variation.color}</span>
+                                                            <span>Tam: {item.variation.size}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
