@@ -3282,7 +3282,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         </>
     );
 });
-const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize }) => {
+const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
     const uniqueColors = useMemo(() => {
         const colors = new Map();
@@ -3325,50 +3325,78 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
             setSelectedSize('');
         }
     };
+
+    const showError = error && !selectedSize;
     
     return (
         <div className="space-y-6">
+            {/* Seção de Cores */}
             <div>
-                 <h3 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">Cor: <span className="text-white ml-1">{selectedColor || 'Selecione'}</span></h3>
+                 <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                    Cor: <span className="text-white font-normal capitalize">{selectedColor || 'Selecione'}</span>
+                 </h3>
                 <div className="flex flex-wrap gap-3">
                     {uniqueColors.map(colorInfo => (
                          <div key={colorInfo.name}
                             onClick={() => handleColorChange(colorInfo.name)}
-                            className={`relative w-12 h-12 rounded-full cursor-pointer transition-all p-0.5 ${selectedColor === colorInfo.name ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-black' : 'hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-black'}`}
+                            className={`group relative w-12 h-12 rounded-full cursor-pointer transition-all duration-300 p-0.5 
+                                ${selectedColor === colorInfo.name 
+                                    ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110' 
+                                    : 'hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-80 hover:opacity-100'}`}
                             title={colorInfo.name}
                         >
-                             <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-white"/>
+                             <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
                          </div>
                     ))}
                 </div>
             </div>
-            {selectedColor && (
-                 <div>
-                    <h3 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">Tamanho: <span className="text-white ml-1">{selectedSize || 'Selecione'}</span></h3>
-                    <div className="flex flex-wrap gap-3">
-                        {allSizesForColor.length > 0 ? (
-                            allSizesForColor.map(({ size, stock }) => (
-                                <button
-                                    key={size}
-                                    onClick={() => setSelectedSize(size)}
-                                    disabled={stock === 0}
-                                    className={`min-w-[3rem] h-12 px-2 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center
-                                        ${selectedSize === size 
-                                            ? 'bg-white text-black border-white' 
-                                            : 'border-gray-600 text-gray-300 hover:border-gray-400'
+
+            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
+            <AnimatePresence>
+                {selectedColor && (
+                     <motion.div 
+                        initial={{ opacity: 0, height: 0 }} 
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className={`transition-colors duration-300 ${showError ? 'p-3 -m-3 bg-red-900/10 border border-red-500/30 rounded-lg' : ''}`}
+                     >
+                        <h3 className={`text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${showError ? 'text-red-400' : 'text-gray-400'}`}>
+                            Tamanho: 
+                            <span className={showError ? 'text-red-400 font-bold animate-pulse' : 'text-white font-normal'}>
+                                {selectedSize || (showError ? 'SELECIONE UM TAMANHO' : 'Selecione')}
+                            </span>
+                            {showError && <ExclamationCircleIcon className="h-4 w-4 text-red-500 inline ml-1" />}
+                        </h3>
+                        
+                        <div className="flex flex-wrap gap-2.5">
+                            {allSizesForColor.length > 0 ? (
+                                allSizesForColor.map(({ size, stock }) => (
+                                    <button
+                                        key={size}
+                                        onClick={() => setSelectedSize(size)}
+                                        disabled={stock === 0}
+                                        className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
+                                            ${selectedSize === size 
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
+                                            }
+                                            ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
+                                            ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
-                                        ${stock === 0 ? 'opacity-30 cursor-not-allowed decoration-slice line-through bg-gray-800' : ''}`
-                                    }
-                                >
-                                    {size}
-                                </button>
-                            ))
-                        ) : (
-                             <p className="text-gray-500 text-sm">Indisponível.</p>
-                        )}
-                    </div>
-                </div>
-            )}
+                                    >
+                                        {size}
+                                        {/* Indicador de último item */}
+                                        {stock > 0 && stock <= 2 && selectedSize !== size && (
+                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                        )}
+                                    </button>
+                                ))
+                            ) : (
+                                 <p className="text-gray-500 text-sm italic py-2">Indisponível nesta cor.</p>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -3397,6 +3425,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState(null); // 'buyNow' ou 'addToCart'
+    const [selectionError, setSelectionError] = useState(false); // Novo estado de erro
 
     const [selectedVariation, setSelectedVariation] = useState(null); // Computado
     const [galleryImages, setGalleryImages] = useState([]);
@@ -3427,6 +3456,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
             setSelectedVariation(found || null);
+            setSelectionError(false); // Limpa erro ao selecionar
         } else {
             setSelectedVariation(null);
         }
@@ -3444,7 +3474,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                      setMainImage(allImagesForColor[0]);
                 }
             } else {
-                // Fallback para imagens padrão se a cor não tiver específicas
                 setGalleryImages(productImages);
             }
         } else {
@@ -3501,9 +3530,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const timer = setInterval(calculateTimeLeft, 1000);
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
-
-    // --- REMOVIDO EFEITO DE CÁLCULO DE FRETE (PREVIEW) ---
-    // O useEffect que calculava o cardShippingInfo foi removido para eliminar a duplicidade.
 
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
@@ -3606,10 +3632,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const handleAction = (action) => {
         if (!product) return;
         
-        // Se for roupa, sempre abre o modal para confirmação visual
+        // Se for roupa, sempre abre o modal para confirmação visual, mesmo que já selecionado
         if (isClothing) {
             setPendingAction(action);
             setIsSelectionModalOpen(true);
+            setSelectionError(false); // Reseta erro ao abrir modal
         } else {
             // Perfume vai direto
             processAddToCart(action);
@@ -3619,9 +3646,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     // --- CONFIRMAÇÃO DO MODAL ---
     const handleConfirmSelection = () => {
         if (isClothing && (!selectedColor || !selectedSize)) {
-            notification.show("Por favor, selecione uma cor e um tamanho.", "error");
+            // Ativa o erro visual no seletor
+            setSelectionError(true);
+            // Pequena vibração se suportada (opcional)
+            if (navigator.vibrate) navigator.vibrate(200);
             return;
         }
+        
         if (isClothing && !selectedVariation) {
              notification.show("Esta combinação não está disponível.", "error");
              return;
@@ -3639,6 +3670,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
+    // ... (useEffects, scrollGallery, TabButton, Lightbox mantidos) ...
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
     useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
     const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
@@ -3664,45 +3696,71 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-sm"
+                            className="fixed inset-0 bg-black/70 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
                         <motion.div
                             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 rounded-t-2xl z-[70] p-5 shadow-2xl md:max-w-lg md:mx-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:rounded-2xl"
+                            transition={{ type: "spring", damping: 30, stiffness: 350 }}
+                            className="fixed bottom-0 left-0 right-0 z-[70] md:top-1/2 md:bottom-auto md:left-1/2 md:right-auto md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md"
                         >
-                            <div className="flex justify-between items-start mb-4">
-                                <div>
-                                    <h3 className="font-bold text-lg text-white line-clamp-2 pr-4">{product.name}</h3>
-                                    <p className="text-amber-400 font-bold text-xl mt-1">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                            <div className="bg-gray-900 border border-gray-800 rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10">
+                                {/* Cabeçalho do Modal */}
+                                <div className="p-5 pb-0 flex justify-between items-start">
+                                    <div className="pr-8">
+                                        <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-amber-400 font-bold text-xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded">-{discountPercent}%</span>}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsSelectionModalOpen(false)} 
+                                        className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <XMarkIcon className="h-5 w-5"/>
+                                    </button>
                                 </div>
-                                <button onClick={() => setIsSelectionModalOpen(false)} className="bg-gray-800 p-1 rounded-full text-gray-400 hover:text-white">
-                                    <XMarkIcon className="h-6 w-6"/>
-                                </button>
-                            </div>
 
-                            <div className="py-2 border-t border-gray-800 mb-4">
-                                <p className="text-sm text-gray-300 font-medium mb-4">Agora, selecione cor e/ou tamanho</p>
-                                {/* Reutiliza o seletor, passando o estado controlado */}
-                                <VariationSelector 
-                                    product={product} 
-                                    variations={productVariations} 
-                                    selectedColor={selectedColor} 
-                                    setSelectedColor={setSelectedColor}
-                                    selectedSize={selectedSize}
-                                    setSelectedSize={setSelectedSize}
-                                />
-                            </div>
+                                {/* Corpo do Modal */}
+                                <div className="p-5">
+                                    <div className="py-4 border-t border-gray-800 border-b mb-5">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="bg-blue-600/20 text-blue-400 p-1.5 rounded-md">
+                                                <ShirtIcon className="h-4 w-4" />
+                                            </div>
+                                            <p className="text-sm text-gray-300 font-medium">Configure sua peça</p>
+                                        </div>
+                                        
+                                        {/* Reutiliza o seletor com a prop error */}
+                                        <VariationSelector 
+                                            product={product} 
+                                            variations={productVariations} 
+                                            selectedColor={selectedColor} 
+                                            setSelectedColor={setSelectedColor}
+                                            selectedSize={selectedSize}
+                                            setSelectedSize={setSelectedSize}
+                                            error={selectionError} // Passa o estado de erro
+                                        />
+                                    </div>
 
-                            <button 
-                                onClick={handleConfirmSelection}
-                                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-lg text-base shadow-lg transition-colors uppercase tracking-wide"
-                            >
-                                {pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola'}
-                            </button>
-                            
-                            <p className="text-center text-[10px] text-gray-500 mt-3">Vendido e entregue por Love Cestas e Perfumes</p>
+                                    <button 
+                                        onClick={handleConfirmSelection}
+                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-2
+                                            ${selectionError && !selectedSize 
+                                                ? 'bg-red-600 text-white animate-pulse' 
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
+                                        }
+                                    >
+                                        {selectionError && !selectedSize ? 'Escolha um Tamanho!' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
+                                        {!selectionError && <CheckIcon className="h-5 w-5" />}
+                                    </button>
+                                    
+                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1">
+                                        <ShieldCheckIcon className="h-3 w-3" /> Compra 100% Segura e Garantida
+                                    </p>
+                                </div>
+                            </div>
                         </motion.div>
                     </>
                 )}
@@ -3771,6 +3829,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 setSelectedColor={setSelectedColor}
                                 selectedSize={selectedSize}
                                 setSelectedSize={setSelectedSize}
+                                error={selectionError} // Passa o erro também aqui, opcionalmente
                             /> 
                         )}
 
