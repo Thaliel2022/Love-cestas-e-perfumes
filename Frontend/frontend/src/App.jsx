@@ -3926,15 +3926,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
                         {/* Layout: Desktop (Miniaturas à Esquerda) / Mobile (Miniaturas Embaixo) */}
-                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
+                        <div className="flex flex-col lg:flex-row gap-4 h-full">
                             
                             {/* Lista de Miniaturas */}
-                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 lg:h-[700px]">
                                 {/* Botão Scroll Cima (Desktop) */}
                                 {canScrollUp && (
                                     <button 
                                         onClick={() => scrollGallery('up')} 
-                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors"
                                     >
                                         <ChevronDownIcon className="h-4 w-4 rotate-180" />
                                     </button>
@@ -3943,13 +3943,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 {/* Container Scrollável */}
                                 <div 
                                     ref={galleryRef}
-                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
-                                    style={{ maxHeight: '80vh' }} // Limite de altura seguro para desktop
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:h-full scrollbar-hide py-2 lg:py-0"
                                 >
                                     {product.video_url && (
                                         <div 
                                             onClick={() => setIsVideoModalOpen(true)} 
-                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
+                                            className="relative w-20 h-20 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all"
                                         >
                                             <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
                                             <div className="absolute inset-0 flex items-center justify-center">
@@ -3964,7 +3963,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             key={index} 
                                             onClick={() => setMainImage(img)} 
                                             onMouseEnter={() => setMainImage(img)} 
-                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
+                                            className={`relative w-20 h-20 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 
                                                 ${mainImage === img 
                                                     ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
                                                     : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
@@ -3978,15 +3977,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 {canScrollDown && (
                                     <button 
                                         onClick={() => scrollGallery('down')} 
-                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors"
                                     >
                                         <ChevronDownIcon className="h-4 w-4" />
                                     </button>
                                 )}
                             </div>
 
-                            {/* Imagem Principal (Grande e Adaptável) */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
+                            {/* Imagem Principal (Grande) */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center lg:h-[700px]">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
                                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
@@ -4004,8 +4003,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
                                 )}
 
-                                {/* Container de Imagem: Preenche e Contém */}
-                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
+                                {/* Container de Imagem Ajustado para Eliminar Buracos */}
+                                <div className="w-full h-full flex items-center justify-center p-4 lg:p-0 relative aspect-square lg:aspect-auto">
                                     <img 
                                         src={mainImage} 
                                         alt={product.name} 
@@ -4254,6 +4253,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
+
 const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     const { login, setUser } = useAuth();
     const notification = useNotification();
