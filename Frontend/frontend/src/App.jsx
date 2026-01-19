@@ -1679,11 +1679,12 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop();
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
+    const [isSearching, setIsSearching] = useState(false); // Novo estado de loading
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
@@ -1693,6 +1694,7 @@ const Header = memo(({ onNavigate }) => {
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
+    const searchInputRef = useRef(null);
 
     useEffect(() => {
         const handleHashChange = () => {
@@ -1787,39 +1789,42 @@ const Header = memo(({ onNavigate }) => {
     }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
-    const prevTotalCartItems = useRef(totalCartItems);
     const cartAnimationControls = useAnimation();
 
     useEffect(() => {
-        if (totalCartItems > prevTotalCartItems.current) {
+        if (totalCartItems > 0) {
             cartAnimationControls.start({
                 scale: [1, 1.25, 0.9, 1.1, 1],
                 transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
             });
         }
-        prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
+    // --- LÓGICA DE PESQUISA MELHORADA ---
     useEffect(() => {
-        if (searchTerm.length < 1) {
+        if (searchTerm.length < 2) {
             setSearchSuggestions([]);
+            setIsSearching(false);
             return;
         }
+        setIsSearching(true);
         const debounceTimer = setTimeout(() => {
             apiService(`/products/search-suggestions?q=${searchTerm}`)
                 .then(data => setSearchSuggestions(data))
-                .catch(err => console.error(err));
-        }, 300);
+                .catch(err => console.error(err))
+                .finally(() => setIsSearching(false));
+        }, 400); // Debounce de 400ms para evitar chamadas excessivas
         return () => clearTimeout(debounceTimer);
     }, [searchTerm]);
 
     const handleSearchSubmit = (e) => {
-        e.preventDefault();
+        e && e.preventDefault();
         if (searchTerm.trim()) {
             onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setSearchTerm('');
+            setIsSearchFocused(false);
             setSearchSuggestions([]);
             setIsMobileMenuOpen(false);
+            if(searchInputRef.current) searchInputRef.current.blur();
         }
     };
 
@@ -1829,6 +1834,12 @@ const Header = memo(({ onNavigate }) => {
         setSearchSuggestions([]);
         setIsSearchFocused(false);
         setIsMobileMenuOpen(false);
+    };
+
+    const clearSearch = () => {
+        setSearchTerm('');
+        setSearchSuggestions([]);
+        if(searchInputRef.current) searchInputRef.current.focus();
     };
 
     const dropdownVariants = {
@@ -1845,37 +1856,11 @@ const Header = memo(({ onNavigate }) => {
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
-    useEffect(() => {
-        if (isAddressModalOpen && isAuthenticated) {
-            fetchAddresses();
-        }
-    }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
-
-    const handleSelectAddress = (addr) => {
-        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
-        setIsAddressModalOpen(false);
-    };
-
-    const handleManualCepSubmit = async (e) => {
-        e.preventDefault();
-        setCepError('');
-        const cleanCep = manualCep.replace(/\D/g, '');
-        if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; }
-        try {
-            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-            const data = await response.json();
-            if (data.erro) { setCepError("CEP não encontrado."); } else {
-                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
-                setIsAddressModalOpen(false);
-                setManualCep('');
-            }
-        } catch { setCepError("Não foi possível buscar o CEP."); }
-    };
-
-    const handleCepInputChange = (e) => {
-        setManualCep(maskCEP(e.target.value));
-        if (cepError) setCepError('');
-    };
+    // ... (Lógica de endereço mantida igual) ...
+    useEffect(() => { if (isAddressModalOpen && isAuthenticated) { fetchAddresses(); } }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
+    const handleSelectAddress = (addr) => { setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias }); setIsAddressModalOpen(false); };
+    const handleManualCepSubmit = async (e) => { e.preventDefault(); setCepError(''); const cleanCep = manualCep.replace(/\D/g, ''); if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; } try { const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`); const data = await response.json(); if (data.erro) { setCepError("CEP não encontrado."); } else { setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` }); setIsAddressModalOpen(false); setManualCep(''); } } catch { setCepError("Não foi possível buscar o CEP."); } };
+    const handleCepInputChange = (e) => { setManualCep(maskCEP(e.target.value)); if (cepError) setCepError(''); };
 
     let addressDisplay = 'Selecione um endereço';
     if (shippingLocation && shippingLocation.cep) {
@@ -1884,72 +1869,15 @@ const Header = memo(({ onNavigate }) => {
             const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
             const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - ');
             let prefix = 'Enviar para';
-
-            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
-                prefix = `Enviar para ${shippingLocation.alias} -`;
-            } else if (isAuthenticated && user?.name) {
-                prefix = `Enviar para ${user.name.split(' ')[0]} -`;
-            }
-
-            if (displayCityState) {
-                addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
-            } else {
-                 addressDisplay = `${prefix} ${formattedCep}`;
-            }
+            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') { prefix = `Enviar para ${shippingLocation.alias} -`; } else if (isAuthenticated && user?.name) { prefix = `Enviar para ${user.name.split(' ')[0]} -`; }
+            if (displayCityState) { addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`; } else { addressDisplay = `${prefix} ${formattedCep}`; }
         }
     }
 
-    const BottomNavBar = () => {
+    const BottomNavBar = () => { /* ... BottomNavBar mantido igual ... */
         const wishlistCount = wishlist.length;
-
-        const navVariants = {
-            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
-            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
-        };
-
-        return (
-            <motion.div
-                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe"
-                initial={false}
-                animate={isBottomNavVisible ? "visible" : "hidden"}
-                variants={navVariants}
-            >
-                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HomeIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-[10px]">Início</span>
-                </button>
-                
-                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <HeartIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-[10px]">Lista</span>
-                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
-                </button>
-
-                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <motion.div animate={cartAnimationControls}>
-                        <CartIcon className="h-6 w-6 mb-1"/>
-                    </motion.div>
-                    <span className="text-[10px]">Carrinho</span>
-                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
-                </button>
-                
-                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <UserIcon className="h-6 w-6 mb-1"/>
-                    <span className="text-[10px]">Conta</span>
-                </button>
-
-                <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
-                    <div className="relative">
-                        <BarsGripIcon className="h-6 w-6 mb-1"/>
-                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
-                        {isAuthenticated && orderNotificationCount > 0 && (
-                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
-                        )}
-                    </div>
-                    <span className="text-[10px]">Menu</span>
-                </button>
-            </motion.div>
-        );
+        const navVariants = { visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } }, hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } } };
+        return ( <motion.div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" initial={false} animate={isBottomNavVisible ? "visible" : "hidden"} variants={navVariants}> <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HomeIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Início</span> </button> <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HeartIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Lista</span> {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>} </button> <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <motion.div animate={cartAnimationControls}> <CartIcon className="h-6 w-6 mb-1"/> </motion.div> <span className="text-[10px]">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </button> <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <UserIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Conta</span> </button> <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <div className="relative"> <BarsGripIcon className="h-6 w-6 mb-1"/> {isAuthenticated && orderNotificationCount > 0 && ( <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span> )} </div> <span className="text-[10px]">Menu</span> </button> </motion.div> );
     };
 
     return (
@@ -1965,12 +1893,8 @@ const Header = memo(({ onNavigate }) => {
                                  <p className="text-sm text-gray-500">{addr.localidade} - {addr.uf}</p>
                              </div>
                         ))}
-                         {isAuthenticated && addresses.length === 0 && (
-                            <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>
-                         )}
-                         {!isAuthenticated && (
-                            <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>
-                         )}
+                         {isAuthenticated && addresses.length === 0 && <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>}
+                         {!isAuthenticated && <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>}
                         <div className="pt-4 border-t">
                             <form onSubmit={handleManualCepSubmit} className="space-y-2">
                                  <label className="block text-sm font-medium text-gray-700">Calcular frete para um CEP</label>
@@ -1986,7 +1910,23 @@ const Header = memo(({ onNavigate }) => {
             )}
         </AnimatePresence>
 
-        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+        {/* Backdrop de Foco na Busca */}
+        <AnimatePresence>
+            {isSearchFocused && (
+                <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/60 z-30 backdrop-blur-sm"
+                    onClick={() => {
+                        setIsSearchFocused(false);
+                        if(searchInputRef.current) searchInputRef.current.blur();
+                    }}
+                />
+            )}
+        </AnimatePresence>
+
+        <header className="bg-black/90 backdrop-blur-xl text-white shadow-lg sticky top-0 z-40 border-b border-gray-800">
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
@@ -1998,60 +1938,112 @@ const Header = memo(({ onNavigate }) => {
                         </div>
                         <span>LovecestasePerfumes</span>
                     </a>
-                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
-                         <form onSubmit={handleSearchSubmit} className="relative">
+
+                    {/* BARRA DE PESQUISA DESKTOP MELHORADA */}
+                    <div className="hidden lg:block flex-1 max-w-2xl mx-8 relative z-50">
+                         <form onSubmit={handleSearchSubmit} className={`relative flex items-center transition-all duration-300 ${isSearchFocused ? 'scale-[1.02]' : ''}`}>
                            <input
-                                type="text" value={searchTerm}
+                                ref={searchInputRef}
+                                type="text" 
+                                value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
-                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder="O que você procura?"
-                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
-                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                                placeholder="O que você deseja encontrar hoje?"
+                                className={`w-full bg-gray-800 text-white pl-5 pr-12 py-2.5 rounded-xl border transition-all duration-200 outline-none
+                                    ${isSearchFocused ? 'border-amber-400 ring-2 ring-amber-400/20 bg-gray-700' : 'border-gray-700 hover:border-gray-600'}
+                                `}
+                            />
+                           
+                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                {isSearching ? (
+                                    <SpinnerIcon className="h-5 w-5 text-amber-400" />
+                                ) : searchTerm ? (
+                                    <button type="button" onClick={clearSearch} className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-600">
+                                        <XMarkIcon className="h-4 w-4" />
+                                    </button>
+                                ) : (
+                                    <button type="submit" className="text-gray-400 hover:text-amber-400 p-1">
+                                        <SearchIcon className="h-5 w-5" />
+                                    </button>
+                                )}
+                           </div>
+
+                            {/* DROPDOWN DE SUGESTÕES DESKTOP */}
                             <AnimatePresence>
-                            {isSearchFocused && searchTerm.length > 0 && (
-                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                                        <div className="max-h-96 overflow-y-auto">
+                                {isSearchFocused && searchTerm.length >= 2 && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 10, scale: 0.98 }} 
+                                        animate={{ opacity: 1, y: 0, scale: 1 }} 
+                                        exit={{ opacity: 0, y: 10, scale: 0.98 }} 
+                                        className="absolute top-full left-0 right-0 mt-3 w-full bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50"
+                                    >
+                                        <div className="max-h-[70vh] overflow-y-auto custom-scrollbar">
                                             {searchSuggestions.length > 0 ? (
-                                                searchSuggestions.map(p => (
-                                                    <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
-                                                        <img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" />
-                                                        <div className="flex-grow">
-                                                            <p className="font-semibold text-gray-800">{p.name}</p>
-                                                            {p.is_on_sale && p.sale_price > 0 ? (
-                                                                <div className="flex items-baseline gap-2">
-                                                                    <p className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</p>
-                                                                    <p className="text-gray-500 text-sm line-through">R$ {Number(p.price).toFixed(2)}</p>
+                                                <div className="py-2">
+                                                    <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Produtos Sugeridos</div>
+                                                    {searchSuggestions.map(p => (
+                                                        <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 group">
+                                                            <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain rounded-lg bg-gray-100 p-1 border border-gray-200 group-hover:border-amber-300 transition-colors" />
+                                                            <div className="flex-grow min-w-0">
+                                                                <p className="font-semibold text-sm text-gray-800 truncate group-hover:text-amber-600 transition-colors">{p.name}</p>
+                                                                <div className="flex items-baseline gap-2 mt-0.5">
+                                                                    {p.is_on_sale && p.sale_price > 0 ? (
+                                                                        <>
+                                                                            <span className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</span>
+                                                                            <span className="text-gray-400 text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</span>
+                                                                    )}
                                                                 </div>
-                                                            ) : (
-                                                                <p className="text-gray-700 font-bold">R$ {Number(p.price).toFixed(2)}</p>
-                                                            )}
+                                                            </div>
+                                                            <ArrowUturnLeftIcon className="h-4 w-4 text-gray-300 -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1" />
                                                         </div>
+                                                    ))}
+                                                </div>
+                                            ) : ( 
+                                                <div className="p-8 text-center">
+                                                    <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                        <SearchIcon className="h-6 w-6 text-gray-400" />
                                                     </div>
-                                                ))
-                                            ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
+                                                    <p className="text-sm text-gray-500">Nenhum produto encontrado para "<span className="font-bold text-gray-800">{searchTerm}</span>".</p>
+                                                    <p className="text-xs text-gray-400 mt-1">Tente termos mais genéricos.</p>
+                                                </div> 
+                                            )}
                                         </div>
-                                        {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors"> Ver todos os resultados para "{searchTerm}" </button> )}
+                                        {searchSuggestions.length > 0 && ( 
+                                            <button type="submit" className="w-full text-center py-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-bold text-xs uppercase tracking-wide transition-colors border-t border-gray-100 flex items-center justify-center gap-2"> 
+                                                Ver todos os resultados <ArrowUturnLeftIcon className="h-3 w-3 -rotate-90"/> 
+                                            </button> 
+                                        )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </form>
                     </div>
+
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated && ( 
-                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
-                                <PackageIcon className="h-6 w-6"/> 
-                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
+                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative group"> 
+                                <PackageIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
                                 {orderNotificationCount > 0 && (
                                     <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
                                         {orderNotificationCount}
                                     </span>
                                 )}
-                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> 
+                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Meus</span> <span className="font-bold">Pedidos</span> </div> 
                             </button> 
                         )}
-                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
+                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 group"> 
+                            <HeartIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
+                            <span className="hidden sm:inline text-sm font-medium">Lista</span> 
+                            {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} 
+                        </button>
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 group"> 
+                            <CartIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
+                            <span className="hidden sm:inline text-sm font-medium">Carrinho</span> 
+                            {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} 
+                        </motion.button>
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
@@ -2064,7 +2056,8 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             <div className="block md:hidden px-4 pt-3">
+             {/* Mobile Header + Search */}
+             <div className="block md:hidden px-4 pt-3 pb-2 relative z-50">
                 <div className="flex justify-center items-center mb-3">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
@@ -2073,37 +2066,87 @@ const Header = memo(({ onNavigate }) => {
                         LovecestasePerfumes
                     </a>
                 </div>
+                
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
-                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
+                    <input 
+                        type="text" 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        onFocus={() => setIsSearchFocused(true)} 
+                        placeholder="Buscar..." 
+                        className={`w-full bg-gray-800 text-white pl-4 pr-10 py-2.5 rounded-lg focus:outline-none transition-all ${isSearchFocused ? 'ring-2 ring-amber-500 bg-gray-700' : ''} text-sm`} 
+                    />
+                    
+                    <div className="absolute right-0 top-0 h-full flex items-center pr-3">
+                         {isSearching ? (
+                            <SpinnerIcon className="h-4 w-4 text-amber-400" />
+                        ) : searchTerm ? (
+                            <button type="button" onClick={clearSearch} className="text-gray-400 hover:text-white bg-gray-700 rounded-full p-0.5">
+                                <XMarkIcon className="h-3 w-3" />
+                            </button>
+                        ) : (
+                            <button type="submit" className="text-gray-400 hover:text-amber-400">
+                                <SearchIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                    </div>
+                    
+                    {/* DROPDOWN DE SUGESTÕES MOBILE */}
                     <AnimatePresence>
-                        {isSearchFocused && searchTerm.length > 0 && (
-                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                                <div className="max-h-60 overflow-y-auto">
+                        {isSearchFocused && searchTerm.length >= 2 && (
+                             <motion.div 
+                                initial={{ opacity: 0, y: 10 }} 
+                                animate={{ opacity: 1, y: 0 }} 
+                                exit={{ opacity: 0, y: 10 }} 
+                                className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden"
+                            >
+                                <div className="max-h-[60vh] overflow-y-auto">
                                     {searchSuggestions.length > 0 ? (
                                         searchSuggestions.map(p => (
-                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0"> <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" /> <div className="flex-grow"> <p className="font-semibold text-gray-800 text-sm">{p.name}</p> {p.is_on_sale && p.sale_price > 0 ? ( <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> ) : ( <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> )} </div> </div>
+                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b last:border-b-0"> 
+                                                <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-gray-100 p-1 border" /> 
+                                                <div className="flex-grow min-w-0"> 
+                                                    <p className="font-semibold text-gray-800 text-sm truncate">{p.name}</p> 
+                                                    {p.is_on_sale && p.sale_price > 0 ? ( 
+                                                        <div className="flex items-baseline gap-2">
+                                                            <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> 
+                                                            <p className="text-gray-400 font-medium text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</p>
+                                                        </div>
+                                                    ) : ( 
+                                                        <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> 
+                                                    )} 
+                                                </div> 
+                                            </div>
                                         ))
-                                    ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
+                                    ) : ( 
+                                        <div className="p-6 text-center text-sm text-gray-500">
+                                            <SearchIcon className="h-8 w-8 mx-auto text-gray-300 mb-2"/>
+                                            Nenhum produto encontrado.
+                                        </div> 
+                                    )}
                                 </div>
-                                {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"> Ver todos os resultados </button> )}
+                                {searchTerm.trim() && searchSuggestions.length > 0 && ( 
+                                    <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-bold transition-colors text-sm border-t"> 
+                                        Ver todos os resultados 
+                                    </button> 
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </form>
-                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
+                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left border border-transparent hover:border-gray-600"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
             </div>
 
-            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
+            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative bg-black/50" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}> <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button> </div>
                 <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"> <SaleIcon className="h-4 w-4" /> Promoções </a>
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 <AnimatePresence>
                     {activeMenu === 'Coleções' && (
-                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700">
+                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-md shadow-2xl border-t border-gray-700 z-30">
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a></li> ))} </ul> </div> ) ))}
+                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors hover:translate-x-1 transform duration-200">{subCat.name}</a></li> ))} </ul> </div> ) ))}
                             </div>
                         </motion.div>
                     )}
@@ -2114,10 +2157,10 @@ const Header = memo(({ onNavigate }) => {
                 {isMobileMenuOpen && (
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
-                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col">
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
-                            <div className="flex-grow overflow-y-auto p-4">
-                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
+                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col shadow-2xl">
+                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400 text-lg">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
+                            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
+                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden bg-gray-800/30 rounded-md mb-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300 py-1">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
                                 <div className="border-b border-gray-800"> <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300"> <SaleIcon className="h-5 w-5"/> Promoções </a> </div>
                                 <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
                                 <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
@@ -2127,13 +2170,12 @@ const Header = memo(({ onNavigate }) => {
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
                                             <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
                                                 <span>Devoluções e Pedidos</span>
-                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
                                                 {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
                                             </a> 
                                             {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
-                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-red-400 hover:text-red-300 font-bold mt-4 border-t border-gray-800 pt-4">Sair da Conta</button> 
                                         </> 
-                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
+                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-center bg-amber-400 text-black px-4 py-3 rounded-md hover:bg-amber-300 transition font-bold shadow-md">Fazer Login / Cadastrar</button> )}
                                 </div>
                             </div>
                         </motion.div>
@@ -3449,10 +3491,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-    const [pendingAction, setPendingAction] = useState(null); 
-    const [selectionError, setSelectionError] = useState(false); 
+    const [pendingAction, setPendingAction] = useState(null); // 'buyNow' ou 'addToCart'
+    const [selectionError, setSelectionError] = useState(false); // Novo estado de erro
 
-    const [selectedVariation, setSelectedVariation] = useState(null); 
+    const [selectedVariation, setSelectedVariation] = useState(null); // Computado
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
@@ -3461,10 +3503,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
-    
-    // Estados para controle de scroll vertical da galeria (Desktop)
-    const [canScrollUp, setCanScrollUp] = useState(false);
-    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -3472,6 +3510,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
         if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
+            // Pega a primeira cor disponível com estoque
             const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
             if (firstVar && firstVar.color) {
                 setSelectedColor(firstVar.color);
@@ -3484,11 +3523,12 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
             setSelectedVariation(found || null);
-            setSelectionError(false); 
+            setSelectionError(false); // Limpa erro ao selecionar
         } else {
             setSelectedVariation(null);
         }
         
+        // Atualiza galeria baseada na cor selecionada
         if (selectedColor) {
              const allImagesForColor = productVariations
                 .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
@@ -3514,6 +3554,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
             if (product.product_type === 'clothing' && selectedVariation) {
+                // Lógica corrigida: Se is_promo for undefined (legado), assume true se o produto está em promo
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
@@ -3532,6 +3573,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [isPromoActive, product]);
 
     useEffect(() => {
+        // Se não tiver data, ou promo não ativa, para.
         if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
             return;
@@ -3550,6 +3592,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
+                // IMPORTANTE: Não desativar aqui visualmente, deixar o backend ou próxima renderização tratar
             }
         };
         calculateTimeLeft();
@@ -3557,6 +3600,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
+    // ... (rest of logic: isNew, avgRating, etc.)
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -3579,8 +3623,42 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- HELPERS ---
-    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
+    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE (Aceita Shorts, Embeds e Links Normais) ---
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return null;
+        try {
+            let videoId = '';
+            const urlObj = new URL(url);
+
+            if (urlObj.hostname === 'youtu.be') {
+                videoId = urlObj.pathname.slice(1);
+            } else if (urlObj.hostname.includes('youtube.com')) {
+                if (urlObj.searchParams.has('v')) {
+                    videoId = urlObj.searchParams.get('v');
+                } else if (urlObj.pathname.includes('/embed/')) {
+                    videoId = urlObj.pathname.split('/embed/')[1];
+                } else if (urlObj.pathname.includes('/shorts/')) {
+                    videoId = urlObj.pathname.split('/shorts/')[1];
+                }
+            }
+
+            if (!videoId) return null;
+            
+            // Remove parâmetros extras que possam ter vindo junto
+            videoId = videoId.split('?')[0].split('&')[0];
+
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        } catch (e) {
+            console.error("Erro URL Youtube:", e);
+            // Fallback simples para links youtu.be colados diretamente
+            if (url && url.includes('youtu.be/')) {
+                const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
+                return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
+            }
+            return null;
+        }
+    };
+
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3620,6 +3698,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
+    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3687,65 +3766,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
-    const handleNextImage = (e) => {
-        e.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        const currentIndex = galleryImages.indexOf(mainImage);
-        const nextIndex = (currentIndex + 1) % galleryImages.length;
-        setMainImage(galleryImages[nextIndex]);
-    };
-
-    const handlePrevImage = (e) => {
-        e.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        const currentIndex = galleryImages.indexOf(mainImage);
-        const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
-        setMainImage(galleryImages[prevIndex]);
-    };
-
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
-    
-    // --- CONTROLE DE SCROLL DA GALERIA ---
-    const checkScrollButtons = useCallback(() => { 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            // Horizontal (Mobile)
-            setCanScrollLeft(gallery.scrollLeft > 0); 
-            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-            // Vertical (Desktop)
-            setCanScrollUp(gallery.scrollTop > 0);
-            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
-        } 
-    }, []);
-
-    useEffect(() => { 
-        checkScrollButtons(); 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            gallery.addEventListener('scroll', checkScrollButtons); 
-            window.addEventListener('resize', checkScrollButtons); 
-            return () => { 
-                gallery.removeEventListener('scroll', checkScrollButtons); 
-                window.removeEventListener('resize', checkScrollButtons); 
-            }; 
-        } 
-    }, [galleryImages, checkScrollButtons]);
-
-    const scrollGallery = (direction) => { 
-        const gallery = galleryRef.current; 
-        if (gallery) { 
-            if (direction === 'left' || direction === 'right') {
-                const scrollAmount = gallery.clientWidth * 0.7; 
-                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
-            } else {
-                const scrollAmount = gallery.clientHeight * 0.7;
-                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-            }
-        } 
-    };
-
+    useEffect(() => { /* Installments logic */ const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
+    useEffect(() => { checkScrollButtons(); const gallery = galleryRef.current; if (gallery) { gallery.addEventListener('scroll', checkScrollButtons); window.addEventListener('resize', checkScrollButtons); return () => { gallery.removeEventListener('scroll', checkScrollButtons); window.removeEventListener('resize', checkScrollButtons); }; } }, [galleryImages, checkScrollButtons]);
+    const scrollGallery = (direction) => { const gallery = galleryRef.current; if (gallery) { const scrollAmount = gallery.clientWidth * 0.7; gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); } };
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
@@ -3753,33 +3778,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Lógica simplificada, o checkScrollButtons refina
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
 
     return (
         <div className="bg-black text-white min-h-screen">
-             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
-            <style>{`
-                .scrollbar-hide::-webkit-scrollbar {
-                    display: none;
-                }
-                .scrollbar-hide {
-                    -ms-overflow-style: none;
-                    scrollbar-width: none;
-                }
-            `}</style>
-            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO --- */}
+            {/* --- MODAL DE SELEÇÃO (Estilo Bottom Sheet / Modal) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
+                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
+                        
+                        {/* Wrapper Flexbox para Centralização Correta no Desktop */}
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
@@ -3803,6 +3820,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <XMarkIcon className="h-6 w-6"/>
                                     </button>
                                 </div>
+
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
                                         <div className="flex items-center gap-2 mb-5">
@@ -3811,6 +3829,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             </div>
                                             <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                         </div>
+                                        
                                         <VariationSelector 
                                             product={product} 
                                             variations={productVariations} 
@@ -3821,6 +3840,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             error={selectionError} 
                                         />
                                     </div>
+
                                     <button 
                                         onClick={handleConfirmSelection}
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
@@ -3832,6 +3852,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
                                         {!selectionError && <CheckIcon className="h-5 w-5" />}
                                     </button>
+                                    
                                     <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
                                         <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
                                     </p>
@@ -3841,7 +3862,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </>
                 )}
             </AnimatePresence>
-            
+            {/* --- MODAL DE VÍDEO (RESTAURO) --- */}
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -3870,144 +3891,48 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
-                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        {/* Layout: Desktop (Miniaturas à Esquerda) / Mobile (Miniaturas Embaixo) */}
-                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
-                            
-                            {/* Lista de Miniaturas */}
-                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
-                                {/* Botão Scroll Cima (Desktop) */}
-                                {canScrollUp && (
-                                    <button 
-                                        onClick={() => scrollGallery('up')} 
-                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
-                                    >
-                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
-                                    </button>
-                                )}
-                                
-                                {/* Container Scrollável */}
-                                <div 
-                                    ref={galleryRef}
-                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
-                                    style={{ maxHeight: '80vh' }} // Limite de altura seguro para desktop
-                                >
-                                    {product.video_url && (
-                                        <div 
-                                            onClick={() => setIsVideoModalOpen(true)} 
-                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
-                                        >
-                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
-                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {galleryImages.map((img, index) => (
-                                        <div 
-                                            key={index} 
-                                            onClick={() => setMainImage(img)} 
-                                            onMouseEnter={() => setMainImage(img)} 
-                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
-                                                ${mainImage === img 
-                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
-                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
-                                        >
-                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                {/* Botão Scroll Baixo (Desktop) */}
-                                {canScrollDown && (
-                                    <button 
-                                        onClick={() => scrollGallery('down')} 
-                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
-                                    >
-                                        <ChevronDownIcon className="h-4 w-4" />
-                                    </button>
-                                )}
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+                    <div className="lg:sticky lg:top-24 self-start">
+                        {/* --- GALERIA DE IMAGENS --- */}
+                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
+                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
+                        </div>
 
-                            {/* Imagem Principal (Grande e Adaptável) */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
-                                {/* Badges */}
-                                {!productOrVariationOutOfStock && (
-                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
-                                        {isPromoActive ? ( 
-                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
-                                                <SaleIcon className="h-4 w-4"/> 
-                                                <span>PROMOÇÃO {discountPercent}%</span> 
-                                            </div> 
-                                        ) : isNew ? ( 
-                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                                        ) : null}
+                        <div className="relative group">
+                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                {product.video_url && (
+                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
+                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                     </div>
                                 )}
-                                {productOrVariationOutOfStock && ( 
-                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
-                                )}
-
-                                {/* Container de Imagem: Preenche e Contém */}
-                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
-                                    <img 
-                                        src={mainImage} 
-                                        alt={product.name} 
-                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
-                                    />
-                                </div>
-                                
-                                {/* Botões de Navegação da Imagem Principal */}
-                                {galleryImages.length > 1 && (
-                                    <>
-                                        <button 
-                                            onClick={handlePrevImage} 
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
-                                            aria-label="Imagem anterior"
-                                        >
-                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
-                                        </button>
-                                        <button 
-                                            onClick={handleNextImage} 
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
-                                            aria-label="Próxima imagem"
-                                        >
-                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
-                                        </button>
-                                    </>
-                                )}
-
-                                {/* Dica de Zoom (Desktop) */}
-                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
-                                </div>
+                                {galleryImages.map((img, index) => (
+                                    <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}>
+                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
-                    <div className="lg:col-span-5 space-y-6">
+                    <div className="space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-3 justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center text-amber-400 gap-0.5">
-                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
+                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
+                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
+                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
+                        {/* --- ÁREA DE DESTAQUE DE PROMOÇÃO (RESTAURADA E MELHORADA) --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -4052,6 +3977,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
+                        {/* --- BLOCO DE PREÇO ESPECIAL (SEM TEMPO/EXPIRADO) RESTAURADO --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
