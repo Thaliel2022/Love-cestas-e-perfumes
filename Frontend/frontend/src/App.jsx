@@ -1684,7 +1684,7 @@ const Header = memo(({ onNavigate }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [isSearching, setIsSearching] = useState(false); 
+    const [isSearching, setIsSearching] = useState(false); // Novo estado de loading
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
@@ -1800,22 +1800,20 @@ const Header = memo(({ onNavigate }) => {
         }
     }, [totalCartItems, cartAnimationControls]);
 
-    // --- LÓGICA DE PESQUISA ATUALIZADA (Busca com 1 letra e sem delay excessivo) ---
+    // --- LÓGICA DE PESQUISA MELHORADA ---
     useEffect(() => {
-        if (!searchTerm || searchTerm.trim().length === 0) {
+        if (searchTerm.length < 2) {
             setSearchSuggestions([]);
             setIsSearching(false);
             return;
         }
-        
         setIsSearching(true);
         const debounceTimer = setTimeout(() => {
-            apiService(`/products/search-suggestions?q=${encodeURIComponent(searchTerm)}`)
+            apiService(`/products/search-suggestions?q=${searchTerm}`)
                 .then(data => setSearchSuggestions(data))
                 .catch(err => console.error(err))
                 .finally(() => setIsSearching(false));
-        }, 300); // 300ms para resposta mais rápida
-        
+        }, 400); // Debounce de 400ms para evitar chamadas excessivas
         return () => clearTimeout(debounceTimer);
     }, [searchTerm]);
 
@@ -1858,6 +1856,7 @@ const Header = memo(({ onNavigate }) => {
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
+    // ... (Lógica de endereço mantida igual) ...
     useEffect(() => { if (isAddressModalOpen && isAuthenticated) { fetchAddresses(); } }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
     const handleSelectAddress = (addr) => { setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias }); setIsAddressModalOpen(false); };
     const handleManualCepSubmit = async (e) => { e.preventDefault(); setCepError(''); const cleanCep = manualCep.replace(/\D/g, ''); if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; } try { const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`); const data = await response.json(); if (data.erro) { setCepError("CEP não encontrado."); } else { setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` }); setIsAddressModalOpen(false); setManualCep(''); } } catch { setCepError("Não foi possível buscar o CEP."); } };
@@ -1875,7 +1874,7 @@ const Header = memo(({ onNavigate }) => {
         }
     }
 
-    const BottomNavBar = () => {
+    const BottomNavBar = () => { /* ... BottomNavBar mantido igual ... */
         const wishlistCount = wishlist.length;
         const navVariants = { visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } }, hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } } };
         return ( <motion.div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" initial={false} animate={isBottomNavVisible ? "visible" : "hidden"} variants={navVariants}> <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HomeIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Início</span> </button> <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HeartIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Lista</span> {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>} </button> <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <motion.div animate={cartAnimationControls}> <CartIcon className="h-6 w-6 mb-1"/> </motion.div> <span className="text-[10px]">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </button> <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <UserIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Conta</span> </button> <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <div className="relative"> <BarsGripIcon className="h-6 w-6 mb-1"/> {isAuthenticated && orderNotificationCount > 0 && ( <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span> )} </div> <span className="text-[10px]">Menu</span> </button> </motion.div> );
@@ -1911,14 +1910,14 @@ const Header = memo(({ onNavigate }) => {
             )}
         </AnimatePresence>
 
-        {/* Backdrop de Foco na Busca (MODIFICADO: Sem blur, apenas escurecimento, z-index ajustado) */}
+        {/* Backdrop de Foco na Busca */}
         <AnimatePresence>
             {isSearchFocused && (
                 <motion.div 
                     initial={{ opacity: 0 }} 
                     animate={{ opacity: 1 }} 
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/70 z-30" // Removido backdrop-blur-sm
+                    className="fixed inset-0 bg-black/60 z-30 backdrop-blur-sm"
                     onClick={() => {
                         setIsSearchFocused(false);
                         if(searchInputRef.current) searchInputRef.current.blur();
@@ -1940,7 +1939,7 @@ const Header = memo(({ onNavigate }) => {
                         <span>LovecestasePerfumes</span>
                     </a>
 
-                    {/* BARRA DE PESQUISA DESKTOP */}
+                    {/* BARRA DE PESQUISA DESKTOP MELHORADA */}
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8 relative z-50">
                          <form onSubmit={handleSearchSubmit} className={`relative flex items-center transition-all duration-300 ${isSearchFocused ? 'scale-[1.02]' : ''}`}>
                            <input
@@ -1949,7 +1948,7 @@ const Header = memo(({ onNavigate }) => {
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
-                                placeholder="Buscar produtos, marcas..."
+                                placeholder="O que você deseja encontrar hoje?"
                                 className={`w-full bg-gray-800 text-white pl-5 pr-12 py-2.5 rounded-xl border transition-all duration-200 outline-none
                                     ${isSearchFocused ? 'border-amber-400 ring-2 ring-amber-400/20 bg-gray-700' : 'border-gray-700 hover:border-gray-600'}
                                 `}
@@ -1971,7 +1970,7 @@ const Header = memo(({ onNavigate }) => {
 
                             {/* DROPDOWN DE SUGESTÕES DESKTOP */}
                             <AnimatePresence>
-                                {isSearchFocused && (
+                                {isSearchFocused && searchTerm.length >= 2 && (
                                     <motion.div 
                                         initial={{ opacity: 0, y: 10, scale: 0.98 }} 
                                         animate={{ opacity: 1, y: 0, scale: 1 }} 
@@ -1979,10 +1978,9 @@ const Header = memo(({ onNavigate }) => {
                                         className="absolute top-full left-0 right-0 mt-3 w-full bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50"
                                     >
                                         <div className="max-h-[70vh] overflow-y-auto custom-scrollbar">
-                                            {searchTerm.length > 0 ? (
-                                                searchSuggestions.length > 0 ? (
+                                            {searchSuggestions.length > 0 ? (
                                                 <div className="py-2">
-                                                    <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Sugestões</div>
+                                                    <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Produtos Sugeridos</div>
                                                     {searchSuggestions.map(p => (
                                                         <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 group">
                                                             <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain rounded-lg bg-gray-100 p-1 border border-gray-200 group-hover:border-amber-300 transition-colors" />
@@ -2003,18 +2001,14 @@ const Header = memo(({ onNavigate }) => {
                                                         </div>
                                                     ))}
                                                 </div>
-                                                ) : (
-                                                    <div className="p-8 text-center">
-                                                        <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                                                            <SearchIcon className="h-6 w-6 text-gray-400" />
-                                                        </div>
-                                                        <p className="text-sm text-gray-500">Nenhum produto encontrado para "<span className="font-bold text-gray-800">{searchTerm}</span>".</p>
+                                            ) : ( 
+                                                <div className="p-8 text-center">
+                                                    <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                        <SearchIcon className="h-6 w-6 text-gray-400" />
                                                     </div>
-                                                )
-                                            ) : (
-                                                <div className="p-6 text-center text-sm text-gray-500">
-                                                    Digite para buscar...
-                                                </div>
+                                                    <p className="text-sm text-gray-500">Nenhum produto encontrado para "<span className="font-bold text-gray-800">{searchTerm}</span>".</p>
+                                                    <p className="text-xs text-gray-400 mt-1">Tente termos mais genéricos.</p>
+                                                </div> 
                                             )}
                                         </div>
                                         {searchSuggestions.length > 0 && ( 
@@ -2048,7 +2042,7 @@ const Header = memo(({ onNavigate }) => {
                         <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 group"> 
                             <CartIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
                             <span className="hidden sm:inline text-sm font-medium">Carrinho</span> 
-                            {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} 
+                            {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} 
                         </motion.button>
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
@@ -2099,7 +2093,7 @@ const Header = memo(({ onNavigate }) => {
                     
                     {/* DROPDOWN DE SUGESTÕES MOBILE */}
                     <AnimatePresence>
-                        {isSearchFocused && (
+                        {isSearchFocused && searchTerm.length >= 2 && (
                              <motion.div 
                                 initial={{ opacity: 0, y: 10 }} 
                                 animate={{ opacity: 1, y: 0 }} 
@@ -2107,8 +2101,7 @@ const Header = memo(({ onNavigate }) => {
                                 className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden"
                             >
                                 <div className="max-h-[60vh] overflow-y-auto">
-                                    {searchTerm.length > 0 ? (
-                                        searchSuggestions.length > 0 ? (
+                                    {searchSuggestions.length > 0 ? (
                                         searchSuggestions.map(p => (
                                             <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b last:border-b-0"> 
                                                 <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-gray-100 p-1 border" /> 
@@ -2130,9 +2123,6 @@ const Header = memo(({ onNavigate }) => {
                                             <SearchIcon className="h-8 w-8 mx-auto text-gray-300 mb-2"/>
                                             Nenhum produto encontrado.
                                         </div> 
-                                    )
-                                    ) : (
-                                        <div className="p-4 text-center text-xs text-gray-400">Digite para buscar...</div>
                                     )}
                                 </div>
                                 {searchTerm.trim() && searchSuggestions.length > 0 && ( 
