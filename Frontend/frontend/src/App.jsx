@@ -3449,10 +3449,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-    const [pendingAction, setPendingAction] = useState(null); // 'buyNow' ou 'addToCart'
-    const [selectionError, setSelectionError] = useState(false); // Novo estado de erro
+    const [pendingAction, setPendingAction] = useState(null); 
+    const [selectionError, setSelectionError] = useState(false); 
 
-    const [selectedVariation, setSelectedVariation] = useState(null); // Computado
+    const [selectedVariation, setSelectedVariation] = useState(null); 
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
@@ -3468,7 +3468,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
         if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
-            // Pega a primeira cor disponível com estoque
             const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
             if (firstVar && firstVar.color) {
                 setSelectedColor(firstVar.color);
@@ -3481,12 +3480,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
             setSelectedVariation(found || null);
-            setSelectionError(false); // Limpa erro ao selecionar
+            setSelectionError(false); 
         } else {
             setSelectedVariation(null);
         }
         
-        // Atualiza galeria baseada na cor selecionada
         if (selectedColor) {
              const allImagesForColor = productVariations
                 .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
@@ -3577,36 +3575,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE ---
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        try {
-            let videoId = '';
-            const urlObj = new URL(url);
-
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com')) {
-                if (urlObj.searchParams.has('v')) {
-                    videoId = urlObj.searchParams.get('v');
-                } else if (urlObj.pathname.includes('/embed/')) {
-                    videoId = urlObj.pathname.split('/embed/')[1];
-                } else if (urlObj.pathname.includes('/shorts/')) {
-                    videoId = urlObj.pathname.split('/shorts/')[1];
-                }
-            }
-            if (!videoId) return null;
-            videoId = videoId.split('?')[0].split('&')[0];
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            if (url && url.includes('youtu.be/')) {
-                const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
-                return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
-            }
-            return null;
-        }
-    };
-
+    // ... (Helpers: getYouTubeEmbedUrl, etc.) ...
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; let videoId; try { const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else { return null; } return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3646,6 +3616,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
+    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3725,12 +3696,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+
     return (
         <div className="bg-black text-white min-h-screen">
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING) --- */}
+            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING & MOBILE OPTIMIZATION) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
@@ -3829,12 +3802,45 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (Esquerda) - Ocupa 7 colunas no Desktop */}
+                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE) */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        <div className="flex flex-col-reverse lg:flex-row gap-4">
+                        {/* Layout Flex: Coluna no Mobile (Img em cima, Thumbs embaixo), Linha no Desktop */}
+                        <div className="flex flex-col lg:flex-row-reverse gap-4">
                             
-                            {/* Lista de Miniaturas (Vertical no Desktop, Horizontal no Mobile) */}
-                            <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-20 lg:h-[600px] scrollbar-hide py-2 lg:py-0 order-2 lg:order-1 flex-shrink-0">
+                            {/* Imagem Principal (Grande) - Order 1 no Mobile (Topo) */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-[4/5] group">
+                                {/* Badges */}
+                                {!productOrVariationOutOfStock && (
+                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+                                        {isPromoActive ? ( 
+                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                                                <SaleIcon className="h-4 w-4"/> 
+                                                <span>PROMOÇÃO {discountPercent}%</span> 
+                                            </div> 
+                                        ) : isNew ? ( 
+                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                        ) : null}
+                                    </div>
+                                )}
+                                {productOrVariationOutOfStock && ( 
+                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
+                                )}
+
+                                <img 
+                                    src={mainImage} 
+                                    alt={product.name} 
+                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                    className={`w-full h-full object-contain p-4 lg:p-8 transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                />
+                                
+                                {/* Dica de Zoom (Desktop apenas) */}
+                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
+                                </div>
+                            </div>
+
+                            {/* Lista de Miniaturas (Horizontal no Mobile, Vertical no Desktop) */}
+                            <div className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-20 lg:h-[600px] scrollbar-hide py-2 lg:py-0 flex-shrink-0">
                                 {product.video_url && (
                                     <div 
                                         onClick={() => setIsVideoModalOpen(true)} 
@@ -3861,46 +3867,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
                                     </div>
                                 ))}
-                            </div>
-
-                            {/* Imagem Principal (Grande) */}
-                            <div className="flex-1 order-1 lg:order-2 w-full">
-                                <div 
-                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                    className={`
-                                        relative w-full bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 group
-                                        aspect-square lg:aspect-[4/5] 
-                                        ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}
-                                    `}
-                                >
-                                    {/* Badges de Status */}
-                                    {!productOrVariationOutOfStock && (
-                                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
-                                            {isPromoActive ? ( 
-                                                <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-in fade-in slide-in-from-left-4 duration-500"> 
-                                                    <SaleIcon className="h-4 w-4"/> 
-                                                    <span>PROMOÇÃO {discountPercent}%</span> 
-                                                </div> 
-                                            ) : isNew ? ( 
-                                                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                                            ) : null}
-                                        </div>
-                                    )}
-                                    {productOrVariationOutOfStock && ( 
-                                        <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
-                                    )}
-
-                                    <img 
-                                        src={mainImage} 
-                                        alt={product.name} 
-                                        className="w-full h-full object-contain p-4 lg:p-8 transition-transform duration-500 group-hover:scale-105" 
-                                    />
-                                    
-                                    {/* Dica de Zoom (Desktop) */}
-                                    <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
