@@ -3284,19 +3284,30 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 });
 const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
+    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
-        const colors = new Map();
+        const colorsMap = new Map();
         if (!variations || !product) return [];
 
         variations.forEach(v => {
-            if (v.color && !colors.has(v.color)) {
-                const primaryImage = (v.images && v.images.length > 0) 
-                    ? v.images[0] 
-                    : getFirstImage(product.images);
-                colors.set(v.color, primaryImage);
+            if (v.color) {
+                if (!colorsMap.has(v.color)) {
+                    // Tenta pegar a imagem da variação, senão a principal do produto
+                    const primaryImage = (v.images && v.images.length > 0) 
+                        ? v.images[0] 
+                        : getFirstImage(product.images);
+                    // Inicializa assumindo sem estoque
+                    colorsMap.set(v.color, { image: primaryImage, hasStock: false });
+                }
+                
+                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
+                if (v.stock > 0) {
+                    const info = colorsMap.get(v.color);
+                    info.hasStock = true;
+                }
             }
         });
-        return Array.from(colors, ([name, image]) => ({ name, image }));
+        return Array.from(colorsMap, ([name, info]) => ({ name, image: info.image, hasStock: info.hasStock }));
     }, [variations, product]);
 
     const allSizesForColor = useMemo(() => {
@@ -3311,10 +3322,11 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         return Array.from(sizeMap.values());
     }, [variations, selectedColor]);
 
-    const handleColorChange = (color) => {
+    const handleColorChange = (color, hasStock) => {
+        if (!hasStock) return; // Impede seleção de cores esgotadas
+
         setSelectedColor(color);
-        // Ao mudar de cor, reseta o tamanho para forçar a escolha, 
-        // a menos que só exista 1 tamanho disponível para aquela cor.
+        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3322,7 +3334,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize('');
+            setSelectedSize(''); // Reseta para forçar o usuário a escolher
         }
     };
 
@@ -3335,19 +3347,32 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                  <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
                     Cor: <span className="text-white font-normal capitalize">{selectedColor || 'Selecione'}</span>
                  </h3>
-                <div className="flex flex-wrap gap-3">
-                    {uniqueColors.map(colorInfo => (
-                         <div key={colorInfo.name}
-                            onClick={() => handleColorChange(colorInfo.name)}
-                            className={`group relative w-12 h-12 rounded-full cursor-pointer transition-all duration-300 p-0.5 
-                                ${selectedColor === colorInfo.name 
-                                    ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110' 
-                                    : 'hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-80 hover:opacity-100'}`}
-                            title={colorInfo.name}
-                        >
-                             <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
-                         </div>
-                    ))}
+                <div className="flex flex-wrap gap-4">
+                    {uniqueColors.map(colorInfo => {
+                         const isOutOfStock = !colorInfo.hasStock;
+                         return (
+                             <div key={colorInfo.name}
+                                onClick={() => handleColorChange(colorInfo.name, colorInfo.hasStock)}
+                                className={`group relative w-16 h-16 rounded-full transition-all duration-300 p-0.5 
+                                    ${selectedColor === colorInfo.name 
+                                        ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110 cursor-default' 
+                                        : isOutOfStock 
+                                            ? 'opacity-40 cursor-not-allowed grayscale filter' 
+                                            : 'cursor-pointer hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-90 hover:opacity-100 hover:scale-105'}`}
+                                title={colorInfo.name + (isOutOfStock ? " (Esgotado)" : "")}
+                            >
+                                 <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
+                                 
+                                 {/* Indicador visual de Esgotado (X vermelho) */}
+                                 {isOutOfStock && (
+                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                         <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
+                                         <div className="w-full h-0.5 bg-red-500/80 -rotate-45 absolute"></div>
+                                     </div>
+                                 )}
+                             </div>
+                         );
+                    })}
                 </div>
             </div>
 
@@ -3384,7 +3409,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         }
                                     >
                                         {size}
-                                        {/* Indicador de último item */}
+                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
                                         {stock > 0 && stock <= 2 && selectedSize !== size && (
                                             <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                         )}
