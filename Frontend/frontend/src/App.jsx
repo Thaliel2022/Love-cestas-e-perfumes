@@ -3616,7 +3616,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
-    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3700,6 +3699,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
@@ -3707,11 +3717,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
+                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
+                        
+                        {/* Wrapper Centralizado para Desktop e Bottom-Sheet para Mobile */}
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
@@ -3802,12 +3815,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE) */}
+                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        {/* Layout Flex: Coluna no Mobile (Img em cima, Thumbs embaixo), Linha no Desktop */}
                         <div className="flex flex-col lg:flex-row-reverse gap-4">
                             
-                            {/* Imagem Principal (Grande) - Order 1 no Mobile (Topo) */}
+                            {/* Imagem Principal */}
                             <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-[4/5] group">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
@@ -3833,7 +3845,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     className={`w-full h-full object-contain p-4 lg:p-8 transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
                                 />
                                 
-                                {/* Dica de Zoom (Desktop apenas) */}
+                                {/* Dica de Zoom (Desktop) */}
                                 <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
                                 </div>
