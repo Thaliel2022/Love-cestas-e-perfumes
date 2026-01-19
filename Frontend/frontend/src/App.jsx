@@ -3461,6 +3461,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    
+    // Estados para controle de scroll vertical da galeria (Desktop)
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -3575,8 +3579,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // ... (Helpers: getYouTubeEmbedUrl, etc.) ...
-    const getYouTubeEmbedUrl = (url) => { if (!url) return null; let videoId; try { const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else { return null; } return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { return null; } };
+    // --- HELPERS ---
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3683,11 +3687,65 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
+    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
+    const handleNextImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const nextIndex = (currentIndex + 1) % galleryImages.length;
+        setMainImage(galleryImages[nextIndex]);
+    };
+
+    const handlePrevImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+        setMainImage(galleryImages[prevIndex]);
+    };
+
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
     useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
-    const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
-    useEffect(() => { checkScrollButtons(); const gallery = galleryRef.current; if (gallery) { gallery.addEventListener('scroll', checkScrollButtons); window.addEventListener('resize', checkScrollButtons); return () => { gallery.removeEventListener('scroll', checkScrollButtons); window.removeEventListener('resize', checkScrollButtons); }; } }, [galleryImages, checkScrollButtons]);
-    const scrollGallery = (direction) => { const gallery = galleryRef.current; if (gallery) { const scrollAmount = gallery.clientWidth * 0.7; gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); } };
+    
+    // --- CONTROLE DE SCROLL DA GALERIA ---
+    const checkScrollButtons = useCallback(() => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            // Horizontal (Mobile)
+            setCanScrollLeft(gallery.scrollLeft > 0); 
+            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
+            // Vertical (Desktop)
+            setCanScrollUp(gallery.scrollTop > 0);
+            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
+        } 
+    }, []);
+
+    useEffect(() => { 
+        checkScrollButtons(); 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            gallery.addEventListener('scroll', checkScrollButtons); 
+            window.addEventListener('resize', checkScrollButtons); 
+            return () => { 
+                gallery.removeEventListener('scroll', checkScrollButtons); 
+                window.removeEventListener('resize', checkScrollButtons); 
+            }; 
+        } 
+    }, [galleryImages, checkScrollButtons]);
+
+    const scrollGallery = (direction) => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            if (direction === 'left' || direction === 'right') {
+                const scrollAmount = gallery.clientWidth * 0.7; 
+                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
+            } else {
+                const scrollAmount = gallery.clientHeight * 0.7;
+                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        } 
+    };
+
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
@@ -3695,7 +3753,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Lógica simplificada, o checkScrollButtons refina
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -3713,18 +3771,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING & MOBILE OPTIMIZATION) --- */}
+            {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
-                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        
-                        {/* Wrapper Centralizado para Desktop e Bottom-Sheet para Mobile */}
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
@@ -3786,6 +3841,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </>
                 )}
             </AnimatePresence>
+            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -3820,7 +3876,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         <div className="flex flex-col lg:flex-row-reverse gap-4">
                             
                             {/* Imagem Principal */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-[4/5] group">
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-auto lg:h-[600px] group flex justify-center items-center">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
                                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
@@ -3845,6 +3901,26 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     className={`w-full h-full object-contain p-4 lg:p-8 transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
                                 />
                                 
+                                {/* Botões de Navegação da Imagem Principal (Novos) */}
+                                {galleryImages.length > 1 && (
+                                    <>
+                                        <button 
+                                            onClick={handlePrevImage} 
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Imagem anterior"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
+                                        </button>
+                                        <button 
+                                            onClick={handleNextImage} 
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Próxima imagem"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
+                                        </button>
+                                    </>
+                                )}
+
                                 {/* Dica de Zoom (Desktop) */}
                                 <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
@@ -3852,38 +3928,64 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
 
                             {/* Lista de Miniaturas (Horizontal no Mobile, Vertical no Desktop) */}
-                            <div className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-20 lg:h-[600px] scrollbar-hide py-2 lg:py-0 flex-shrink-0">
-                                {product.video_url && (
-                                    <div 
-                                        onClick={() => setIsVideoModalOpen(true)} 
-                                        className="relative w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all"
+                            <div className="relative flex-shrink-0">
+                                {/* Botão Scroll Cima (Desktop) */}
+                                {canScrollUp && (
+                                    <button 
+                                        onClick={() => scrollGallery('up')} 
+                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors"
                                     >
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="bg-red-600 rounded-full p-1 shadow-md group-hover/video:scale-110 transition-transform">
-                                                <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                                    </button>
+                                )}
+                                
+                                {/* Container Scrollável */}
+                                <div 
+                                    ref={galleryRef}
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:max-h-[600px] scrollbar-hide py-2 lg:py-0"
+                                >
+                                    {product.video_url && (
+                                        <div 
+                                            onClick={() => setIsVideoModalOpen(true)} 
+                                            className="relative w-20 h-20 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all"
+                                        >
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
+                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                                {galleryImages.map((img, index) => (
-                                    <div 
-                                        key={index} 
-                                        onClick={() => setMainImage(img)} 
-                                        onMouseEnter={() => setMainImage(img)} 
-                                        className={`relative w-16 h-16 lg:w-20 lg:h-24 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 
-                                            ${mainImage === img 
-                                                ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
-                                                : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
+                                    )}
+                                    {galleryImages.map((img, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => setMainImage(img)} 
+                                            onMouseEnter={() => setMainImage(img)} 
+                                            className={`relative w-20 h-20 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 
+                                                ${mainImage === img 
+                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
+                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Botão Scroll Baixo (Desktop) */}
+                                {canScrollDown && (
+                                    <button 
+                                        onClick={() => scrollGallery('down')} 
+                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors"
                                     >
-                                        <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
-                                    </div>
-                                ))}
+                                        <ChevronDownIcon className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
+                    {/* COLUNA DETALHES (Direita) */}
                     <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
