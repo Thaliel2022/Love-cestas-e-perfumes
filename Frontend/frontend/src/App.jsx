@@ -1206,28 +1206,30 @@ const BackToTopButton = ({ scrollableRef }) => {
 
 // --- NOVOS COMPONENTES: GUIA DE MEDIDAS ---
 
+// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (RESPONSIVO OTIMIZADO) ---
+
 const MeasurementIllustration = () => (
-    <div className="relative w-full max-w-[200px] mx-auto">
-        <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-md" fill="none" stroke="currentColor" strokeWidth="1.5">
-            {/* Silhueta Feminina Básica para Roupa */}
-            <path d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" fill="#f8fafc" stroke="#94a3b8" />
+    <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto">
+        <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
+            {/* Silhueta Feminina Básica para Roupa - Traço mais suave */}
+            <path d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" fill="#f8fafc" stroke="#cbd5e1" />
             
-            {/* Linhas de Medida */}
+            {/* Linhas de Medida - Cores mais profissionais */}
             {/* Busto */}
-            <line x1="60" y1="90" x2="140" y2="90" stroke="#f59e0b" strokeDasharray="4" />
-            <text x="100" y="85" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Busto</text>
+            <line x1="60" y1="90" x2="140" y2="90" stroke="#d97706" strokeDasharray="3" />
+            <text x="100" y="85" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Busto</text>
             
             {/* Cintura */}
-            <line x1="58" y1="140" x2="142" y2="140" stroke="#f59e0b" strokeDasharray="4" />
-            <text x="100" y="135" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Cintura</text>
+            <line x1="58" y1="140" x2="142" y2="140" stroke="#d97706" strokeDasharray="3" />
+            <text x="100" y="135" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Cintura</text>
             
             {/* Quadril */}
-            <line x1="55" y1="190" x2="145" y2="190" stroke="#f59e0b" strokeDasharray="4" />
-            <text x="100" y="185" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Quadril</text>
+            <line x1="55" y1="190" x2="145" y2="190" stroke="#d97706" strokeDasharray="3" />
+            <text x="100" y="185" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Quadril</text>
             
             {/* Comprimento */}
-            <line x1="160" y1="40" x2="160" y2="250" stroke="#64748b" strokeDasharray="4" />
-            <text x="165" y="150" textAnchor="start" fontSize="10" fill="#64748b" style={{writingMode: "vertical-rl", textOrientation: "upright"}}>Comprimento</text>
+            <line x1="160" y1="40" x2="160" y2="250" stroke="#64748b" strokeDasharray="3" />
+            <text x="170" y="145" textAnchor="start" fontSize="10" fill="#64748b" style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif"}}>Comprimento</text>
         </svg>
     </div>
 );
@@ -1240,7 +1242,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
             if (parsed && Array.isArray(parsed.rows)) return parsed;
         } catch(e) {}
         return {
-            columns: ["Tamanho", "Busto", "Cintura", "Quadril", "Comp."],
+            columns: ["Tam.", "Busto", "Cintura", "Quadril", "Comp."],
             rows: [
                 { size: "P", values: ["", "", "", ""] },
                 { size: "M", values: ["", "", "", ""] },
@@ -1253,7 +1255,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     const [data, setData] = useState(safeValue);
 
     useEffect(() => {
-        // Sincroniza para o componente pai como string JSON
         onChange(JSON.stringify(data));
     }, [data, onChange]);
 
@@ -1264,31 +1265,39 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     };
 
     return (
-        <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
-            <div className="bg-gray-50 p-3 border-b border-gray-200">
-                <p className="text-sm font-bold text-gray-700">Tabela de Medidas (cm)</p>
-                <p className="text-xs text-gray-500">Preencha os valores para cada tamanho.</p>
+        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm w-full max-w-full">
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <p className="text-sm font-bold text-gray-700">Tabela de Medidas (cm)</p>
+                    <p className="text-[10px] text-gray-500">Edite os valores abaixo.</p>
+                </div>
+                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">Admin</span>
             </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-100 text-gray-600 font-medium">
+            
+            {/* Container com scroll horizontal contido */}
+            <div className="overflow-x-auto w-full pb-1">
+                <table className="w-full text-xs text-left min-w-[300px]">
+                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider">
                         <tr>
                             {data.columns.map((col, i) => (
-                                <th key={i} className="px-3 py-2 border-b">{col}</th>
+                                <th key={i} className="px-2 py-2 border-b text-center min-w-[50px]">{col}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {data.rows.map((row, rIndex) => (
-                            <tr key={rIndex} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-bold text-gray-800 bg-gray-50/50">{row.size}</td>
+                            <tr key={rIndex} className="hover:bg-gray-50 transition-colors">
+                                {/* Coluna Fixa Visualmente */}
+                                <td className="px-2 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-12">
+                                    {row.size}
+                                </td>
                                 {row.values.map((val, cIndex) => (
-                                    <td key={cIndex} className="px-3 py-2">
+                                    <td key={cIndex} className="px-1 py-1">
                                         <input 
-                                            type="text" 
+                                            type="tel" // Teclado numérico no mobile
                                             value={val} 
                                             onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                            className="w-full min-w-[60px] p-1 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center"
+                                            className="w-full h-8 px-1 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-xs font-medium bg-white"
                                             placeholder="-"
                                         />
                                     </td>
@@ -1311,48 +1320,65 @@ const SizeGuideDisplay = ({ dataString }) => {
         }
     }, [dataString]);
 
-    // Fallback para texto antigo se não for JSON válido
     if (!data || !data.rows) {
-        return <div className="prose prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: dataString }} />;
+        return <div className="text-sm text-gray-400 italic p-4 text-center">Tabela de medidas indisponível.</div>;
     }
 
     return (
-        <div className="flex flex-col md:flex-row gap-8 items-center bg-gray-900 p-6 rounded-xl border border-gray-800">
-            <div className="flex-1 w-full">
-                <h4 className="text-amber-400 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
-                    <RulerIcon className="h-5 w-5" /> Tabela de Medidas (cm)
-                </h4>
-                <div className="overflow-hidden rounded-lg border border-gray-700">
-                    <table className="w-full text-sm text-gray-300">
-                        <thead>
-                            <tr className="bg-gray-800 text-amber-500">
-                                {data.columns.map((col, i) => (
-                                    <th key={i} className="px-4 py-3 font-bold text-center border-b border-gray-700 first:text-left">{col}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-800">
-                            {data.rows.map((row, i) => (
-                                <tr key={i} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-4 py-3 font-bold text-white bg-gray-800/50">{row.size}</td>
-                                    {row.values.map((val, j) => (
-                                        <td key={j} className="px-4 py-3 text-center">{val || '-'}</td>
+        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+                
+                {/* Tabela de Medidas (Lado Esquerdo/Topo) */}
+                <div className="flex-1 w-full min-w-0">
+                    <div className="flex items-center gap-2 mb-4">
+                        <RulerIcon className="h-5 w-5 text-amber-400" />
+                        <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
+                    </div>
+                    
+                    <div className="w-full overflow-x-auto rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
+                        <table className="w-full text-xs sm:text-sm text-gray-300 whitespace-nowrap">
+                            <thead>
+                                <tr className="bg-gray-800 border-b border-gray-700">
+                                    {data.columns.map((col, i) => (
+                                        <th key={i} className={`px-3 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-4' : 'text-center'}`}>
+                                            {col}
+                                        </th>
                                     ))}
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/50">
+                                {data.rows.map((row, i) => (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-3 py-3 pl-4 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">
+                                            {row.size}
+                                        </td>
+                                        {row.values.map((val, j) => (
+                                            <td key={j} className="px-3 py-3 text-center font-medium">
+                                                {val || '-'}
+                                            </td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-2 flex items-center gap-1">
+                        <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm devido à produção manual.
+                    </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-3">* As medidas podem variar de 1 a 2 cm.</p>
-            </div>
-            
-            <div className="w-full md:w-1/3 flex flex-col items-center">
-                <div className="bg-white p-4 rounded-lg shadow-lg">
-                    <MeasurementIllustration />
+                
+                {/* Ilustração e Dica (Lado Direito/Baixo) */}
+                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
+                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0">
+                        <MeasurementIllustration />
+                    </div>
+                    <div className="text-left md:text-center flex-1">
+                        <p className="text-white font-bold text-xs mb-1">Como medir?</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
+                            Use uma fita métrica. O <strong>Busto</strong> é a parte mais larga, e a <strong>Cintura</strong> a mais fina.
+                        </p>
+                    </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-3 text-center max-w-[200px]">
-                    Use uma fita métrica para encontrar o tamanho ideal para você.
-                </p>
             </div>
         </div>
     );
