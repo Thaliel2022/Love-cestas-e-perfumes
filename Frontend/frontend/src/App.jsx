@@ -1679,12 +1679,11 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 
 const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop();
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
     const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [isSearching, setIsSearching] = useState(false); 
     const [activeMenu, setActiveMenu] = useState(null);
     const [mobileAccordion, setMobileAccordion] = useState(null);
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
@@ -1694,7 +1693,6 @@ const Header = memo(({ onNavigate }) => {
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
-    const searchInputRef = useRef(null);
 
     useEffect(() => {
         const handleHashChange = () => {
@@ -1789,44 +1787,39 @@ const Header = memo(({ onNavigate }) => {
     }, [isMobileMenuOpen, dynamicMenuItems, fetchAndBuildMenu]);
 
     const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    const prevTotalCartItems = useRef(totalCartItems);
     const cartAnimationControls = useAnimation();
 
     useEffect(() => {
-        if (totalCartItems > 0) {
+        if (totalCartItems > prevTotalCartItems.current) {
             cartAnimationControls.start({
                 scale: [1, 1.25, 0.9, 1.1, 1],
                 transition: { duration: 0.5, times: [0, 0.25, 0.5, 0.75, 1] }
             });
         }
+        prevTotalCartItems.current = totalCartItems;
     }, [totalCartItems, cartAnimationControls]);
 
-    // --- LÓGICA DE PESQUISA ATUALIZADA (Busca com 1 letra e sem delay excessivo) ---
     useEffect(() => {
-        if (!searchTerm || searchTerm.trim().length === 0) {
+        if (searchTerm.length < 1) {
             setSearchSuggestions([]);
-            setIsSearching(false);
             return;
         }
-        
-        setIsSearching(true);
         const debounceTimer = setTimeout(() => {
-            apiService(`/products/search-suggestions?q=${encodeURIComponent(searchTerm)}`)
+            apiService(`/products/search-suggestions?q=${searchTerm}`)
                 .then(data => setSearchSuggestions(data))
-                .catch(err => console.error(err))
-                .finally(() => setIsSearching(false));
-        }, 300); // 300ms para resposta mais rápida
-        
+                .catch(err => console.error(err));
+        }, 300);
         return () => clearTimeout(debounceTimer);
     }, [searchTerm]);
 
     const handleSearchSubmit = (e) => {
-        e && e.preventDefault();
+        e.preventDefault();
         if (searchTerm.trim()) {
             onNavigate(`products?search=${encodeURIComponent(searchTerm.trim())}`);
-            setIsSearchFocused(false);
+            setSearchTerm('');
             setSearchSuggestions([]);
             setIsMobileMenuOpen(false);
-            if(searchInputRef.current) searchInputRef.current.blur();
         }
     };
 
@@ -1836,12 +1829,6 @@ const Header = memo(({ onNavigate }) => {
         setSearchSuggestions([]);
         setIsSearchFocused(false);
         setIsMobileMenuOpen(false);
-    };
-
-    const clearSearch = () => {
-        setSearchTerm('');
-        setSearchSuggestions([]);
-        if(searchInputRef.current) searchInputRef.current.focus();
     };
 
     const dropdownVariants = {
@@ -1858,10 +1845,37 @@ const Header = memo(({ onNavigate }) => {
     const [manualCep, setManualCep] = useState('');
     const [cepError, setCepError] = useState('');
 
-    useEffect(() => { if (isAddressModalOpen && isAuthenticated) { fetchAddresses(); } }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
-    const handleSelectAddress = (addr) => { setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias }); setIsAddressModalOpen(false); };
-    const handleManualCepSubmit = async (e) => { e.preventDefault(); setCepError(''); const cleanCep = manualCep.replace(/\D/g, ''); if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; } try { const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`); const data = await response.json(); if (data.erro) { setCepError("CEP não encontrado."); } else { setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` }); setIsAddressModalOpen(false); setManualCep(''); } } catch { setCepError("Não foi possível buscar o CEP."); } };
-    const handleCepInputChange = (e) => { setManualCep(maskCEP(e.target.value)); if (cepError) setCepError(''); };
+    useEffect(() => {
+        if (isAddressModalOpen && isAuthenticated) {
+            fetchAddresses();
+        }
+    }, [isAddressModalOpen, isAuthenticated, fetchAddresses]);
+
+    const handleSelectAddress = (addr) => {
+        setShippingLocation({ cep: addr.cep, city: addr.localidade, state: addr.uf, alias: addr.alias });
+        setIsAddressModalOpen(false);
+    };
+
+    const handleManualCepSubmit = async (e) => {
+        e.preventDefault();
+        setCepError('');
+        const cleanCep = manualCep.replace(/\D/g, '');
+        if (cleanCep.length !== 8) { setCepError("CEP inválido."); return; }
+        try {
+            const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+            const data = await response.json();
+            if (data.erro) { setCepError("CEP não encontrado."); } else {
+                setShippingLocation({ cep: manualCep, city: data.localidade, state: data.uf, alias: `CEP ${manualCep}` });
+                setIsAddressModalOpen(false);
+                setManualCep('');
+            }
+        } catch { setCepError("Não foi possível buscar o CEP."); }
+    };
+
+    const handleCepInputChange = (e) => {
+        setManualCep(maskCEP(e.target.value));
+        if (cepError) setCepError('');
+    };
 
     let addressDisplay = 'Selecione um endereço';
     if (shippingLocation && shippingLocation.cep) {
@@ -1870,54 +1884,71 @@ const Header = memo(({ onNavigate }) => {
             const formattedCep = cleanCep.replace(/(\d{5})(\d{3})/, '$1-$2');
             const displayCityState = [shippingLocation.city, shippingLocation.state].filter(Boolean).join(' - ');
             let prefix = 'Enviar para';
-            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') { prefix = `Enviar para ${shippingLocation.alias} -`; } else if (isAuthenticated && user?.name) { prefix = `Enviar para ${user.name.split(' ')[0]} -`; }
-            if (displayCityState) { addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`; } else { addressDisplay = `${prefix} ${formattedCep}`; }
+
+            if (shippingLocation.alias && !shippingLocation.alias.startsWith('CEP ') && shippingLocation.alias !== 'Localização Atual') {
+                prefix = `Enviar para ${shippingLocation.alias} -`;
+            } else if (isAuthenticated && user?.name) {
+                prefix = `Enviar para ${user.name.split(' ')[0]} -`;
+            }
+
+            if (displayCityState) {
+                addressDisplay = `${prefix} ${displayCityState} ${formattedCep}`;
+            } else {
+                 addressDisplay = `${prefix} ${formattedCep}`;
+            }
         }
     }
 
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
-        const navVariants = { visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } }, hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } } };
-        
-        return ( 
-            <motion.div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" initial={false} animate={isBottomNavVisible ? "visible" : "hidden"} variants={navVariants}> 
+
+        const navVariants = {
+            visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } },
+            hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } }
+        };
+
+        return (
+            <motion.div
+                className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe"
+                initial={false}
+                animate={isBottomNavVisible ? "visible" : "hidden"}
+                variants={navVariants}
+            >
+                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HomeIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Início</span>
+                </button>
                 
-                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
-                    <HomeIcon className="h-6 w-6 mb-1"/> 
-                    <span className="text-[10px]">Início</span> 
-                </button> 
+                <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <HeartIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Lista</span>
+                    {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>}
+                </button>
+
+                <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <motion.div animate={cartAnimationControls}>
+                        <CartIcon className="h-6 w-6 mb-1"/>
+                    </motion.div>
+                    <span className="text-[10px]">Carrinho</span>
+                    {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>}
+                </button>
                 
-                <button onClick={() => onNavigate('wishlist')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
+                    <UserIcon className="h-6 w-6 mb-1"/>
+                    <span className="text-[10px]">Conta</span>
+                </button>
+
+                <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <div className="relative">
-                        <HeartIcon className="h-6 w-6 mb-1"/> 
-                        {wishlistCount > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold border border-black">{wishlistCount}</span>} 
+                        <BarsGripIcon className="h-6 w-6 mb-1"/>
+                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
+                        {isAuthenticated && orderNotificationCount > 0 && (
+                            <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
+                        )}
                     </div>
-                    <span className="text-[10px]">Lista</span> 
-                </button> 
-                
-                {/* --- CORREÇÃO DO POSICIONAMENTO DO BADGE DO CARRINHO --- */}
-                <button onClick={() => onNavigate('cart')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
-                    <div className="relative inline-block">
-                        <motion.div animate={cartAnimationControls}> <CartIcon className="h-6 w-6 mb-1"/> </motion.div> 
-                        {/* Posicionamento ajustado: mais próximo do ícone e com z-index para garantir visibilidade */}
-                        {totalCartItems > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold border border-black z-10">{totalCartItems}</span>} 
-                    </div>
-                    <span className="text-[10px]">Carrinho</span> 
-                </button> 
-                
-                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
-                    <UserIcon className="h-6 w-6 mb-1"/> 
-                    <span className="text-[10px]">Conta</span> 
-                </button> 
-                
-                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
-                    <div className="relative"> 
-                        <BarsGripIcon className="h-6 w-6 mb-1"/> 
-                        {isAuthenticated && orderNotificationCount > 0 && ( <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span> )} 
-                    </div> 
-                    <span className="text-[10px]">Menu</span> 
-                </button> 
-            </motion.div> 
+                    <span className="text-[10px]">Menu</span>
+                </button>
+            </motion.div>
         );
     };
 
@@ -1934,8 +1965,12 @@ const Header = memo(({ onNavigate }) => {
                                  <p className="text-sm text-gray-500">{addr.localidade} - {addr.uf}</p>
                              </div>
                         ))}
-                         {isAuthenticated && addresses.length === 0 && <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>}
-                         {!isAuthenticated && <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>}
+                         {isAuthenticated && addresses.length === 0 && (
+                            <p className="text-sm text-center text-gray-500 py-4">Nenhum endereço cadastrado...</p>
+                         )}
+                         {!isAuthenticated && (
+                            <p className="text-sm text-center text-gray-500 py-4">Faça login para usar seus endereços...</p>
+                         )}
                         <div className="pt-4 border-t">
                             <form onSubmit={handleManualCepSubmit} className="space-y-2">
                                  <label className="block text-sm font-medium text-gray-700">Calcular frete para um CEP</label>
@@ -1951,23 +1986,7 @@ const Header = memo(({ onNavigate }) => {
             )}
         </AnimatePresence>
 
-        {/* Backdrop de Foco na Busca */}
-        <AnimatePresence>
-            {isSearchFocused && (
-                <motion.div 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/70 z-30" // Removido backdrop-blur-sm
-                    onClick={() => {
-                        setIsSearchFocused(false);
-                        if(searchInputRef.current) searchInputRef.current.blur();
-                    }}
-                />
-            )}
-        </AnimatePresence>
-
-        <header className="bg-black/90 backdrop-blur-xl text-white shadow-lg sticky top-0 z-40 border-b border-gray-800">
+        <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
             {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
@@ -1979,117 +1998,60 @@ const Header = memo(({ onNavigate }) => {
                         </div>
                         <span>LovecestasePerfumes</span>
                     </a>
-
-                    {/* BARRA DE PESQUISA DESKTOP */}
-                    <div className="hidden lg:block flex-1 max-w-2xl mx-8 relative z-50">
-                         <form onSubmit={handleSearchSubmit} className={`relative flex items-center transition-all duration-300 ${isSearchFocused ? 'scale-[1.02]' : ''}`}>
+                    <div className="hidden lg:block flex-1 max-w-2xl mx-8">
+                         <form onSubmit={handleSearchSubmit} className="relative">
                            <input
-                                ref={searchInputRef}
-                                type="text" 
-                                value={searchTerm}
+                                type="text" value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
-                                placeholder="Buscar produtos, marcas..."
-                                className={`w-full bg-gray-800 text-white pl-5 pr-12 py-2.5 rounded-xl border transition-all duration-200 outline-none
-                                    ${isSearchFocused ? 'border-amber-400 ring-2 ring-amber-400/20 bg-gray-700' : 'border-gray-700 hover:border-gray-600'}
-                                `}
-                            />
-                           
-                           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                                {isSearching ? (
-                                    <SpinnerIcon className="h-5 w-5 text-amber-400" />
-                                ) : searchTerm ? (
-                                    <button type="button" onClick={clearSearch} className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-600">
-                                        <XMarkIcon className="h-4 w-4" />
-                                    </button>
-                                ) : (
-                                    <button type="submit" className="text-gray-400 hover:text-amber-400 p-1">
-                                        <SearchIcon className="h-5 w-5" />
-                                    </button>
-                                )}
-                           </div>
-
-                            {/* DROPDOWN DE SUGESTÕES DESKTOP */}
+                                onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                                placeholder="O que você procura?"
+                                className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
+                           <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
-                                {isSearchFocused && (
-                                    <motion.div 
-                                        initial={{ opacity: 0, y: 10, scale: 0.98 }} 
-                                        animate={{ opacity: 1, y: 0, scale: 1 }} 
-                                        exit={{ opacity: 0, y: 10, scale: 0.98 }} 
-                                        className="absolute top-full left-0 right-0 mt-3 w-full bg-white text-gray-800 rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50"
-                                    >
-                                        <div className="max-h-[70vh] overflow-y-auto custom-scrollbar">
-                                            {searchTerm.length > 0 ? (
-                                                searchSuggestions.length > 0 ? (
-                                                <div className="py-2">
-                                                    <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Sugestões</div>
-                                                    {searchSuggestions.map(p => (
-                                                        <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0 group">
-                                                            <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain rounded-lg bg-gray-100 p-1 border border-gray-200 group-hover:border-amber-300 transition-colors" />
-                                                            <div className="flex-grow min-w-0">
-                                                                <p className="font-semibold text-sm text-gray-800 truncate group-hover:text-amber-600 transition-colors">{p.name}</p>
-                                                                <div className="flex items-baseline gap-2 mt-0.5">
-                                                                    {p.is_on_sale && p.sale_price > 0 ? (
-                                                                        <>
-                                                                            <span className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</span>
-                                                                            <span className="text-gray-400 text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <span className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</span>
-                                                                    )}
+                            {isSearchFocused && searchTerm.length > 0 && (
+                                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                                        <div className="max-h-96 overflow-y-auto">
+                                            {searchSuggestions.length > 0 ? (
+                                                searchSuggestions.map(p => (
+                                                    <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0">
+                                                        <img src={getFirstImage(p.images)} alt={p.name} className="w-16 h-16 object-contain mr-4 rounded-md bg-white p-1 border" />
+                                                        <div className="flex-grow">
+                                                            <p className="font-semibold text-gray-800">{p.name}</p>
+                                                            {p.is_on_sale && p.sale_price > 0 ? (
+                                                                <div className="flex items-baseline gap-2">
+                                                                    <p className="text-red-600 font-bold">R$ {Number(p.sale_price).toFixed(2)}</p>
+                                                                    <p className="text-gray-500 text-sm line-through">R$ {Number(p.price).toFixed(2)}</p>
                                                                 </div>
-                                                            </div>
-                                                            <ArrowUturnLeftIcon className="h-4 w-4 text-gray-300 -rotate-90 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1" />
+                                                            ) : (
+                                                                <p className="text-gray-700 font-bold">R$ {Number(p.price).toFixed(2)}</p>
+                                                            )}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                                ) : (
-                                                    <div className="p-8 text-center">
-                                                        <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                                                            <SearchIcon className="h-6 w-6 text-gray-400" />
-                                                        </div>
-                                                        <p className="text-sm text-gray-500">Nenhum produto encontrado para "<span className="font-bold text-gray-800">{searchTerm}</span>".</p>
                                                     </div>
-                                                )
-                                            ) : (
-                                                <div className="p-6 text-center text-sm text-gray-500">
-                                                    Digite para buscar...
-                                                </div>
-                                            )}
+                                                ))
+                                            ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
                                         </div>
-                                        {searchSuggestions.length > 0 && ( 
-                                            <button type="submit" className="w-full text-center py-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-bold text-xs uppercase tracking-wide transition-colors border-t border-gray-100 flex items-center justify-center gap-2"> 
-                                                Ver todos os resultados <ArrowUturnLeftIcon className="h-3 w-3 -rotate-90"/> 
-                                            </button> 
-                                        )}
+                                        {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors"> Ver todos os resultados para "{searchTerm}" </button> )}
                                     </motion.div>
                                 )}
                             </AnimatePresence>
                         </form>
                     </div>
-
                     <div className="flex items-center space-x-2 sm:space-x-4">
                         {isAuthenticated && ( 
-                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative group"> 
-                                <PackageIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
+                            <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
+                                <PackageIcon className="h-6 w-6"/> 
+                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
                                 {orderNotificationCount > 0 && (
                                     <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
                                         {orderNotificationCount}
                                     </span>
                                 )}
-                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Meus</span> <span className="font-bold">Pedidos</span> </div> 
+                                <div className="flex flex-col items-start text-xs leading-tight"> <span>Devoluções</span> <span className="font-bold">& Pedidos</span> </div> 
                             </button> 
                         )}
-                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 group"> 
-                            <HeartIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
-                            <span className="hidden sm:inline text-sm font-medium">Lista</span> 
-                            {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} 
-                        </button>
-                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 group"> 
-                            <CartIcon className="h-6 w-6 group-hover:scale-110 transition-transform"/> 
-                            <span className="hidden sm:inline text-sm font-medium">Carrinho</span> 
-                            {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} 
-                        </motion.button>
+                        <button onClick={() => onNavigate('wishlist')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <HeartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Lista</span> {wishlist.length > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlist.length}</span>} </button>
+                        <motion.button animate={cartAnimationControls} onClick={() => onNavigate('cart')} className="relative flex items-center gap-1 hover:text-amber-400 transition px-2 py-1"> <CartIcon className="h-6 w-6"/> <span className="hidden sm:inline text-sm font-medium">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-0 bg-amber-400 text-black text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </motion.button>
                         <div className="hidden sm:block">
                             {isAuthenticated ? (
                                 <div className="relative group">
@@ -2102,8 +2064,7 @@ const Header = memo(({ onNavigate }) => {
                 </div>
             </div>
 
-             {/* Mobile Header + Search */}
-             <div className="block md:hidden px-4 pt-3 pb-2 relative z-50">
+             <div className="block md:hidden px-4 pt-3">
                 <div className="flex justify-center items-center mb-3">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
@@ -2112,91 +2073,37 @@ const Header = memo(({ onNavigate }) => {
                         LovecestasePerfumes
                     </a>
                 </div>
-                
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input 
-                        type="text" 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)} 
-                        onFocus={() => setIsSearchFocused(true)} 
-                        placeholder="Buscar..." 
-                        className={`w-full bg-gray-800 text-white pl-4 pr-10 py-2.5 rounded-lg focus:outline-none transition-all ${isSearchFocused ? 'ring-2 ring-amber-500 bg-gray-700' : ''} text-sm`} 
-                    />
-                    
-                    <div className="absolute right-0 top-0 h-full flex items-center pr-3">
-                         {isSearching ? (
-                            <SpinnerIcon className="h-4 w-4 text-amber-400" />
-                        ) : searchTerm ? (
-                            <button type="button" onClick={clearSearch} className="text-gray-400 hover:text-white bg-gray-700 rounded-full p-0.5">
-                                <XMarkIcon className="h-3 w-3" />
-                            </button>
-                        ) : (
-                            <button type="submit" className="text-gray-400 hover:text-amber-400">
-                                <SearchIcon className="h-5 w-5" />
-                            </button>
-                        )}
-                    </div>
-                    
-                    {/* DROPDOWN DE SUGESTÕES MOBILE */}
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
+                    <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                     <AnimatePresence>
-                        {isSearchFocused && (
-                             <motion.div 
-                                initial={{ opacity: 0, y: 10 }} 
-                                animate={{ opacity: 1, y: 0 }} 
-                                exit={{ opacity: 0, y: 10 }} 
-                                className="absolute top-full mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden"
-                            >
-                                <div className="max-h-[60vh] overflow-y-auto">
-                                    {searchTerm.length > 0 ? (
-                                        searchSuggestions.length > 0 ? (
+                        {isSearchFocused && searchTerm.length > 0 && (
+                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                                <div className="max-h-60 overflow-y-auto">
+                                    {searchSuggestions.length > 0 ? (
                                         searchSuggestions.map(p => (
-                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b last:border-b-0"> 
-                                                <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-gray-100 p-1 border" /> 
-                                                <div className="flex-grow min-w-0"> 
-                                                    <p className="font-semibold text-gray-800 text-sm truncate">{p.name}</p> 
-                                                    {p.is_on_sale && p.sale_price > 0 ? ( 
-                                                        <div className="flex items-baseline gap-2">
-                                                            <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> 
-                                                            <p className="text-gray-400 font-medium text-[10px] line-through">R$ {Number(p.price).toFixed(2)}</p>
-                                                        </div>
-                                                    ) : ( 
-                                                        <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> 
-                                                    )} 
-                                                </div> 
-                                            </div>
+                                            <div key={p.id} onClick={() => handleSuggestionClick(p.id)} className="flex items-center p-2 hover:bg-gray-100 cursor-pointer transition-colors border-b last:border-b-0"> <img src={getFirstImage(p.images)} alt={p.name} className="w-12 h-12 object-contain mr-3 rounded-md bg-white p-1 border" /> <div className="flex-grow"> <p className="font-semibold text-gray-800 text-sm">{p.name}</p> {p.is_on_sale && p.sale_price > 0 ? ( <p className="text-red-600 font-bold text-xs">R$ {Number(p.sale_price).toFixed(2)}</p> ) : ( <p className="text-gray-700 font-bold text-xs">R$ {Number(p.price).toFixed(2)}</p> )} </div> </div>
                                         ))
-                                    ) : ( 
-                                        <div className="p-6 text-center text-sm text-gray-500">
-                                            <SearchIcon className="h-8 w-8 mx-auto text-gray-300 mb-2"/>
-                                            Nenhum produto encontrado.
-                                        </div> 
-                                    )
-                                    ) : (
-                                        <div className="p-4 text-center text-xs text-gray-400">Digite para buscar...</div>
-                                    )}
+                                    ) : ( <p className="p-4 text-center text-sm text-gray-500">Nenhum produto encontrado.</p> )}
                                 </div>
-                                {searchTerm.trim() && searchSuggestions.length > 0 && ( 
-                                    <button type="submit" className="w-full text-center p-3 bg-gray-50 hover:bg-gray-100 text-amber-600 font-bold transition-colors text-sm border-t"> 
-                                        Ver todos os resultados 
-                                    </button> 
-                                )}
+                                {searchTerm.trim() && ( <button type="submit" className="w-full text-center p-2 bg-gray-50 hover:bg-gray-100 text-amber-600 font-semibold transition-colors text-sm"> Ver todos os resultados </button> )}
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </form>
-                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left border border-transparent hover:border-gray-600"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
+                 <button onClick={() => setIsAddressModalOpen(true)} className="w-full flex items-center text-xs text-gray-300 bg-gray-800/50 px-3 py-2 rounded-md cursor-pointer hover:bg-gray-700/50 transition-colors text-left"> <MapPinIcon className="h-4 w-4 mr-2 flex-shrink-0 text-amber-400"/> <span className="truncate flex-grow">{addressDisplay}</span> <ChevronDownIcon className="h-4 w-4 ml-auto flex-shrink-0"/> </button>
             </div>
 
-            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative bg-black/50" onMouseLeave={() => setActiveMenu(null)}>
+            <nav className="hidden md:flex justify-center px-4 sm:px-6 h-12 items-center border-t border-gray-800 relative" onMouseLeave={() => setActiveMenu(null)}>
                 <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Início</a>
                 <div className="h-full flex items-center" onMouseEnter={() => setActiveMenu('Coleções')}> <button className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Coleções</button> </div>
                 <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase text-red-400 hover:text-red-300 transition-colors flex items-center gap-1"> <SaleIcon className="h-4 w-4" /> Promoções </a>
                 <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); }} className="px-4 py-2 text-sm font-semibold tracking-wider uppercase hover:text-amber-400 transition-colors">Ajuda</a>
                 <AnimatePresence>
                     {activeMenu === 'Coleções' && (
-                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-md shadow-2xl border-t border-gray-700 z-30">
+                        <motion.div initial="closed" animate="open" exit="closed" variants={dropdownVariants} className="absolute top-full left-0 w-full bg-gray-900/95 backdrop-blur-sm shadow-2xl border-t border-gray-700">
                             <div className="container mx-auto p-8 grid grid-cols-6 gap-8">
-                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors hover:translate-x-1 transform duration-200">{subCat.name}</a></li> ))} </ul> </div> ) ))}
+                                {dynamicMenuItems.map(cat => ( cat && cat.sub && ( <div key={cat.name}> <h3 className="font-bold text-amber-400 mb-3 text-base">{cat.name}</h3> <ul className="space-y-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setActiveMenu(null); }} className="block text-sm text-white hover:text-amber-300 transition-colors">{subCat.name}</a></li> ))} </ul> </div> ) ))}
                             </div>
                         </motion.div>
                     )}
@@ -2207,10 +2114,10 @@ const Header = memo(({ onNavigate }) => {
                 {isMobileMenuOpen && (
                     <>
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
-                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col shadow-2xl">
-                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400 text-lg">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
-                            <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden bg-gray-800/30 rounded-md mb-2"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300 py-1">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
+                        <motion.div variants={mobileMenuVariants} initial="closed" animate="open" exit="closed" className="fixed top-0 left-0 h-screen w-4/5 max-w-sm bg-gray-900 z-[60] flex flex-col">
+                            <div className="flex-shrink-0 flex justify-between items-center p-4 border-b border-gray-800"> <h2 className="font-bold text-amber-400">Menu</h2> <button onClick={() => setIsMobileMenuOpen(false)}><CloseIcon className="h-6 w-6 text-white" /></button> </div>
+                            <div className="flex-grow overflow-y-auto p-4">
+                                {dynamicMenuItems.map((cat, index) => ( cat && cat.sub && ( <div key={cat.name} className="border-b border-gray-800"> <button onClick={() => setMobileAccordion(mobileAccordion === index ? null : index)} className="w-full flex justify-between items-center py-3 text-left font-bold text-white"> <span>{cat.name}</span> <ChevronDownIcon className={`h-5 w-5 transition-transform ${mobileAccordion === index ? 'rotate-180' : ''}`} /> </button> <AnimatePresence> {mobileAccordion === index && ( <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-4 pb-2 space-y-2 overflow-hidden"> {cat.sub.map(subCat => ( <li key={subCat.name}><a href="#" onClick={(e) => { e.preventDefault(); onNavigate(`products?category=${subCat.filter}`); setIsMobileMenuOpen(false); }} className="block text-sm text-gray-300 hover:text-amber-300">{subCat.name}</a></li> ))} </motion.ul> )} </AnimatePresence> </div> ) ))}
                                 <div className="border-b border-gray-800"> <a href="#products?promo=true" onClick={(e) => { e.preventDefault(); onNavigate('products?promo=true'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 py-3 font-bold text-red-400 hover:text-red-300"> <SaleIcon className="h-5 w-5"/> Promoções </a> </div>
                                 <div className="border-b border-gray-800"> <a href="#products" onClick={(e) => { e.preventDefault(); onNavigate('products'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ver Tudo</a> </div>
                                 <div className="border-b border-gray-800"> <a href="#ajuda" onClick={(e) => { e.preventDefault(); onNavigate('ajuda'); setIsMobileMenuOpen(false); }} className="block py-3 font-bold text-white hover:text-amber-400">Ajuda</a> </div>
@@ -2220,12 +2127,13 @@ const Header = memo(({ onNavigate }) => {
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
                                             <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
                                                 <span>Devoluções e Pedidos</span>
+                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
                                                 {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
                                             </a> 
                                             {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
-                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-red-400 hover:text-red-300 font-bold mt-4 border-t border-gray-800 pt-4">Sair da Conta</button> 
+                                            <button onClick={() => { logout(); onNavigate('home'); setIsMobileMenuOpen(false); }} className="w-full text-left text-white hover:text-amber-400">Sair</button> 
                                         </> 
-                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-center bg-amber-400 text-black px-4 py-3 rounded-md hover:bg-amber-300 transition font-bold shadow-md">Fazer Login / Cadastrar</button> )}
+                                    ) : ( <button onClick={() => { onNavigate('login'); setIsMobileMenuOpen(false); }} className="w-full text-left bg-amber-400 text-black px-4 py-2 rounded-md hover:bg-amber-300 transition font-bold">Login</button> )}
                                 </div>
                             </div>
                         </motion.div>
