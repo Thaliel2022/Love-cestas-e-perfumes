@@ -3874,10 +3874,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
                         {/* Layout: Desktop (Miniaturas à Esquerda) / Mobile (Miniaturas Embaixo) */}
-                        <div className="flex flex-col lg:flex-row gap-4">
+                        <div className="flex flex-col lg:flex-row gap-4 h-full">
                             
                             {/* Lista de Miniaturas */}
-                            <div className="relative flex-shrink-0 order-2 lg:order-1">
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 lg:h-[700px]">
                                 {/* Botão Scroll Cima (Desktop) */}
                                 {canScrollUp && (
                                     <button 
@@ -3891,7 +3891,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 {/* Container Scrollável */}
                                 <div 
                                     ref={galleryRef}
-                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:max-h-[600px] scrollbar-hide py-2 lg:py-0"
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:h-full scrollbar-hide py-2 lg:py-0"
                                 >
                                     {product.video_url && (
                                         <div 
@@ -3933,7 +3933,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
 
                             {/* Imagem Principal (Grande) */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center">
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center lg:h-[700px]">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
                                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
@@ -3952,7 +3952,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 )}
 
                                 {/* Container de Imagem Ajustado para Eliminar Buracos */}
-                                <div className="w-full h-full flex items-center justify-center p-4 lg:p-8 relative aspect-square lg:aspect-auto lg:h-[600px]">
+                                <div className="w-full h-full flex items-center justify-center p-4 lg:p-0 relative aspect-square lg:aspect-auto">
                                     <img 
                                         src={mainImage} 
                                         alt={product.name} 
@@ -3989,7 +3989,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) */}
+                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
                     <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
