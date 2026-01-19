@@ -3493,7 +3493,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
-    const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); // NOVO
+    const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); 
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
@@ -3515,7 +3515,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     
-    // Estados para controle de scroll vertical da galeria (Desktop)
     const [canScrollUp, setCanScrollUp] = useState(false);
     const [canScrollDown, setCanScrollDown] = useState(false);
 
@@ -3532,7 +3531,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, productVariations, selectedColor]);
 
-    // --- Sincroniza a variação completa baseada na cor/tamanho selecionados ---
     useEffect(() => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
@@ -3740,7 +3738,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
     const handleNextImage = (e) => {
         e.stopPropagation();
         if (galleryImages.length <= 1) return;
@@ -3798,20 +3795,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         } 
     };
-    
+
     // --- RENDERIZAÇÃO DA TABELA DE MEDIDAS (CLIENTE) ---
     const renderSizeGuide = () => {
         if (!product || !product.size_guide) return null;
         
         let gridData = null;
         try {
-            // Tenta fazer parse se for JSON
             const parsed = JSON.parse(product.size_guide);
             if (parsed.type === 'grid' && parsed.gridData) {
                 gridData = parsed.gridData;
             }
         } catch (e) {
-            // Se falhar o parse, retorna o HTML antigo (retrocompatibilidade)
              return <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/>;
         }
 
@@ -3820,7 +3815,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
         const measurements = ['Busto', 'Cintura', 'Quadril', 'Comprimento'];
         
-        // Filtra apenas tamanhos que têm dados
         const activeSizes = sizes.filter(size => 
             measurements.some(m => gridData[`${size}-${m}`])
         );
@@ -3829,17 +3823,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-center border-collapse">
                     <thead>
-                        <tr className="bg-gray-800 text-gray-300">
-                            <th className="p-3 border border-gray-700">Tamanho</th>
-                            {measurements.map(m => <th key={m} className="p-3 border border-gray-700">{m}</th>)}
+                        <tr className="bg-gray-100 text-gray-700">
+                            <th className="p-3 border border-gray-300 font-bold">Tamanho</th>
+                            {measurements.map(m => <th key={m} className="p-3 border border-gray-300 font-bold">{m}</th>)}
                         </tr>
                     </thead>
                     <tbody>
                         {activeSizes.map((size, i) => (
-                            <tr key={size} className={i % 2 === 0 ? 'bg-black' : 'bg-gray-900/50'}>
-                                <td className="p-3 border border-gray-800 font-bold text-white">{size}</td>
+                            <tr key={size} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="p-3 border border-gray-300 font-bold text-gray-900">{size}</td>
                                 {measurements.map(m => (
-                                    <td key={m} className="p-3 border border-gray-800 text-gray-300">
+                                    <td key={m} className="p-3 border border-gray-300 text-gray-600">
                                         {gridData[`${size}-${m}`] || '-'}
                                     </td>
                                 ))}
@@ -3876,59 +3870,49 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
 
-            {/* --- MODAL DE GUIA DE MEDIDAS (NOVO) --- */}
+            {/* --- MODAL DE GUIA DE MEDIDAS (Corrigido para não cortar) --- */}
             <AnimatePresence>
                 {isSizeGuideOpen && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideOpen(false)} title="Guia de Medidas" size="lg">
-                        <div className="space-y-6">
-                            <div className="flex flex-col md:flex-row gap-8 items-center justify-center bg-white p-6 rounded-lg text-gray-800">
-                                {/* Ilustração de Medidas */}
-                                <div className="relative w-32 h-64 md:w-40 md:h-80 flex-shrink-0">
-                                     {/* Silhueta Feminina Simplificada (SVG Inline) */}
-                                     <svg viewBox="0 0 100 200" className="w-full h-full text-gray-300 fill-current">
-                                        <path d="M50,0 C35,0 25,10 25,25 C25,40 30,50 30,60 C20,65 10,75 10,90 L15,140 L25,135 L22,90 C22,80 30,75 35,70 C35,90 32,100 32,110 C32,125 35,135 40,140 L40,190 L45,190 L45,145 C40,140 38,130 38,115 C38,105 40,95 40,75 C45,75 55,75 60,75 C60,95 62,105 62,115 C62,130 60,140 55,145 L55,190 L60,190 L60,140 C65,135 68,125 68,110 C68,100 65,90 65,70 C70,75 78,80 78,90 L75,135 L85,140 L90,90 C90,75 80,65 70,60 C70,50 75,40 75,25 C75,10 65,0 50,0 Z" />
-                                     </svg>
-                                     {/* Linhas de Medida */}
-                                     <div className="absolute top-[32%] left-0 w-full flex items-center justify-center">
-                                         <div className="w-full h-px bg-red-500 border-b border-dashed border-red-500 relative">
-                                            <span className="absolute -top-3 right-0 text-[10px] font-bold text-red-600 bg-white px-1">Busto</span>
-                                         </div>
-                                     </div>
-                                     <div className="absolute top-[48%] left-0 w-full flex items-center justify-center">
-                                         <div className="w-full h-px bg-blue-500 border-b border-dashed border-blue-500 relative">
-                                             <span className="absolute -top-3 right-0 text-[10px] font-bold text-blue-600 bg-white px-1">Cintura</span>
-                                         </div>
-                                     </div>
-                                      <div className="absolute top-[60%] left-0 w-full flex items-center justify-center">
-                                         <div className="w-full h-px bg-green-500 border-b border-dashed border-green-500 relative">
-                                             <span className="absolute -top-3 right-0 text-[10px] font-bold text-green-600 bg-white px-1">Quadril</span>
-                                         </div>
-                                     </div>
+                        <div className="space-y-6 text-gray-800">
+                             <div className="flex flex-col md:flex-row gap-6 items-start">
+                                {/* Ilustração (Esquerda) */}
+                                <div className="w-full md:w-1/3 flex justify-center bg-gray-50 p-4 rounded-lg">
+                                     <div className="relative w-32 h-64">
+                                         <svg viewBox="0 0 100 200" className="w-full h-full text-gray-300 fill-current drop-shadow-sm">
+                                            <path d="M50,0 C35,0 25,10 25,25 C25,40 30,50 30,60 C20,65 10,75 10,90 L15,140 L25,135 L22,90 C22,80 30,75 35,70 C35,90 32,100 32,110 C32,125 35,135 40,140 L40,190 L45,190 L45,145 C40,140 38,130 38,115 C38,105 40,95 40,75 C45,75 55,75 60,75 C60,95 62,105 62,115 C62,130 60,140 55,145 L55,190 L60,190 L60,140 C65,135 68,125 68,110 C68,100 65,90 65,70 C70,75 78,80 78,90 L75,135 L85,140 L90,90 C90,75 80,65 70,60 C70,50 75,40 75,25 C75,10 65,0 50,0 Z" />
+                                         </svg>
+                                         <div className="absolute top-[32%] w-full border-b border-red-500 border-dashed"><span className="absolute -top-3 right-0 text-[10px] text-red-600 font-bold bg-white px-1 shadow-sm border border-red-100 rounded">Busto</span></div>
+                                         <div className="absolute top-[48%] w-full border-b border-blue-500 border-dashed"><span className="absolute -top-3 right-0 text-[10px] text-blue-600 font-bold bg-white px-1 shadow-sm border border-blue-100 rounded">Cintura</span></div>
+                                          <div className="absolute top-[60%] w-full border-b border-green-500 border-dashed"><span className="absolute -top-3 right-0 text-[10px] text-green-600 font-bold bg-white px-1 shadow-sm border border-green-100 rounded">Quadril</span></div>
+                                    </div>
                                 </div>
                                 
-                                <div className="flex-grow w-full">
-                                    <h3 className="font-bold text-lg mb-4 text-center md:text-left">Tabela de Medidas (cm)</h3>
-                                    {/* Renderiza a Tabela do DB */}
-                                    <div className="w-full">
-                                        {/* Como o modal é branco, ajustamos o renderSizeGuide para ter texto escuro se necessário, ou usamos CSS global do modal */}
-                                        <div className="size-guide-content-dark">
-                                            {renderSizeGuide()}
-                                        </div>
+                                {/* Tabela e Instruções (Direita) */}
+                                <div className="w-full md:w-2/3">
+                                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden mb-4">
+                                        {renderSizeGuide()}
                                     </div>
-                                    <div className="mt-6 text-xs text-gray-500 space-y-1">
-                                        <p><strong>Como medir:</strong></p>
-                                        <p>• <strong>Busto:</strong> Passe a fita métrica sobre a parte mais volumosa dos seios.</p>
-                                        <p>• <strong>Cintura:</strong> Meça na parte mais estreita do tronco (cerca de 2 dedos acima do umbigo).</p>
-                                        <p>• <strong>Quadril:</strong> Contorne a parte mais larga dos quadris.</p>
+                                    <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 space-y-2">
+                                        <p className="font-bold flex items-center gap-2"><RulerIcon className="h-4 w-4"/> Como tirar suas medidas:</p>
+                                        <ul className="list-disc list-inside space-y-1 ml-1">
+                                            <li><strong>Busto:</strong> Passe a fita métrica sobre a parte mais volumosa dos seios.</li>
+                                            <li><strong>Cintura:</strong> Meça na parte mais estreita do tronco (cerca de 2 dedos acima do umbigo).</li>
+                                            <li><strong>Quadril:</strong> Contorne a parte mais larga dos quadris.</li>
+                                        </ul>
                                     </div>
                                 </div>
+                            </div>
+                            
+                            <div className="flex justify-end pt-4 border-t border-gray-200">
+                                <button onClick={() => setIsSizeGuideOpen(false)} className="px-6 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-900 font-bold transition-colors">Entendi</button>
                             </div>
                         </div>
                     </Modal>
                 )}
             </AnimatePresence>
             
-            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING) --- */}
+            {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
@@ -3969,7 +3953,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                                 </div>
                                                 <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
-                                            {/* BOTÃO DE GUIA DE MEDIDAS (DENTRO DO MODAL TAMBÉM) */}
                                             <button 
                                                 onClick={() => setIsSizeGuideOpen(true)}
                                                 className="text-xs text-amber-400 underline hover:text-amber-300 flex items-center gap-1"
@@ -4039,9 +4022,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
                     {/* COLUNA GALERIA */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        <div className="flex flex-col lg:flex-row-reverse gap-4">
-                            {/* Imagem Principal */}
-                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-auto lg:h-[600px] group flex justify-center items-center">
+                        <div className="flex flex-col lg:flex-row-reverse gap-4 h-full">
+                            
+                            {/* Imagem Principal (Grande) - Com Ajuste de Altura para Preencher */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center lg:h-[700px]">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
                                     <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
@@ -4059,12 +4043,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
                                 )}
 
-                                <img 
-                                    src={mainImage} 
-                                    alt={product.name} 
-                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                    className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
-                                />
+                                {/* Container de Imagem: Preenche e Contém */}
+                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-0">
+                                    <img 
+                                        src={mainImage} 
+                                        alt={product.name} 
+                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                    />
+                                </div>
                                 
                                 {/* Botões de Navegação */}
                                 {galleryImages.length > 1 && (
@@ -4079,9 +4066,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
 
                             {/* Lista de Miniaturas */}
-                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 lg:h-[700px] flex flex-col justify-center">
                                 {canScrollUp && <button onClick={() => scrollGallery('up')} className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"><ChevronDownIcon className="h-4 w-4 rotate-180" /></button>}
-                                <div ref={galleryRef} className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4" style={{ maxHeight: '80vh' }}>
+                                <div ref={galleryRef} className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 lg:h-full scrollbar-hide py-2 lg:py-4" style={{ maxHeight: '80vh' }}>
                                     {product.video_url && (
                                         <div onClick={() => setIsVideoModalOpen(true)} className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md">
                                             <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
@@ -4203,7 +4190,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             <div>
                                 <div className="flex items-center justify-between mb-2">
                                      <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wide">Selecione Cor e Tamanho</h3>
-                                     {/* BOTÃO DE GUIA DE MEDIDAS (PRINCIPAL) */}
                                      <button 
                                         onClick={() => setIsSizeGuideOpen(true)}
                                         className="text-xs text-amber-400 underline hover:text-amber-300 flex items-center gap-1 font-medium transition-colors"
