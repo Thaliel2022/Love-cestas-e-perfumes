@@ -1878,7 +1878,46 @@ const Header = memo(({ onNavigate }) => {
     const BottomNavBar = () => {
         const wishlistCount = wishlist.length;
         const navVariants = { visible: { y: 0, transition: { type: "tween", duration: 0.3, ease: "easeOut" } }, hidden: { y: "100%", transition: { type: "tween", duration: 0.3, ease: "easeIn" } } };
-        return ( <motion.div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" initial={false} animate={isBottomNavVisible ? "visible" : "hidden"} variants={navVariants}> <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HomeIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Início</span> </button> <button onClick={() => onNavigate('wishlist')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <HeartIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Lista</span> {wishlistCount > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{wishlistCount}</span>} </button> <button onClick={() => onNavigate('cart')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <motion.div animate={cartAnimationControls}> <CartIcon className="h-6 w-6 mb-1"/> </motion.div> <span className="text-[10px]">Carrinho</span> {totalCartItems > 0 && <span className="absolute top-0 right-[25%] bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold">{totalCartItems}</span>} </button> <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <UserIcon className="h-6 w-6 mb-1"/> <span className="text-[10px]">Conta</span> </button> <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> <div className="relative"> <BarsGripIcon className="h-6 w-6 mb-1"/> {isAuthenticated && orderNotificationCount > 0 && ( <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span> )} </div> <span className="text-[10px]">Menu</span> </button> </motion.div> );
+        
+        return ( 
+            <motion.div className="fixed bottom-0 left-0 right-0 h-16 bg-black border-t border-gray-800 flex justify-around items-center z-50 md:hidden pb-safe" initial={false} animate={isBottomNavVisible ? "visible" : "hidden"} variants={navVariants}> 
+                
+                <button onClick={() => onNavigate('home')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'home' || currentPath === '' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                    <HomeIcon className="h-6 w-6 mb-1"/> 
+                    <span className="text-[10px]">Início</span> 
+                </button> 
+                
+                <button onClick={() => onNavigate('wishlist')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'wishlist' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                    <div className="relative">
+                        <HeartIcon className="h-6 w-6 mb-1"/> 
+                        {wishlistCount > 0 && <span className="absolute -top-1 -right-1 bg-amber-400 text-black text-[9px] rounded-full h-3.5 w-3.5 flex items-center justify-center font-bold border border-black">{wishlistCount}</span>} 
+                    </div>
+                    <span className="text-[10px]">Lista</span> 
+                </button> 
+                
+                {/* --- CORREÇÃO DO BOTÃO DO CARRINHO --- */}
+                <button onClick={() => onNavigate('cart')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'cart' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                    <div className="relative">
+                        <motion.div animate={cartAnimationControls}> <CartIcon className="h-6 w-6 mb-1"/> </motion.div> 
+                        {totalCartItems > 0 && <span className="absolute -top-1 -right-2 bg-amber-400 text-black text-[9px] rounded-full h-4 w-4 flex items-center justify-center font-bold border-2 border-black">{totalCartItems}</span>} 
+                    </div>
+                    <span className="text-[10px]">Carrinho</span> 
+                </button> 
+                
+                <button onClick={() => isAuthenticated ? onNavigate('account') : onNavigate('login')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath.startsWith('account') || currentPath === 'login' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                    <UserIcon className="h-6 w-6 mb-1"/> 
+                    <span className="text-[10px]">Conta</span> 
+                </button> 
+                
+                <button onClick={() => onNavigate('categories')} className={`flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}> 
+                    <div className="relative"> 
+                        <BarsGripIcon className="h-6 w-6 mb-1"/> 
+                        {isAuthenticated && orderNotificationCount > 0 && ( <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span> )} 
+                    </div> 
+                    <span className="text-[10px]">Menu</span> 
+                </button> 
+            </motion.div> 
+        );
     };
 
     return (
@@ -1911,7 +1950,7 @@ const Header = memo(({ onNavigate }) => {
             )}
         </AnimatePresence>
 
-        {/* Backdrop de Foco na Busca (MODIFICADO: Sem blur, apenas escurecimento, z-index ajustado) */}
+        {/* Backdrop de Foco na Busca */}
         <AnimatePresence>
             {isSearchFocused && (
                 <motion.div 
