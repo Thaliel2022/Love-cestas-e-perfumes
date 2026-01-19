@@ -3512,6 +3512,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
             if (product.product_type === 'clothing' && selectedVariation) {
+                // Lógica corrigida: Se is_promo for undefined (legado), assume true se o produto está em promo
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
@@ -3530,6 +3531,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [isPromoActive, product]);
 
     useEffect(() => {
+        // Se não tiver data, ou promo não ativa, para.
         if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
             return;
@@ -3548,6 +3550,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
+                // IMPORTANTE: Não desativar aqui visualmente, deixar o backend ou próxima renderização tratar
             }
         };
         calculateTimeLeft();
@@ -3555,6 +3558,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
+    // ... (rest of logic: isNew, avgRating, etc.)
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -3577,7 +3581,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE ---
+    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE (Aceita Shorts, Embeds e Links Normais) ---
     const getYouTubeEmbedUrl = (url) => {
         if (!url) return null;
         try {
@@ -3595,10 +3599,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     videoId = urlObj.pathname.split('/shorts/')[1];
                 }
             }
+
             if (!videoId) return null;
+            
+            // Remove parâmetros extras que possam ter vindo junto
             videoId = videoId.split('?')[0].split('&')[0];
+
             return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
         } catch (e) {
+            console.error("Erro URL Youtube:", e);
+            // Fallback simples para links youtu.be colados diretamente
             if (url && url.includes('youtu.be/')) {
                 const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
                 return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
@@ -3646,6 +3656,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
+    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3714,7 +3725,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    useEffect(() => { /* Installments logic */ const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
     const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
     useEffect(() => { checkScrollButtons(); const gallery = galleryRef.current; if (gallery) { gallery.addEventListener('scroll', checkScrollButtons); window.addEventListener('resize', checkScrollButtons); return () => { gallery.removeEventListener('scroll', checkScrollButtons); window.removeEventListener('resize', checkScrollButtons); }; } }, [galleryImages, checkScrollButtons]);
     const scrollGallery = (direction) => { const gallery = galleryRef.current; if (gallery) { const scrollAmount = gallery.clientWidth * 0.7; gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); } };
@@ -3725,20 +3736,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+
     return (
         <div className="bg-black text-white min-h-screen">
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING) --- */}
+            {/* --- MODAL DE SELEÇÃO (Estilo Bottom Sheet / Modal) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
+                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
+                        
+                        {/* Wrapper Flexbox para Centralização Correta no Desktop */}
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
@@ -3762,6 +3778,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <XMarkIcon className="h-6 w-6"/>
                                     </button>
                                 </div>
+
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
                                         <div className="flex items-center gap-2 mb-5">
@@ -3770,6 +3787,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             </div>
                                             <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                         </div>
+                                        
                                         <VariationSelector 
                                             product={product} 
                                             variations={productVariations} 
@@ -3780,6 +3798,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             error={selectionError} 
                                         />
                                     </div>
+
                                     <button 
                                         onClick={handleConfirmSelection}
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
@@ -3791,6 +3810,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
                                         {!selectionError && <CheckIcon className="h-5 w-5" />}
                                     </button>
+                                    
                                     <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
                                         <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
                                     </p>
@@ -3800,6 +3820,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </>
                 )}
             </AnimatePresence>
+            {/* --- MODAL DE VÍDEO (RESTAURO) --- */}
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -3828,101 +3849,48 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (Esquerda) - Ocupa 7 colunas no Desktop */}
-                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        <div className="flex flex-col-reverse lg:flex-row gap-4">
-                            
-                            {/* Lista de Miniaturas (Vertical no Desktop, Horizontal no Mobile) */}
-                            <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-20 lg:h-[600px] scrollbar-hide py-2 lg:py-0 order-2 lg:order-1 flex-shrink-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
+                    <div className="lg:sticky lg:top-24 self-start">
+                        {/* --- GALERIA DE IMAGENS --- */}
+                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
+                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
+                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
+                        </div>
+
+                        <div className="relative group">
+                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                 {product.video_url && (
-                                    <div 
-                                        onClick={() => setIsVideoModalOpen(true)} 
-                                        className="relative w-16 h-16 lg:w-20 lg:h-20 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all"
-                                    >
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="bg-red-600 rounded-full p-1 shadow-md group-hover/video:scale-110 transition-transform">
-                                                <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                                            </div>
-                                        </div>
+                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
+                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-sm opacity-50"/>
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                     </div>
                                 )}
                                 {galleryImages.map((img, index) => (
-                                    <div 
-                                        key={index} 
-                                        onClick={() => setMainImage(img)} 
-                                        onMouseEnter={() => setMainImage(img)} 
-                                        className={`relative w-16 h-16 lg:w-20 lg:h-24 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 
-                                            ${mainImage === img 
-                                                ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
-                                                : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
-                                    >
-                                        <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                    <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}>
+                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                     </div>
                                 ))}
-                            </div>
-
-                            {/* Imagem Principal (Grande) */}
-                            <div className="flex-1 order-1 lg:order-2 w-full">
-                                <div 
-                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                    className={`
-                                        relative w-full bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 group
-                                        aspect-square lg:aspect-[4/5] 
-                                        ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}
-                                    `}
-                                >
-                                    {/* Badges de Status */}
-                                    {!productOrVariationOutOfStock && (
-                                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
-                                            {isPromoActive ? ( 
-                                                <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 animate-in fade-in slide-in-from-left-4 duration-500"> 
-                                                    <SaleIcon className="h-4 w-4"/> 
-                                                    <span>PROMOÇÃO {discountPercent}%</span> 
-                                                </div> 
-                                            ) : isNew ? ( 
-                                                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                                            ) : null}
-                                        </div>
-                                    )}
-                                    {productOrVariationOutOfStock && ( 
-                                        <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
-                                    )}
-
-                                    <img 
-                                        src={mainImage} 
-                                        alt={product.name} 
-                                        className="w-full h-full object-contain p-4 lg:p-8 transition-transform duration-500 group-hover:scale-105" 
-                                    />
-                                    
-                                    {/* Dica de Zoom (Desktop) */}
-                                    <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
-                    <div className="lg:col-span-5 space-y-6">
+                    <div className="space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-3 justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center text-amber-400 gap-0.5">
-                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
-                                    </div>
-                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
+                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-2 justify-between">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
+                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
+                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
+                        {/* --- ÁREA DE DESTAQUE DE PROMOÇÃO (RESTAURADA E MELHORADA) --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -3967,6 +3935,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
+                        {/* --- BLOCO DE PREÇO ESPECIAL (SEM TEMPO/EXPIRADO) RESTAURADO --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
