@@ -3493,6 +3493,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+    const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false); // NOVO
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
@@ -3501,10 +3502,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-    const [pendingAction, setPendingAction] = useState(null); // 'buyNow' ou 'addToCart'
-    const [selectionError, setSelectionError] = useState(false); // Novo estado de erro
+    const [pendingAction, setPendingAction] = useState(null); 
+    const [selectionError, setSelectionError] = useState(false); 
 
-    const [selectedVariation, setSelectedVariation] = useState(null); // Computado
+    const [selectedVariation, setSelectedVariation] = useState(null); 
     const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
@@ -3513,6 +3514,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    
+    // Estados para controle de scroll vertical da galeria (Desktop)
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
@@ -3520,7 +3525,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
         if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
-            // Pega a primeira cor disponível com estoque
             const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
             if (firstVar && firstVar.color) {
                 setSelectedColor(firstVar.color);
@@ -3533,12 +3537,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
             setSelectedVariation(found || null);
-            setSelectionError(false); // Limpa erro ao selecionar
+            setSelectionError(false); 
         } else {
             setSelectedVariation(null);
         }
         
-        // Atualiza galeria baseada na cor selecionada
         if (selectedColor) {
              const allImagesForColor = productVariations
                 .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
@@ -3564,7 +3567,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (product) {
             let active = !!product.is_on_sale && product.sale_price > 0;
             if (product.product_type === 'clothing' && selectedVariation) {
-                // Lógica corrigida: Se is_promo for undefined (legado), assume true se o produto está em promo
                 if (selectedVariation.is_promo === false) {
                     active = false;
                 }
@@ -3583,7 +3585,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [isPromoActive, product]);
 
     useEffect(() => {
-        // Se não tiver data, ou promo não ativa, para.
         if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
             return;
@@ -3602,7 +3603,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
-                // IMPORTANTE: Não desativar aqui visualmente, deixar o backend ou próxima renderização tratar
             }
         };
         calculateTimeLeft();
@@ -3610,7 +3610,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
 
-    // ... (rest of logic: isNew, avgRating, etc.)
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -3633,42 +3632,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE (Aceita Shorts, Embeds e Links Normais) ---
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        try {
-            let videoId = '';
-            const urlObj = new URL(url);
-
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com')) {
-                if (urlObj.searchParams.has('v')) {
-                    videoId = urlObj.searchParams.get('v');
-                } else if (urlObj.pathname.includes('/embed/')) {
-                    videoId = urlObj.pathname.split('/embed/')[1];
-                } else if (urlObj.pathname.includes('/shorts/')) {
-                    videoId = urlObj.pathname.split('/shorts/')[1];
-                }
-            }
-
-            if (!videoId) return null;
-            
-            // Remove parâmetros extras que possam ter vindo junto
-            videoId = videoId.split('?')[0].split('&')[0];
-
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            console.error("Erro URL Youtube:", e);
-            // Fallback simples para links youtu.be colados diretamente
-            if (url && url.includes('youtu.be/')) {
-                const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
-                return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
-            }
-            return null;
-        }
-    };
-
+    // --- HELPERS ---
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3708,7 +3673,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
-    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3776,11 +3740,117 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
+    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
+    const handleNextImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const nextIndex = (currentIndex + 1) % galleryImages.length;
+        setMainImage(galleryImages[nextIndex]);
+    };
+
+    const handlePrevImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+        setMainImage(galleryImages[prevIndex]);
+    };
+
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { /* Installments logic */ const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
-    const checkScrollButtons = useCallback(() => { const gallery = galleryRef.current; if (gallery) { setCanScrollLeft(gallery.scrollLeft > 0); setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1); } }, []);
-    useEffect(() => { checkScrollButtons(); const gallery = galleryRef.current; if (gallery) { gallery.addEventListener('scroll', checkScrollButtons); window.addEventListener('resize', checkScrollButtons); return () => { gallery.removeEventListener('scroll', checkScrollButtons); window.removeEventListener('resize', checkScrollButtons); }; } }, [galleryImages, checkScrollButtons]);
-    const scrollGallery = (direction) => { const gallery = galleryRef.current; if (gallery) { const scrollAmount = gallery.clientWidth * 0.7; gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); } };
+    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    
+    // --- CONTROLE DE SCROLL DA GALERIA ---
+    const checkScrollButtons = useCallback(() => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            // Horizontal (Mobile)
+            setCanScrollLeft(gallery.scrollLeft > 0); 
+            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
+            // Vertical (Desktop)
+            setCanScrollUp(gallery.scrollTop > 0);
+            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
+        } 
+    }, []);
+
+    useEffect(() => { 
+        checkScrollButtons(); 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            gallery.addEventListener('scroll', checkScrollButtons); 
+            window.addEventListener('resize', checkScrollButtons); 
+            return () => { 
+                gallery.removeEventListener('scroll', checkScrollButtons); 
+                window.removeEventListener('resize', checkScrollButtons); 
+            }; 
+        } 
+    }, [galleryImages, checkScrollButtons]);
+
+    const scrollGallery = (direction) => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            if (direction === 'left' || direction === 'right') {
+                const scrollAmount = gallery.clientWidth * 0.7; 
+                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
+            } else {
+                const scrollAmount = gallery.clientHeight * 0.7;
+                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        } 
+    };
+    
+    // --- RENDERIZAÇÃO DA TABELA DE MEDIDAS (CLIENTE) ---
+    const renderSizeGuide = () => {
+        if (!product || !product.size_guide) return null;
+        
+        let gridData = null;
+        try {
+            // Tenta fazer parse se for JSON
+            const parsed = JSON.parse(product.size_guide);
+            if (parsed.type === 'grid' && parsed.gridData) {
+                gridData = parsed.gridData;
+            }
+        } catch (e) {
+            // Se falhar o parse, retorna o HTML antigo (retrocompatibilidade)
+             return <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/>;
+        }
+
+        if (!gridData) return null;
+
+        const sizes = ['PP', 'P', 'M', 'G', 'GG', 'XG'];
+        const measurements = ['Busto', 'Cintura', 'Quadril', 'Comprimento'];
+        
+        // Filtra apenas tamanhos que têm dados
+        const activeSizes = sizes.filter(size => 
+            measurements.some(m => gridData[`${size}-${m}`])
+        );
+
+        return (
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-center border-collapse">
+                    <thead>
+                        <tr className="bg-gray-800 text-gray-300">
+                            <th className="p-3 border border-gray-700">Tamanho</th>
+                            {measurements.map(m => <th key={m} className="p-3 border border-gray-700">{m}</th>)}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {activeSizes.map((size, i) => (
+                            <tr key={size} className={i % 2 === 0 ? 'bg-black' : 'bg-gray-900/50'}>
+                                <td className="p-3 border border-gray-800 font-bold text-white">{size}</td>
+                                {measurements.map(m => (
+                                    <td key={m} className="p-3 border border-gray-800 text-gray-300">
+                                        {gridData[`${size}-${m}`] || '-'}
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
@@ -3792,21 +3862,81 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
+
+            {/* --- MODAL DE GUIA DE MEDIDAS (NOVO) --- */}
+            <AnimatePresence>
+                {isSizeGuideOpen && (
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideOpen(false)} title="Guia de Medidas" size="lg">
+                        <div className="space-y-6">
+                            <div className="flex flex-col md:flex-row gap-8 items-center justify-center bg-white p-6 rounded-lg text-gray-800">
+                                {/* Ilustração de Medidas */}
+                                <div className="relative w-32 h-64 md:w-40 md:h-80 flex-shrink-0">
+                                     {/* Silhueta Feminina Simplificada (SVG Inline) */}
+                                     <svg viewBox="0 0 100 200" className="w-full h-full text-gray-300 fill-current">
+                                        <path d="M50,0 C35,0 25,10 25,25 C25,40 30,50 30,60 C20,65 10,75 10,90 L15,140 L25,135 L22,90 C22,80 30,75 35,70 C35,90 32,100 32,110 C32,125 35,135 40,140 L40,190 L45,190 L45,145 C40,140 38,130 38,115 C38,105 40,95 40,75 C45,75 55,75 60,75 C60,95 62,105 62,115 C62,130 60,140 55,145 L55,190 L60,190 L60,140 C65,135 68,125 68,110 C68,100 65,90 65,70 C70,75 78,80 78,90 L75,135 L85,140 L90,90 C90,75 80,65 70,60 C70,50 75,40 75,25 C75,10 65,0 50,0 Z" />
+                                     </svg>
+                                     {/* Linhas de Medida */}
+                                     <div className="absolute top-[32%] left-0 w-full flex items-center justify-center">
+                                         <div className="w-full h-px bg-red-500 border-b border-dashed border-red-500 relative">
+                                            <span className="absolute -top-3 right-0 text-[10px] font-bold text-red-600 bg-white px-1">Busto</span>
+                                         </div>
+                                     </div>
+                                     <div className="absolute top-[48%] left-0 w-full flex items-center justify-center">
+                                         <div className="w-full h-px bg-blue-500 border-b border-dashed border-blue-500 relative">
+                                             <span className="absolute -top-3 right-0 text-[10px] font-bold text-blue-600 bg-white px-1">Cintura</span>
+                                         </div>
+                                     </div>
+                                      <div className="absolute top-[60%] left-0 w-full flex items-center justify-center">
+                                         <div className="w-full h-px bg-green-500 border-b border-dashed border-green-500 relative">
+                                             <span className="absolute -top-3 right-0 text-[10px] font-bold text-green-600 bg-white px-1">Quadril</span>
+                                         </div>
+                                     </div>
+                                </div>
+                                
+                                <div className="flex-grow w-full">
+                                    <h3 className="font-bold text-lg mb-4 text-center md:text-left">Tabela de Medidas (cm)</h3>
+                                    {/* Renderiza a Tabela do DB */}
+                                    <div className="w-full">
+                                        {/* Como o modal é branco, ajustamos o renderSizeGuide para ter texto escuro se necessário, ou usamos CSS global do modal */}
+                                        <div className="size-guide-content-dark">
+                                            {renderSizeGuide()}
+                                        </div>
+                                    </div>
+                                    <div className="mt-6 text-xs text-gray-500 space-y-1">
+                                        <p><strong>Como medir:</strong></p>
+                                        <p>• <strong>Busto:</strong> Passe a fita métrica sobre a parte mais volumosa dos seios.</p>
+                                        <p>• <strong>Cintura:</strong> Meça na parte mais estreita do tronco (cerca de 2 dedos acima do umbigo).</p>
+                                        <p>• <strong>Quadril:</strong> Contorne a parte mais larga dos quadris.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Modal>
+                )}
+            </AnimatePresence>
             
-            {/* --- MODAL DE SELEÇÃO (Estilo Bottom Sheet / Modal) --- */}
+            {/* --- MODAL DE SELEÇÃO (FLEXBOX CENTERING) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
-                        {/* Backdrop */}
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                             className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        
-                        {/* Wrapper Flexbox para Centralização Correta no Desktop */}
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
@@ -3830,16 +3960,23 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <XMarkIcon className="h-6 w-6"/>
                                     </button>
                                 </div>
-
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        <div className="flex items-center gap-2 mb-5">
-                                            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
-                                                <ShirtIcon className="h-5 w-5" />
+                                        <div className="flex items-center justify-between mb-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                    <ShirtIcon className="h-5 w-5" />
+                                                </div>
+                                                <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
-                                            <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
+                                            {/* BOTÃO DE GUIA DE MEDIDAS (DENTRO DO MODAL TAMBÉM) */}
+                                            <button 
+                                                onClick={() => setIsSizeGuideOpen(true)}
+                                                className="text-xs text-amber-400 underline hover:text-amber-300 flex items-center gap-1"
+                                            >
+                                                <RulerIcon className="h-4 w-4"/> Guia de Medidas
+                                            </button>
                                         </div>
-                                        
                                         <VariationSelector 
                                             product={product} 
                                             variations={productVariations} 
@@ -3850,7 +3987,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             error={selectionError} 
                                         />
                                     </div>
-
                                     <button 
                                         onClick={handleConfirmSelection}
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
@@ -3862,7 +3998,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
                                         {!selectionError && <CheckIcon className="h-5 w-5" />}
                                     </button>
-                                    
                                     <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
                                         <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
                                     </p>
@@ -3872,7 +4007,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </>
                 )}
             </AnimatePresence>
-            {/* --- MODAL DE VÍDEO (RESTAURO) --- */}
+            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -3901,48 +4036,87 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    <div className="lg:sticky lg:top-24 self-start">
-                        {/* --- GALERIA DE IMAGENS --- */}
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
-                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
-                        </div>
-
-                        <div className="relative group">
-                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                {product.video_url && (
-                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+                    {/* COLUNA GALERIA */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
+                        <div className="flex flex-col lg:flex-row-reverse gap-4">
+                            {/* Imagem Principal */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 aspect-square lg:aspect-auto lg:h-[600px] group flex justify-center items-center">
+                                {/* Badges */}
+                                {!productOrVariationOutOfStock && (
+                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+                                        {isPromoActive ? ( 
+                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                                                <SaleIcon className="h-4 w-4"/> 
+                                                <span>PROMOÇÃO {discountPercent}%</span> 
+                                            </div> 
+                                        ) : isNew ? ( 
+                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                        ) : null}
                                     </div>
                                 )}
-                                {galleryImages.map((img, index) => (
-                                    <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}>
-                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
-                                    </div>
-                                ))}
+                                {productOrVariationOutOfStock && ( 
+                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
+                                )}
+
+                                <img 
+                                    src={mainImage} 
+                                    alt={product.name} 
+                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                    className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                />
+                                
+                                {/* Botões de Navegação */}
+                                {galleryImages.length > 1 && (
+                                    <>
+                                        <button onClick={handlePrevImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20" aria-label="Imagem anterior"><ChevronDownIcon className="h-6 w-6 rotate-90" /></button>
+                                        <button onClick={handleNextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20" aria-label="Próxima imagem"><ChevronDownIcon className="h-6 w-6 -rotate-90" /></button>
+                                    </>
+                                )}
+                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
+                                </div>
+                            </div>
+
+                            {/* Lista de Miniaturas */}
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                                {canScrollUp && <button onClick={() => scrollGallery('up')} className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"><ChevronDownIcon className="h-4 w-4 rotate-180" /></button>}
+                                <div ref={galleryRef} className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4" style={{ maxHeight: '80vh' }}>
+                                    {product.video_url && (
+                                        <div onClick={() => setIsVideoModalOpen(true)} className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md">
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
+                                            <div className="absolute inset-0 flex items-center justify-center"><div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform"><svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div></div>
+                                        </div>
+                                    )}
+                                    {galleryImages.map((img, index) => (
+                                        <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm ${mainImage === img ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}>
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                        </div>
+                                    ))}
+                                </div>
+                                {canScrollDown && <button onClick={() => scrollGallery('down')} className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"><ChevronDownIcon className="h-4 w-4" /></button>}
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    {/* COLUNA DETALHES (Direita) */}
+                    <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
+                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-3 justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center text-amber-400 gap-0.5">
+                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE DESTAQUE DE PROMOÇÃO (RESTAURADA E MELHORADA) --- */}
+                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -3987,7 +4161,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
-                        {/* --- BLOCO DE PREÇO ESPECIAL (SEM TEMPO/EXPIRADO) RESTAURADO --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -4027,15 +4200,27 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
-                            <VariationSelector 
-                                product={product} 
-                                variations={productVariations} 
-                                selectedColor={selectedColor} 
-                                setSelectedColor={setSelectedColor}
-                                selectedSize={selectedSize}
-                                setSelectedSize={setSelectedSize}
-                                error={selectionError}
-                            /> 
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                     <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wide">Selecione Cor e Tamanho</h3>
+                                     {/* BOTÃO DE GUIA DE MEDIDAS (PRINCIPAL) */}
+                                     <button 
+                                        onClick={() => setIsSizeGuideOpen(true)}
+                                        className="text-xs text-amber-400 underline hover:text-amber-300 flex items-center gap-1 font-medium transition-colors"
+                                    >
+                                        <RulerIcon className="h-4 w-4"/> Guia de Medidas
+                                    </button>
+                                </div>
+                                <VariationSelector 
+                                    product={product} 
+                                    variations={productVariations} 
+                                    selectedColor={selectedColor} 
+                                    setSelectedColor={setSelectedColor}
+                                    selectedSize={selectedSize}
+                                    setSelectedSize={setSelectedSize}
+                                    error={selectionError}
+                                /> 
+                            </div>
                         )}
 
                         {!productOrVariationOutOfStock && (
@@ -4087,7 +4272,21 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (
+                            // Renderiza a tabela profissional também na aba de detalhes, se existir
+                            product.size_guide && product.size_guide.startsWith('{') ? (
+                                <div className="not-prose">
+                                    <div className="bg-gray-900 p-6 rounded-lg border border-gray-700">
+                                         <h4 className="text-lg font-bold text-white mb-4 text-center">Tabela de Medidas (cm)</h4>
+                                         {renderSizeGuide()}
+                                         <p className="text-xs text-gray-500 mt-4 text-center">Use uma fita métrica para encontrar o tamanho ideal.</p>
+                                    </div>
+                                </div>
+                            ) : (
+                                // Fallback para HTML antigo
+                                <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/>
+                            )
+                        )}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
@@ -9252,6 +9451,13 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     // Estado para controlar quais cores estão na promoção (apenas para roupas)
     const [promoSelectedColors, setPromoSelectedColors] = useState([]);
 
+    // Estado local para a Guia de Medidas (Tabela)
+    const [sizeGuideGrid, setSizeGuideGrid] = useState({
+        sizes: ['PP', 'P', 'M', 'G', 'GG', 'XG'],
+        measurements: ['Busto', 'Cintura', 'Quadril', 'Comprimento'],
+        data: {} // { "P-Busto": "82-86", "P-Cintura": "64-68" }
+    });
+
     const mainGalleryInputRef = useRef(null);
     const mainCameraInputRef = useRef(null);
     const [allCollectionCategories, setAllCollectionCategories] = useState([]);
@@ -9274,8 +9480,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
     
     const clothingFields = [
         { name: 'variations', label: 'Grade de Variações', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML/Texto)', type: 'textarea', placeholder: '<p>P: 38cm</p>...' },
         { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
+        // size_guide removido daqui pois terá tratamento especial
     ];
 
    const commonFields = [
@@ -9348,6 +9554,16 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     const allColors = vars.filter(v => v.color).map(v => v.color);
                     setPromoSelectedColors([...new Set(allColors)]);
                 }
+
+                // Parse Size Guide JSON
+                try {
+                    if (item.size_guide && item.size_guide.startsWith('{')) {
+                        const parsedGuide = JSON.parse(item.size_guide);
+                        if (parsedGuide.gridData) {
+                            setSizeGuideGrid(prev => ({ ...prev, data: parsedGuide.gridData }));
+                        }
+                    }
+                } catch (e) { console.error("Erro ao parsear guia de medidas:", e); }
             }
 
         } else {
@@ -9380,6 +9596,17 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             }
             return updated;
         });
+    };
+
+    // Handler da Grid de Medidas
+    const handleSizeGridChange = (size, measurement, value) => {
+        setSizeGuideGrid(prev => ({
+            ...prev,
+            data: {
+                ...prev.data,
+                [`${size}-${measurement}`]: value
+            }
+        }));
     };
 
     // Handler atualizado para limpar dados e corrigir o bug visual
@@ -9553,6 +9780,8 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             clothingFields.forEach(field => delete dataToSubmit[field.name]);
             dataToSubmit.variations = '[]';
             dataToSubmit.stock = parseInt(dataToSubmit.stock, 10) || 0;
+            // Limpa guia de medidas se mudar para perfume
+            dataToSubmit.size_guide = null;
         } else if (productType === 'clothing') {
             perfumeFields.forEach(field => delete dataToSubmit[field.name]);
 
@@ -9572,6 +9801,12 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             dataToSubmit.variations = syncedVariations;
             const totalStock = (dataToSubmit.variations || []).reduce((sum, v) => sum + (parseInt(v.stock, 10) || 0), 0);
             dataToSubmit.stock = totalStock;
+
+            // Salva a grade de medidas como JSON no campo size_guide
+            dataToSubmit.size_guide = JSON.stringify({
+                type: 'grid',
+                gridData: sizeGuideGrid.data
+            });
         }
 
         dataToSubmit.images = JSON.stringify(dataToSubmit.images?.filter(img => img && img.trim() !== '') || []);
@@ -9785,8 +10020,6 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         
                         {(formData.variations || []).length > 0 ? (
                             (formData.variations || []).map((v, i) => {
-                                const seenColors = new Set();
-                                // Helper simples para identificar primeira ocorrência visualmente
                                 const isFirst = (formData.variations || []).findIndex(va => va.color === v.color) === i;
                                 return (
                                     <VariationInputRow 
@@ -9810,15 +10043,50 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                             </div>
                         )}
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (HTML/Texto)</label>
-                            <textarea name="size_guide" value={formData.size_guide || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32 font-mono text-xs"></textarea>
+                    
+                    {/* --- EDITOR DE GUIA DE MEDIDAS (NOVO) --- */}
+                    <div className="mt-8 pt-6 border-t border-gray-200">
+                        <div className="flex items-center gap-2 mb-4">
+                            <RulerIcon className="h-5 w-5 text-indigo-600"/>
+                            <label className="text-sm font-bold text-gray-800">Tabela de Medidas (cm)</label>
                         </div>
+                        <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                            <table className="w-full text-sm text-center">
+                                <thead className="bg-gray-100 text-gray-700">
+                                    <tr>
+                                        <th className="p-2 border-r border-b border-gray-300 bg-gray-200">Tam.</th>
+                                        {sizeGuideGrid.measurements.map(m => (
+                                            <th key={m} className="p-2 border-r border-b border-gray-300 font-bold">{m}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sizeGuideGrid.sizes.map(size => (
+                                        <tr key={size} className="hover:bg-gray-50">
+                                            <td className="p-2 border-r border-b border-gray-300 font-bold bg-gray-50 text-gray-900">{size}</td>
+                                            {sizeGuideGrid.measurements.map(m => (
+                                                <td key={m} className="p-0 border-r border-b border-gray-300">
+                                                    <input 
+                                                        type="text" 
+                                                        className="w-full h-full p-2 text-center bg-transparent focus:bg-indigo-50 focus:outline-none"
+                                                        placeholder="-"
+                                                        value={sizeGuideGrid.data[`${size}-${m}`] || ''}
+                                                        onChange={(e) => handleSizeGridChange(size, m, e.target.value)}
+                                                    />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-2">* Preencha apenas os tamanhos que este produto possui. Deixe em branco se não se aplicar.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-5 pt-4">
                         <div>
                              <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
-                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-24" placeholder="Lavar à mão..."></textarea>
                         </div>
                     </div>
                  </FormSection>
