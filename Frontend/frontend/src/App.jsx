@@ -1204,6 +1204,160 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
+// --- NOVOS COMPONENTES: GUIA DE MEDIDAS ---
+
+const MeasurementIllustration = () => (
+    <div className="relative w-full max-w-[200px] mx-auto">
+        <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-md" fill="none" stroke="currentColor" strokeWidth="1.5">
+            {/* Silhueta Feminina Básica para Roupa */}
+            <path d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" fill="#f8fafc" stroke="#94a3b8" />
+            
+            {/* Linhas de Medida */}
+            {/* Busto */}
+            <line x1="60" y1="90" x2="140" y2="90" stroke="#f59e0b" strokeDasharray="4" />
+            <text x="100" y="85" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Busto</text>
+            
+            {/* Cintura */}
+            <line x1="58" y1="140" x2="142" y2="140" stroke="#f59e0b" strokeDasharray="4" />
+            <text x="100" y="135" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Cintura</text>
+            
+            {/* Quadril */}
+            <line x1="55" y1="190" x2="145" y2="190" stroke="#f59e0b" strokeDasharray="4" />
+            <text x="100" y="185" textAnchor="middle" fontSize="10" fill="#f59e0b" fontWeight="bold">Quadril</text>
+            
+            {/* Comprimento */}
+            <line x1="160" y1="40" x2="160" y2="250" stroke="#64748b" strokeDasharray="4" />
+            <text x="165" y="150" textAnchor="start" fontSize="10" fill="#64748b" style={{writingMode: "vertical-rl", textOrientation: "upright"}}>Comprimento</text>
+        </svg>
+    </div>
+);
+
+const SizeGuideAdminInput = ({ value, onChange }) => {
+    // Parser seguro do JSON ou valor inicial
+    const safeValue = useMemo(() => {
+        try {
+            const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+            if (parsed && Array.isArray(parsed.rows)) return parsed;
+        } catch(e) {}
+        return {
+            columns: ["Tamanho", "Busto", "Cintura", "Quadril", "Comp."],
+            rows: [
+                { size: "P", values: ["", "", "", ""] },
+                { size: "M", values: ["", "", "", ""] },
+                { size: "G", values: ["", "", "", ""] },
+                { size: "GG", values: ["", "", "", ""] },
+            ]
+        };
+    }, [value]);
+
+    const [data, setData] = useState(safeValue);
+
+    useEffect(() => {
+        // Sincroniza para o componente pai como string JSON
+        onChange(JSON.stringify(data));
+    }, [data, onChange]);
+
+    const handleValueChange = (rowIndex, colIndex, val) => {
+        const newRows = [...data.rows];
+        newRows[rowIndex].values[colIndex] = val;
+        setData({ ...data, rows: newRows });
+    };
+
+    return (
+        <div className="border rounded-lg overflow-hidden bg-white shadow-sm">
+            <div className="bg-gray-50 p-3 border-b border-gray-200">
+                <p className="text-sm font-bold text-gray-700">Tabela de Medidas (cm)</p>
+                <p className="text-xs text-gray-500">Preencha os valores para cada tamanho.</p>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-100 text-gray-600 font-medium">
+                        <tr>
+                            {data.columns.map((col, i) => (
+                                <th key={i} className="px-3 py-2 border-b">{col}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {data.rows.map((row, rIndex) => (
+                            <tr key={rIndex} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-bold text-gray-800 bg-gray-50/50">{row.size}</td>
+                                {row.values.map((val, cIndex) => (
+                                    <td key={cIndex} className="px-3 py-2">
+                                        <input 
+                                            type="text" 
+                                            value={val} 
+                                            onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                            className="w-full min-w-[60px] p-1 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center"
+                                            placeholder="-"
+                                        />
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const SizeGuideDisplay = ({ dataString }) => {
+    const data = useMemo(() => {
+        try {
+            return JSON.parse(dataString);
+        } catch (e) {
+            return null;
+        }
+    }, [dataString]);
+
+    // Fallback para texto antigo se não for JSON válido
+    if (!data || !data.rows) {
+        return <div className="prose prose-invert max-w-none text-sm" dangerouslySetInnerHTML={{ __html: dataString }} />;
+    }
+
+    return (
+        <div className="flex flex-col md:flex-row gap-8 items-center bg-gray-900 p-6 rounded-xl border border-gray-800">
+            <div className="flex-1 w-full">
+                <h4 className="text-amber-400 font-bold mb-4 uppercase tracking-wider text-sm flex items-center gap-2">
+                    <RulerIcon className="h-5 w-5" /> Tabela de Medidas (cm)
+                </h4>
+                <div className="overflow-hidden rounded-lg border border-gray-700">
+                    <table className="w-full text-sm text-gray-300">
+                        <thead>
+                            <tr className="bg-gray-800 text-amber-500">
+                                {data.columns.map((col, i) => (
+                                    <th key={i} className="px-4 py-3 font-bold text-center border-b border-gray-700 first:text-left">{col}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800">
+                            {data.rows.map((row, i) => (
+                                <tr key={i} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-4 py-3 font-bold text-white bg-gray-800/50">{row.size}</td>
+                                    {row.values.map((val, j) => (
+                                        <td key={j} className="px-4 py-3 text-center">{val || '-'}</td>
+                                    ))}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">* As medidas podem variar de 1 a 2 cm.</p>
+            </div>
+            
+            <div className="w-full md:w-1/3 flex flex-col items-center">
+                <div className="bg-white p-4 rounded-lg shadow-lg">
+                    <MeasurementIllustration />
+                </div>
+                <p className="text-xs text-gray-400 mt-3 text-center max-w-[200px]">
+                    Use uma fita métrica para encontrar o tamanho ideal para você.
+                </p>
+            </div>
+        </div>
+    );
+};
+
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
     const notification = useNotification();
@@ -3982,7 +4136,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 setSelectedColor={setSelectedColor}
                                 selectedSize={selectedSize}
                                 setSelectedSize={setSelectedSize}
-                                error={selectionError}
+                                error={selectionError} 
                             /> 
                         )}
 
@@ -4024,18 +4178,27 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
+                        {/* --- ATUALIZAÇÃO: Exibe a tab "Tabela de Medidas" apenas para roupas --- */}
+                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
+                        
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
+                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        
+                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
+                        {isClothing && activeTab === 'size_guide' && (
+                            product.size_guide 
+                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
+                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
+                        )}
+                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
@@ -9220,9 +9383,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'ideal_for', label: 'Ideal Para', type: 'textarea', placeholder: 'Ocasiões, tipo de pele...' },
     ];
     
+    // --- ATUALIZAÇÃO: Removido size_guide de textarea simples ---
     const clothingFields = [
         { name: 'variations', label: 'Grade de Variações', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML/Texto)', type: 'textarea', placeholder: '<p>P: 38cm</p>...' },
         { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
     ];
 
@@ -9269,6 +9432,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
             
+            // --- ATUALIZAÇÃO: Carregar size_guide existente ---
+            initialData.size_guide = item.size_guide || '';
+
             initialData.is_on_sale = !!item.is_on_sale;
             initialData.sale_price = item.sale_price || '';
             
@@ -9304,6 +9470,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.is_on_sale = false;
             initialData.sale_price = '';
             initialData.sale_end_date = '';
+            initialData.size_guide = ''; // Inicializa vazio
         }
 
         setFormData(initialData);
@@ -9760,13 +9927,18 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
+                        {/* --- ATUALIZAÇÃO: Novo input de Guia de Medidas --- */}
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (HTML/Texto)</label>
-                            <textarea name="size_guide" value={formData.size_guide || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32 font-mono text-xs"></textarea>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
+                             <SizeGuideAdminInput 
+                                value={formData.size_guide} 
+                                onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
+                             />
                         </div>
+                        
                         <div>
                              <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
-                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-64"></textarea>
                         </div>
                     </div>
                  </FormSection>
