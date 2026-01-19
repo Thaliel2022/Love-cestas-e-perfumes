@@ -3525,6 +3525,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
+                // IMPORTANTE: Não desativar aqui visualmente, deixar o backend ou próxima renderização tratar
             }
         };
         calculateTimeLeft();
@@ -3555,8 +3556,42 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // ... (Helpers: getYouTubeEmbedUrl, etc.) ...
-    const getYouTubeEmbedUrl = (url) => { if (!url) return null; let videoId; try { const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else { return null; } return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { return null; } };
+    // --- FUNÇÃO CORRIGIDA PARA YOUTUBE (Aceita Shorts, Embeds e Links Normais) ---
+    const getYouTubeEmbedUrl = (url) => {
+        if (!url) return null;
+        try {
+            let videoId = '';
+            const urlObj = new URL(url);
+
+            if (urlObj.hostname === 'youtu.be') {
+                videoId = urlObj.pathname.slice(1);
+            } else if (urlObj.hostname.includes('youtube.com')) {
+                if (urlObj.searchParams.has('v')) {
+                    videoId = urlObj.searchParams.get('v');
+                } else if (urlObj.pathname.includes('/embed/')) {
+                    videoId = urlObj.pathname.split('/embed/')[1];
+                } else if (urlObj.pathname.includes('/shorts/')) {
+                    videoId = urlObj.pathname.split('/shorts/')[1];
+                }
+            }
+
+            if (!videoId) return null;
+            
+            // Remove parâmetros extras que possam ter vindo junto
+            videoId = videoId.split('?')[0].split('&')[0];
+
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+        } catch (e) {
+            console.error("Erro URL Youtube:", e);
+            // Fallback simples para links youtu.be colados diretamente
+            if (url && url.includes('youtu.be/')) {
+                const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
+                return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
+            }
+            return null;
+        }
+    };
+
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3683,7 +3718,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO ATUALIZADO (FLEXBOX CENTERING) --- */}
+            {/* --- MODAL DE SELEÇÃO (Estilo Bottom Sheet / Modal) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
@@ -3758,6 +3793,29 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </motion.div>
                         </div>
                     </>
+                )}
+            </AnimatePresence>
+            {/* --- MODAL DE VÍDEO (RESTAURO) --- */}
+            <AnimatePresence>
+                {isVideoModalOpen && product.video_url && (
+                     <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
+                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
+                            {getYouTubeEmbedUrl(product.video_url) ? (
+                                <iframe 
+                                    src={getYouTubeEmbedUrl(product.video_url)} 
+                                    title={product.name} 
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen 
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                ></iframe>
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+                                    <p>Vídeo indisponível.</p>
+                                </div>
+                            )}
+                        </div>
+                    </Modal>
                 )}
             </AnimatePresence>
 
