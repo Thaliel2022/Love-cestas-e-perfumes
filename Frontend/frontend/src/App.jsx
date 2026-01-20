@@ -3664,6 +3664,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false); // NOVO: Estado do Guia de Medidas
     const [pendingAction, setPendingAction] = useState(null); 
     const [selectionError, setSelectionError] = useState(false); 
 
@@ -3991,6 +3992,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
+            {/* --- MODAL DO GUIA DE MEDIDAS (NOVO) --- */}
+            <AnimatePresence>
+                {isSizeGuideModalOpen && product.size_guide && (
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="4xl">
+                        <SizeGuideDisplay dataString={product.size_guide} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
             {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
@@ -4025,11 +4035,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        <div className="flex items-center gap-2 mb-5">
-                                            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
-                                                <ShirtIcon className="h-5 w-5" />
+                                        {/* --- BOTÃO DE GUIA DE MEDIDAS (MOBILE) --- */}
+                                        <div className="flex items-center justify-between mb-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                    <ShirtIcon className="h-5 w-5" />
+                                                </div>
+                                                <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
-                                            <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
+                                            {isClothing && product.size_guide && (
+                                                <button 
+                                                    onClick={() => setIsSizeGuideModalOpen(true)}
+                                                    className="text-xs font-bold text-amber-400 flex items-center gap-1 px-2 py-1 rounded border border-amber-400/30 hover:bg-amber-400/10 transition-colors"
+                                                >
+                                                    <RulerIcon className="h-3.5 w-3.5"/> Guia de Medidas
+                                                </button>
+                                            )}
                                         </div>
                                         <VariationSelector 
                                             product={product} 
@@ -4310,15 +4331,28 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                         {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
-                            <VariationSelector 
-                                product={product} 
-                                variations={productVariations} 
-                                selectedColor={selectedColor} 
-                                setSelectedColor={setSelectedColor}
-                                selectedSize={selectedSize}
-                                setSelectedSize={setSelectedSize}
-                                error={selectionError} 
-                            /> 
+                            <div className="mb-2">
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP) --- */}
+                                {product.size_guide && (
+                                    <div className="flex justify-end mb-2">
+                                        <button 
+                                            onClick={() => setIsSizeGuideModalOpen(true)}
+                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors"
+                                        >
+                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
+                                        </button>
+                                    </div>
+                                )}
+                                <VariationSelector 
+                                    product={product} 
+                                    variations={productVariations} 
+                                    selectedColor={selectedColor} 
+                                    setSelectedColor={setSelectedColor}
+                                    selectedSize={selectedSize}
+                                    setSelectedSize={setSelectedSize}
+                                    error={selectionError} 
+                                /> 
+                            </div>
                         )}
 
                         {!productOrVariationOutOfStock && (
@@ -4359,25 +4393,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
+                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
                     <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
-                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
-                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
                         
-                        {/* --- INTEGRAÇÃO DO NOVO GUIA DE MEDIDAS --- */}
+                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
                         {isClothing && activeTab === 'size_guide' && (
                             product.size_guide 
                             ? <SizeGuideDisplay dataString={product.size_guide} /> 
                             : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
                         )}
                         
+                        {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
+                        {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
+                        {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
