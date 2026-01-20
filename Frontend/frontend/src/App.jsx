@@ -1223,7 +1223,7 @@ const MeasurementIllustration = () => (
     </div>
 );
 
-// Componente de Entrada Admin (Sem badge, sem barra de rolagem visível)
+// Componente de Entrada Admin (Otimizado para Mobile sem Scroll)
 const SizeGuideAdminInput = ({ value, onChange }) => {
     const safeValue = useMemo(() => {
         try {
@@ -1255,38 +1255,63 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
 
     return (
         <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full overflow-hidden">
-            {/* Header limpo (sem badge 'Admin') */}
             <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
                 <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
             </div>
             
-            {/* Scroll Container com estilo para esconder barra */}
-            <div className="w-full overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                <style>{`
-                    .scrollbar-hide::-webkit-scrollbar { display: none; }
-                `}</style>
-                <table className="w-full text-xs text-left min-w-[300px]">
+            {/* --- VERSÃO MOBILE (Cards/Grid - Sem Barra Lateral) --- */}
+            <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
+                {data.rows.map((row, rIndex) => (
+                    <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                            <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
+                                {row.size}
+                            </span>
+                            <span className="text-xs text-gray-400 font-medium">Digite as medidas:</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {row.values.map((val, cIndex) => (
+                                <div key={cIndex} className="flex flex-col gap-1">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase text-center truncate w-full">
+                                        {data.columns[cIndex + 1]}
+                                    </label>
+                                    <input 
+                                        type="tel" 
+                                        value={val} 
+                                        onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                        className="w-full h-9 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-bold bg-white"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* --- VERSÃO DESKTOP (Tabela Padrão) --- */}
+            <div className="hidden md:block w-full overflow-x-auto">
+                <table className="w-full text-xs text-left">
                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
                         <tr>
                             {data.columns.map((col, i) => (
-                                <th key={i} className="px-1 py-2 border-b text-center whitespace-nowrap min-w-[50px]">{col}</th>
+                                <th key={i} className="px-3 py-2 border-b text-center">{col}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {data.rows.map((row, rIndex) => (
-                            <tr key={rIndex} className="hover:bg-gray-50 transition-colors">
-                                {/* Coluna Tamanho Fixa */}
-                                <td className="px-1 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-10 sticky left-0 z-10">
+                            <tr key={rIndex} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-16">
                                     {row.size}
                                 </td>
                                 {row.values.map((val, cIndex) => (
-                                    <td key={cIndex} className="px-1 py-1">
+                                    <td key={cIndex} className="px-2 py-1">
                                         <input 
-                                            type="tel" 
+                                            type="text" 
                                             value={val} 
                                             onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                            className="w-full h-10 px-0 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-medium bg-white"
+                                            className="w-full h-8 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center text-xs font-medium"
                                             placeholder="-"
                                         />
                                     </td>
@@ -1300,7 +1325,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     );
 };
 
-// Componente de Exibição (Sem barra de rolagem visível)
+// Componente de Exibição (Display - Otimizado Mobile)
 const SizeGuideDisplay = ({ dataString }) => {
     const data = useMemo(() => {
         try {
@@ -1323,15 +1348,34 @@ const SizeGuideDisplay = ({ dataString }) => {
                         <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                     </div>
                     
-                    <div className="w-full overflow-x-auto rounded-lg border border-gray-700 shadow-inner bg-gray-800/50 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                        <style>{`
-                            .scrollbar-hide::-webkit-scrollbar { display: none; }
-                        `}</style>
-                        <table className="w-full text-xs sm:text-sm text-gray-300 whitespace-nowrap">
+                    {/* Versão Mobile (Cards/Lista) - Sem Scroll Horizontal */}
+                    <div className="md:hidden space-y-2">
+                        {data.rows.map((row, i) => (
+                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
+                                <div className="flex items-center gap-3">
+                                    <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">
+                                        {row.size}
+                                    </span>
+                                </div>
+                                <div className="flex gap-4 text-xs text-gray-300">
+                                    {row.values.map((val, j) => (
+                                        <div key={j} className="text-center">
+                                            <span className="block text-[9px] text-gray-500 uppercase font-bold mb-0.5">{data.columns[j+1]}</span>
+                                            <span className="font-bold text-white">{val || '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Versão Desktop (Tabela) */}
+                    <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
+                        <table className="w-full text-sm text-gray-300">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
-                                        <th key={i} className={`px-3 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-4' : 'text-center'}`}>
+                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center'}`}>
                                             {col}
                                         </th>
                                     ))}
@@ -1340,11 +1384,11 @@ const SizeGuideDisplay = ({ dataString }) => {
                             <tbody className="divide-y divide-gray-700/50">
                                 {data.rows.map((row, i) => (
                                     <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-3 py-3 pl-4 font-bold text-white bg-gray-800/30 border-r border-gray-700/50 sticky left-0 z-10">
+                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">
                                             {row.size}
                                         </td>
                                         {row.values.map((val, j) => (
-                                            <td key={j} className="px-3 py-3 text-center font-medium">
+                                            <td key={j} className="px-4 py-3 text-center font-medium">
                                                 {val || '-'}
                                             </td>
                                         ))}
@@ -1353,7 +1397,8 @@ const SizeGuideDisplay = ({ dataString }) => {
                             </tbody>
                         </table>
                     </div>
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-2 flex items-center gap-1">
+
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-3 flex items-center gap-1">
                         <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm.
                     </p>
                 </div>
