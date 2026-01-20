@@ -1204,8 +1204,6 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- NOVOS COMPONENTES: GUIA DE MEDIDAS ---
-
 // --- NOVOS COMPONENTES: GUIA DE MEDIDAS (RESPONSIVO OTIMIZADO) ---
 
 const MeasurementIllustration = () => (
@@ -1265,39 +1263,36 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     };
 
     return (
-        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm w-full max-w-full">
-            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                    <p className="text-sm font-bold text-gray-700">Tabela de Medidas (cm)</p>
-                    <p className="text-[10px] text-gray-500">Edite os valores abaixo.</p>
-                </div>
-                <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">Admin</span>
+        <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <p className="text-sm font-bold text-gray-700">Tabela de Medidas (cm)</p>
+                <p className="text-xs text-gray-500">Preencha os valores correspondentes.</p>
             </div>
             
-            {/* Container com scroll horizontal contido */}
-            <div className="overflow-x-auto w-full pb-1">
-                <table className="w-full text-xs text-left min-w-[300px]">
+            {/* Container com scroll horizontal contido apenas na tabela */}
+            <div className="w-full overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[320px]">
                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase tracking-wider">
                         <tr>
                             {data.columns.map((col, i) => (
-                                <th key={i} className="px-2 py-2 border-b text-center min-w-[50px]">{col}</th>
+                                <th key={i} className="px-2 py-2 border-b text-center min-w-[60px] whitespace-nowrap">{col}</th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                         {data.rows.map((row, rIndex) => (
                             <tr key={rIndex} className="hover:bg-gray-50 transition-colors">
-                                {/* Coluna Fixa Visualmente */}
-                                <td className="px-2 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-12">
+                                {/* Coluna Tamanho Fixa */}
+                                <td className="px-2 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-12 sticky left-0 z-10">
                                     {row.size}
                                 </td>
                                 {row.values.map((val, cIndex) => (
-                                    <td key={cIndex} className="px-1 py-1">
+                                    <td key={cIndex} className="px-2 py-1">
                                         <input 
                                             type="tel" // Teclado numérico no mobile
                                             value={val} 
                                             onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                            className="w-full h-8 px-1 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-xs font-medium bg-white"
+                                            className="w-full h-9 px-1 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-xs font-medium bg-white"
                                             placeholder="-"
                                         />
                                     </td>
@@ -1328,7 +1323,7 @@ const SizeGuideDisplay = ({ dataString }) => {
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
             <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 
-                {/* Tabela de Medidas (Lado Esquerdo/Topo) */}
+                {/* Tabela de Medidas */}
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center gap-2 mb-4">
                         <RulerIcon className="h-5 w-5 text-amber-400" />
@@ -1349,7 +1344,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                             <tbody className="divide-y divide-gray-700/50">
                                 {data.rows.map((row, i) => (
                                     <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-3 py-3 pl-4 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">
+                                        <td className="px-3 py-3 pl-4 font-bold text-white bg-gray-800/30 border-r border-gray-700/50 sticky left-0 z-10">
                                             {row.size}
                                         </td>
                                         {row.values.map((val, j) => (
@@ -1367,7 +1362,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                     </p>
                 </div>
                 
-                {/* Ilustração e Dica (Lado Direito/Baixo) */}
+                {/* Ilustração e Dica */}
                 <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
                     <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0">
                         <MeasurementIllustration />
@@ -9952,19 +9947,19 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
-                        {/* --- ATUALIZAÇÃO: Novo input de Guia de Medidas --- */}
+                    <div className="space-y-5 pt-4 border-t border-gray-100">
+                        {/* --- ATUALIZAÇÃO DE LAYOUT: Cuidados acima, Tabela abaixo --- */}
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
+                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                        </div>
+
                         <div>
                              <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
                              <SizeGuideAdminInput 
                                 value={formData.size_guide} 
                                 onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
                              />
-                        </div>
-                        
-                        <div>
-                             <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
-                            <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-64"></textarea>
                         </div>
                     </div>
                  </FormSection>
