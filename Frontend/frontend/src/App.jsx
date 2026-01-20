@@ -3702,10 +3702,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         setCurrentImageIndex((prev) => (prev === 0 ? galleryImages.length - 1 : prev - 1));
     };
 
-    // --- FUNÇÃO DE SCROLL DAS MINIATURAS (NOVA) ---
+    // --- FUNÇÃO DE SCROLL DAS MINIATURAS (ATUALIZADA) ---
     const scrollThumbnails = (direction) => {
         if (galleryRef.current) {
-            const scrollAmount = 120; // Altura aproximada de um thumb + gap
+            const scrollAmount = 150; 
             galleryRef.current.scrollBy({
                 top: direction === 'up' ? -scrollAmount : scrollAmount,
                 left: 0,
@@ -4015,31 +4015,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     <div className="lg:sticky lg:top-24 self-start">
                         
-                        {/* --- GALERIA PROFISSIONAL (Layout Desktop Atualizado) --- */}
-                        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[700px]"> {/* Altura fixa no desktop para imponência */}
+                        {/* --- GALERIA PROFISSIONAL (CORRIGIDA) --- */}
+                        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[700px] bg-white p-4 rounded-lg shadow-xl"> 
+                            {/* O fundo branco do container pai (acima) evita buracos pretos nas laterais */}
                             
-                            {/* 1. THUMBNAILS (Mobile: Baixo, Desktop: Esquerda com Setas) */}
-                            <div className="order-2 lg:order-1 flex lg:flex-col items-center gap-2">
-                                {/* Seta Cima (Desktop) */}
+                            {/* 1. THUMBNAILS (Navegação Esquerda) */}
+                            <div className="order-2 lg:order-1 flex lg:flex-col items-center gap-2 relative">
                                 <button 
                                     onClick={() => scrollThumbnails('up')}
-                                    className="hidden lg:flex p-1.5 bg-gray-800 hover:bg-gray-700 rounded-full text-white shadow-md z-10 transition-colors"
-                                    aria-label="Rolar miniaturas para cima"
+                                    className="hidden lg:flex p-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-800 shadow-sm z-10 transition-colors border border-gray-300"
+                                    aria-label="Rolar Cima"
                                 >
                                     <ChevronUpIcon className="h-4 w-4" />
                                 </button>
 
                                 <div 
                                     ref={galleryRef}
-                                    className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden scrollbar-hide w-full lg:w-20 flex-shrink-0 flex-grow scroll-smooth" 
+                                    className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden scrollbar-hide w-full lg:w-20 flex-shrink-0 flex-grow scroll-smooth py-1" 
                                     style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                                 >
                                     <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
 
                                     {product.video_url && (
-                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border border-gray-700 hover:border-amber-400 relative flex items-center justify-center transition-colors shadow-sm">
-                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-cover rounded opacity-60"/>
-                                            <div className="absolute inset-0 flex items-center justify-center"><svg className="w-6 h-6 text-white drop-shadow-md" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
+                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-gray-100 p-1 rounded-md cursor-pointer border border-gray-200 hover:border-amber-400 relative flex items-center justify-center transition-colors shadow-sm">
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-cover rounded opacity-60 filter grayscale"/>
+                                            <div className="absolute inset-0 flex items-center justify-center"><svg className="w-6 h-6 text-gray-800 drop-shadow-md" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                         </div>
                                     )}
                                     {galleryImages.map((img, index) => (
@@ -4047,48 +4047,47 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             key={index} 
                                             onClick={() => setCurrentImageIndex(index)} 
                                             onMouseEnter={() => setCurrentImageIndex(index)} 
-                                            className={`w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-white rounded-md cursor-pointer border-2 transition-all duration-200 overflow-hidden ${currentImageIndex === index ? 'border-black ring-1 ring-black opacity-100' : 'border-transparent opacity-70 hover:opacity-100 hover:border-gray-400'}`}
+                                            className={`w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-white rounded-md cursor-pointer border-2 transition-all duration-200 overflow-hidden ${currentImageIndex === index ? 'border-black opacity-100' : 'border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-400'}`}
                                         >
-                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-cover" />
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Seta Baixo (Desktop) */}
                                 <button 
                                     onClick={() => scrollThumbnails('down')}
-                                    className="hidden lg:flex p-1.5 bg-gray-800 hover:bg-gray-700 rounded-full text-white shadow-md z-10 transition-colors"
-                                    aria-label="Rolar miniaturas para baixo"
+                                    className="hidden lg:flex p-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-800 shadow-sm z-10 transition-colors border border-gray-300"
+                                    aria-label="Rolar Baixo"
                                 >
                                     <ChevronDownIcon className="h-4 w-4" />
                                 </button>
                             </div>
 
-                            {/* 2. IMAGEM PRINCIPAL (FUNDO BRANCO SÓLIDO - SEM ESPAÇO PRETO) */}
-                            <div className="order-1 lg:order-2 flex-1 relative group h-[450px] lg:h-full w-full bg-white rounded-lg shadow-xl overflow-hidden border border-gray-800">
+                            {/* 2. IMAGEM PRINCIPAL (Área Nobre) */}
+                            <div className="order-1 lg:order-2 flex-1 relative group h-[450px] lg:h-full w-full bg-white rounded-md overflow-hidden border border-gray-100">
                                 <div 
-                                    className="absolute inset-0 bg-white flex items-center justify-center cursor-zoom-in"
+                                    className="absolute inset-0 flex items-center justify-center cursor-zoom-in"
                                     onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)}
                                 >
                                     <img 
                                         src={mainImage} 
                                         alt={product.name} 
-                                        className="max-w-full max-h-full w-auto h-auto object-contain p-2 transition-transform duration-300 group-hover:scale-105" 
+                                        className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105" 
                                     />
                                     
-                                    {/* Setas de Navegação (Desktop Overlay) */}
+                                    {/* Setas de Navegação (Desktop Overlay - Sempre visíveis no Hover ou se solicitado) */}
                                     {showGalleryArrows && (
                                         <>
                                             <button 
                                                 onClick={handlePrevImage}
-                                                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-black p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110 z-20"
+                                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
                                                 aria-label="Imagem Anterior"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                                             </button>
                                             <button 
                                                 onClick={handleNextImage}
-                                                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-black p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300 transform hover:scale-110 z-20"
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
                                                 aria-label="Próxima Imagem"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -4100,16 +4099,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     {!productOrVariationOutOfStock && ( 
                                         <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none"> 
                                             {isPromoActive ? ( 
-                                                <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 shadow-md flex items-center gap-1.5 tracking-wide uppercase"> 
+                                                <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 shadow-md flex items-center gap-1.5 tracking-wide uppercase rounded"> 
                                                     <span>{discountPercent}% OFF</span> 
                                                 </div> 
                                             ) : isNew ? ( 
-                                                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 shadow-md tracking-wide uppercase">NOVIDADE</div> 
+                                                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 shadow-md tracking-wide uppercase rounded">NOVIDADE</div> 
                                             ) : null} 
                                         </div> 
                                     )}
                                     {productOrVariationOutOfStock && ( 
-                                        <div className="absolute top-4 left-4 bg-gray-900 text-white text-xs font-bold px-4 py-1.5 shadow-lg z-10 pointer-events-none uppercase">ESGOTADO</div> 
+                                        <div className="absolute top-4 left-4 bg-gray-900 text-white text-xs font-bold px-4 py-1.5 shadow-lg z-10 pointer-events-none uppercase rounded">ESGOTADO</div> 
                                     )}
                                 </div>
                             </div>
