@@ -3651,10 +3651,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [reviews, setReviews] = useState([]);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [crossSellProducts, setCrossSellProducts] = useState([]);
-    
-    // --- ESTADO DE IMAGEM ATUALIZADO PARA ÍNDICE ---
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    
+    const [mainImage, setMainImage] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [activeTab, setActiveTab] = useState('description');
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -3676,43 +3673,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
-    const galleryRef = useRef(null); // Ref para a lista de thumbnails
+    const galleryRef = useRef(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+    
+    // Estados para controle de scroll vertical da galeria (Desktop)
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-
-    // Helper para garantir imagem principal atualizada
-    const mainImage = useMemo(() => {
-        if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
-            return galleryImages[currentImageIndex];
-        }
-        return '';
-    }, [galleryImages, currentImageIndex]);
-
-    // --- FUNÇÕES DE NAVEGAÇÃO DA IMAGEM PRINCIPAL ---
-    const handleNextImage = (e) => {
-        e?.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        setCurrentImageIndex((prev) => (prev + 1) % galleryImages.length);
-    };
-
-    const handlePrevImage = (e) => {
-        e?.stopPropagation();
-        if (galleryImages.length <= 1) return;
-        setCurrentImageIndex((prev) => (prev === 0 ? galleryImages.length - 1 : prev - 1));
-    };
-
-    // --- FUNÇÃO DE SCROLL DAS MINIATURAS (ATUALIZADA) ---
-    const scrollThumbnails = (direction) => {
-        if (galleryRef.current) {
-            const scrollAmount = 150; 
-            galleryRef.current.scrollBy({
-                top: direction === 'up' ? -scrollAmount : scrollAmount,
-                left: 0,
-                behavior: 'smooth'
-            });
-        }
-    };
 
     // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
@@ -3729,12 +3699,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
             setSelectedVariation(found || null);
-            setSelectionError(false);
+            setSelectionError(false); 
         } else {
             setSelectedVariation(null);
         }
         
-        // Atualiza galeria baseada na cor selecionada
         if (selectedColor) {
              const allImagesForColor = productVariations
                 .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
@@ -3743,7 +3712,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
             if (allImagesForColor.length > 0) {
                 setGalleryImages(allImagesForColor);
-                setCurrentImageIndex(0); // Reseta para a primeira imagem da nova cor
+                if (!mainImage || !allImagesForColor.includes(mainImage)) {
+                     setMainImage(allImagesForColor[0]);
+                }
             } else {
                 setGalleryImages(productImages);
             }
@@ -3823,34 +3794,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        try {
-            let videoId = '';
-            const urlObj = new URL(url);
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com')) {
-                if (urlObj.searchParams.has('v')) {
-                    videoId = urlObj.searchParams.get('v');
-                } else if (urlObj.pathname.includes('/embed/')) {
-                    videoId = urlObj.pathname.split('/embed/')[1];
-                } else if (urlObj.pathname.includes('/shorts/')) {
-                    videoId = urlObj.pathname.split('/shorts/')[1];
-                }
-            }
-            if (!videoId) return null;
-            videoId = videoId.split('?')[0].split('&')[0];
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            if (url && url.includes('youtu.be/')) {
-                const simpleId = url.split('youtu.be/')[1]?.split('?')[0];
-                return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null;
-            }
-            return null;
-        }
-    };
-
+    // --- HELPERS ---
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
@@ -3869,8 +3814,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setGalleryImages(images);
-            setCurrentImageIndex(0); // Reseta índice
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -3890,7 +3835,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         return () => { controller.abort(); };
     }, [notification]);
 
-    // ... (Handlers) ...
     const handleDeleteReview = (reviewId) => {
         confirmation.show("Tem certeza que deseja excluir esta avaliação? Esta ação não pode ser desfeita.", async () => {
             try {
@@ -3958,10 +3902,65 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
+    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
+    const handleNextImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const nextIndex = (currentIndex + 1) % galleryImages.length;
+        setMainImage(galleryImages[nextIndex]);
+    };
+
+    const handlePrevImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        const currentIndex = galleryImages.indexOf(mainImage);
+        const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+        setMainImage(galleryImages[prevIndex]);
+    };
+
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
-    useEffect(() => { /* Installments logic */ const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
     
-    // TabButton e Lightbox
+    // --- CONTROLE DE SCROLL DA GALERIA ---
+    const checkScrollButtons = useCallback(() => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            // Horizontal (Mobile)
+            setCanScrollLeft(gallery.scrollLeft > 0); 
+            setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
+            // Vertical (Desktop)
+            setCanScrollUp(gallery.scrollTop > 0);
+            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
+        } 
+    }, []);
+
+    useEffect(() => { 
+        checkScrollButtons(); 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            gallery.addEventListener('scroll', checkScrollButtons); 
+            window.addEventListener('resize', checkScrollButtons); 
+            return () => { 
+                gallery.removeEventListener('scroll', checkScrollButtons); 
+                window.removeEventListener('resize', checkScrollButtons); 
+            }; 
+        } 
+    }, [galleryImages, checkScrollButtons]);
+
+    const scrollGallery = (direction) => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            if (direction === 'left' || direction === 'right') {
+                const scrollAmount = gallery.clientWidth * 0.7; 
+                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
+            } else {
+                const scrollAmount = gallery.clientHeight * 0.7;
+                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        } 
+    };
+
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
@@ -3969,39 +3968,113 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const showGalleryArrows = galleryImages.length > 1;
+    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Lógica simplificada, o checkScrollButtons refina
 
     return (
         <div className="bg-black text-white min-h-screen">
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DE SELEÇÃO (Estilo Bottom Sheet / Modal) --- */}
+            {/* --- MODAL DE SELEÇÃO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md" onClick={() => setIsSelectionModalOpen(false)} />
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
+                            onClick={() => setIsSelectionModalOpen(false)}
+                        />
                         <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
-                            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10">
+                            <motion.div
+                                initial={{ y: "100%" }} 
+                                animate={{ y: 0 }} 
+                                exit={{ y: "100%" }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
+                            >
                                 <div className="p-6 pb-0 flex justify-between items-start">
-                                    <div className="pr-4"><h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3><div className="flex items-center gap-2 mt-1.5"><p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>{isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}</div></div>
-                                    <button onClick={() => setIsSelectionModalOpen(false)} className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"><XMarkIcon className="h-6 w-6"/></button>
+                                    <div className="pr-4">
+                                        <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsSelectionModalOpen(false)} 
+                                        className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <XMarkIcon className="h-6 w-6"/>
+                                    </button>
                                 </div>
                                 <div className="p-6">
-                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6"><div className="flex items-center gap-2 mb-5"><div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg"><ShirtIcon className="h-5 w-5" /></div><p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p></div><VariationSelector product={product} variations={productVariations} selectedColor={selectedColor} setSelectedColor={setSelectedColor} selectedSize={selectedSize} setSelectedSize={setSelectedSize} error={selectionError} /></div>
-                                    <button onClick={handleConfirmSelection} className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3 ${selectionError && !selectedSize ? 'bg-red-600 text-white animate-pulse' : 'bg-amber-400 hover:bg-amber-300 text-black'}`}>{selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}{!selectionError && <CheckIcon className="h-5 w-5" />}</button>
-                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80"><ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida</p>
+                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
+                                        <div className="flex items-center gap-2 mb-5">
+                                            <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                <ShirtIcon className="h-5 w-5" />
+                                            </div>
+                                            <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
+                                        </div>
+                                        <VariationSelector 
+                                            product={product} 
+                                            variations={productVariations} 
+                                            selectedColor={selectedColor} 
+                                            setSelectedColor={setSelectedColor}
+                                            selectedSize={selectedSize}
+                                            setSelectedSize={setSelectedSize}
+                                            error={selectionError} 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleConfirmSelection}
+                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
+                                            ${selectionError && !selectedSize 
+                                                ? 'bg-red-600 text-white animate-pulse' 
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
+                                        }
+                                    >
+                                        {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
+                                        {!selectionError && <CheckIcon className="h-5 w-5" />}
+                                    </button>
+                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
+                                        <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
+                                    </p>
                                 </div>
                             </motion.div>
                         </div>
                     </>
                 )}
             </AnimatePresence>
+            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
                         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            {getYouTubeEmbedUrl(product.video_url) ? (<iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>) : (<div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm"><p>Vídeo indisponível.</p></div>)}
+                            {getYouTubeEmbedUrl(product.video_url) ? (
+                                <iframe 
+                                    src={getYouTubeEmbedUrl(product.video_url)} 
+                                    title={product.name} 
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen 
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                ></iframe>
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+                                    <p>Vídeo indisponível.</p>
+                                </div>
+                            )}
                         </div>
                     </Modal>
                 )}
@@ -4012,126 +4085,144 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    <div className="lg:sticky lg:top-24 self-start">
-                        
-                        {/* --- GALERIA PROFISSIONAL (CORRIGIDA) --- */}
-                        <div className="flex flex-col lg:flex-row gap-4 h-auto lg:h-[700px] bg-white p-4 rounded-lg shadow-xl"> 
-                            {/* O fundo branco do container pai (acima) evita buracos pretos nas laterais */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
+                        {/* Layout: Desktop (Miniaturas à Esquerda) / Mobile (Miniaturas Embaixo) */}
+                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
-                            {/* 1. THUMBNAILS (Navegação Esquerda) */}
-                            <div className="order-2 lg:order-1 flex lg:flex-col items-center gap-2 relative">
-                                <button 
-                                    onClick={() => scrollThumbnails('up')}
-                                    className="hidden lg:flex p-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-800 shadow-sm z-10 transition-colors border border-gray-300"
-                                    aria-label="Rolar Cima"
-                                >
-                                    <ChevronUpIcon className="h-4 w-4" />
-                                </button>
-
+                            {/* Lista de Miniaturas */}
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                                {/* Botão Scroll Cima (Desktop) */}
+                                {canScrollUp && (
+                                    <button 
+                                        onClick={() => scrollGallery('up')} 
+                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                                    </button>
+                                )}
+                                
+                                {/* Container Scrollável */}
                                 <div 
                                     ref={galleryRef}
-                                    className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden scrollbar-hide w-full lg:w-20 flex-shrink-0 flex-grow scroll-smooth py-1" 
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
+                                    style={{ maxHeight: '80vh' }} // Limite de altura seguro para desktop
                                 >
-                                    <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
-
                                     {product.video_url && (
-                                        <div onClick={() => setIsVideoModalOpen(true)} className="w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-gray-100 p-1 rounded-md cursor-pointer border border-gray-200 hover:border-amber-400 relative flex items-center justify-center transition-colors shadow-sm">
-                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-cover rounded opacity-60 filter grayscale"/>
-                                            <div className="absolute inset-0 flex items-center justify-center"><svg className="w-6 h-6 text-gray-800 drop-shadow-md" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
+                                        <div 
+                                            onClick={() => setIsVideoModalOpen(true)} 
+                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
+                                        >
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
+                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                     {galleryImages.map((img, index) => (
                                         <div 
                                             key={index} 
-                                            onClick={() => setCurrentImageIndex(index)} 
-                                            onMouseEnter={() => setCurrentImageIndex(index)} 
-                                            className={`w-16 h-16 lg:w-full lg:h-24 flex-shrink-0 bg-white rounded-md cursor-pointer border-2 transition-all duration-200 overflow-hidden ${currentImageIndex === index ? 'border-black opacity-100' : 'border-gray-200 opacity-60 hover:opacity-100 hover:border-gray-400'}`}
+                                            onClick={() => setMainImage(img)} 
+                                            onMouseEnter={() => setMainImage(img)} 
+                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
+                                                ${mainImage === img 
+                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
+                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
                                         >
-                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-cover" />
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
                                         </div>
                                     ))}
                                 </div>
-
-                                <button 
-                                    onClick={() => scrollThumbnails('down')}
-                                    className="hidden lg:flex p-2 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-800 shadow-sm z-10 transition-colors border border-gray-300"
-                                    aria-label="Rolar Baixo"
-                                >
-                                    <ChevronDownIcon className="h-4 w-4" />
-                                </button>
+                                
+                                {/* Botão Scroll Baixo (Desktop) */}
+                                {canScrollDown && (
+                                    <button 
+                                        onClick={() => scrollGallery('down')} 
+                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
 
-                            {/* 2. IMAGEM PRINCIPAL (Área Nobre) */}
-                            <div className="order-1 lg:order-2 flex-1 relative group h-[450px] lg:h-full w-full bg-white rounded-md overflow-hidden border border-gray-100">
-                                <div 
-                                    className="absolute inset-0 flex items-center justify-center cursor-zoom-in"
-                                    onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)}
-                                >
+                            {/* Imagem Principal (Grande e Adaptável) */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
+                                {/* Badges */}
+                                {!productOrVariationOutOfStock && (
+                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+                                        {isPromoActive ? ( 
+                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                                                <SaleIcon className="h-4 w-4"/> 
+                                                <span>PROMOÇÃO {discountPercent}%</span> 
+                                            </div> 
+                                        ) : isNew ? ( 
+                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                        ) : null}
+                                    </div>
+                                )}
+                                {productOrVariationOutOfStock && ( 
+                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
+                                )}
+
+                                {/* Container de Imagem: Preenche e Contém */}
+                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
                                     <img 
                                         src={mainImage} 
                                         alt={product.name} 
-                                        className="max-w-full max-h-full w-auto h-auto object-contain transition-transform duration-300 group-hover:scale-105" 
+                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
                                     />
-                                    
-                                    {/* Setas de Navegação (Desktop Overlay - Sempre visíveis no Hover ou se solicitado) */}
-                                    {showGalleryArrows && (
-                                        <>
-                                            <button 
-                                                onClick={handlePrevImage}
-                                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
-                                                aria-label="Imagem Anterior"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                                            </button>
-                                            <button 
-                                                onClick={handleNextImage}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-0 group-hover:opacity-100 transition-all duration-200 z-20"
-                                                aria-label="Próxima Imagem"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                            </button>
-                                        </>
-                                    )}
+                                </div>
+                                
+                                {/* Botões de Navegação da Imagem Principal */}
+                                {galleryImages.length > 1 && (
+                                    <>
+                                        <button 
+                                            onClick={handlePrevImage} 
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Imagem anterior"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
+                                        </button>
+                                        <button 
+                                            onClick={handleNextImage} 
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Próxima imagem"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
+                                        </button>
+                                    </>
+                                )}
 
-                                    {/* Badges Flutuantes */}
-                                    {!productOrVariationOutOfStock && ( 
-                                        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none"> 
-                                            {isPromoActive ? ( 
-                                                <div className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 shadow-md flex items-center gap-1.5 tracking-wide uppercase rounded"> 
-                                                    <span>{discountPercent}% OFF</span> 
-                                                </div> 
-                                            ) : isNew ? ( 
-                                                <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 shadow-md tracking-wide uppercase rounded">NOVIDADE</div> 
-                                            ) : null} 
-                                        </div> 
-                                    )}
-                                    {productOrVariationOutOfStock && ( 
-                                        <div className="absolute top-4 left-4 bg-gray-900 text-white text-xs font-bold px-4 py-1.5 shadow-lg z-10 pointer-events-none uppercase rounded">ESGOTADO</div> 
-                                    )}
+                                {/* Dica de Zoom (Desktop) */}
+                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Coluna da Direita (Informações) - Inalterada */}
-                    <div className="space-y-6">
+                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
+                    <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
                             <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
                             <div className="flex items-center mt-3 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center text-amber-400 gap-0.5">
+                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
                             </div>
                         </div>
 
-                        {/* --- ÁREA DE DESTAQUE DE PROMOÇÃO --- */}
+                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
                             <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -4176,7 +4267,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         )}
 
-                        {/* --- BLOCO DE PREÇO ESPECIAL --- */}
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
                              <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
@@ -4214,7 +4304,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* Seletor na página principal */}
+                        {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
                             <VariationSelector 
                                 product={product} 
@@ -4223,7 +4313,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 setSelectedColor={setSelectedColor}
                                 selectedSize={selectedSize}
                                 setSelectedSize={setSelectedSize}
-                                error={selectionError} 
+                                error={selectionError}
                             /> 
                         )}
 
@@ -4265,25 +4355,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
+                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-4xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
+                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        
-                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
-                        {isClothing && activeTab === 'size_guide' && (
-                            product.size_guide 
-                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
-                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
-                        )}
-                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
+                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
