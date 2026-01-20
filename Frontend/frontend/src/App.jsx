@@ -3673,6 +3673,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
+    // --- ESTADO DE IMAGEM (Índice) ---
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
@@ -3683,6 +3686,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
+
+    // Helper para garantir imagem principal atualizada pelo índice
+    useEffect(() => {
+        if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
+            setMainImage(galleryImages[currentImageIndex]);
+        }
+    }, [currentImageIndex, galleryImages]);
 
     // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
@@ -3712,9 +3722,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
             if (allImagesForColor.length > 0) {
                 setGalleryImages(allImagesForColor);
-                if (!mainImage || !allImagesForColor.includes(mainImage)) {
-                     setMainImage(allImagesForColor[0]);
-                }
+                setCurrentImageIndex(0);
             } else {
                 setGalleryImages(productImages);
             }
@@ -3814,8 +3822,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setGalleryImages(images);
+            setCurrentImageIndex(0);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -3906,17 +3915,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const handleNextImage = (e) => {
         e.stopPropagation();
         if (galleryImages.length <= 1) return;
-        const currentIndex = galleryImages.indexOf(mainImage);
-        const nextIndex = (currentIndex + 1) % galleryImages.length;
-        setMainImage(galleryImages[nextIndex]);
+        setCurrentImageIndex(prev => (prev + 1) % galleryImages.length);
     };
 
     const handlePrevImage = (e) => {
         e.stopPropagation();
         if (galleryImages.length <= 1) return;
-        const currentIndex = galleryImages.indexOf(mainImage);
-        const prevIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
-        setMainImage(galleryImages[prevIndex]);
+        setCurrentImageIndex(prev => (prev === 0 ? galleryImages.length - 1 : prev - 1));
     };
 
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
@@ -3968,7 +3973,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4; // Lógica simplificada, o checkScrollButtons refina
+    const showGalleryArrows = galleryImages.length > 1;
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -4086,9 +4091,8 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (CORRIGIDA PARA MOBILE E DESKTOP) */}
+                    {/* COLUNA GALERIA (Mantida original "Perfeita") */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
-                        {/* Layout: Desktop (Miniaturas à Esquerda) / Mobile (Miniaturas Embaixo) */}
                         <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
                             {/* Lista de Miniaturas */}
@@ -4107,7 +4111,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 <div 
                                     ref={galleryRef}
                                     className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
-                                    style={{ maxHeight: '80vh' }} // Limite de altura seguro para desktop
+                                    style={{ maxHeight: '80vh' }}
                                 >
                                     {product.video_url && (
                                         <div 
@@ -4125,10 +4129,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     {galleryImages.map((img, index) => (
                                         <div 
                                             key={index} 
-                                            onClick={() => setMainImage(img)} 
-                                            onMouseEnter={() => setMainImage(img)} 
+                                            onClick={() => setCurrentImageIndex(index)} 
+                                            onMouseEnter={() => setCurrentImageIndex(index)} 
                                             className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
-                                                ${mainImage === img 
+                                                ${currentImageIndex === index 
                                                     ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
                                                     : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
                                         >
@@ -4148,7 +4152,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 )}
                             </div>
 
-                            {/* Imagem Principal (Grande e Adaptável) */}
+                            {/* Imagem Principal */}
                             <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
                                 {/* Badges */}
                                 {!productOrVariationOutOfStock && (
@@ -4167,7 +4171,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
                                 )}
 
-                                {/* Container de Imagem: Preenche e Contém */}
+                                {/* Container de Imagem */}
                                 <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
                                     <img 
                                         src={mainImage} 
@@ -4178,7 +4182,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 
                                 {/* Botões de Navegação da Imagem Principal */}
-                                {galleryImages.length > 1 && (
+                                {showGalleryArrows && (
                                     <>
                                         <button 
                                             onClick={handlePrevImage} 
@@ -4313,7 +4317,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 setSelectedColor={setSelectedColor}
                                 selectedSize={selectedSize}
                                 setSelectedSize={setSelectedSize}
-                                error={selectionError}
+                                error={selectionError} 
                             /> 
                         )}
 
@@ -4366,7 +4370,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
+                        
+                        {/* --- INTEGRAÇÃO DO NOVO GUIA DE MEDIDAS --- */}
+                        {isClothing && activeTab === 'size_guide' && (
+                            product.size_guide 
+                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
+                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
+                        )}
+                        
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
