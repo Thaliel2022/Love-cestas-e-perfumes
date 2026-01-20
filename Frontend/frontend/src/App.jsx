@@ -4066,26 +4066,40 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
                     <div className="lg:sticky lg:top-24 self-start">
-                        {/* --- GALERIA DE IMAGENS --- */}
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
-                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
-                        </div>
+                        {/* --- NOVA ESTRUTURA DE GALERIA: Flex Layout --- */}
+                        <div className="flex flex-col lg:flex-row gap-4">
+                            
+                            {/* 1. THUMBNAILS (Ordem 2 no mobile, Ordem 1 no Desktop) */}
+                            <div className="order-2 lg:order-1 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:overflow-x-hidden scrollbar-hide lg:h-[500px] lg:w-24 flex-shrink-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                {/* Inline Style para garantir que scrollbar suma em todos os navegadores */}
+                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
 
-                        <div className="relative group">
-                            <div ref={galleryRef} className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                 {product.video_url && (
-                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
+                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 lg:w-full lg:h-24 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors shadow-sm">
                                         <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-sm opacity-50"/>
                                         <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50"><svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg></div>
                                     </div>
                                 )}
                                 {galleryImages.map((img, index) => (
-                                    <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}>
+                                    <div key={index} onClick={() => setMainImage(img)} onMouseEnter={() => setMainImage(img)} className={`w-20 h-20 lg:w-full lg:h-24 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 shadow-sm ${mainImage === img ? 'border-amber-400 ring-2 ring-amber-400 ring-opacity-50' : 'border-transparent hover:border-gray-400'}`}>
                                         <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
                                     </div>
                                 ))}
+                            </div>
+
+                            {/* 2. IMAGEM PRINCIPAL (Ordem 1 no mobile, Ordem 2 no Desktop) */}
+                            <div 
+                                className="order-1 lg:order-2 flex-1 aspect-square bg-white rounded-lg flex items-center justify-center relative shadow-lg overflow-hidden group cursor-zoom-in"
+                                onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)}
+                            >
+                                {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10 pointer-events-none"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
+                                {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10 pointer-events-none">ESGOTADO</div> )}
+                                
+                                <img 
+                                    src={mainImage} 
+                                    alt={product.name} 
+                                    className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" 
+                                />
                             </div>
                         </div>
                     </div>
@@ -4239,9 +4253,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
-                        {/* --- ATUALIZAÇÃO: Exibe a tab "Tabela de Medidas" apenas para roupas --- */}
                         <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
-                        
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
