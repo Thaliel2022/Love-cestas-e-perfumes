@@ -1205,69 +1205,83 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- ILUSTRAÇÃO COM FOTO 3D ---
+// --- COMPONENTES ---
+
+// ILUSTRAÇÃO COM FOTO 3D (Ajustada para não cortar)
 const MeasurementIllustration = ({ highlightedPart }) => {
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
+    const markerId = "arrow-marker-guide";
 
     return (
-        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
-            {/* FOTO DO BONECO 3D (Background) */}
-            <img 
-                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg" 
-                alt="Guia de Medidas 3D"
-                className="w-full h-auto object-cover"
-                style={{ display: 'block' }}
-            />
+        <div className="relative w-full max-w-[220px] md:max-w-[340px] mx-auto transition-all duration-300 select-none bg-white rounded-lg shadow-sm border border-gray-100">
+            
+            {/* Container Relativo para manter proporção */}
+            <div className="relative w-full h-full p-2"> 
+                {/* FOTO DO BONECO 3D (Background) */}
+                <img 
+                    src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg" 
+                    alt="Guia de Medidas 3D"
+                    className="w-full h-auto object-contain rounded-md mx-auto"
+                    style={{ display: 'block', maxHeight: '500px' }}
+                />
 
-            {/* CAMADA DE DESTAQUE (SVG Overlay) */}
-            <svg 
-                viewBox="0 0 500 750" 
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                preserveAspectRatio="none"
-            >
-                <defs>
-                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
-                        <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
-                    </marker>
-                </defs>
+                {/* CAMADA DE DESTAQUE (SVG Overlay) */}
+                {/* Ajustei o viewBox para dar margem e alinhar com a foto */}
+                <svg 
+                    viewBox="0 0 500 750" 
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                    preserveAspectRatio="none"
+                >
+                    <defs>
+                        <marker id={markerId} markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                            <path d="M0,0 L0,6 L6,3 z" fill="#ef4444" />
+                        </marker>
+                    </defs>
 
-                {/* BUSTO (Altura ajustada) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
-                </g>
+                    {/* BUSTO (Centralizado e Recuado das bordas) */}
+                    <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                        <ellipse cx="250" cy="210" rx="90" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                        <line x1="130" y1="210" x2="370" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                        <rect x="200" y="180" width="100" height="30" fill="rgba(255,255,255,0.8)" rx="4" />
+                        <text x="250" y="202" textAnchor="middle" fill="#ef4444" fontSize="20" fontWeight="bold">BUSTO</text>
+                    </g>
 
-                {/* CINTURA (Parte mais fina) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
-                </g>
+                    {/* CINTURA */}
+                    <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                        <ellipse cx="250" cy="315" rx="80" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                        <line x1="140" y1="315" x2="360" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                        <rect x="190" y="285" width="120" height="30" fill="rgba(255,255,255,0.8)" rx="4" />
+                        <text x="250" y="307" textAnchor="middle" fill="#ef4444" fontSize="20" fontWeight="bold">CINTURA</text>
+                    </g>
 
-                {/* QUADRIL (Parte mais larga) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
-                </g>
+                    {/* QUADRIL */}
+                    <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                        <ellipse cx="250" cy="410" rx="100" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                        <line x1="120" y1="410" x2="380" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                        <rect x="190" y="380" width="120" height="30" fill="rgba(255,255,255,0.8)" rx="4" />
+                        <text x="250" y="402" textAnchor="middle" fill="#ef4444" fontSize="20" fontWeight="bold">QUADRIL</text>
+                    </g>
 
-                {/* COMPRIMENTO (Lateral Vertical) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    {/* Linha vertical com marcadores */}
-                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    {/* Tracinhos horizontais nas pontas */}
-                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
-                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
-                    {/* Texto vertical */}
-                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
-                </g>
-            </svg>
+                    {/* COMPRIMENTO (Ajustado para x=420 para não cortar na borda direita) */}
+                    <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
+                        {/* Linha Vertical - Movida para a esquerda (mais próxima do corpo) */}
+                        <line x1="400" y1="150" x2="400" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd={`url(#${markerId})`} markerStart={`url(#${markerId})`} />
+                        {/* Tracinhos horizontais */}
+                        <line x1="380" y1="150" x2="420" y2="150" stroke="#ef4444" strokeWidth="3" />
+                        <line x1="380" y1="600" x2="420" y2="600" stroke="#ef4444" strokeWidth="3" />
+                        
+                        {/* Fundo para o texto para garantir leitura */}
+                        <rect x="340" y="300" width="40" height="150" fill="rgba(255,255,255,0.7)" rx="4" />
+                        {/* Texto vertical */}
+                        <text x="365" y="375" fill="#ef4444" fontSize="20" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright"}}>COMPRIMENTO</text>
+                    </g>
+                </svg>
+            </div>
             
             {/* LEGENDA FLUTUANTE */}
-            <div className={`absolute bottom-3 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
-                <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
+            <div className={`absolute bottom-4 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                <span className="bg-gray-900/90 backdrop-blur text-white text-[10px] font-bold px-4 py-1.5 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
                     {highlightedPart}
                 </span>
             </div>
@@ -1438,11 +1452,23 @@ const SizeGuideDisplay = ({ dataString }) => {
                             </tbody>
                         </table>
                     </div>
+
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-4 flex items-center gap-1.5 bg-gray-800/30 p-2 rounded border border-gray-700/50 w-fit">
+                        <ExclamationCircleIcon className="h-4 w-4 text-amber-500" /> 
+                        <span>As medidas podem variar de 1 a 2 cm devido à produção manual.</span>
+                    </p>
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
                     <MeasurementIllustration highlightedPart={highlightedPart} />
+                    <div className="text-center w-full border-t border-gray-100 pt-3 mt-2">
+                        <p className="text-xs text-gray-400 leading-tight">
+                            {highlightedPart 
+                                ? "Posicione a fita na região destacada." 
+                                : "Selecione uma medida."}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
