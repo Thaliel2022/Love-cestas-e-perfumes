@@ -3737,7 +3737,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+    
+    // --- ESTADO DO MODAL DE MEDIDAS ---
     const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
+    
     const [pendingAction, setPendingAction] = useState(null); 
     const [selectionError, setSelectionError] = useState(false); 
 
@@ -4065,7 +4068,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS (CORRIGIDO TAMANHO) --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="2xl">
@@ -4108,7 +4111,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        {/* --- BOTÃO DE GUIA DE MEDIDAS (MOBILE) --- */}
                                         <div className="flex items-center justify-between mb-5">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
@@ -4116,6 +4118,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                                 </div>
                                                 <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
+                                            {/* BOTÃO GUIA MEDIDAS NO MOBILE */}
                                             {isClothing && product.size_guide && (
                                                 <button 
                                                     onClick={() => setIsSizeGuideModalOpen(true)}
@@ -4129,9 +4132,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             product={product} 
                                             variations={productVariations} 
                                             selectedColor={selectedColor} 
-                                            setSelectedColor={setSelectedColor}
-                                            selectedSize={selectedSize}
-                                            setSelectedSize={setSelectedSize}
+                                            setSelectedColor={setSelectedColor} 
+                                            selectedSize={selectedSize} 
+                                            setSelectedSize={setSelectedSize} 
                                             error={selectionError} 
                                         />
                                     </div>
@@ -4280,14 +4283,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <>
                                         <button 
                                             onClick={handlePrevImage} 
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
                                             aria-label="Imagem anterior"
                                         >
                                             <ChevronDownIcon className="h-6 w-6 rotate-90" />
                                         </button>
                                         <button 
                                             onClick={handleNextImage} 
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-20"
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
                                             aria-label="Próxima imagem"
                                         >
                                             <ChevronDownIcon className="h-6 w-6 -rotate-90" />
@@ -4409,9 +4412,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     product={product} 
                                     variations={productVariations} 
                                     selectedColor={selectedColor} 
-                                    setSelectedColor={setSelectedColor}
-                                    selectedSize={selectedSize}
-                                    setSelectedSize={setSelectedSize}
+                                    setSelectedColor={setSelectedColor} 
+                                    selectedSize={selectedSize} 
+                                    setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
                                 {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP - MOVIDO PARA BAIXO) --- */}
