@@ -1205,22 +1205,7 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-import React, { useState, useMemo, useEffect } from 'react';
 
-// --- ÍCONES INLINE (SVG Puro) ---
-const RulerIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm-1 16H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V8h12v2z" />
-    </svg>
-);
-
-const ExclamationCircleIcon = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-);
-
-// --- COMPONENTES ---
 
 // Ilustração Profissional (Manequim 3D Realista com Braços)
 const MeasurementIllustration = ({ highlightedPart }) => {
