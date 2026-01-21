@@ -1204,24 +1204,63 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (MOBILE PERFEITO) ---
+// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (INTERATIVO) ---
 
-// Ilustração Otimizada
-const MeasurementIllustration = () => (
-    <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto">
-        <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" fill="#f8fafc" stroke="#cbd5e1" />
-            <line x1="60" y1="90" x2="140" y2="90" stroke="#d97706" strokeDasharray="3" />
-            <text x="100" y="85" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Busto</text>
-            <line x1="58" y1="140" x2="142" y2="140" stroke="#d97706" strokeDasharray="3" />
-            <text x="100" y="135" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Cintura</text>
-            <line x1="55" y1="190" x2="145" y2="190" stroke="#d97706" strokeDasharray="3" />
-            <text x="100" y="185" textAnchor="middle" fontSize="11" fill="#d97706" fontWeight="bold" fontFamily="sans-serif">Quadril</text>
-            <line x1="160" y1="40" x2="160" y2="250" stroke="#64748b" strokeDasharray="3" />
-            <text x="170" y="145" textAnchor="start" fontSize="10" fill="#64748b" style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif"}}>Comprimento</text>
-        </svg>
-    </div>
-);
+// Ilustração Inteligente que recebe a parte para destacar
+const MeasurementIllustration = ({ highlightedPart }) => {
+    // Normaliza o texto para comparação (remove acentos, minúsculas)
+    const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const part = normalize(highlightedPart);
+
+    return (
+        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300">
+            <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
+                {/* Silhueta Base - Opacidade reduzida se algo estiver destacado para focar no destaque */}
+                <path 
+                    d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" 
+                    fill="#f8fafc" 
+                    stroke={part ? "#e2e8f0" : "#cbd5e1"} 
+                    className="transition-colors duration-300"
+                />
+                
+                {/* DESTAQUES INTERATIVOS */}
+                
+                {/* Busto */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="60" y1="90" x2="140" y2="90" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
+                    <text x="100" y="85" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Busto</text>
+                    {part === 'busto' && (
+                        <ellipse cx="100" cy="90" rx="45" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
+                </g>
+                
+                {/* Cintura */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="58" y1="140" x2="142" y2="140" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
+                    <text x="100" y="135" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Cintura</text>
+                    {part === 'cintura' && (
+                        <ellipse cx="100" cy="140" rx="43" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
+                </g>
+                
+                {/* Quadril */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="55" y1="190" x2="145" y2="190" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
+                    <text x="100" y="185" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Quadril</text>
+                    {part === 'quadril' && (
+                        <ellipse cx="100" cy="190" rx="48" ry="12" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
+                </g>
+                
+                {/* Comprimento */}
+                <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="160" y1="40" x2="160" y2="250" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
+                    <text x="170" y="145" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal'}}>Comprimento</text>
+                </g>
+            </svg>
+        </div>
+    );
+};
 
 // Componente de Entrada Admin (Otimizado para Mobile sem Scroll)
 const SizeGuideAdminInput = ({ value, onChange }) => {
@@ -1259,7 +1298,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
             </div>
             
-            {/* --- VERSÃO MOBILE (Cards/Grid - Sem Barra Lateral) --- */}
             <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
                 {data.rows.map((row, rIndex) => (
                     <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
@@ -1267,7 +1305,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                             <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
                                 {row.size}
                             </span>
-                            <span className="text-xs text-gray-400 font-medium">Digite as medidas:</span>
                         </div>
                         <div className="grid grid-cols-4 gap-2">
                             {row.values.map((val, cIndex) => (
@@ -1289,7 +1326,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 ))}
             </div>
 
-            {/* --- VERSÃO DESKTOP (Tabela Padrão) --- */}
             <div className="hidden md:block w-full overflow-x-auto">
                 <table className="w-full text-xs text-left">
                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
@@ -1325,8 +1361,10 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     );
 };
 
-// Componente de Exibição (Display - Otimizado Mobile)
+// Componente de Exibição (Display - Interativo)
 const SizeGuideDisplay = ({ dataString }) => {
+    const [highlightedPart, setHighlightedPart] = useState(null);
+
     const data = useMemo(() => {
         try {
             return JSON.parse(dataString);
@@ -1343,12 +1381,17 @@ const SizeGuideDisplay = ({ dataString }) => {
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
             <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 <div className="flex-1 w-full min-w-0">
-                    <div className="flex items-center gap-2 mb-4">
-                        <RulerIcon className="h-5 w-5 text-amber-400" />
-                        <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <RulerIcon className="h-5 w-5 text-amber-400" />
+                            <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
+                        </div>
+                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block">
+                            Passe o mouse na tabela para ver no desenho
+                        </span>
                     </div>
                     
-                    {/* Versão Mobile (Cards/Lista) - Sem Scroll Horizontal */}
+                    {/* Versão Mobile (Cards) - Sem Scroll Horizontal */}
                     <div className="md:hidden space-y-2">
                         {data.rows.map((row, i) => (
                             <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
@@ -1359,9 +1402,17 @@ const SizeGuideDisplay = ({ dataString }) => {
                                 </div>
                                 <div className="flex gap-4 text-xs text-gray-300">
                                     {row.values.map((val, j) => (
-                                        <div key={j} className="text-center">
-                                            <span className="block text-[9px] text-gray-500 uppercase font-bold mb-0.5">{data.columns[j+1]}</span>
-                                            <span className="font-bold text-white">{val || '-'}</span>
+                                        <div 
+                                            key={j} 
+                                            className="text-center cursor-pointer active:scale-110 transition-transform"
+                                            onClick={() => setHighlightedPart(data.columns[j+1])} // Toque no mobile destaca
+                                        >
+                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>
+                                                {data.columns[j+1]}
+                                            </span>
+                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>
+                                                {val || '-'}
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
@@ -1375,7 +1426,12 @@ const SizeGuideDisplay = ({ dataString }) => {
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
-                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center'}`}>
+                                        <th 
+                                            key={i} 
+                                            className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
+                                            onMouseEnter={() => i > 0 && setHighlightedPart(col)}
+                                            onMouseLeave={() => setHighlightedPart(null)}
+                                        >
                                             {col}
                                         </th>
                                     ))}
@@ -1388,7 +1444,12 @@ const SizeGuideDisplay = ({ dataString }) => {
                                             {row.size}
                                         </td>
                                         {row.values.map((val, j) => (
-                                            <td key={j} className="px-4 py-3 text-center font-medium">
+                                            <td 
+                                                key={j} 
+                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/10 text-amber-300' : ''}`}
+                                                onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
+                                                onMouseLeave={() => setHighlightedPart(null)}
+                                            >
                                                 {val || '-'}
                                             </td>
                                         ))}
@@ -1404,13 +1465,18 @@ const SizeGuideDisplay = ({ dataString }) => {
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
-                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0">
-                        <MeasurementIllustration />
+                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
+                        {/* Passamos o estado para a ilustração */}
+                        <MeasurementIllustration highlightedPart={highlightedPart} />
                     </div>
                     <div className="text-left md:text-center flex-1">
-                        <p className="text-white font-bold text-xs mb-1">Como medir?</p>
+                        <p className="text-white font-bold text-xs mb-1">
+                            {highlightedPart ? `Medindo: ${highlightedPart}` : 'Como medir?'}
+                        </p>
                         <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
-                            Use uma fita métrica. O <strong>Busto</strong> é a parte mais larga, e a <strong>Cintura</strong> a mais fina.
+                            {highlightedPart 
+                                ? `Passe a fita métrica ao redor da área destacada.` 
+                                : 'Passe o mouse ou toque na tabela para ver onde medir.'}
                         </p>
                     </div>
                 </div>
