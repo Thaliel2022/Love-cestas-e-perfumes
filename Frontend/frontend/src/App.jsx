@@ -3664,7 +3664,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false); // NOVO: Estado do Guia de Medidas
+    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState(null); 
     const [selectionError, setSelectionError] = useState(false); 
 
@@ -4332,17 +4332,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
                             <div className="mb-2">
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP) --- */}
-                                {product.size_guide && (
-                                    <div className="flex justify-end mb-2">
-                                        <button 
-                                            onClick={() => setIsSizeGuideModalOpen(true)}
-                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors"
-                                        >
-                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
-                                        </button>
-                                    </div>
-                                )}
                                 <VariationSelector 
                                     product={product} 
                                     variations={productVariations} 
@@ -4352,6 +4341,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     setSelectedSize={setSelectedSize}
                                     error={selectionError} 
                                 /> 
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP - MOVIDO PARA BAIXO) --- */}
+                                {product.size_guide && (
+                                    <div className="flex justify-end mt-4">
+                                        <button 
+                                            onClick={() => setIsSizeGuideModalOpen(true)}
+                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors border border-amber-400/30 px-3 py-1.5 rounded hover:bg-amber-400/10"
+                                        >
+                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
 
