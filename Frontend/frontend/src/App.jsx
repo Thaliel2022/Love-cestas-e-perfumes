@@ -1222,33 +1222,46 @@ const MeasurementIllustration = ({ highlightedPart }) => {
 
             {/* CAMADA DE DESTAQUE (SVG Overlay) */}
             <svg 
-                viewBox="0 0 500 1000" 
+                viewBox="0 0 500 750" 
                 className="absolute inset-0 w-full h-full pointer-events-none"
                 preserveAspectRatio="none"
             >
-                {/* BUSTO (Altura aprox 25%) */}
+                <defs>
+                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+                        <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
+                    </marker>
+                </defs>
+
+                {/* BUSTO (Altura ajustada) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="280" rx="130" ry="30" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
-                    <line x1="50" y1="280" x2="450" y2="280" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
+                    <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                    <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                    <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
                 </g>
 
-                {/* CINTURA (Altura aprox 38%) */}
+                {/* CINTURA (Parte mais fina) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="420" rx="110" ry="25" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
-                    <line x1="80" y1="420" x2="420" y2="420" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
+                    <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                    <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                    <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
                 </g>
 
-                {/* QUADRIL (Altura aprox 50%) */}
+                {/* QUADRIL (Parte mais larga) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="550" rx="140" ry="35" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
-                    <line x1="50" y1="550" x2="450" y2="550" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
+                    <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                    <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                    <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
                 </g>
 
-                {/* COMPRIMENTO (Lateral) */}
+                {/* COMPRIMENTO (Lateral Vertical) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="50" y1="200" x2="50" y2="900" stroke="#ef4444" strokeWidth="8" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    <line x1="30" y1="200" x2="70" y2="200" stroke="#ef4444" strokeWidth="4" />
-                    <line x1="30" y1="900" x2="70" y2="900" stroke="#ef4444" strokeWidth="4" />
+                    {/* Linha vertical com marcadores */}
+                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    {/* Tracinhos horizontais nas pontas */}
+                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
+                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
+                    {/* Texto vertical */}
+                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
                 </g>
             </svg>
             
@@ -1435,7 +1448,6 @@ const SizeGuideDisplay = ({ dataString }) => {
         </div>
     );
 };
-
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
     const notification = useNotification();
