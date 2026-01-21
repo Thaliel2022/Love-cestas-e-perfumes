@@ -1205,68 +1205,63 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (INTERATIVO) ---
-
-// Ilustração Inteligente que recebe a parte para destacar
-// --- COMPONENTES ---
-
-// Ilustração Inteligente que recebe a parte para destacar
+// --- ILUSTRAÇÃO COM FOTO 3D ---
 const MeasurementIllustration = ({ highlightedPart }) => {
-    // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300">
-            <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
-                {/* Silhueta Base - Opacidade reduzida se algo estiver destacado para focar no destaque */}
-                <path 
-                    d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" 
-                    fill="#f8fafc" 
-                    stroke={part ? "#e2e8f0" : "#cbd5e1"} 
-                    className="transition-colors duration-300"
-                />
-                
-                {/* DESTAQUES INTERATIVOS */}
-                
-                {/* Busto */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="60" y1="90" x2="140" y2="90" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
-                    <text x="100" y="85" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Busto</text>
-                    {part === 'busto' && (
-                        <ellipse cx="100" cy="90" rx="45" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
+            {/* FOTO DO BONECO 3D (Background) */}
+            <img 
+                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg" 
+                alt="Guia de Medidas 3D"
+                className="w-full h-auto object-cover"
+                style={{ display: 'block' }}
+            />
+
+            {/* CAMADA DE DESTAQUE (SVG Overlay) */}
+            <svg 
+                viewBox="0 0 500 1000" 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                preserveAspectRatio="none"
+            >
+                {/* BUSTO (Altura aprox 25%) */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                    <ellipse cx="250" cy="280" rx="130" ry="30" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
+                    <line x1="50" y1="280" x2="450" y2="280" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
                 </g>
-                
-                {/* Cintura */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="58" y1="140" x2="142" y2="140" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
-                    <text x="100" y="135" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Cintura</text>
-                    {part === 'cintura' && (
-                        <ellipse cx="100" cy="140" rx="43" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+
+                {/* CINTURA (Altura aprox 38%) */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                    <ellipse cx="250" cy="420" rx="110" ry="25" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
+                    <line x1="80" y1="420" x2="420" y2="420" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
                 </g>
-                
-                {/* Quadril */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="55" y1="190" x2="145" y2="190" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
-                    <text x="100" y="185" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Quadril</text>
-                    {part === 'quadril' && (
-                        <ellipse cx="100" cy="190" rx="48" ry="12" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+
+                {/* QUADRIL (Altura aprox 50%) */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                    <ellipse cx="250" cy="550" rx="140" ry="35" fill="rgba(239, 68, 68, 0.2)" stroke="#ef4444" strokeWidth="6" className="animate-pulse" />
+                    <line x1="50" y1="550" x2="450" y2="550" stroke="#ef4444" strokeWidth="3" strokeDasharray="10,10" />
                 </g>
-                
-                {/* Comprimento */}
-                <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="160" y1="40" x2="160" y2="250" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
-                    <text x="170" y="145" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal'}}>Comprimento</text>
+
+                {/* COMPRIMENTO (Lateral) */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
+                    <line x1="50" y1="200" x2="50" y2="900" stroke="#ef4444" strokeWidth="8" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    <line x1="30" y1="200" x2="70" y2="200" stroke="#ef4444" strokeWidth="4" />
+                    <line x1="30" y1="900" x2="70" y2="900" stroke="#ef4444" strokeWidth="4" />
                 </g>
             </svg>
+            
+            {/* LEGENDA FLUTUANTE */}
+            <div className={`absolute bottom-3 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
+                    {highlightedPart}
+                </span>
+            </div>
         </div>
     );
 };
 
-// Componente de Entrada Admin (Otimizado para Mobile sem Scroll)
 const SizeGuideAdminInput = ({ value, onChange }) => {
     const safeValue = useMemo(() => {
         try {
@@ -1302,7 +1297,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
             </div>
             
-            {/* --- VERSÃO MOBILE (Cards/Grid - Sem Barra Lateral) --- */}
             <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
                 {data.rows.map((row, rIndex) => (
                     <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
@@ -1331,7 +1325,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 ))}
             </div>
 
-            {/* --- VERSÃO DESKTOP (Tabela Padrão) --- */}
             <div className="hidden md:block w-full overflow-x-auto">
                 <table className="w-full text-xs text-left">
                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
@@ -1367,7 +1360,6 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     );
 };
 
-// Componente de Exibição (Display - Interativo)
 const SizeGuideDisplay = ({ dataString }) => {
     const [highlightedPart, setHighlightedPart] = useState(null);
 
@@ -1379,46 +1371,32 @@ const SizeGuideDisplay = ({ dataString }) => {
         }
     }, [dataString]);
 
-    if (!data || !data.rows) {
-        return <div className="text-sm text-gray-400 italic p-4 text-center">Tabela de medidas indisponível.</div>;
-    }
+    if (!data || !data.rows) return null;
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <RulerIcon className="h-5 w-5 text-amber-400" />
                             <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                         </div>
-                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block">
-                            Passe o mouse na tabela para ver no desenho
+                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
+                            Passe o mouse na tabela
                         </span>
                     </div>
                     
-                    {/* Versão Mobile (Cards) - Interativa com Toque */}
-                    <div className="md:hidden space-y-2">
+                    <div className="md:hidden space-y-3">
+                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no manequim</p>
                         {data.rows.map((row, i) => (
                             <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">
-                                        {row.size}
-                                    </span>
-                                </div>
+                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
                                 <div className="flex gap-4 text-xs text-gray-300">
                                     {row.values.map((val, j) => (
-                                        <div 
-                                            key={j} 
-                                            className="text-center cursor-pointer active:scale-110 transition-transform"
-                                            onClick={() => setHighlightedPart(data.columns[j+1])} // Toque no mobile destaca
-                                        >
-                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>
-                                                {data.columns[j+1]}
-                                            </span>
-                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>
-                                                {val || '-'}
-                                            </span>
+                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
+                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
+                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -1426,66 +1404,32 @@ const SizeGuideDisplay = ({ dataString }) => {
                         ))}
                     </div>
 
-                    {/* Versão Desktop (Tabela) */}
                     <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
                         <table className="w-full text-sm text-gray-300">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
-                                        <th 
-                                            key={i} 
-                                            className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
-                                            onMouseEnter={() => i > 0 && setHighlightedPart(col)}
-                                            onMouseLeave={() => setHighlightedPart(null)}
-                                        >
-                                            {col}
-                                        </th>
+                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700/50">
                                 {data.rows.map((row, i) => (
                                     <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">
-                                            {row.size}
-                                        </td>
+                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
                                         {row.values.map((val, j) => (
-                                            <td 
-                                                key={j} 
-                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/10 text-amber-300' : ''}`}
-                                                onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
-                                                onMouseLeave={() => setHighlightedPart(null)}
-                                            >
-                                                {val || '-'}
-                                            </td>
+                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
                                         ))}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-3 flex items-center gap-1">
-                        <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm.
-                    </p>
                 </div>
                 
-                {/* Ilustração Interativa */}
-                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
-                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
-                        {/* Passamos o estado para a ilustração */}
-                        <MeasurementIllustration highlightedPart={highlightedPart} />
-                    </div>
-                    <div className="text-left md:text-center flex-1">
-                        <p className="text-white font-bold text-xs mb-1">
-                            {highlightedPart ? `Medindo: ${highlightedPart}` : 'Como medir?'}
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
-                            {highlightedPart 
-                                ? `Passe a fita métrica ao redor da área destacada.` 
-                                : 'Passe o mouse ou toque na tabela para ver onde medir.'}
-                        </p>
-                    </div>
+                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
+                    <MeasurementIllustration highlightedPart={highlightedPart} />
                 </div>
             </div>
         </div>
