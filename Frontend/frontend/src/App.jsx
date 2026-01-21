@@ -1212,54 +1212,28 @@ const BackToTopButton = ({ scrollableRef }) => {
 
 // Ilustração Inteligente que recebe a parte para destacar
 const MeasurementIllustration = ({ highlightedPart }) => {
-    // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300">
-            <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
-                {/* Silhueta Base - Opacidade reduzida se algo estiver destacado para focar no destaque */}
-                <path 
-                    d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" 
-                    fill="#f8fafc" 
-                    stroke={part ? "#e2e8f0" : "#cbd5e1"} 
-                    className="transition-colors duration-300"
-                />
-                
-                {/* DESTAQUES INTERATIVOS */}
-                
-                {/* Busto */}
+        <div className="relative w-full max-w-[160px] md:max-w-[200px] mx-auto transition-all duration-300 select-none">
+            <svg viewBox="0 0 200 400" className="w-full h-auto drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M100 20 C115 20 120 35 120 50 C120 60 115 65 140 70 C155 75 150 110 145 130 C145 130 142 160 142 160 C145 175 145 185 145 200 C145 230 135 250 135 250 L130 380 L115 380 L115 280 L85 280 L85 380 L70 380 L65 250 C65 250 55 230 55 200 C55 185 55 175 58 160 C58 160 55 130 55 130 C50 110 45 75 60 70 C85 65 80 60 80 50 C80 35 85 20 100 20 Z" fill="#f1f5f9" stroke={part ? "#94a3b8" : "#64748b"} strokeWidth="1.5" className="transition-colors duration-300"/>
                 <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="60" y1="90" x2="140" y2="90" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
-                    <text x="100" y="85" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Busto</text>
-                    {part === 'busto' && (
-                        <ellipse cx="100" cy="90" rx="45" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+                    <line x1="60" y1="135" x2="140" y2="135" stroke={part === 'busto' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'busto' ? "0" : "4"} strokeWidth={part === 'busto' ? "2" : "1"} />
+                    <text x="100" y="125" textAnchor="middle" fontSize="12" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">BUSTO</text>
                 </g>
-                
-                {/* Cintura */}
                 <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="58" y1="140" x2="142" y2="140" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
-                    <text x="100" y="135" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Cintura</text>
-                    {part === 'cintura' && (
-                        <ellipse cx="100" cy="140" rx="43" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+                    <line x1="65" y1="185" x2="135" y2="185" stroke={part === 'cintura' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'cintura' ? "0" : "4"} strokeWidth={part === 'cintura' ? "2" : "1"} />
+                    <text x="100" y="180" textAnchor="middle" fontSize="12" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">CINTURA</text>
                 </g>
-                
-                {/* Quadril */}
                 <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="55" y1="190" x2="145" y2="190" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
-                    <text x="100" y="185" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Quadril</text>
-                    {part === 'quadril' && (
-                        <ellipse cx="100" cy="190" rx="48" ry="12" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
-                    )}
+                    <line x1="55" y1="230" x2="145" y2="230" stroke={part === 'quadril' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'quadril' ? "0" : "4"} strokeWidth={part === 'quadril' ? "2" : "1"} />
+                    <text x="100" y="225" textAnchor="middle" fontSize="12" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">QUADRIL</text>
                 </g>
-                
-                {/* Comprimento */}
                 <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="160" y1="40" x2="160" y2="250" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
-                    <text x="170" y="145" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal'}}>Comprimento</text>
+                    <line x1="170" y1="50" x2="170" y2="300" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "4"} strokeWidth={part && part.includes('comp') ? "2" : "1"} />
+                    <text x="180" y="175" textAnchor="start" fontSize="11" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontWeight: 'bold', fontFamily: "sans-serif"}}>COMPRIMENTO</text>
                 </g>
             </svg>
         </div>
@@ -1370,122 +1344,65 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
 // Componente de Exibição (Display - Interativo)
 const SizeGuideDisplay = ({ dataString }) => {
     const [highlightedPart, setHighlightedPart] = useState(null);
-
     const data = useMemo(() => {
-        try {
-            return JSON.parse(dataString);
-        } catch (e) {
-            return null;
-        }
+        try { return JSON.parse(dataString); } catch (e) { return null; }
     }, [dataString]);
 
-    if (!data || !data.rows) {
-        return <div className="text-sm text-gray-400 italic p-4 text-center">Tabela de medidas indisponível.</div>;
-    }
+    if (!data || !data.rows) return null;
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <RulerIcon className="h-5 w-5 text-amber-400" />
                             <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                         </div>
-                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block">
-                            Passe o mouse na tabela para ver no desenho
-                        </span>
                     </div>
-                    
-                    {/* Versão Mobile (Cards) - Interativa com Toque */}
-                    <div className="md:hidden space-y-2">
-                        {data.rows.map((row, i) => (
-                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">
-                                        {row.size}
-                                    </span>
-                                </div>
-                                <div className="flex gap-4 text-xs text-gray-300">
-                                    {row.values.map((val, j) => (
-                                        <div 
-                                            key={j} 
-                                            className="text-center cursor-pointer active:scale-110 transition-transform"
-                                            onClick={() => setHighlightedPart(data.columns[j+1])} // Toque no mobile destaca
-                                        >
-                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>
-                                                {data.columns[j+1]}
-                                            </span>
-                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>
-                                                {val || '-'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Versão Desktop (Tabela) */}
+                    {/* Tabela Desktop */}
                     <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
                         <table className="w-full text-sm text-gray-300">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
-                                        <th 
-                                            key={i} 
-                                            className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
-                                            onMouseEnter={() => i > 0 && setHighlightedPart(col)}
-                                            onMouseLeave={() => setHighlightedPart(null)}
-                                        >
-                                            {col}
-                                        </th>
+                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-700/50">
                                 {data.rows.map((row, i) => (
                                     <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">
-                                            {row.size}
-                                        </td>
+                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
                                         {row.values.map((val, j) => (
-                                            <td 
-                                                key={j} 
-                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/10 text-amber-300' : ''}`}
-                                                onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
-                                                onMouseLeave={() => setHighlightedPart(null)}
-                                            >
-                                                {val || '-'}
-                                            </td>
+                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
                                         ))}
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-3 flex items-center gap-1">
-                        <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm.
-                    </p>
+                    {/* Lista Mobile */}
+                    <div className="md:hidden space-y-3">
+                        {data.rows.map((row, i) => (
+                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
+                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
+                                <div className="flex gap-4 text-xs text-gray-300">
+                                    {row.values.map((val, j) => (
+                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
+                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
+                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-4 flex items-center gap-1.5"><ExclamationCircleIcon className="h-4 w-4 text-amber-500" /> <span>Margem de erro de 1-2 cm.</span></p>
                 </div>
-                
-                {/* Ilustração Interativa */}
-                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
-                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
-                        {/* Passamos o estado para a ilustração */}
-                        <MeasurementIllustration highlightedPart={highlightedPart} />
-                    </div>
-                    <div className="text-left md:text-center flex-1">
-                        <p className="text-white font-bold text-xs mb-1">
-                            {highlightedPart ? `Medindo: ${highlightedPart}` : 'Como medir?'}
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
-                            {highlightedPart 
-                                ? `Passe a fita métrica ao redor da área destacada.` 
-                                : 'Passe o mouse ou toque na tabela para ver onde medir.'}
-                        </p>
-                    </div>
+                <div className="w-full md:w-auto flex flex-col items-center justify-center gap-4 bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative max-w-[250px] mx-auto">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md">Como Medir</div>
+                    <MeasurementIllustration highlightedPart={highlightedPart} />
                 </div>
             </div>
         </div>
