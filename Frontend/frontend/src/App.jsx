@@ -1205,24 +1205,39 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
+import React, { useState, useMemo, useEffect } from 'react';
+
+// --- ÍCONES INLINE (SVG Puro) ---
+const RulerIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm-1 16H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V8h12v2z" />
+    </svg>
+);
+
+const ExclamationCircleIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
 // --- COMPONENTES ---
 
-// Ilustração Profissional (Manequim 3D Realista)
+// Ilustração Profissional (Manequim 3D Realista com Braços)
 const MeasurementIllustration = ({ highlightedPart }) => {
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
         <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300 select-none">
-            <svg viewBox="0 0 140 320" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
+            <svg viewBox="0 0 160 380" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
                 <defs>
-                    <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#f8fafc" />
-                        <stop offset="40%" stopColor="#e2e8f0" />
+                    <linearGradient id="skinGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f1f5f9" />
+                        <stop offset="50%" stopColor="#e2e8f0" />
                         <stop offset="100%" stopColor="#cbd5e1" />
                     </linearGradient>
-                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="2" result="blur" />
+                    <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="1.5" result="blur" />
                         <feComposite in="SourceGraphic" in2="blur" operator="over" />
                     </filter>
                     <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
@@ -1230,71 +1245,69 @@ const MeasurementIllustration = ({ highlightedPart }) => {
                     </marker>
                 </defs>
 
-                {/* MANEQUIM 3D (Proporções Humanas Reais) */}
+                {/* CORPO HUMANO REALISTA (COM BRAÇOS) */}
+                {/* Cabeça, Pescoço, Ombros, Braços, Torso, Pernas */}
                 <path 
-                    d="M70,15 
-                       C80,15 86,23 86,32 
-                       C86,40 82,45 76,48 
-                       L102,55 C110,58 108,75 104,85 
-                       C102,92 98,92 94,92 
-                       C98,105 102,115 102,125 
-                       C102,145 98,175 96,200 
-                       L94,280 L82,280 L84,200 
-                       C86,170 80,140 70,135 
-                       C60,140 54,170 56,200 
-                       L58,280 L46,280 L44,200 
-                       C42,175 38,145 38,125 
-                       C38,115 42,105 46,92 
-                       C42,92 38,92 36,85 
-                       C32,75 30,58 38,55 
-                       L64,48 
-                       C58,45 54,40 54,32 
-                       C54,23 60,15 70,15 Z"
-                    fill="url(#bodyGradient)" 
+                    d="M80,20 
+                       C90,20 95,28 95,38 
+                       C95,45 92,50 88,52 L88,58 
+                       C105,60 120,65 125,75  
+                       C125,75 128,120 130,150 
+                       C130,155 128,160 125,160 
+                       C122,160 120,155 118,130 
+                       L115,90 C110,100 112,130 112,130
+                       C112,145 105,200 105,200
+                       L102,280 L92,280 L94,200
+                       C95,180 95,150 80,145
+                       C65,150 65,180 66,200
+                       L68,280 L58,280 L55,200
+                       C55,200 48,145 48,130
+                       C48,130 50,100 45,90
+                       L42,130 C40,155 38,160 35,160
+                       C32,160 30,155 30,150
+                       C32,120 35,75 35,75
+                       C40,65 55,60 72,58 L72,52
+                       C68,50 65,45 65,38
+                       C65,28 70,20 80,20 Z"
+                    fill="url(#skinGradient)" 
                     stroke={part ? "#94a3b8" : "#64748b"} 
                     strokeWidth="1"
                     strokeLinejoin="round"
-                    className="transition-all duration-500 ease-in-out"
+                    className="transition-all duration-500"
                 />
                 
-                {/* --- GUIAS DE MEDIDA (SÓ APARECEM QUANDO DESTACADAS) --- */}
+                {/* --- GUIAS DE MEDIDA --- */}
 
-                {/* BUSTO (Altura aprox 80) */}
+                {/* BUSTO (Altura aprox 95) */}
                 <g className={`transition-opacity duration-300 ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="36" y1="80" x2="104" y2="80" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="70" y="75" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>BUSTO</text>
-                    {/* Luz/Círculo 3D */}
-                    <ellipse cx="70" cy="80" rx="34" ry="8" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="45" y1="95" x2="115" y2="95" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="80" y="90" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>BUSTO</text>
+                    <ellipse cx="80" cy="95" rx="35" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* CINTURA (Altura aprox 105) */}
+                {/* CINTURA (Altura aprox 130 - parte mais fina) */}
                 <g className={`transition-opacity duration-300 ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="42" y1="105" x2="98" y2="105" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="70" y="100" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>CINTURA</text>
-                    <ellipse cx="70" cy="105" rx="28" ry="6" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="55" y1="130" x2="105" y2="130" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="80" y="125" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>CINTURA</text>
+                    <ellipse cx="80" cy="130" rx="25" ry="6" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* QUADRIL (Altura aprox 130) */}
+                {/* QUADRIL (Altura aprox 160 - parte mais larga) */}
                 <g className={`transition-opacity duration-300 ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="38" y1="130" x2="102" y2="130" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="70" y="125" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>QUADRIL</text>
-                    <ellipse cx="70" cy="130" rx="34" ry="7" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="48" y1="160" x2="112" y2="160" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="80" y="155" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>QUADRIL</text>
+                    <ellipse cx="80" cy="160" rx="32" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* COMPRIMENTO (Lateral - Serve para calça e blusa) */}
+                {/* COMPRIMENTO (Lateral Externa) */}
                 <g className={`transition-opacity duration-300 ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    {/* Linha Lateral com setas */}
-                    <line x1="120" y1="55" x2="120" y2="280" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    {/* Tracinhos de limite */}
-                    <line x1="116" y1="55" x2="124" y2="55" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="116" y1="280" x2="124" y2="280" stroke="#ef4444" strokeWidth="1" />
-                    
-                    <text x="128" y="160" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
+                    <line x1="135" y1="60" x2="135" y2="280" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    <line x1="130" y1="60" x2="140" y2="60" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="130" y1="280" x2="140" y2="280" stroke="#ef4444" strokeWidth="1" />
+                    <text x="145" y="170" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
                 </g>
-
             </svg>
             
-            {/* Etiqueta Flutuante de Confirmação */}
             <div className={`absolute bottom-2 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
                 <span className="bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
                     {highlightedPart}
@@ -1405,7 +1418,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     );
 };
 
-// Componente de Exibição (Display - Interativo)
+// Componente de Exibição (Display - Interativo e Estável)
 const SizeGuideDisplay = ({ dataString }) => {
     const [highlightedPart, setHighlightedPart] = useState(null);
 
@@ -1425,7 +1438,7 @@ const SizeGuideDisplay = ({ dataString }) => {
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
             <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
                 
-                {/* Lado Esquerdo: Tabela */}
+                {/* Lado Esquerdo: Tabela (Layout Fixo para evitar pulos) */}
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -1437,7 +1450,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                         </span>
                     </div>
                     
-                    {/* Versão Mobile (Cards) - Interativa com Toque */}
+                    {/* Versão Mobile (Cards) */}
                     <div className="md:hidden space-y-3">
                         <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no desenho</p>
                         {data.rows.map((row, i) => (
@@ -1452,7 +1465,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                                         <div 
                                             key={j} 
                                             className="text-center cursor-pointer active:scale-110 transition-transform"
-                                            onClick={() => setHighlightedPart(data.columns[j+1])} // Toque no mobile destaca
+                                            onClick={() => setHighlightedPart(data.columns[j+1])} 
                                         >
                                             <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>
                                                 {data.columns[j+1]}
@@ -1467,15 +1480,15 @@ const SizeGuideDisplay = ({ dataString }) => {
                         ))}
                     </div>
 
-                    {/* Versão Desktop (Tabela) */}
+                    {/* Versão Desktop (Tabela Fixa) */}
                     <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
-                        <table className="w-full text-sm text-gray-300">
+                        <table className="w-full text-sm text-gray-300 table-fixed">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
                                         <th 
                                             key={i} 
-                                            className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
+                                            className={`px-2 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6 w-20' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
                                             onMouseEnter={() => i > 0 && setHighlightedPart(col)}
                                             onMouseLeave={() => setHighlightedPart(null)}
                                         >
@@ -1493,7 +1506,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                                         {row.values.map((val, j) => (
                                             <td 
                                                 key={j} 
-                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`}
+                                                className={`px-2 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`}
                                                 onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
                                                 onMouseLeave={() => setHighlightedPart(null)}
                                             >
