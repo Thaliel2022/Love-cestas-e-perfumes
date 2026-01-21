@@ -1207,67 +1207,95 @@ const BackToTopButton = ({ scrollableRef }) => {
 
 // --- COMPONENTES ---
 
-// Ilustração Profissional (Croqui de Moda Realista)
+// Ilustração Profissional (Croqui de Moda Realista - Corpo Inteiro)
 const MeasurementIllustration = ({ highlightedPart }) => {
-    // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[160px] md:max-w-[220px] mx-auto transition-all duration-300 select-none">
-            <svg viewBox="0 0 200 450" className="w-full h-auto drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="1.2">
-                {/* Silhueta Humana Realista (Estilo Croqui) */}
+        <div className="relative w-full max-w-[120px] md:max-w-[160px] mx-auto transition-all duration-300 select-none">
+            {/* ViewBox ajustado para corpo inteiro (proporção 1:3 aprox) */}
+            <svg viewBox="0 0 100 320" className="w-full h-auto drop-shadow-md" fill="none" stroke="currentColor" strokeWidth="1">
+                
+                {/* CROQUI CORPO INTEIRO (Estilo Minimalista Profissional)
+                   Desenhado para ser neutro e elegante.
+                */}
                 <path 
-                    d="M100,20 C110,20 118,28 118,40 C118,48 114,55 108,58 L108,65 C125,68 145,75 145,85 C145,85 142,140 140,160 C138,180 142,230 142,230 L135,235 L132,165 C132,165 130,120 125,120 C125,120 125,180 128,210 C130,230 120,240 115,240 L115,400 L110,430 L90,430 L85,400 L85,240 C80,240 70,230 72,210 C75,180 75,120 75,120 C70,120 68,165 68,165 L65,235 L58,230 C58,230 62,180 60,160 C58,140 55,85 55,85 C55,75 75,68 92,65 L92,58 C86,55 82,48 82,40 C82,28 90,20 100,20 Z"
+                    d="M50,15 
+                       C58,15 62,20 62,28 C62,35 58,40 54,42 L54,45 
+                       C65,48 75,52 75,60 L75,100 C75,100 78,130 78,135 
+                       C78,135 76,145 74,145 L70,145 L68,105 
+                       C68,105 66,90 62,90 L62,120 C62,140 68,150 68,155 
+                       C68,165 65,180 62,230 L60,290 L62,310 L56,310 L54,290 
+                       C54,290 52,240 50,220 C48,240 46,290 46,290 
+                       L44,310 L38,310 L40,290 L38,230 
+                       C35,180 32,165 32,155 C32,150 38,140 38,120 
+                       L38,90 C34,90 32,105 32,105 L30,145 
+                       L26,145 C24,145 22,135 22,135 
+                       C22,130 25,100 25,100 L25,60 
+                       C25,52 35,48 46,45 L46,42 
+                       C42,40 38,35 38,28 C38,20 42,15 50,15 Z"
                     fill="#f8fafc" 
                     stroke={part ? "#94a3b8" : "#475569"} 
-                    strokeWidth="1.5"
+                    strokeWidth="1.2"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
                     className="transition-colors duration-300"
                 />
                 
-                {/* Linhas Guia (Cotas) */}
-                
-                {/* Busto */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="60" y1="105" x2="140" y2="105" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
-                    <line x1="60" y1="100" x2="60" y2="110" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <line x1="140" y1="100" x2="140" y2="110" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <text x="100" y="95" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">BUSTO</text>
-                    {part === 'busto' && (
-                        <ellipse cx="100" cy="105" rx="42" ry="12" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.15)" className="animate-pulse" />
-                    )}
+                {/* --- GUIAS DE MEDIDA (SÓ APARECEM QUANDO DESTACADAS) --- */}
+
+                {/* BUSTO */}
+                <g className={`transition-opacity duration-300 ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Linha de Cota */}
+                    <line x1="28" y1="75" x2="72" y2="75" stroke="#ef4444" strokeWidth="1.5" />
+                    {/* Linhas Guia Laterais */}
+                    <line x1="28" y1="70" x2="28" y2="80" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="72" y1="70" x2="72" y2="80" stroke="#ef4444" strokeWidth="1" />
+                    {/* Área de destaque no corpo */}
+                    <ellipse cx="50" cy="75" rx="20" ry="5" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
                 </g>
-                
-                {/* Cintura */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="70" y1="155" x2="130" y2="155" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
-                    <line x1="70" y1="150" x2="70" y2="160" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <line x1="130" y1="150" x2="130" y2="160" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <text x="100" y="148" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">CINTURA</text>
-                    {part === 'cintura' && (
-                        <ellipse cx="100" cy="155" rx="32" ry="8" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.15)" className="animate-pulse" />
-                    )}
+
+                {/* CINTURA */}
+                <g className={`transition-opacity duration-300 ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                    <line x1="35" y1="105" x2="65" y2="105" stroke="#ef4444" strokeWidth="1.5" />
+                    <line x1="35" y1="100" x2="35" y2="110" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="65" y1="100" x2="65" y2="110" stroke="#ef4444" strokeWidth="1" />
+                    <ellipse cx="50" cy="105" rx="14" ry="4" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
                 </g>
-                
-                {/* Quadril */}
-                <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="60" y1="205" x2="140" y2="205" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
-                    <line x1="60" y1="200" x2="60" y2="210" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <line x1="140" y1="200" x2="140" y2="210" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeWidth="1" />
-                    <text x="100" y="198" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">QUADRIL</text>
-                    {part === 'quadril' && (
-                        <ellipse cx="100" cy="205" rx="42" ry="12" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.15)" className="animate-pulse" />
-                    )}
+
+                {/* QUADRIL */}
+                <g className={`transition-opacity duration-300 ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                    <line x1="28" y1="130" x2="72" y2="130" stroke="#ef4444" strokeWidth="1.5" />
+                    <line x1="28" y1="125" x2="28" y2="135" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="72" y1="125" x2="72" y2="135" stroke="#ef4444" strokeWidth="1" />
+                    <ellipse cx="50" cy="130" rx="22" ry="6" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
                 </g>
-                
-                {/* Comprimento */}
-                <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="165" y1="60" x2="165" y2="350" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
-                    <line x1="160" y1="60" x2="170" y2="60" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeWidth="1" />
-                    <line x1="160" y1="350" x2="170" y2="350" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeWidth="1" />
-                    <text x="175" y="205" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontWeight: part && part.includes('comp') ? 'bold' : 'normal', fontFamily: "sans-serif"}}>COMPRIMENTO</text>
+
+                {/* COMPRIMENTO (GENÉRICO LATERAL) - Funciona para calça ou blusa */}
+                <g className={`transition-opacity duration-300 ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Linha Vertical Lateral (Régua) */}
+                    <line x1="85" y1="50" x2="85" y2="200" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    {/* Tracinhos da régua */}
+                    <line x1="82" y1="50" x2="88" y2="50" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="82" y1="200" x2="88" y2="200" stroke="#ef4444" strokeWidth="1" />
+                    {/* Texto Vertical */}
+                    <text x="92" y="125" fill="#ef4444" fontSize="8" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright"}}>COMPRIMENTO</text>
                 </g>
+
+                {/* OMBRO (Opcional, mas útil) */}
+                <g className={`transition-opacity duration-300 ${part && part.includes('ombro') ? 'opacity-100' : 'opacity-0'}`}>
+                    <line x1="30" y1="50" x2="70" y2="50" stroke="#ef4444" strokeWidth="1.5" />
+                </g>
+
             </svg>
+            
+            {/* Legenda Flutuante Abaixo do Boneco */}
+            <div className={`absolute bottom-0 left-0 right-0 text-center transition-opacity duration-300 ${part ? 'opacity-100' : 'opacity-0'}`}>
+                <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm border border-red-200 uppercase">
+                    {highlightedPart}
+                </span>
+            </div>
         </div>
     );
 };
@@ -1391,14 +1419,16 @@ const SizeGuideDisplay = ({ dataString }) => {
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
+                
+                {/* Lado Esquerdo: Tabela */}
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <RulerIcon className="h-5 w-5 text-amber-400" />
                             <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                         </div>
-                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
+                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
                             Passe o mouse na tabela
                         </span>
                     </div>
@@ -1478,17 +1508,19 @@ const SizeGuideDisplay = ({ dataString }) => {
                     </p>
                 </div>
                 
-                <div className="w-full md:w-auto flex flex-col items-center justify-center gap-4 bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative max-w-[250px] mx-auto">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md">Como Medir</div>
+                {/* Lado Direito: Ilustração */}
+                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-6 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">
+                        Como Medir
+                    </div>
+                    
                     <MeasurementIllustration highlightedPart={highlightedPart} />
-                    <div className="text-center w-full border-t border-gray-100 pt-3">
-                        <p className="text-gray-800 font-bold text-sm mb-1 uppercase tracking-wide">
-                            {highlightedPart ? highlightedPart : 'Selecione uma medida'}
-                        </p>
-                        <p className="text-xs text-gray-500 leading-relaxed h-8">
+                    
+                    <div className="text-center w-full border-t border-gray-100 pt-3 mt-2">
+                        <p className="text-xs text-gray-400 leading-tight">
                             {highlightedPart 
-                                ? `Posicione a fita na região destacada em vermelho.` 
-                                : 'Passe o mouse na tabela para ver o local da medida.'}
+                                ? "Posicione a fita na região destacada." 
+                                : "Selecione uma medida."}
                         </p>
                     </div>
                 </div>
