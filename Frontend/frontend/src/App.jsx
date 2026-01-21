@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -1203,62 +1204,67 @@ const BackToTopButton = ({ scrollableRef }) => {
         </AnimatePresence>
     );
 };
-
-// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (INTERATIVO) ---
-
-// Ilustração Inteligente que recebe a parte para destacar
 // --- COMPONENTES ---
 
-// Ilustração Inteligente que recebe a parte para destacar
+// Ilustração Profissional (Croqui de Moda)
 const MeasurementIllustration = ({ highlightedPart }) => {
     // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300">
-            <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
-                {/* Silhueta Base - Opacidade reduzida se algo estiver destacado para focar no destaque */}
+        <div className="relative w-full max-w-[160px] md:max-w-[200px] mx-auto transition-all duration-300 select-none">
+            <svg viewBox="0 0 200 400" className="w-full h-auto drop-shadow-lg" fill="none" stroke="currentColor" strokeWidth="1.5">
+                {/* Silhueta Estilizada (Croqui) */}
                 <path 
-                    d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" 
-                    fill="#f8fafc" 
-                    stroke={part ? "#e2e8f0" : "#cbd5e1"} 
+                    d="M100 20 C115 20 120 35 120 50 C120 60 115 65 140 70 C155 75 150 110 145 130 C145 130 142 160 142 160 C145 175 145 185 145 200 C145 230 135 250 135 250 L130 380 L115 380 L115 280 L85 280 L85 380 L70 380 L65 250 C65 250 55 230 55 200 C55 185 55 175 58 160 C58 160 55 130 55 130 C50 110 45 75 60 70 C85 65 80 60 80 50 C80 35 85 20 100 20 Z" 
+                    fill="#f1f5f9" 
+                    stroke={part ? "#94a3b8" : "#64748b"} 
+                    strokeWidth="1.5"
                     className="transition-colors duration-300"
                 />
                 
-                {/* DESTAQUES INTERATIVOS */}
+                {/* Linhas Guia (Cotas) */}
                 
                 {/* Busto */}
                 <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="60" y1="90" x2="140" y2="90" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
-                    <text x="100" y="85" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Busto</text>
+                    {/* Linha Tracejada */}
+                    <line x1="60" y1="135" x2="140" y2="135" stroke={part === 'busto' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'busto' ? "0" : "4"} strokeWidth={part === 'busto' ? "2" : "1"} />
+                    {/* Marcadores Laterais */}
+                    <line x1="60" y1="130" x2="60" y2="140" stroke={part === 'busto' ? "#ef4444" : "#fbbf24"} strokeWidth="1" />
+                    <line x1="140" y1="130" x2="140" y2="140" stroke={part === 'busto' ? "#ef4444" : "#fbbf24"} strokeWidth="1" />
+                    {/* Texto */}
+                    <text x="100" y="125" textAnchor="middle" fontSize="12" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 1px 2px rgba(255,255,255,0.8)'}}>BUSTO</text>
+                    {/* Highlight Effect */}
                     {part === 'busto' && (
-                        <ellipse cx="100" cy="90" rx="45" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                        <ellipse cx="100" cy="135" rx="42" ry="15" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
                     )}
                 </g>
                 
                 {/* Cintura */}
                 <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="58" y1="140" x2="142" y2="140" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
-                    <text x="100" y="135" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Cintura</text>
+                    <line x1="65" y1="185" x2="135" y2="185" stroke={part === 'cintura' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'cintura' ? "0" : "4"} strokeWidth={part === 'cintura' ? "2" : "1"} />
+                    <text x="100" y="180" textAnchor="middle" fontSize="12" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 1px 2px rgba(255,255,255,0.8)'}}>CINTURA</text>
                     {part === 'cintura' && (
-                        <ellipse cx="100" cy="140" rx="43" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                        <ellipse cx="100" cy="185" rx="38" ry="10" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
                     )}
                 </g>
                 
                 {/* Quadril */}
                 <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="55" y1="190" x2="145" y2="190" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
-                    <text x="100" y="185" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Quadril</text>
+                    <line x1="55" y1="230" x2="145" y2="230" stroke={part === 'quadril' ? "#ef4444" : "#fbbf24"} strokeDasharray={part === 'quadril' ? "0" : "4"} strokeWidth={part === 'quadril' ? "2" : "1"} />
+                    <text x="100" y="225" textAnchor="middle" fontSize="12" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 1px 2px rgba(255,255,255,0.8)'}}>QUADRIL</text>
                     {part === 'quadril' && (
-                        <ellipse cx="100" cy="190" rx="48" ry="12" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                        <ellipse cx="100" cy="230" rx="48" ry="12" stroke="#ef4444" strokeWidth="1" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
                     )}
                 </g>
                 
                 {/* Comprimento */}
                 <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
-                    <line x1="160" y1="40" x2="160" y2="250" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
-                    <text x="170" y="145" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal'}}>Comprimento</text>
+                    <line x1="170" y1="50" x2="170" y2="300" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "4"} strokeWidth={part && part.includes('comp') ? "2" : "1"} />
+                    <line x1="165" y1="50" x2="175" y2="50" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeWidth="1" />
+                    <line x1="165" y1="300" x2="175" y2="300" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeWidth="1" />
+                    <text x="180" y="175" textAnchor="start" fontSize="11" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal', textShadow: '0px 1px 2px rgba(255,255,255,0.8)'}}>COMPRIMENTO</text>
                 </g>
             </svg>
         </div>
@@ -1384,20 +1390,22 @@ const SizeGuideDisplay = ({ dataString }) => {
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
+                {/* Tabela Interativa */}
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <RulerIcon className="h-5 w-5 text-amber-400" />
                             <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                         </div>
-                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block">
-                            Passe o mouse na tabela para ver no desenho
+                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
+                            Passe o mouse na tabela
                         </span>
                     </div>
                     
                     {/* Versão Mobile (Cards) - Interativa com Toque */}
-                    <div className="md:hidden space-y-2">
+                    <div className="md:hidden space-y-3">
+                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no desenho</p>
                         {data.rows.map((row, i) => (
                             <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
                                 <div className="flex items-center gap-3">
@@ -1451,7 +1459,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                                         {row.values.map((val, j) => (
                                             <td 
                                                 key={j} 
-                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/10 text-amber-300' : ''}`}
+                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`}
                                                 onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
                                                 onMouseLeave={() => setHighlightedPart(null)}
                                             >
@@ -1464,25 +1472,31 @@ const SizeGuideDisplay = ({ dataString }) => {
                         </table>
                     </div>
 
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-3 flex items-center gap-1">
-                        <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm.
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-4 flex items-center gap-1.5 bg-gray-800/30 p-2 rounded border border-gray-700/50 w-fit">
+                        <ExclamationCircleIcon className="h-4 w-4 text-amber-500" /> 
+                        <span>As medidas podem variar de 1 a 2 cm devido à produção manual.</span>
                     </p>
                 </div>
                 
-                {/* Ilustração Interativa */}
-                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
-                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
+                {/* Ilustração Interativa e Visual */}
+                <div className="w-full md:w-auto flex flex-col items-center justify-center gap-4 bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative max-w-[250px] mx-auto">
+                     <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md">
+                        Como Medir
+                    </div>
+                    
+                    <div className="w-full flex justify-center py-2">
                         {/* Passamos o estado para a ilustração */}
                         <MeasurementIllustration highlightedPart={highlightedPart} />
                     </div>
-                    <div className="text-left md:text-center flex-1">
-                        <p className="text-white font-bold text-xs mb-1">
-                            {highlightedPart ? `Medindo: ${highlightedPart}` : 'Como medir?'}
+                    
+                    <div className="text-center w-full border-t border-gray-100 pt-3">
+                        <p className="text-gray-800 font-bold text-sm mb-1 uppercase tracking-wide">
+                            {highlightedPart ? highlightedPart : 'Selecione uma medida'}
                         </p>
-                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
+                        <p className="text-xs text-gray-500 leading-relaxed h-8">
                             {highlightedPart 
-                                ? `Passe a fita métrica ao redor da área destacada.` 
-                                : 'Passe o mouse ou toque na tabela para ver onde medir.'}
+                                ? `Posicione a fita na região destacada em vermelho.` 
+                                : 'Passe o mouse na tabela para ver o local da medida.'}
                         </p>
                     </div>
                 </div>
@@ -1490,371 +1504,6 @@ const SizeGuideDisplay = ({ dataString }) => {
         </div>
     );
 };
-
-const ProductCard = memo(({ product, onNavigate }) => {
-    const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
-    const notification = useNotification();
-    const { user } = useAuth();
-    const { wishlist, addToWishlist, removeFromWishlist } = useShop(); 
-    const { isAuthenticated } = useAuth();
-
-    const [isAddingToCart, setIsAddingToCart] = useState(false);
-    const [cardShippingInfo, setCardShippingInfo] = useState(null); 
-    const [isCardShippingLoading, setIsCardShippingLoading] = useState(false); 
-    
-    const [timeLeft, setTimeLeft] = useState('');
-    const [isPromoActive, setIsPromoActive] = useState(false);
-
-    const imageUrl = useMemo(() => getFirstImage(product.images), [product.images]);
-
-    useEffect(() => {
-        setIsPromoActive(!!product.is_on_sale && product.sale_price > 0);
-    }, [product]);
-
-    const currentPrice = isPromoActive ? product.sale_price : product.price;
-
-    const discountPercent = useMemo(() => {
-        if (isPromoActive && product.price > 0) { 
-            return Math.round(((product.price - product.sale_price) / product.price) * 100);
-        }
-        return 0;
-    }, [isPromoActive, product]);
-
-    useEffect(() => {
-        if (!product?.sale_end_date) {
-            setTimeLeft('');
-            return;
-        }
-
-        if (!isPromoActive) return;
-
-        const calculateTimeLeft = () => {
-            const difference = new Date(product.sale_end_date) - new Date();
-            
-            if (difference > 0) {
-                const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((difference / 1000 / 60) % 60);
-                const seconds = Math.floor((difference / 1000) % 60);
-
-                let timeString = '';
-                if (days > 0) timeString += `${days}d `;
-                timeString += `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-                setTimeLeft(timeString);
-            } else {
-                setTimeLeft('Expirada');
-                setIsPromoActive(false);
-            }
-        };
-
-        calculateTimeLeft();
-        const timer = setInterval(calculateTimeLeft, 1000);
-
-        return () => clearInterval(timer);
-    }, [isPromoActive, product.sale_end_date]);
-
-    const isNew = useMemo(() => {
-        if (!product || !product.created_at) return false;
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        return new Date(product.created_at) > thirtyDaysAgo;
-    }, [product]);
-
-    const avgRating = product.avg_rating ? Math.round(product.avg_rating) : 0;
-    const reviewCount = product.review_count || 0;
-
-    const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
-    const isProductOutOfStock = product.stock <= 0;
-    const isVariationOutOfStock = product.product_type === 'clothing' && productVariations.length > 0 && productVariations.every(v => v.stock <= 0);
-    const isOutOfStock = isProductOutOfStock || isVariationOutOfStock;
-
-    // --- Efeito de Frete Atualizado ---
-    useEffect(() => {
-        const controller = new AbortController();
-        const signal = controller.signal;
-         const debounceTimer = setTimeout(() => {
-            const cleanCep = shippingLocation.cep.replace(/\D/g, '');
-            
-            if (product && cleanCep.length === 8) {
-                setIsCardShippingLoading(true);
-                setCardShippingInfo(null);
-
-                // --- LÓGICA LOCAL PARA JOÃO PESSOA ---
-                const cepPrefix = parseInt(cleanCep.substring(0, 5));
-                const isJoaoPessoa = cepPrefix >= 58000 && cepPrefix <= 58099;
-
-                if (isJoaoPessoa) {
-                    // Calcula data para 1 dia útil
-                    const date = new Date();
-                    let addedDays = 0;
-                    while (addedDays < 1) { // 1 dia útil
-                        date.setDate(date.getDate() + 1);
-                        if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
-                    }
-                    const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                    
-                    // USANDO O CÁLCULO DINÂMICO COM CORREÇÃO DE EXIBIÇÃO
-                    const localPrice = calculateLocalDeliveryPrice ? calculateLocalDeliveryPrice([product]) : 20;
-                    
-                    const priceDisplay = localPrice === 0 ? "Grátis" : `R$ ${localPrice.toFixed(2).replace('.', ',')}`;
-                    
-                    setCardShippingInfo(`Frete ${priceDisplay} - Receba até ${formattedDate}.`);
-                    setIsCardShippingLoading(false);
-                    return; // Interrompe para não chamar a API
-                }
-
-                // --- LÓGICA PADRÃO PARA OUTROS CEPs (API) ---
-                const calculateShipping = async () => {
-                    try {
-                        const productsPayload = [{ id: String(product.id), price: currentPrice, quantity: 1 }];
-                        const apiOptions = await apiService('/shipping/calculate', 'POST', { cep_destino: shippingLocation.cep, products: productsPayload }, { signal });
-
-                        let shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('pac'));
-                        if (!shippingOption) {
-                            shippingOption = apiOptions.find(opt => opt.name.toLowerCase().includes('sedex'));
-                        }
-
-                        if (shippingOption) {
-                            const date = new Date();
-                            let deliveryTime = shippingOption.delivery_time;
-                            let addedDays = 0;
-                            while (addedDays < deliveryTime) {
-                                date.setDate(date.getDate() + 1);
-                                if (date.getDay() !== 0 && date.getDay() !== 6) { addedDays++; }
-                            }
-                            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-                            setCardShippingInfo(`Frete R$ ${Number(shippingOption.price).toFixed(2).replace('.', ',')} - Receba até ${formattedDate}.`);
-                        } else {
-                            setCardShippingInfo('Entrega indisponível para este CEP.');
-                        }
-                    } catch (error) {
-                        if (error.name !== 'AbortError') {
-                            setCardShippingInfo('Erro ao calcular frete.');
-                        }
-                    } finally {
-                        if (!signal.aborted) { setIsCardShippingLoading(false); }
-                    }
-                };
-                calculateShipping();
-            } else {
-                setCardShippingInfo(null); 
-                 setIsCardShippingLoading(false); 
-            }
-        }, 500);
-
-        return () => {
-            clearTimeout(debounceTimer);
-            controller.abort();
-        };
-    }, [product, shippingLocation.cep, currentPrice, calculateLocalDeliveryPrice]); // Adicionado calculateLocalDeliveryPrice nas dependências
-
-    const installmentInfo = useMemo(() => {
-        if (currentPrice >= 100) {
-            const installmentValue = currentPrice / 4;
-            return `4x de R$ ${installmentValue.toFixed(2).replace('.', ',')} s/ juros`;
-        }
-        return null;
-    }, [currentPrice]);
-
-    const handleViewDetails = (e) => {
-        e.stopPropagation();
-        onNavigate(`product/${product.id}`);
-    };
-
-    const handleAddToCartInternal = async (e) => { 
-        e.stopPropagation();
-        if (product.product_type === 'clothing') {
-            notification.show("Escolha cor e tamanho na página do produto.", "error");
-            onNavigate(`product/${product.id}`);
-            return;
-        }
-        setIsAddingToCart(true);
-        try {
-            await addToCart(product, 1);
-            notification.show(`${product.name} adicionado ao carrinho!`);
-        } catch (error) {
-            notification.show(error.message || "Erro ao adicionar ao carrinho", "error");
-        } finally {
-            setIsAddingToCart(false);
-        }
-    };
-
-    const WishlistButton = ({ product }) => {
-        const isWishlisted = wishlist.some(item => item.id === product.id);
-        const handleWishlistToggle = async (e) => {
-            e.stopPropagation(); 
-            if (!isAuthenticated) {
-                notification.show("Faça login para adicionar à lista de desejos", "error");
-                return;
-            }
-            if (isWishlisted) {
-                await removeFromWishlist(product.id);
-                notification.show(`${product.name} removido da lista de desejos.`, 'error');
-            } else {
-                const result = await addToWishlist(product);
-                notification.show(result.message, result.success ? 'success' : 'error');
-            }
-        };
-        return (
-            <button
-                onClick={handleWishlistToggle}
-                className={`absolute top-2 right-2 bg-black/40 hover:bg-black/60 backdrop-blur-sm p-1.5 rounded-full text-white transition-colors duration-200 z-10 ${isWishlisted ? 'text-amber-400' : 'hover:text-amber-300'}`}
-                aria-label="Adicionar à Lista de Desejos"
-            >
-                <HeartIcon className="h-5 w-5" filled={isWishlisted} />
-            </button>
-        );
-    };
-
-    const cardVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
-    };
-
-    return (
-        <motion.div
-            layout 
-            variants={cardVariants}
-            initial="hidden" 
-            animate="visible" 
-            exit="hidden" 
-            whileHover={{ y: -5, boxShadow: "0px 10px 20px rgba(0, 0, 0, 0.2)" }}
-            className={`bg-black border ${isPromoActive ? (timeLeft && timeLeft !== 'Expirada' ? 'border-red-600 shadow-lg shadow-red-900/30' : 'border-green-600 shadow-lg shadow-green-900/30') : 'border-gray-800'} rounded-lg overflow-hidden flex flex-col text-white h-full transition-shadow duration-300 ${isOutOfStock ? 'opacity-60 grayscale-[50%]' : ''}`} 
-            onClick={() => onNavigate(`product/${product.id}`)} 
-        >
-            <div className="relative h-64 bg-white overflow-hidden group">
-                <img
-                    src={imageUrl} 
-                    alt={product.name}
-                    loading="lazy" // <--- OTIMIZAÇÃO DE PERFORMANCE ADICIONADA AQUI
-                    className="w-full h-full object-contain cursor-pointer transition-transform duration-300 group-hover:scale-105 p-2"
-                />
-                <WishlistButton product={product} /> 
-
-                <div className="absolute top-2 left-2 flex flex-col gap-1.5 z-10">
-                    {isOutOfStock ? (
-                        <div className="bg-gray-700 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow">ESGOTADO</div>
-                    ) : isPromoActive ? (
-                         <div className={`bg-gradient-to-r ${timeLeft && timeLeft !== 'Expirada' ? 'from-red-600 to-orange-500' : 'from-green-600 to-teal-500'} text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5`}> 
-                            <SaleIcon className="h-4 w-4"/>
-                            <span>PROMOÇÃO {discountPercent}%</span>
-                        </div>
-                    ) : isNew ? (
-                        <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
-                    ) : null}
-                </div>
-
-                {isPromoActive && timeLeft && timeLeft !== 'Expirada' && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-red-700 to-red-500/90 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-red-400">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <SparklesIcon className="h-3 w-3 text-yellow-300 animate-pulse"/>
-                            <span>Oferta Relâmpago</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-black/30 rounded px-1.5 py-0.5">
-                            <ClockIcon className="h-3 w-3 text-white"/>
-                            <span className="text-white font-mono font-bold text-xs">{timeLeft}</span>
-                        </div>
-                    </div>
-                )}
-
-                {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-gradient-to-r from-emerald-600 to-green-500/95 backdrop-blur-md py-1.5 px-3 flex items-center justify-between z-20 shadow-inner border-t border-emerald-400/50">
-                        <div className="flex items-center gap-1.5 text-white font-bold text-[10px] uppercase tracking-wide">
-                            <TagIcon className="h-3 w-3 text-white fill-white"/>
-                            <span>Preço Especial</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-black/20 rounded px-2 py-0.5">
-                            <span className="text-white font-bold text-[9px]">Aproveite</span>
-                        </div>
-                    </div>
-                )}
-
-                 {product.product_type === 'clothing' && !isPromoActive && !isOutOfStock && (
-                    <div className="absolute bottom-0 left-0 w-full bg-black/70 text-center text-xs py-1 text-amber-300"> 
-                        Ver Cores e Tamanhos
-                    </div>
-                 )}
-                 {user && user.role === 'admin' && (
-                    <div className="absolute top-2 right-10 z-10"> 
-                        <button onClick={(e) => { e.stopPropagation(); onNavigate(`admin/products?search=${encodeURIComponent(product.name)}`); }}
-                                className="bg-gray-700/50 hover:bg-gray-600/70 backdrop-blur-sm text-white p-1.5 rounded-full shadow-md transition-colors" 
-                                title="Editar Produto">
-                            <EditIcon className="h-4 w-4" />
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            <div className="p-4 flex flex-col flex-grow">
-                <div>
-                    <p className="text-xs font-semibold text-amber-400 mb-1">{product.brand.toUpperCase()}</p>
-                    <h4
-                        className="text-base font-semibold tracking-tight cursor-pointer hover:text-amber-300 transition-colors line-clamp-2 h-10"
-                        title={product.name}
-                    >
-                        {product.name}
-                    </h4>
-                    <div className="flex items-center mt-1.5 h-4 gap-1">
-                        {[...Array(5)].map((_, i) => ( <StarIcon key={i} className={`h-4 w-4 ${i < avgRating ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < avgRating} /> ))}
-                        {reviewCount > 0 && ( <span className="text-[10px] text-gray-500">({reviewCount})</span> )}
-                    </div>
-                </div>
-
-                <div className="mt-auto pt-3">
-                    {isPromoActive ? (
-                         <div className="flex flex-col">
-                            <p className="text-xs font-light text-gray-500 line-through">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p>
-                            <div className="flex items-baseline gap-2">
-                                <p className="text-xl font-bold text-red-500">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</p>
-                                <span className={`text-xs font-bold ${timeLeft && timeLeft !== 'Expirada' ? 'text-red-500' : 'text-green-500'}`}>{discountPercent}% OFF</span>
-                            </div>
-                        </div>
-                    ) : ( <p className="text-xl font-semibold text-white">R$ {Number(product.price).toFixed(2).replace('.', ',')}</p> )}
-
-                    {installmentInfo && ( <p className="text-[11px] text-gray-400 mt-0.5">{installmentInfo}</p> )}
-
-                    {isOutOfStock ? (
-                        <div className="mt-3">
-                            <div className="w-full bg-gray-700 text-gray-400 py-2 px-3 rounded-md font-bold text-center text-sm">Esgotado</div>
-                        </div>
-                    ) : (
-                        <div className="mt-3 flex items-stretch space-x-2">
-                            <button
-                                onClick={handleViewDetails}
-                                className="flex-grow bg-amber-400 text-black py-2 px-3 rounded-md hover:bg-amber-300 transition font-bold text-sm text-center flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                            >
-                                <EyeIcon className="h-4 w-4"/>
-                                Ver Detalhes
-                            </button>
-                            <button
-                                onClick={handleAddToCartInternal}
-                                disabled={isAddingToCart}
-                                title="Adicionar ao Carrinho"
-                                className="flex-shrink-0 border border-gray-600 text-gray-400 p-2 rounded-md hover:bg-gray-700 hover:text-white transition flex items-center justify-center disabled:opacity-50"
-                            >
-                                {isAddingToCart ? <SpinnerIcon className="h-5 w-5 text-gray-400" /> : <CartIcon className="h-5 w-5"/>}
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {(isCardShippingLoading || cardShippingInfo) && (
-                <div className="p-2 text-[10px] text-center border-t border-gray-800 bg-gray-900/50 flex items-center justify-center gap-1.5">
-                    {isCardShippingLoading ? (
-                        <SpinnerIcon className="h-3 w-3 text-gray-500" />
-                    ) : cardShippingInfo.includes('Erro') ? (
-                         <ExclamationCircleIcon className="h-3 w-3 text-red-500" />
-                    ) : (
-                        <TruckIcon className="h-3 w-3 text-green-500"/>
-                    )}
-                    <span className={isCardShippingLoading ? "text-gray-500" : (cardShippingInfo.includes('Erro') ? 'text-red-400' : 'text-gray-400')}>
-                        {isCardShippingLoading ? 'Calculando...' : cardShippingInfo}
-                    </span>
-                </div>
-            )}
-        </motion.div>
-    );
-});
 
 const ProductCarousel = memo(({ products, onNavigate, title }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
