@@ -3654,7 +3654,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [selectedColor, setSelectedColor] = useState('');
     const [selectedSize, setSelectedSize] = useState('');
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+    
+    // --- ESTADO DO MODAL DE MEDIDAS (NOVO) ---
     const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
+    
     const [pendingAction, setPendingAction] = useState(null); 
     const [selectionError, setSelectionError] = useState(false); 
 
@@ -3982,10 +3985,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS (CORRIGIDO TAMANHO) --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS (CORRIGIDO TAMANHO E RENDERIZAÇÃO) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="2xl">
+                        {/* Chama o componente que foi definido no bloco anterior */}
                         <SizeGuideDisplay dataString={product.size_guide} />
                     </Modal>
                 )}
@@ -4025,7 +4029,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        {/* --- BOTÃO DE GUIA DE MEDIDAS (MOBILE) --- */}
                                         <div className="flex items-center justify-between mb-5">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
@@ -4072,7 +4075,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </>
                 )}
             </AnimatePresence>
-            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
@@ -4326,14 +4328,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     product={product} 
                                     variations={productVariations} 
                                     selectedColor={selectedColor} 
-                                    setSelectedColor={setSelectedColor}
-                                    selectedSize={selectedSize}
-                                    setSelectedSize={setSelectedSize}
+                                    setSelectedColor={setSelectedColor} 
+                                    selectedSize={selectedSize} 
+                                    setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP - MOVIDO PARA BAIXO) --- */}
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (MOVIDO PARA BAIXO) --- */}
                                 {product.size_guide && (
-                                    <div className="flex justify-end mt-4">
+                                    <div className="flex justify-start mt-4">
                                         <button 
                                             onClick={() => setIsSizeGuideModalOpen(true)}
                                             className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors border border-amber-400/30 px-3 py-1.5 rounded hover:bg-amber-400/10"
@@ -4383,7 +4385,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
-                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
+                        {/* Removido o botão de Tabela de Medidas daqui pois agora está lá em cima */}
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
@@ -4391,14 +4393,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                     <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
-                        
-                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
-                        {isClothing && activeTab === 'size_guide' && (
-                            product.size_guide 
-                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
-                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
-                        )}
-                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
@@ -4452,7 +4446,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
-
 const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     const { login, setUser } = useAuth();
     const notification = useNotification();
