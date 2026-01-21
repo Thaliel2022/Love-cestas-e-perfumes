@@ -1206,20 +1206,21 @@ const BackToTopButton = ({ scrollableRef }) => {
 };
 
 
-
-// Ilustração Profissional (Manequim 3D Realista com Braços)
 const MeasurementIllustration = ({ highlightedPart }) => {
+    // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
         <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300 select-none">
-            <svg viewBox="0 0 160 380" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
+            {/* Ajustei o viewBox para a nova pose */}
+            <svg viewBox="0 0 180 380" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
                 <defs>
-                    <linearGradient id="skinGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#f1f5f9" />
-                        <stop offset="50%" stopColor="#e2e8f0" />
-                        <stop offset="100%" stopColor="#cbd5e1" />
+                    {/* Gradiente Metálico/Prateado para o corpo 3D */}
+                    <linearGradient id="mannequinGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#e2e8f0" /> {/* Cinza claro */}
+                        <stop offset="50%" stopColor="#94a3b8" /> {/* Cinza médio */}
+                        <stop offset="100%" stopColor="#64748b" /> {/* Cinza mais escuro para sombra */}
                     </linearGradient>
                     <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="1.5" result="blur" />
@@ -1230,66 +1231,69 @@ const MeasurementIllustration = ({ highlightedPart }) => {
                     </marker>
                 </defs>
 
-                {/* CORPO HUMANO REALISTA (COM BRAÇOS) */}
-                {/* Cabeça, Pescoço, Ombros, Braços, Torso, Pernas */}
-                <path 
-                    d="M80,20 
-                       C90,20 95,28 95,38 
-                       C95,45 92,50 88,52 L88,58 
-                       C105,60 120,65 125,75  
-                       C125,75 128,120 130,150 
-                       C130,155 128,160 125,160 
-                       C122,160 120,155 118,130 
-                       L115,90 C110,100 112,130 112,130
-                       C112,145 105,200 105,200
-                       L102,280 L92,280 L94,200
-                       C95,180 95,150 80,145
-                       C65,150 65,180 66,200
-                       L68,280 L58,280 L55,200
-                       C55,200 48,145 48,130
-                       C48,130 50,100 45,90
-                       L42,130 C40,155 38,160 35,160
-                       C32,160 30,155 30,150
-                       C32,120 35,75 35,75
-                       C40,65 55,60 72,58 L72,52
-                       C68,50 65,45 65,38
-                       C65,28 70,20 80,20 Z"
-                    fill="url(#skinGradient)" 
-                    stroke={part ? "#94a3b8" : "#64748b"} 
-                    strokeWidth="1"
-                    strokeLinejoin="round"
-                    className="transition-all duration-500"
-                />
+                {/* CORPO DO MANEQUIM 3D (Baseado na imagem de referência) */}
+                <g filter="url(#shadow3d)">
+                    <path 
+                        d="M90,20 C105,20 110,30 110,45 C110,55 105,60 100,62 L100,70 
+                           C115,72 135,75 145,80 C145,80 142,130 140,160 C138,170 140,175 135,175 L130,175 L132,120 C130,100 125,95 120,95
+                           L120,160 C120,180 122,200 115,205 C110,210 105,210 105,210
+                           L108,280 C110,300 105,310 100,310 L95,310 L92,280 L90,215
+                           L88,280 L85,310 L80,310 C75,310 70,300 72,280
+                           L75,210 C75,210 70,210 65,205 C58,200 60,180 60,160
+                           L60,95 C55,95 50,100 48,120 L50,175 L45,175 C40,175 42,170 40,160
+                           C38,130 35,80 35,80 C45,75 65,72 80,70 L80,62
+                           C75,60 70,55 70,45 C70,30 75,20 90,20 Z"
+                        fill="url(#mannequinGradient)" 
+                        stroke="#475569"
+                        strokeWidth="0.8"
+                        strokeLinejoin="round"
+                        className="transition-all duration-500"
+                    />
+                    
+                    {/* LINHAS DE COSTURA/JUNTAS (Detalhes da imagem de referência) */}
+                    <g stroke="#475569" strokeWidth="0.5" fill="none">
+                        {/* Linha Central Vertical */}
+                        <line x1="90" y1="70" x2="90" y2="215" />
+                        {/* Juntas dos Ombros */}
+                        <path d="M80,70 C70,75 65,85 60,95" />
+                        <path d="M100,70 C110,75 115,85 120,95" />
+                         {/* Linha da Cintura/Quadril */}
+                        <path d="M75,210 C85,215 95,215 105,210" />
+                         {/* Juntas dos Joelhos */}
+                        <line x1="72" y1="280" x2="88" y2="280" />
+                        <line x1="92" y1="280" x2="108" y2="280" />
+                    </g>
+                </g>
                 
-                {/* --- GUIAS DE MEDIDA --- */}
+                {/* --- GUIAS DE MEDIDA INTERATIVAS (Reposicionadas para o novo boneco) --- */}
 
-                {/* BUSTO (Altura aprox 95) */}
+                {/* BUSTO (Altura aprox 105) */}
                 <g className={`transition-opacity duration-300 ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="45" y1="95" x2="115" y2="95" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="80" y="90" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>BUSTO</text>
-                    <ellipse cx="80" cy="95" rx="35" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="60" y1="105" x2="120" y2="105" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="90" y="100" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>BUSTO</text>
+                    <ellipse cx="90" cy="105" rx="30" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* CINTURA (Altura aprox 130 - parte mais fina) */}
+                {/* CINTURA (Altura aprox 150 - parte mais fina) */}
                 <g className={`transition-opacity duration-300 ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="55" y1="130" x2="105" y2="130" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="80" y="125" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>CINTURA</text>
-                    <ellipse cx="80" cy="130" rx="25" ry="6" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="65" y1="150" x2="115" y2="150" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="90" y="145" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>CINTURA</text>
+                    <ellipse cx="90" cy="150" rx="25" ry="6" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* QUADRIL (Altura aprox 160 - parte mais larga) */}
+                {/* QUADRIL (Altura aprox 190 - parte mais larga) */}
                 <g className={`transition-opacity duration-300 ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="48" y1="160" x2="112" y2="160" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="80" y="155" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>QUADRIL</text>
-                    <ellipse cx="80" cy="160" rx="32" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                    <line x1="58" y1="190" x2="122" y2="190" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="90" y="185" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>QUADRIL</text>
+                    <ellipse cx="90" cy="190" rx="32" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
                 {/* COMPRIMENTO (Lateral Externa) */}
                 <g className={`transition-opacity duration-300 ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="135" y1="60" x2="135" y2="280" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    <line x1="130" y1="60" x2="140" y2="60" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="130" y1="280" x2="140" y2="280" stroke="#ef4444" strokeWidth="1" />
-                    <text x="145" y="170" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
+                    <line x1="150" y1="70" x2="150" y2="310" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    <line x1="145" y1="70" x2="155" y2="70" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="145" y1="310" x2="155" y2="310" stroke="#ef4444" strokeWidth="1" />
+                    <text x="160" y="190" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
                 </g>
             </svg>
             
