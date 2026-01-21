@@ -3992,10 +3992,10 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS (NOVO) --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS (CORRIGIDO TAMANHO) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
-                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="4xl">
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="2xl">
                         <SizeGuideDisplay dataString={product.size_guide} />
                     </Modal>
                 )}
