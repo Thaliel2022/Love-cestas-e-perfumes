@@ -1205,15 +1205,13 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// ILUSTRAÇÃO COM FOTO 3D (Comprimento Corrigido para Direita)
+// --- ILUSTRAÇÃO COM FOTO 3D ---
 const MeasurementIllustration = ({ highlightedPart }) => {
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
-    // ID único para evitar conflitos de renderização do SVG
-    const markerId = "arrow-marker-guide";
 
     return (
-        <div className="relative w-full max-w-[200px] md:max-w-[320px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
+        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
             {/* FOTO DO BONECO 3D (Background) */}
             <img 
                 src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg" 
@@ -1229,41 +1227,41 @@ const MeasurementIllustration = ({ highlightedPart }) => {
                 preserveAspectRatio="none"
             >
                 <defs>
-                    <marker id={markerId} markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
                         <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
                     </marker>
                 </defs>
 
-                {/* BUSTO (Altura aprox 28%) */}
+                {/* BUSTO (Altura ajustada) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
                     <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
                     <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
                     <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
                 </g>
 
-                {/* CINTURA (Parte mais fina - aprox 42%) */}
+                {/* CINTURA (Parte mais fina) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
                     <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
                     <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
                     <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
                 </g>
 
-                {/* QUADRIL (Parte mais larga - aprox 55%) */}
+                {/* QUADRIL (Parte mais larga) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
                     <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
                     <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
                     <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
                 </g>
 
-                {/* COMPRIMENTO (Lateral Direita - MOVIDO para x=450 para não cortar) */}
+                {/* COMPRIMENTO (Lateral Vertical) */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
                     {/* Linha vertical com marcadores */}
-                    <line x1="450" y1="150" x2="450" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd={`url(#${markerId})`} markerStart={`url(#${markerId})`} />
+                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
                     {/* Tracinhos horizontais nas pontas */}
-                    <line x1="430" y1="150" x2="470" y2="150" stroke="#ef4444" strokeWidth="3" />
-                    <line x1="430" y1="600" x2="470" y2="600" stroke="#ef4444" strokeWidth="3" />
-                    {/* Texto vertical (Posicionado à esquerda da linha para leitura clara) */}
-                    <text x="420" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
+                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
+                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
+                    {/* Texto vertical */}
+                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
                 </g>
             </svg>
             
@@ -1440,11 +1438,6 @@ const SizeGuideDisplay = ({ dataString }) => {
                             </tbody>
                         </table>
                     </div>
-
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-4 flex items-center gap-1.5 bg-gray-800/30 p-2 rounded border border-gray-700/50 w-fit">
-                        <ExclamationCircleIcon className="h-4 w-4 text-amber-500" /> 
-                        <span>As medidas podem variar de 1 a 2 cm devido à produção manual.</span>
-                    </p>
                 </div>
                 
                 <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
