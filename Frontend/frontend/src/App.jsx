@@ -65,7 +65,18 @@ const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
 const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
+// --- ÍCONES INLINE (Para evitar erros de importação) ---
+const RulerIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm-1 16H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V8h12v2z" />
+    </svg>
+);
 
+const ExclamationCircleIcon = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
     cpf = String(cpf).replace(/[^\d]/g, ''); 
@@ -1207,6 +1218,9 @@ const BackToTopButton = ({ scrollableRef }) => {
 // --- NOVOS COMPONENTES: GUIA DE MEDIDAS (INTERATIVO) ---
 
 // Ilustração Inteligente que recebe a parte para destacar
+// --- COMPONENTES ---
+
+// Ilustração Inteligente que recebe a parte para destacar
 const MeasurementIllustration = ({ highlightedPart }) => {
     // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
@@ -1298,6 +1312,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
             </div>
             
+            {/* --- VERSÃO MOBILE (Cards/Grid - Sem Barra Lateral) --- */}
             <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
                 {data.rows.map((row, rIndex) => (
                     <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
@@ -1326,6 +1341,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
                 ))}
             </div>
 
+            {/* --- VERSÃO DESKTOP (Tabela Padrão) --- */}
             <div className="hidden md:block w-full overflow-x-auto">
                 <table className="w-full text-xs text-left">
                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
@@ -1391,7 +1407,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                         </span>
                     </div>
                     
-                    {/* Versão Mobile (Cards) - Sem Scroll Horizontal */}
+                    {/* Versão Mobile (Cards) - Interativa com Toque */}
                     <div className="md:hidden space-y-2">
                         {data.rows.map((row, i) => (
                             <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
@@ -1464,6 +1480,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                     </p>
                 </div>
                 
+                {/* Ilustração Interativa */}
                 <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
                     <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
                         {/* Passamos o estado para a ilustração */}
