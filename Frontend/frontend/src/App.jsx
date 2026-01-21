@@ -4268,13 +4268,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
                                 )}
 
-                                {/* Container de Imagem - ATUALIZADO PARA IMAGEM MAIOR */}
-                                <div className="absolute inset-0 flex items-center justify-center p-0 md:p-1"> {/* Padding removido/reduzido */}
+                                {/* Container de Imagem */}
+                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
                                     <img 
                                         src={mainImage} 
                                         alt={product.name} 
                                         onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
-                                        className={`max-w-full max-h-full w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
                                     />
                                 </div>
                                 
@@ -4283,14 +4283,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     <>
                                         <button 
                                             onClick={handlePrevImage} 
-                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
                                             aria-label="Imagem anterior"
                                         >
                                             <ChevronDownIcon className="h-6 w-6 rotate-90" />
                                         </button>
                                         <button 
                                             onClick={handleNextImage} 
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-sm opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
                                             aria-label="Próxima imagem"
                                         >
                                             <ChevronDownIcon className="h-6 w-6 -rotate-90" />
@@ -4405,7 +4405,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {/* Seletor na página principal */}
+                        {/* Seletor na página principal (também controlado pelo estado da página) */}
                         {isClothing && ( 
                             <div className="mb-2">
                                 <VariationSelector 
@@ -4538,6 +4538,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         </div>
     );
 };
+
 const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     const { login, setUser } = useAuth();
     const notification = useNotification();
