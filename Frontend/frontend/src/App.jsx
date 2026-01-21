@@ -1207,92 +1207,96 @@ const BackToTopButton = ({ scrollableRef }) => {
 
 // --- COMPONENTES ---
 
-// Ilustração Profissional (Croqui de Moda Realista - Corpo Inteiro)
+// Ilustração Profissional (Manequim 3D Realista)
 const MeasurementIllustration = ({ highlightedPart }) => {
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[120px] md:max-w-[160px] mx-auto transition-all duration-300 select-none">
-            {/* ViewBox ajustado para corpo inteiro (proporção 1:3 aprox) */}
-            <svg viewBox="0 0 100 320" className="w-full h-auto drop-shadow-md" fill="none" stroke="currentColor" strokeWidth="1">
-                
-                {/* CROQUI CORPO INTEIRO (Estilo Minimalista Profissional)
-                   Desenhado para ser neutro e elegante.
-                */}
+        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300 select-none">
+            <svg viewBox="0 0 140 320" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
+                <defs>
+                    <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f8fafc" />
+                        <stop offset="40%" stopColor="#e2e8f0" />
+                        <stop offset="100%" stopColor="#cbd5e1" />
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L6,3 z" fill="#ef4444" />
+                    </marker>
+                </defs>
+
+                {/* MANEQUIM 3D (Proporções Humanas Reais) */}
                 <path 
-                    d="M50,15 
-                       C58,15 62,20 62,28 C62,35 58,40 54,42 L54,45 
-                       C65,48 75,52 75,60 L75,100 C75,100 78,130 78,135 
-                       C78,135 76,145 74,145 L70,145 L68,105 
-                       C68,105 66,90 62,90 L62,120 C62,140 68,150 68,155 
-                       C68,165 65,180 62,230 L60,290 L62,310 L56,310 L54,290 
-                       C54,290 52,240 50,220 C48,240 46,290 46,290 
-                       L44,310 L38,310 L40,290 L38,230 
-                       C35,180 32,165 32,155 C32,150 38,140 38,120 
-                       L38,90 C34,90 32,105 32,105 L30,145 
-                       L26,145 C24,145 22,135 22,135 
-                       C22,130 25,100 25,100 L25,60 
-                       C25,52 35,48 46,45 L46,42 
-                       C42,40 38,35 38,28 C38,20 42,15 50,15 Z"
-                    fill="#f8fafc" 
-                    stroke={part ? "#94a3b8" : "#475569"} 
-                    strokeWidth="1.2"
+                    d="M70,15 
+                       C80,15 86,23 86,32 
+                       C86,40 82,45 76,48 
+                       L102,55 C110,58 108,75 104,85 
+                       C102,92 98,92 94,92 
+                       C98,105 102,115 102,125 
+                       C102,145 98,175 96,200 
+                       L94,280 L82,280 L84,200 
+                       C86,170 80,140 70,135 
+                       C60,140 54,170 56,200 
+                       L58,280 L46,280 L44,200 
+                       C42,175 38,145 38,125 
+                       C38,115 42,105 46,92 
+                       C42,92 38,92 36,85 
+                       C32,75 30,58 38,55 
+                       L64,48 
+                       C58,45 54,40 54,32 
+                       C54,23 60,15 70,15 Z"
+                    fill="url(#bodyGradient)" 
+                    stroke={part ? "#94a3b8" : "#64748b"} 
+                    strokeWidth="1"
                     strokeLinejoin="round"
-                    strokeLinecap="round"
-                    className="transition-colors duration-300"
+                    className="transition-all duration-500 ease-in-out"
                 />
                 
                 {/* --- GUIAS DE MEDIDA (SÓ APARECEM QUANDO DESTACADAS) --- */}
 
-                {/* BUSTO */}
+                {/* BUSTO (Altura aprox 80) */}
                 <g className={`transition-opacity duration-300 ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    {/* Linha de Cota */}
-                    <line x1="28" y1="75" x2="72" y2="75" stroke="#ef4444" strokeWidth="1.5" />
-                    {/* Linhas Guia Laterais */}
-                    <line x1="28" y1="70" x2="28" y2="80" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="72" y1="70" x2="72" y2="80" stroke="#ef4444" strokeWidth="1" />
-                    {/* Área de destaque no corpo */}
-                    <ellipse cx="50" cy="75" rx="20" ry="5" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
+                    <line x1="36" y1="80" x2="104" y2="80" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="70" y="75" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>BUSTO</text>
+                    {/* Luz/Círculo 3D */}
+                    <ellipse cx="70" cy="80" rx="34" ry="8" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* CINTURA */}
+                {/* CINTURA (Altura aprox 105) */}
                 <g className={`transition-opacity duration-300 ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="35" y1="105" x2="65" y2="105" stroke="#ef4444" strokeWidth="1.5" />
-                    <line x1="35" y1="100" x2="35" y2="110" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="65" y1="100" x2="65" y2="110" stroke="#ef4444" strokeWidth="1" />
-                    <ellipse cx="50" cy="105" rx="14" ry="4" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
+                    <line x1="42" y1="105" x2="98" y2="105" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="70" y="100" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>CINTURA</text>
+                    <ellipse cx="70" cy="105" rx="28" ry="6" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* QUADRIL */}
+                {/* QUADRIL (Altura aprox 130) */}
                 <g className={`transition-opacity duration-300 ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="28" y1="130" x2="72" y2="130" stroke="#ef4444" strokeWidth="1.5" />
-                    <line x1="28" y1="125" x2="28" y2="135" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="72" y1="125" x2="72" y2="135" stroke="#ef4444" strokeWidth="1" />
-                    <ellipse cx="50" cy="130" rx="22" ry="6" fill="rgba(239, 68, 68, 0.2)" stroke="none" />
+                    <line x1="38" y1="130" x2="102" y2="130" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x="70" y="125" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 2px white'}}>QUADRIL</text>
+                    <ellipse cx="70" cy="130" rx="34" ry="7" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
                 </g>
 
-                {/* COMPRIMENTO (GENÉRICO LATERAL) - Funciona para calça ou blusa */}
+                {/* COMPRIMENTO (Lateral - Serve para calça e blusa) */}
                 <g className={`transition-opacity duration-300 ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    {/* Linha Vertical Lateral (Régua) */}
-                    <line x1="85" y1="50" x2="85" y2="200" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    {/* Tracinhos da régua */}
-                    <line x1="82" y1="50" x2="88" y2="50" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="82" y1="200" x2="88" y2="200" stroke="#ef4444" strokeWidth="1" />
-                    {/* Texto Vertical */}
-                    <text x="92" y="125" fill="#ef4444" fontSize="8" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright"}}>COMPRIMENTO</text>
-                </g>
-
-                {/* OMBRO (Opcional, mas útil) */}
-                <g className={`transition-opacity duration-300 ${part && part.includes('ombro') ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="30" y1="50" x2="70" y2="50" stroke="#ef4444" strokeWidth="1.5" />
+                    {/* Linha Lateral com setas */}
+                    <line x1="120" y1="55" x2="120" y2="280" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    {/* Tracinhos de limite */}
+                    <line x1="116" y1="55" x2="124" y2="55" stroke="#ef4444" strokeWidth="1" />
+                    <line x1="116" y1="280" x2="124" y2="280" stroke="#ef4444" strokeWidth="1" />
+                    
+                    <text x="128" y="160" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
                 </g>
 
             </svg>
             
-            {/* Legenda Flutuante Abaixo do Boneco */}
-            <div className={`absolute bottom-0 left-0 right-0 text-center transition-opacity duration-300 ${part ? 'opacity-100' : 'opacity-0'}`}>
-                <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm border border-red-200 uppercase">
+            {/* Etiqueta Flutuante de Confirmação */}
+            <div className={`absolute bottom-2 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                <span className="bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
                     {highlightedPart}
                 </span>
             </div>
