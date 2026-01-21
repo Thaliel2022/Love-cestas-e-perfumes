@@ -1205,103 +1205,63 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
+// --- NOVOS COMPONENTES: GUIA DE MEDIDAS (INTERATIVO) ---
 
+// Ilustração Inteligente que recebe a parte para destacar
+// --- COMPONENTES ---
+
+// Ilustração Inteligente que recebe a parte para destacar
 const MeasurementIllustration = ({ highlightedPart }) => {
     // Normaliza o texto para comparação (remove acentos, minúsculas)
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
     return (
-        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300 select-none">
-            {/* Ajustei o viewBox para a nova pose */}
-            <svg viewBox="0 0 180 380" className="w-full h-auto drop-shadow-xl" fill="none" stroke="currentColor" strokeWidth="1">
-                <defs>
-                    {/* Gradiente Metálico/Prateado para o corpo 3D */}
-                    <linearGradient id="mannequinGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#e2e8f0" /> {/* Cinza claro */}
-                        <stop offset="50%" stopColor="#94a3b8" /> {/* Cinza médio */}
-                        <stop offset="100%" stopColor="#64748b" /> {/* Cinza mais escuro para sombra */}
-                    </linearGradient>
-                    <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="1.5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-                        <path d="M0,0 L0,6 L6,3 z" fill="#ef4444" />
-                    </marker>
-                </defs>
-
-                {/* CORPO DO MANEQUIM 3D (Baseado na imagem de referência) */}
-                <g filter="url(#shadow3d)">
-                    <path 
-                        d="M90,20 C105,20 110,30 110,45 C110,55 105,60 100,62 L100,70 
-                           C115,72 135,75 145,80 C145,80 142,130 140,160 C138,170 140,175 135,175 L130,175 L132,120 C130,100 125,95 120,95
-                           L120,160 C120,180 122,200 115,205 C110,210 105,210 105,210
-                           L108,280 C110,300 105,310 100,310 L95,310 L92,280 L90,215
-                           L88,280 L85,310 L80,310 C75,310 70,300 72,280
-                           L75,210 C75,210 70,210 65,205 C58,200 60,180 60,160
-                           L60,95 C55,95 50,100 48,120 L50,175 L45,175 C40,175 42,170 40,160
-                           C38,130 35,80 35,80 C45,75 65,72 80,70 L80,62
-                           C75,60 70,55 70,45 C70,30 75,20 90,20 Z"
-                        fill="url(#mannequinGradient)" 
-                        stroke="#475569"
-                        strokeWidth="0.8"
-                        strokeLinejoin="round"
-                        className="transition-all duration-500"
-                    />
-                    
-                    {/* LINHAS DE COSTURA/JUNTAS (Detalhes da imagem de referência) */}
-                    <g stroke="#475569" strokeWidth="0.5" fill="none">
-                        {/* Linha Central Vertical */}
-                        <line x1="90" y1="70" x2="90" y2="215" />
-                        {/* Juntas dos Ombros */}
-                        <path d="M80,70 C70,75 65,85 60,95" />
-                        <path d="M100,70 C110,75 115,85 120,95" />
-                         {/* Linha da Cintura/Quadril */}
-                        <path d="M75,210 C85,215 95,215 105,210" />
-                         {/* Juntas dos Joelhos */}
-                        <line x1="72" y1="280" x2="88" y2="280" />
-                        <line x1="92" y1="280" x2="108" y2="280" />
-                    </g>
+        <div className="relative w-full max-w-[140px] md:max-w-[180px] mx-auto transition-all duration-300">
+            <svg viewBox="0 0 200 300" className="w-full h-auto drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="1.5">
+                {/* Silhueta Base - Opacidade reduzida se algo estiver destacado para focar no destaque */}
+                <path 
+                    d="M60 40 Q50 60 40 80 L30 120 L50 130 L60 90 Q60 140 55 180 Q50 220 50 250 L150 250 Q150 220 145 180 Q140 140 140 90 L150 130 L170 120 L160 80 Q150 60 140 40 Q100 60 60 40 Z" 
+                    fill="#f8fafc" 
+                    stroke={part ? "#e2e8f0" : "#cbd5e1"} 
+                    className="transition-colors duration-300"
+                />
+                
+                {/* DESTAQUES INTERATIVOS */}
+                
+                {/* Busto */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'busto' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="60" y1="90" x2="140" y2="90" stroke={part === 'busto' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'busto' ? "0" : "3"} strokeWidth={part === 'busto' ? "2" : "1.5"} />
+                    <text x="100" y="85" textAnchor="middle" fontSize="11" fill={part === 'busto' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Busto</text>
+                    {part === 'busto' && (
+                        <ellipse cx="100" cy="90" rx="45" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
                 </g>
                 
-                {/* --- GUIAS DE MEDIDA INTERATIVAS (Reposicionadas para o novo boneco) --- */}
-
-                {/* BUSTO (Altura aprox 105) */}
-                <g className={`transition-opacity duration-300 ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="60" y1="105" x2="120" y2="105" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="90" y="100" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>BUSTO</text>
-                    <ellipse cx="90" cy="105" rx="30" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                {/* Cintura */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'cintura' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="58" y1="140" x2="142" y2="140" stroke={part === 'cintura' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'cintura' ? "0" : "3"} strokeWidth={part === 'cintura' ? "2" : "1.5"} />
+                    <text x="100" y="135" textAnchor="middle" fontSize="11" fill={part === 'cintura' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Cintura</text>
+                    {part === 'cintura' && (
+                        <ellipse cx="100" cy="140" rx="43" ry="10" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
                 </g>
-
-                {/* CINTURA (Altura aprox 150 - parte mais fina) */}
-                <g className={`transition-opacity duration-300 ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="65" y1="150" x2="115" y2="150" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="90" y="145" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>CINTURA</text>
-                    <ellipse cx="90" cy="150" rx="25" ry="6" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
+                
+                {/* Quadril */}
+                <g className={`transition-opacity duration-300 ${part && part !== 'quadril' ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="55" y1="190" x2="145" y2="190" stroke={part === 'quadril' ? "#ef4444" : "#d97706"} strokeDasharray={part === 'quadril' ? "0" : "3"} strokeWidth={part === 'quadril' ? "2" : "1.5"} />
+                    <text x="100" y="185" textAnchor="middle" fontSize="11" fill={part === 'quadril' ? "#ef4444" : "#d97706"} fontWeight="bold" fontFamily="sans-serif">Quadril</text>
+                    {part === 'quadril' && (
+                        <ellipse cx="100" cy="190" rx="48" ry="12" stroke="#ef4444" strokeWidth="2" fill="rgba(239, 68, 68, 0.1)" className="animate-pulse" />
+                    )}
                 </g>
-
-                {/* QUADRIL (Altura aprox 190 - parte mais larga) */}
-                <g className={`transition-opacity duration-300 ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="58" y1="190" x2="122" y2="190" stroke="#ef4444" strokeWidth="1.5" />
-                    <text x="90" y="185" textAnchor="middle" fontSize="10" fill="#ef4444" fontWeight="bold" fontFamily="sans-serif" style={{textShadow: '0px 0px 3px white'}}>QUADRIL</text>
-                    <ellipse cx="90" cy="190" rx="32" ry="8" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="1" className="animate-pulse" />
-                </g>
-
-                {/* COMPRIMENTO (Lateral Externa) */}
-                <g className={`transition-opacity duration-300 ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
-                    <line x1="150" y1="70" x2="150" y2="310" stroke="#ef4444" strokeWidth="1.5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
-                    <line x1="145" y1="70" x2="155" y2="70" stroke="#ef4444" strokeWidth="1" />
-                    <line x1="145" y1="310" x2="155" y2="310" stroke="#ef4444" strokeWidth="1" />
-                    <text x="160" y="190" fill="#ef4444" fontSize="9" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0px 0px 2px white'}}>COMPRIMENTO</text>
+                
+                {/* Comprimento */}
+                <g className={`transition-opacity duration-300 ${part && !part.includes('comp') ? 'opacity-20' : 'opacity-100'}`}>
+                    <line x1="160" y1="40" x2="160" y2="250" stroke={part && part.includes('comp') ? "#ef4444" : "#64748b"} strokeDasharray={part && part.includes('comp') ? "0" : "3"} strokeWidth={part && part.includes('comp') ? "2" : "1.5"} />
+                    <text x="170" y="145" textAnchor="start" fontSize="10" fill={part && part.includes('comp') ? "#ef4444" : "#64748b"} style={{writingMode: "vertical-rl", textOrientation: "upright", fontFamily: "sans-serif", fontWeight: part && part.includes('comp') ? 'bold' : 'normal'}}>Comprimento</text>
                 </g>
             </svg>
-            
-            <div className={`absolute bottom-2 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
-                <span className="bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
-                    {highlightedPart}
-                </span>
-            </div>
         </div>
     );
 };
@@ -1407,7 +1367,7 @@ const SizeGuideAdminInput = ({ value, onChange }) => {
     );
 };
 
-// Componente de Exibição (Display - Interativo e Estável)
+// Componente de Exibição (Display - Interativo)
 const SizeGuideDisplay = ({ dataString }) => {
     const [highlightedPart, setHighlightedPart] = useState(null);
 
@@ -1425,23 +1385,20 @@ const SizeGuideDisplay = ({ dataString }) => {
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
-                
-                {/* Lado Esquerdo: Tabela (Layout Fixo para evitar pulos) */}
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-8 items-start">
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <RulerIcon className="h-5 w-5 text-amber-400" />
                             <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
                         </div>
-                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
-                            Passe o mouse na tabela
+                        <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded hidden md:inline-block">
+                            Passe o mouse na tabela para ver no desenho
                         </span>
                     </div>
                     
-                    {/* Versão Mobile (Cards) */}
-                    <div className="md:hidden space-y-3">
-                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no desenho</p>
+                    {/* Versão Mobile (Cards) - Interativa com Toque */}
+                    <div className="md:hidden space-y-2">
                         {data.rows.map((row, i) => (
                             <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
                                 <div className="flex items-center gap-3">
@@ -1454,7 +1411,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                                         <div 
                                             key={j} 
                                             className="text-center cursor-pointer active:scale-110 transition-transform"
-                                            onClick={() => setHighlightedPart(data.columns[j+1])} 
+                                            onClick={() => setHighlightedPart(data.columns[j+1])} // Toque no mobile destaca
                                         >
                                             <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>
                                                 {data.columns[j+1]}
@@ -1469,15 +1426,15 @@ const SizeGuideDisplay = ({ dataString }) => {
                         ))}
                     </div>
 
-                    {/* Versão Desktop (Tabela Fixa) */}
+                    {/* Versão Desktop (Tabela) */}
                     <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
-                        <table className="w-full text-sm text-gray-300 table-fixed">
+                        <table className="w-full text-sm text-gray-300">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
                                         <th 
                                             key={i} 
-                                            className={`px-2 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6 w-20' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
+                                            className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`}
                                             onMouseEnter={() => i > 0 && setHighlightedPart(col)}
                                             onMouseLeave={() => setHighlightedPart(null)}
                                         >
@@ -1495,7 +1452,7 @@ const SizeGuideDisplay = ({ dataString }) => {
                                         {row.values.map((val, j) => (
                                             <td 
                                                 key={j} 
-                                                className={`px-2 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`}
+                                                className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/10 text-amber-300' : ''}`}
                                                 onMouseEnter={() => setHighlightedPart(data.columns[j+1])}
                                                 onMouseLeave={() => setHighlightedPart(null)}
                                             >
@@ -1508,25 +1465,25 @@ const SizeGuideDisplay = ({ dataString }) => {
                         </table>
                     </div>
 
-                    <p className="text-[10px] sm:text-xs text-gray-500 mt-4 flex items-center gap-1.5 bg-gray-800/30 p-2 rounded border border-gray-700/50 w-fit">
-                        <ExclamationCircleIcon className="h-4 w-4 text-amber-500" /> 
-                        <span>As medidas podem variar de 1 a 2 cm devido à produção manual.</span>
+                    <p className="text-[10px] sm:text-xs text-gray-500 mt-3 flex items-center gap-1">
+                        <ExclamationCircleIcon className="h-3 w-3" /> Margem de erro de 1-2cm.
                     </p>
                 </div>
                 
-                {/* Lado Direito: Ilustração */}
-                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-6 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">
-                        Como Medir
+                {/* Ilustração Interativa */}
+                <div className="w-full md:w-auto flex flex-row md:flex-col items-center justify-center gap-4 bg-gray-800/40 p-4 rounded-xl border border-gray-700/50 self-stretch">
+                    <div className="bg-white p-2 rounded-lg shadow-lg w-[100px] md:w-[140px] flex-shrink-0 transition-transform duration-300">
+                        {/* Passamos o estado para a ilustração */}
+                        <MeasurementIllustration highlightedPart={highlightedPart} />
                     </div>
-                    
-                    <MeasurementIllustration highlightedPart={highlightedPart} />
-                    
-                    <div className="text-center w-full border-t border-gray-100 pt-3 mt-2">
-                        <p className="text-xs text-gray-400 leading-tight">
+                    <div className="text-left md:text-center flex-1">
+                        <p className="text-white font-bold text-xs mb-1">
+                            {highlightedPart ? `Medindo: ${highlightedPart}` : 'Como medir?'}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-gray-400 leading-relaxed max-w-[200px]">
                             {highlightedPart 
-                                ? "Posicione a fita na região destacada." 
-                                : "Selecione uma medida."}
+                                ? `Passe a fita métrica ao redor da área destacada.` 
+                                : 'Passe o mouse ou toque na tabela para ver onde medir.'}
                         </p>
                     </div>
                 </div>
