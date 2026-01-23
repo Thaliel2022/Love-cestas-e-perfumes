@@ -1205,18 +1205,32 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
-// --- ILUSTRAÇÃO COM FOTO 3D ---
 const MeasurementIllustration = ({ highlightedPart }) => {
     const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
     const part = normalize(highlightedPart);
 
+    // Mapeamento de imagens para cada parte do corpo
+    const images = {
+        default: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg",
+        busto: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136284/pa8anzq4wjiiqhrzabwv.png",
+        cintura: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136317/n2eqa8eapljs2hiwcncq.png",
+        quadril: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136334/igo6ctd9lyu9kppyvavg.png"
+    };
+
+    // Seleciona a imagem ativa baseada na parte destacada ou usa a padrão
+    const activeImage = images[part] || images.default;
+    
+    // Só exibe os desenhos SVG de overlay se estivermos usando a imagem padrão.
+    const showOverlay = activeImage === images.default;
+
     return (
         <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
-            {/* FOTO DO BONECO 3D (Background) */}
+            {/* FOTO DO BONECO (Dinâmica) */}
             <img 
-                src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg" 
-                alt="Guia de Medidas 3D"
-                className="w-full h-auto object-cover"
+                key={activeImage} // Key força re-render suave ao trocar imagem
+                src={activeImage} 
+                alt={`Guia de Medidas - ${highlightedPart || 'Geral'}`}
+                className="w-full h-auto object-cover transition-opacity duration-300"
                 style={{ display: 'block' }}
             />
 
@@ -1232,28 +1246,33 @@ const MeasurementIllustration = ({ highlightedPart }) => {
                     </marker>
                 </defs>
 
-                {/* BUSTO (Altura ajustada) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
-                </g>
+                {/* Só desenha as linhas de Busto/Cintura/Quadril se estiver na imagem padrão */}
+                {showOverlay && (
+                    <>
+                        {/* BUSTO (Altura ajustada) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
+                        </g>
 
-                {/* CINTURA (Parte mais fina) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
-                </g>
+                        {/* CINTURA (Parte mais fina) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
+                        </g>
 
-                {/* QUADRIL (Parte mais larga) */}
-                <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
-                    <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
-                    <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
-                    <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
-                </g>
+                        {/* QUADRIL (Parte mais larga) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
+                        </g>
+                    </>
+                )}
 
-                {/* COMPRIMENTO (Lateral Vertical) */}
+                {/* COMPRIMENTO (Lateral Vertical) - Mantém visível sobre a imagem padrão ou se desejar manter */}
                 <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
                     {/* Linha vertical com marcadores */}
                     <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
@@ -1270,180 +1289,6 @@ const MeasurementIllustration = ({ highlightedPart }) => {
                 <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
                     {highlightedPart}
                 </span>
-            </div>
-        </div>
-    );
-};
-
-const SizeGuideAdminInput = ({ value, onChange }) => {
-    const safeValue = useMemo(() => {
-        try {
-            const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-            if (parsed && Array.isArray(parsed.rows)) return parsed;
-        } catch(e) {}
-        return {
-            columns: ["Tam.", "Busto", "Cintura", "Quadril", "Comp."],
-            rows: [
-                { size: "P", values: ["", "", "", ""] },
-                { size: "M", values: ["", "", "", ""] },
-                { size: "G", values: ["", "", "", ""] },
-                { size: "GG", values: ["", "", "", ""] },
-            ]
-        };
-    }, [value]);
-
-    const [data, setData] = useState(safeValue);
-
-    useEffect(() => {
-        onChange(JSON.stringify(data));
-    }, [data, onChange]);
-
-    const handleValueChange = (rowIndex, colIndex, val) => {
-        const newRows = [...data.rows];
-        newRows[rowIndex].values[colIndex] = val;
-        setData({ ...data, rows: newRows });
-    };
-
-    return (
-        <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full overflow-hidden">
-            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
-            </div>
-            
-            <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
-                {data.rows.map((row, rIndex) => (
-                    <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
-                        <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
-                            <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
-                                {row.size}
-                            </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-2">
-                            {row.values.map((val, cIndex) => (
-                                <div key={cIndex} className="flex flex-col gap-1">
-                                    <label className="text-[9px] font-bold text-gray-500 uppercase text-center truncate w-full">
-                                        {data.columns[cIndex + 1]}
-                                    </label>
-                                    <input 
-                                        type="tel" 
-                                        value={val} 
-                                        onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                        className="w-full h-9 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-bold bg-white"
-                                        placeholder="0"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="hidden md:block w-full overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
-                        <tr>
-                            {data.columns.map((col, i) => (
-                                <th key={i} className="px-3 py-2 border-b text-center">{col}</th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {data.rows.map((row, rIndex) => (
-                            <tr key={rIndex} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-16">
-                                    {row.size}
-                                </td>
-                                {row.values.map((val, cIndex) => (
-                                    <td key={cIndex} className="px-2 py-1">
-                                        <input 
-                                            type="text" 
-                                            value={val} 
-                                            onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
-                                            className="w-full h-8 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center text-xs font-medium"
-                                            placeholder="-"
-                                        />
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-};
-
-const SizeGuideDisplay = ({ dataString }) => {
-    const [highlightedPart, setHighlightedPart] = useState(null);
-
-    const data = useMemo(() => {
-        try {
-            return JSON.parse(dataString);
-        } catch (e) {
-            return null;
-        }
-    }, [dataString]);
-
-    if (!data || !data.rows) return null;
-
-    return (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
-                <div className="flex-1 w-full min-w-0">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <RulerIcon className="h-5 w-5 text-amber-400" />
-                            <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
-                        </div>
-                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
-                            Passe o mouse na tabela
-                        </span>
-                    </div>
-                    
-                    <div className="md:hidden space-y-3">
-                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no manequim</p>
-                        {data.rows.map((row, i) => (
-                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
-                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
-                                <div className="flex gap-4 text-xs text-gray-300">
-                                    {row.values.map((val, j) => (
-                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
-                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
-                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
-                        <table className="w-full text-sm text-gray-300">
-                            <thead>
-                                <tr className="bg-gray-800 border-b border-gray-700">
-                                    {data.columns.map((col, i) => (
-                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700/50">
-                                {data.rows.map((row, i) => (
-                                    <tr key={i} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
-                                        {row.values.map((val, j) => (
-                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
-                                        ))}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                
-                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
-                    <MeasurementIllustration highlightedPart={highlightedPart} />
-                </div>
             </div>
         </div>
     );
