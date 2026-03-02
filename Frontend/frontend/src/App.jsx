@@ -1226,14 +1226,13 @@ const MeasurementIllustration = ({ highlightedPart }) => {
     const showOverlay = activeImage === images.default;
 
     return (
-        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white">
+        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white aspect-[2/3]">
             {/* FOTO DO BONECO (Dinâmica) */}
             <img 
                 key={activeImage} // Key força re-render suave ao trocar imagem
                 src={activeImage} 
                 alt={`Guia de Medidas - ${highlightedPart || 'Geral'}`}
-                className="w-full h-auto object-cover transition-opacity duration-300"
-                style={{ display: 'block' }}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
             />
 
             {/* CAMADA DE DESTAQUE (SVG Overlay) */}
