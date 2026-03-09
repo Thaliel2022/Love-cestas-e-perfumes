@@ -331,6 +331,9 @@ const AuthProvider = ({ children }) => {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
             
+            // CORREÇÃO: Limpa o cache de localização para não vazar o endereço/alias do usuário que acabou de deslogar
+            localStorage.removeItem('lovecestas_cached_location');
+            
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
             }
