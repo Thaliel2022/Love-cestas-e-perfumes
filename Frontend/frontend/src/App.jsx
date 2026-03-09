@@ -587,33 +587,67 @@ const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
-    // --- NOVA LÓGICA DE GEOLOCALIZAÇÃO BLINDADA ---
+    // --- NOVA LÓGICA DE GEOLOCALIZAÇÃO COM CACHE (BLINDADA) ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
         
+        // 1. Prioriza o endereço do cliente logado
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
-            if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
+            if (userAddresses && userAddresses.length > 0) {
+                locationDetermined = updateDefaultShippingLocation(userAddresses);
+            }
         }
         
+        // 2. Se não estiver logado, procura no Cache Local (Salva de F5 e problemas no Computador)
+        if (!locationDetermined) {
+            try {
+                const cachedLocStr = localStorage.getItem('lovecestas_cached_location');
+                if (cachedLocStr) {
+                    const cachedLoc = JSON.parse(cachedLocStr);
+                    if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
+                        setShippingLocation(cachedLoc);
+                        locationDetermined = true;
+                    }
+                }
+            } catch (e) {
+                console.warn("Erro ao ler cache de localização", e);
+            }
+        }
+        
+        // 3. Se não tem cache, busca no GPS/IP
         if (!locationDetermined) {
             setIsGeolocating(true);
             
-            // Função de backup (GeoIP) caso o GPS falhe ou seja negado
+            const saveAndSetLocation = (cep, city, state) => {
+                let finalCep = cep ? String(cep).replace(/\D/g, '') : '';
+                
+                // Fallback Inteligente: Se achou cidade mas a API falhou no CEP
+                if (finalCep.length !== 8) {
+                    const cityLower = (city || '').toLowerCase();
+                    if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) finalCep = '58030000';
+                    else if (cityLower.includes('cabedelo')) finalCep = '58100000';
+                }
+                
+                if (finalCep.length === 8) {
+                    const newLocation = { cep: finalCep, city: city || '', state: state || '', alias: 'Localização Atual' };
+                    setShippingLocation(newLocation);
+                    return true;
+                }
+                return false;
+            };
+
             const fetchGeoIP = async () => {
                 try {
                     const ipRes = await fetch('https://ipapi.co/json/');
+                    if (!ipRes.ok) throw new Error('API Rate Limited'); // Se deu muito F5 e bloqueou
                     const ipData = await ipRes.json();
+                    
                     if (ipData && ipData.postal) {
-                        setShippingLocation({
-                            cep: String(ipData.postal).replace(/\D/g, ''),
-                            city: ipData.city || '',
-                            state: ipData.region_code || '',
-                            alias: 'Localização Atual'
-                        });
+                        saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
                     }
                 } catch (e) {
-                    console.warn("Erro no fallback de IP:", e);
+                    console.warn("Erro no fallback de IP (Provável limite de F5):", e);
                 } finally {
                     setIsGeolocating(false);
                 }
@@ -626,51 +660,56 @@ const ShopProvider = ({ children }) => {
                             const lat = position.coords.latitude;
                             const lon = position.coords.longitude;
                             
-                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
-                            const data = await response.json();
+                            // Tenta a API Rápida (BigDataCloud)
+                            const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
+                            const bdcData = await bdcResponse.json();
                             
-                            let cepFound = data.address?.postcode ? String(data.address.postcode).replace(/\D/g, '') : '';
-                            let cityFound = data.address?.city || data.address?.town || data.address?.municipality || '';
-                            let stateFound = data.address?.state || '';
+                            let cepFound = bdcData.postcode || '';
+                            let cityFound = bdcData.city || bdcData.locality || '';
+                            let stateFound = bdcData.principalSubdivision || '';
 
-                            // Fallback Inteligente (Se achar a cidade mas o CEP vier vazio)
-                            if (cepFound.length !== 8) {
-                                const cityLower = cityFound.toLowerCase();
-                                if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
-                                    cepFound = '58030000'; // CEP base de JP
-                                } else if (cityLower.includes('cabedelo')) {
-                                    cepFound = '58100000'; // CEP base de Cabedelo
+                            // Se a API rápida não achou CEP, tenta a API secundária (OpenStreetMap)
+                            if (!cepFound || String(cepFound).replace(/\D/g, '').length !== 8) {
+                                const osmResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
+                                const osmData = await osmResponse.json();
+                                if (osmData && osmData.address) {
+                                    cepFound = osmData.address.postcode || cepFound;
+                                    cityFound = osmData.address.city || osmData.address.town || cityFound;
+                                    stateFound = osmData.address.state || stateFound;
                                 }
                             }
 
-                            if (cepFound.length === 8) {
-                                setShippingLocation({ 
-                                    cep: cepFound, 
-                                    city: cityFound, 
-                                    state: stateFound, 
-                                    alias: 'Localização Atual' 
-                                });
-                                setIsGeolocating(false);
-                            } else {
-                                // Se ainda assim não achou CEP válido, tenta pelo IP
-                                fetchGeoIP();
-                            }
+                            const success = saveAndSetLocation(cepFound, cityFound, stateFound);
+                            
+                            // Se as duas de GPS falharem no CEP, usa a de IP
+                            if (!success) fetchGeoIP();
+                            else setIsGeolocating(false);
+
                         } catch (error) { 
                             console.warn("Erro no GPS:", error); 
-                            fetchGeoIP(); // Dispara o backup
+                            fetchGeoIP(); // Aciona fallback se GPS der erro
                         } 
                     }, 
                     (error) => {
-                        console.warn("Permissão de GPS negada/indisponível:", error.message);
-                        fetchGeoIP(); // Dispara o backup
+                        console.warn("GPS negado/indisponível no Computador/Celular:", error.message);
+                        fetchGeoIP(); // Aciona fallback se cliente não der permissão de GPS
                     }, 
-                    { timeout: 10000, maximumAge: 60000 }
+                    // Diminui o tempo de espera para 5 segundos para não travar a tela
+                    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
                 );
             } else {
-                fetchGeoIP(); // Dispara o backup se navegador não tiver GPS
+                fetchGeoIP(); // Se o navegador (PC antigo) não tem GPS, vai pelo IP direto
             }
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
+
+    // --- NOVO: Salva qualquer alteração de CEP no cache ---
+    // Mesmo que o cliente digite o CEP manualmente na mão, nós salvamos na memória.
+    useEffect(() => {
+        if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
+            localStorage.setItem('lovecestas_cached_location', JSON.stringify(shippingLocation));
+        }
+    }, [shippingLocation]);
 
     useEffect(() => {
         if (!isAuthLoading) {
