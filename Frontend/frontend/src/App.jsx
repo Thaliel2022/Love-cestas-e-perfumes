@@ -113,7 +113,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -129,10 +128,18 @@ const processQueue = (error, token = null) => {
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Essencial para enviar cookies httpOnly
+        headers,
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -163,8 +170,17 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
@@ -183,7 +199,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
             }
              
              if (response.status === 401 || response.status === 403) {
-                 // CORREÇÃO: Só redireciona se a chamada NÃO pediu para suprimir o erro (ex: checagem inicial)
                  if (!options.suppressAuthError) {
                     window.dispatchEvent(new Event('auth-error'));
                  }
@@ -312,8 +327,10 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Removemos o redirecionamento forçado aqui para evitar loops indesejados
-            // O componente AppContent cuidará de redirecionar se a página exigir auth
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
             }
@@ -322,8 +339,6 @@ const AuthProvider = ({ children }) => {
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            // CORREÇÃO: Passamos suppressAuthError: true
-            // Se falhar (401), apenas define user como null e não dispara o evento global de logout/redirecionamento
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
@@ -350,6 +365,9 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
         return response;
     };
@@ -393,7 +411,6 @@ const ShopProvider = ({ children }) => {
     };
 
     // --- Busca notificações de pedidos (Polling) ---
-    // Verifica no banco de dados se há pedidos com atualizações não vistas
     const checkNotifications = useCallback(async () => {
         if (!isAuthenticated) {
             setOrderNotificationCount(0);
@@ -405,8 +422,7 @@ const ShopProvider = ({ children }) => {
                 setOrderNotificationCount(data.count);
             }
         } catch (error) {
-            // Silencia erros de polling para não atrapalhar a UX
-            // console.warn("Falha ao buscar notificações:", error);
+            // Silencia erros de polling
         }
     }, [isAuthenticated]);
 
@@ -414,19 +430,15 @@ const ShopProvider = ({ children }) => {
     const markOrderAsSeen = useCallback(async (orderId) => {
         if (!isAuthenticated) return;
         try {
-            // Chama API para atualizar o status da notificação no banco
             await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
-            // Atualiza o contador localmente imediatamente para UX instantânea
             checkNotifications(); 
         } catch (error) {
             console.error("Erro ao marcar pedido como visto:", error);
         }
     }, [isAuthenticated, checkNotifications]);
 
-    // Efeito para Polling de Notificações - INTERVALO REDUZIDO PARA 5 SEGUNDOS
     useEffect(() => {
         checkNotifications();
-        // Verifica a cada 5 segundos se há novas atualizações
         const interval = setInterval(checkNotifications, 5000);
         return () => clearInterval(interval);
     }, [checkNotifications]);
@@ -436,17 +448,8 @@ const ShopProvider = ({ children }) => {
         const date = new Date();
         let added = 0;
         
-        // Lista de Feriados Fixos (Dia/Mês)
         const holidays = [
-            "01/01", // Confraternização Universal
-            "21/04", // Tiradentes
-            "01/05", // Dia do Trabalho
-            "24/06", // São João (Forte no NE/JP)
-            "07/09", // Independência
-            "12/10", // N. Sra. Aparecida
-            "02/11", // Finados
-            "15/11", // Proclamação da República
-            "25/12"  // Natal
+            "01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"
         ];
 
         while (added < daysToAdd) {
@@ -457,7 +460,7 @@ const ShopProvider = ({ children }) => {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const dateString = `${day}/${month}`;
             
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
             const isHoliday = holidays.includes(dateString);
 
             if (!isWeekend && !isHoliday) {
@@ -467,7 +470,6 @@ const ShopProvider = ({ children }) => {
         return date;
     }, []);
     
-    // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
             .then(data => {
@@ -591,20 +593,52 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
         }
+        
         if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                        // 1. Omitimos os headers restritos (que o navegador bloqueava).
+                        // 2. Adicionamos o 'email' via parâmetro na URL para a API não nos bloquear.
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1&email=loja@lovecestaseperfumes.com.br`);
                         const data = await response.json();
-                        if (data.address && data.address.postcode) {
-                            setShippingLocation({ cep: data.address.postcode.replace(/\D/g, ''), city: data.address.city || '', state: data.address.state || '', alias: 'Localização Atual' });
+                        
+                        if (data && data.address) {
+                            let cepDigit = data.address.postcode ? data.address.postcode.replace(/\D/g, '') : '';
+                            const city = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+                            const state = data.address.state || '';
+                            
+                            // Correção Inteligente: A API de mapas as vezes acha a cidade mas não o CEP.
+                            // Se for João Pessoa e não tiver CEP, usamos um padrão só para destravar as opções de Motoboy!
+                            if (cepDigit.length !== 8) {
+                                const cityLower = city.toLowerCase();
+                                if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
+                                    cepDigit = '58030000'; // CEP Base de JP
+                                } else if (cityLower.includes('cabedelo')) {
+                                    cepDigit = '58100000'; // CEP Base de Cabedelo
+                                }
+                            }
+
+                            if (cepDigit.length === 8) {
+                                setShippingLocation({ 
+                                    cep: cepDigit, 
+                                    city: city, 
+                                    state: state, 
+                                    alias: 'Localização Atual' 
+                                });
+                            }
                         }
-                    } catch (error) { console.warn("Erro geo:", error); } 
+                    } catch (error) { 
+                        console.warn("Erro ao buscar CEP via Geo:", error); 
+                    } 
                     finally { setIsGeolocating(false); }
                 }, 
-                () => setIsGeolocating(false), { timeout: 10000 }
+                (error) => {
+                    console.warn("Geolocalização negada ou indisponível:", error.message);
+                    setIsGeolocating(false);
+                }, 
+                { timeout: 10000, maximumAge: 60000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
@@ -624,7 +658,7 @@ const ShopProvider = ({ children }) => {
                 await fetchPersistentCart();
                 determineShippingLocation();
                 apiService('/wishlist').then(setWishlist).catch(console.error);
-                checkNotifications(); // Checa notificações ao iniciar
+                checkNotifications(); 
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
@@ -692,7 +726,6 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
-    // ... (restante das funções addToCart, removeFromCart, etc. - inalteradas)
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
@@ -803,7 +836,7 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate,
-            orderNotificationCount, markOrderAsSeen, checkNotifications // EXPOSTO
+            orderNotificationCount, markOrderAsSeen, checkNotifications
         }}>
             {children}
         </ShopContext.Provider>
@@ -4087,22 +4120,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        <div className="flex items-center justify-between mb-5">
+                                        <div className="flex items-center mb-5">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
                                                     <ShirtIcon className="h-5 w-5" />
                                                 </div>
                                                 <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
-                                            {/* BOTÃO GUIA MEDIDAS NO MOBILE */}
-                                            {isClothing && product.size_guide && (
-                                                <button 
-                                                    onClick={() => setIsSizeGuideModalOpen(true)}
-                                                    className="text-xs font-bold text-amber-400 flex items-center gap-1 px-2 py-1 rounded border border-amber-400/30 hover:bg-amber-400/10 transition-colors"
-                                                >
-                                                    <RulerIcon className="h-3.5 w-3.5"/> Guia de Medidas
-                                                </button>
-                                            )}
                                         </div>
                                         <VariationSelector 
                                             product={product} 
@@ -4393,7 +4417,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP - MOVIDO PARA BAIXO) --- */}
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
                                 {product.size_guide && (
                                     <div className="flex justify-end mt-4">
                                         <button 
@@ -4441,7 +4465,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
                 
-                {/* ... (Conteúdo Inferior mantido) ... */}
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
@@ -4515,7 +4538,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
+const LoginPage = ({ onNavigate, redirectPath }) => { 
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -4536,7 +4559,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     // --- Lógica de Navegação Pós-Login ---
     const handleSuccessRedirect = () => {
         if (redirectPath) {
-            // Se houver um caminho salvo (ex: link do WhatsApp), vai para ele
+            // Se houver um caminho salvo, vai para ele
             onNavigate(redirectPath);
         } else {
             // Caso contrário, vai para a home
@@ -4556,7 +4579,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
                 setIsTwoFactorStep(true);
             } else {
                 notification.show('Login bem-sucedido!');
-                handleSuccessRedirect(); // Usa a nova função de redirecionamento
+                handleSuccessRedirect();
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -4572,13 +4595,16 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
+            // Salva os tokens do 2FA no localStorage
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
-            handleSuccessRedirect(); // Usa a nova função de redirecionamento
+            handleSuccessRedirect();
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -4589,9 +4615,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     };
 
     return (
-        // --- CORREÇÃO DE LAYOUT MOBILE ---
-        // Alterado de 'min-h-screen' para 'min-h-[calc(100vh-4rem)]'
-        // Isso desconta a altura do Header (4rem/64px) para centralizar perfeitamente na área visível
         <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
@@ -4678,7 +4701,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         </div>
     );
 };
-
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
