@@ -3482,7 +3482,7 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         shippingError,
         autoCalculatedShipping,
         setAutoCalculatedShipping,
-        setPreviewShippingItem, // Pega do contexto
+        setPreviewShippingItem,
         setSelectedShippingName,
         isGeolocating 
     } = useShop();
@@ -3492,13 +3492,10 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     const [apiError, setApiError] = useState('');
 
     useEffect(() => {
-        // CORREÇÃO: Define o preview SEMPRE que houver itemsFromProp, ignorando o estado do carrinho.
-        // Isso garante que na página de detalhes, o cálculo seja para aquele item.
         if (itemsFromProp && itemsFromProp.length > 0) {
             setPreviewShippingItem(itemsFromProp);
         }
         
-        // Limpa ao desmontar
         return () => {
             if (itemsFromProp && itemsFromProp.length > 0) {
                 setPreviewShippingItem(null);
@@ -3538,15 +3535,9 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
     };
 
     const getDeliveryDate = (deliveryTime) => {
-        if (typeof deliveryTime === 'string') {
-             const date = new Date();
-             let addedDays = 0;
-             while (addedDays < 1) {
-                 date.setDate(date.getDate() + 1);
-                 if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
-             }
-             const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-             return `Receba até ${formattedDate}. (1 dia útil)`;
+        // Correção: Se já for uma string formatada pelo ShopProvider para Motoboy
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
+             return `${deliveryTime} (1 dia útil)`;
         }
 
         if (!deliveryTime || isNaN(deliveryTime)) return 'Prazo indisponível';
@@ -3559,6 +3550,11 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         }
         return `Previsão de entrega para ${date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}`;
     };
+
+    // Correção: Mostra o nome do endereço salvo (Alias) se ele existir e for válido
+    const locationTitle = shippingLocation.alias && shippingLocation.alias !== 'Localização Atual' && !shippingLocation.alias.startsWith('CEP') 
+        ? `Opções para ${shippingLocation.alias} (${shippingLocation.cep})` 
+        : `Opções para ${shippingLocation.cep}`;
 
     return (
         <>
@@ -3590,7 +3586,8 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
                             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
                                 <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-300">
                                     <MapPinIcon className="h-5 w-5 flex-shrink-0 text-amber-400" />
-                                    <span className="truncate">Opções para {shippingLocation.cep}</span>
+                                    {/* Aplicando a formatação corrigida aqui */}
+                                    <span className="truncate">{locationTitle}</span>
                                 </div>
                                 <button onClick={() => setIsModalOpen(true)} className="text-amber-400 hover:underline flex-shrink-0 text-sm font-semibold">
                                     Alterar
@@ -5730,18 +5727,13 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- NOVA PROTEÇÃO DE FLUXO ---
-    // Se o usuário já tiver um pedido pendente (ex: fechou o MP e voltou),
-    // redireciona para a tela de sucesso/pagamento ao invés de ficar preso no checkout.
     useEffect(() => {
         const pendingOrderId = sessionStorage.getItem('pendingOrderId');
         if (pendingOrderId) {
-            console.log("Pedido pendente detectado no Checkout. Redirecionando...");
             onNavigate(`order-success/${pendingOrderId}`);
         }
     }, [onNavigate]);
 
-    // Efeito para preencher WhatsApp e dados iniciais
     useEffect(() => {
         setIsAddressLoading(true);
         if (user && user.phone) {
@@ -5751,9 +5743,7 @@ const CheckoutPage = ({ onNavigate }) => {
         fetchAddresses().then(userAddresses => {
             let addressToSet = null;
             
-            // Lógica melhorada para selecionar endereço válido
             if (shippingLocation && shippingLocation.cep) {
-                // Tenta achar um endereço salvo COMPLETO com este CEP
                 const matchingSavedAddress = userAddresses.find(addr =>
                     addr.cep === shippingLocation.cep &&
                     addr.logradouro && addr.numero && addr.bairro 
@@ -5762,7 +5752,6 @@ const CheckoutPage = ({ onNavigate }) => {
                 if (matchingSavedAddress) {
                     addressToSet = matchingSavedAddress;
                 } else {
-                    // Endereço temporário incompleto (exige cadastro)
                     addressToSet = {
                         cep: shippingLocation.cep,
                         localidade: shippingLocation.city,
@@ -5792,7 +5781,6 @@ const CheckoutPage = ({ onNavigate }) => {
         });
     }, [fetchAddresses, shippingLocation, setShippingLocation, user]);
 
-    // Efeito para valores iniciais de retirada
     useEffect(() => {
         if (user && !isSomeoneElsePickingUp) {
             setPickupPersonName(user.name || '');
@@ -5888,16 +5876,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     
     const getDeliveryDateText = (deliveryTime) => {
-        // Se for string "1 dia útil", calcula a data
-        if (typeof deliveryTime === 'string' && deliveryTime.includes('1 dia')) {
-            const date = new Date();
-            let addedDays = 0;
-            while (addedDays < 1) {
-                date.setDate(date.getDate() + 1);
-                if (date.getDay() !== 0 && date.getDay() !== 6) addedDays++;
-            }
-            const formattedDate = date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' });
-            return `Receba até ${formattedDate}. (1 dia útil)`;
+        // Correção: Verifica se já é o texto da Entrega Local
+        if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
+            return `${deliveryTime} (1 dia útil)`;
         }
 
         const timeInDays = Number(deliveryTime);
@@ -5942,7 +5923,6 @@ const CheckoutPage = ({ onNavigate }) => {
         return hasValidStreet && hasValidNumber && hasValidNeighborhood && isNotMarkedIncomplete;
     }, [displayAddress, autoCalculatedShipping, isSomeoneElsePickingUp, pickupPersonName, pickupPersonCpf]);
 
-
     const handlePlaceOrderAndPay = async () => {
         const isPickup = autoCalculatedShipping?.isPickup;
         
@@ -5985,7 +5965,7 @@ const CheckoutPage = ({ onNavigate }) => {
                 coupon_code: appliedCoupon?.code || null, 
                 discount_amount: discount,
                 pickup_details: isPickup ? JSON.stringify({ personName: nameToSend, personCpf: cpfToSend }) : null,
-                phone: whatsapp.replace(/\D/g, '') // Envia apenas números
+                phone: whatsapp.replace(/\D/g, '')
             };
             
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
@@ -5993,8 +5973,6 @@ const CheckoutPage = ({ onNavigate }) => {
             if (paymentMethod === 'mercadopago') {
                 sessionStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
-                // ATUALIZAÇÃO: Usa assign para navegação explícita na mesma janela, 
-                // tentando manter o contexto do navegador original.
                 if (init_point) window.location.assign(init_point);
                 else throw new Error("Link de pagamento não obtido.");
             } else {
@@ -6153,7 +6131,6 @@ const CheckoutPage = ({ onNavigate }) => {
                                                  <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
                                                 <div>
                                                     <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
-                                                    {/* DISPLAY DE VARIAÇÃO NO CHECKOUT - CORRIGIDO */}
                                                     {item.variation && (
                                                         <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
                                                             <span>Cor: {item.variation.color}</span>
