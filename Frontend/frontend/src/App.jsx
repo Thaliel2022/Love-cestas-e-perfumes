@@ -590,7 +590,7 @@ const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
-    // --- NOVA LÓGICA DE GEOLOCALIZAÇÃO COM CACHE (BLINDADA) ---
+    // --- LÓGICA DE GEOLOCALIZAÇÃO COM CACHE (BLINDADA) ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
         
@@ -609,6 +609,11 @@ const ShopProvider = ({ children }) => {
                 if (cachedLocStr) {
                     const cachedLoc = JSON.parse(cachedLocStr);
                     if (cachedLoc && cachedLoc.cep && cachedLoc.cep.replace(/\D/g, '').length === 8) {
+                        // CORREÇÃO: Limpa apelidos/nomes próprios se o usuário não estiver logado.
+                        // Evita mostrar "Casa do Thaliel" se você tiver acabado de deslogar.
+                        if (!isAuthenticated && cachedLoc.alias && cachedLoc.alias !== 'Localização Atual' && !cachedLoc.alias.startsWith('CEP')) {
+                            cachedLoc.alias = `CEP ${cachedLoc.cep}`;
+                        }
                         setShippingLocation(cachedLoc);
                         locationDetermined = true;
                     }
@@ -643,14 +648,14 @@ const ShopProvider = ({ children }) => {
             const fetchGeoIP = async () => {
                 try {
                     const ipRes = await fetch('https://ipapi.co/json/');
-                    if (!ipRes.ok) throw new Error('API Rate Limited'); // Se deu muito F5 e bloqueou
+                    if (!ipRes.ok) throw new Error('API Rate Limited'); 
                     const ipData = await ipRes.json();
                     
                     if (ipData && ipData.postal) {
                         saveAndSetLocation(ipData.postal, ipData.city, ipData.region_code);
                     }
                 } catch (e) {
-                    console.warn("Erro no fallback de IP (Provável limite de F5):", e);
+                    console.warn("Erro no fallback de IP:", e);
                 } finally {
                     setIsGeolocating(false);
                 }
@@ -694,25 +699,28 @@ const ShopProvider = ({ children }) => {
                         } 
                     }, 
                     (error) => {
-                        console.warn("GPS negado/indisponível no Computador/Celular:", error.message);
+                        console.warn("GPS negado/indisponível:", error.message);
                         fetchGeoIP(); // Aciona fallback se cliente não der permissão de GPS
                     }, 
-                    // Diminui o tempo de espera para 5 segundos para não travar a tela
                     { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
                 );
             } else {
-                fetchGeoIP(); // Se o navegador (PC antigo) não tem GPS, vai pelo IP direto
+                fetchGeoIP(); 
             }
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
-    // --- NOVO: Salva qualquer alteração de CEP no cache ---
-    // Mesmo que o cliente digite o CEP manualmente na mão, nós salvamos na memória.
+    // --- NOVO: Salva qualquer alteração de CEP no cache de forma blindada ---
     useEffect(() => {
         if (shippingLocation && shippingLocation.cep && shippingLocation.cep.replace(/\D/g, '').length === 8) {
-            localStorage.setItem('lovecestas_cached_location', JSON.stringify(shippingLocation));
+            const locationToCache = { ...shippingLocation };
+            // CORREÇÃO: Nunca salva nome/apelido no cache se o usuário estiver deslogado
+            if (!isAuthenticated && locationToCache.alias && locationToCache.alias !== 'Localização Atual' && !locationToCache.alias.startsWith('CEP')) {
+                locationToCache.alias = `CEP ${locationToCache.cep}`;
+            }
+            localStorage.setItem('lovecestas_cached_location', JSON.stringify(locationToCache));
         }
-    }, [shippingLocation]);
+    }, [shippingLocation, isAuthenticated]);
 
     useEffect(() => {
         if (!isAuthLoading) {
@@ -733,7 +741,11 @@ const ShopProvider = ({ children }) => {
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
-                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); determineShippingLocation(); setOrderNotificationCount(0);
+                
+                // Se o usuário entrou no site deslogado, zera tudo, e confia no determineShippingLocation para puxar o cache limpo
+                setWishlist([]); setAddresses([]); setShippingLocation({ cep: '', city: '', state: '', alias: '' }); setAutoCalculatedShipping(null); setCouponCode(''); setAppliedCoupon(null); setCouponMessage(''); 
+                determineShippingLocation(); 
+                setOrderNotificationCount(0);
             }
         };
         initializeShop();
