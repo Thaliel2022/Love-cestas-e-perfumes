@@ -4851,6 +4851,7 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 // (Admin) Cria um novo banner - VERSÃO CORRIGIDA PARA RESPEITAR SLOTS FIXOS
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
     
     if (!image_url || !link_url) return res.status(400).json({ message: "Dados obrigatórios faltando." });
 
@@ -4873,7 +4874,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
         const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd];
         
         const [result] = await connection.query(sql, params);
-        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`, clientIp);
         res.status(201).json({ message: "Banner salvo com sucesso!", id: result.insertId });
     } catch (err) {
         console.error("Erro ao criar banner:", err);
@@ -4885,6 +4886,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
 
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     const { orderedIds } = req.body; 
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
     
     if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
         return res.status(400).json({ message: "É necessário fornecer um array de IDs de banners ordenados." });
@@ -4901,7 +4903,7 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
         await Promise.all(updatePromises);
 
         await connection.commit();
-        logAdminAction(req.user, 'REORDENOU BANNERS', `Nova ordem salva.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'REORDENOU BANNERS', `Nova ordem salva.`, clientIp);
         res.json({ message: "Ordem dos banners atualizada com sucesso." });
     } catch (err) {
         await connection.rollback();
@@ -4915,6 +4917,7 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
     
     try {
         const validStart = start_date ? new Date(start_date) : null;
@@ -4926,7 +4929,7 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
         const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) return res.status(404).json({ message: "Banner não encontrado." });
         
-        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`, clientIp);
         res.json({ message: "Banner atualizado com sucesso." });
     } catch (err) {
         console.error("Erro ao atualizar banner:", err);
@@ -4936,12 +4939,14 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
 
 app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+
     try {
         const [result] = await db.query("DELETE FROM banners WHERE id = ?", [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "Banner não encontrado." });
         }
-        logAdminAction(req.user, 'DELETOU BANNER', `ID: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'DELETOU BANNER', `ID: ${id}`, clientIp);
         res.json({ message: "Banner deletado com sucesso." });
     } catch (err) {
         console.error("Erro ao deletar banner:", err);
@@ -4949,8 +4954,31 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// --- ROTA PÚBLICA RESTAURADA (Resolve o erro 404 e traz os banners de volta) ---
+app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
+    try {
+        const sql = `
+            SELECT * FROM banners 
+            WHERE is_active = 1 
+            AND (start_date IS NULL OR start_date <= NOW()) 
+            AND (end_date IS NULL OR end_date >= NOW())
+            ORDER BY 
+                display_order ASC, 
+                CASE WHEN start_date IS NOT NULL THEN 1 ELSE 0 END DESC,
+                start_date DESC
+        `;
+        const [banners] = await db.query(sql);
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners:", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
+});
+
 app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res) => {
     const connection = await db.getConnection();
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+
     try {
         await connection.beginTransaction();
 
@@ -5041,7 +5069,7 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
         }
 
         await connection.commit();
-        logAdminAction(req.user, 'SEED_BANNERS', `Inseriu ${insertedCount} banners padrão.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        logAdminAction(req.user, 'SEED_BANNERS', `Inseriu ${insertedCount} banners padrão.`, clientIp);
         res.json({ message: `Banco atualizado! ${insertedCount} novos banners inseridos.` });
 
     } catch (err) {
