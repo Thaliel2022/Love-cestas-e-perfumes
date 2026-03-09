@@ -8625,10 +8625,12 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
+    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); // NOVO ESTADO
     const mainContentRef = useRef(null);
 
-    // Busca contagem de novos pedidos para o badge de notificação
+    // Busca contagem de novos pedidos e reembolsos para os badges de notificação
     useEffect(() => {
+        // Busca Pedidos Recentes
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
@@ -8647,6 +8649,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 console.error("Erro silencioso ao buscar contagem de pedidos:", err);
                 setNewOrdersCount(0);
             });
+
+        // NOVO: Busca Reembolsos Pendentes
+        apiService('/refunds')
+            .then(data => {
+                if (Array.isArray(data)) {
+                    const pending = data.filter(r => r.status === 'pending_approval');
+                    setPendingRefundsCount(pending.length);
+                }
+            })
+            .catch(err => {
+                console.error("Erro silencioso ao buscar reembolsos:", err);
+                setPendingRefundsCount(0);
+            });
+
     }, [activePage]);
 
     const handleLogout = () => {
@@ -8660,7 +8676,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
                 { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
-                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/> },
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, // ATUALIZADO
             ]
         },
         {
@@ -8683,7 +8699,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             title: "Sistema",
             items: [
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
-                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, // NOVO ITEM
+                { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -10738,7 +10754,6 @@ const AdminProducts = ({ onNavigate }) => {
       }
   };
 
-  // --- NOVA LÓGICA: ENCERRAR PROMOÇÕES APENAS DOS SELECIONADOS ---
   const handleClearSelectedPromotions = () => {
       if (selectedProducts.length === 0) return;
 
@@ -10750,7 +10765,7 @@ const AdminProducts = ({ onNavigate }) => {
                   const result = await apiService('/products/bulk-clear-promo', 'PUT', { productIds: selectedProducts });
                   notification.show(result.message);
                   setSearchTerm(''); 
-                  setSelectedProducts([]); // Limpa a seleção
+                  setSelectedProducts([]); 
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
@@ -10848,7 +10863,6 @@ const AdminProducts = ({ onNavigate }) => {
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
                 
-                {/* --- BOTÃO DE AÇÃO EM MASSA (SÓ APARECE SE TIVER SELEÇÃO) --- */}
                 {selectedProducts.length > 0 && (
                     <>
                         <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
@@ -10866,8 +10880,6 @@ const AdminProducts = ({ onNavigate }) => {
                         </button>
                     </>
                 )}
-                
-                {/* O botão "Encerrar Todas" foi removido daqui para atender ao seu pedido */}
 
                 <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
@@ -10966,9 +10978,8 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA) --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA COM O TIPO DO PRODUTO) --- */}
             <div className="md:hidden">
-                {/* Cabeçalho Mobile com Selecionar Todos */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
                         <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
@@ -10992,11 +11003,17 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status Mobile - CORREÇÃO DO 0 */}
+                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
-                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
+                                         {/* NOVO: Tag do Tipo de Produto */}
+                                         <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
+                                             {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
+                                         </span>
+                                         <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold uppercase whitespace-nowrap ${p.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'}`}>
+                                             {p.is_active ? 'Ativo' : 'Inativo'}
+                                         </span>
                                          {!!p.is_on_sale && (
-                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Promo</span>
+                                             <span className="bg-red-100 text-red-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">Promo</span>
                                          )}
                                     </div>
                                 </div>
