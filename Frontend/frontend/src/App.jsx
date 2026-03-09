@@ -1509,7 +1509,8 @@ const SizeGuideDisplay = ({ dataString }) => {
 
     return (
         <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
-            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
+            {/* Gap reduzido de md:gap-12 para md:gap-6 para dar mais espaço à tabela */}
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="flex-1 w-full min-w-0">
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
@@ -1538,8 +1539,9 @@ const SizeGuideDisplay = ({ dataString }) => {
                         ))}
                     </div>
 
-                    <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
-                        <table className="w-full text-sm text-gray-300">
+                    {/* overflow-x-auto e min-w-max garantem que a tabela não será cortada */}
+                    <div className="hidden md:block w-full overflow-x-auto rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
+                        <table className="w-full text-sm text-gray-300 min-w-max">
                             <thead>
                                 <tr className="bg-gray-800 border-b border-gray-700">
                                     {data.columns.map((col, i) => (
@@ -4128,7 +4130,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA E TABELA --- */}
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -4137,15 +4139,29 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     -ms-overflow-style: none;
                     scrollbar-width: none;
                 }
+                .custom-scrollbar::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: rgba(31, 41, 55, 0.5); 
+                    border-radius: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(251, 191, 36, 0.5); 
+                    border-radius: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(251, 191, 36, 0.8); 
+                }
             `}</style>
             
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
-                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="2xl">
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
                         <SizeGuideDisplay dataString={product.size_guide} />
                     </Modal>
                 )}
