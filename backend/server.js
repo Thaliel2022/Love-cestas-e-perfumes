@@ -515,13 +515,13 @@ const csvUpload = multer({
 // --- FUNÇÕES E MIDDLEWARES AUXILIARES ---
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
 
-// --- MIDDLEWARE DE VERIFICAÇÃO DE TOKEN (ATUALIZADO) ---
 const verifyToken = (req, res, next) => {
-    const token = req.cookies.accessToken;
+    // Tenta pegar o token do header de Autorização (Bearer Token) ou do cookie
+    const authHeader = req.headers['authorization'];
+    const token = (authHeader && authHeader.split(' ')[1]) || req.cookies.accessToken;
 
     if (!token) {
-        // Se não tem token, tenta verificar se tem refresh token para tentar renovar silenciosamente no frontend
-        // Mas aqui retornamos 401 para o frontend disparar o fluxo de refresh
+        // Retornamos 401 para o frontend disparar o fluxo de refresh
         return res.status(401).json({ message: 'Acesso negado. Token não fornecido.' });
     }
 
@@ -1217,7 +1217,8 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
         await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, email, req.ip, req.headers['user-agent']]);
 
         const { password: _, two_factor_secret, ...userData } = user;
-        res.json({ message: "Login realizado com sucesso.", user: userData });
+        // Retorna os tokens na resposta JSON para os navegadores mobile restritos salvarem no localStorage
+        res.json({ message: "Login realizado com sucesso.", user: userData, accessToken, refreshToken });
 
     } catch (err) {
         console.error("Erro no login:", err);
@@ -1226,64 +1227,66 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
 });
 
 app.post('/api/login/2fa/verify', [
-    body('token', 'Token 2FA é obrigatório').notEmpty(),
-    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
+    body('token', 'Token 2FA é obrigatório').notEmpty(),
+    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    const { token, tempAuthToken } = req.body;
-    
-    try {
-        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
-        if (!decodedTemp.twoFactorAuth) {
-            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
-        }
-        
-        const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-        const user = users[0];
+    const { token, tempAuthToken } = req.body;
+    
+    try {
+        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
+        if (!decodedTemp.twoFactorAuth) {
+            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
+        }
+        
+        const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'Usuário não encontrado.' });
+        }
+        const user = users[0];
 
-        const isVerified = speakeasy.totp.verify({
-            secret: user.two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
+        const isVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: token
+        });
 
-        if (!isVerified) {
-            return res.status(401).json({ message: 'Código 2FA inválido.' });
-        }
+        if (!isVerified) {
+            return res.status(401).json({ message: 'Código 2FA inválido.' });
+        }
 
-        // Se verificado, gera os tokens de acesso e refresh
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+        // Se verificado, gera os tokens de acesso e refresh
+        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
+        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
+        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
+        const cookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        };
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-        
-        const { password: _, two_factor_secret, ...userData } = user;
-        res.json({ message: "Login bem-sucedido", user: userData });
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        
+        const { password: _, two_factor_secret, ...userData } = user;
+        // Envia tokens na resposta para garantir o acesso no mobile
+        res.json({ message: "Login bem-sucedido", user: userData, accessToken, refreshToken });
 
-    } catch (err) {
-        console.error("Erro na verificação 2FA:", err);
-        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
-    }
+    } catch (err) {
+        console.error("Erro na verificação 2FA:", err);
+        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
+    }
 });
 
 // --- ROTA DE REFRESH TOKEN (ROTAÇÃO SEGURA) ---
 app.post('/api/refresh-token', async (req, res) => {
-    const oldRefreshToken = req.cookies.refreshToken;
+    // Tenta pegar o refresh token do body (localStorage mobile) ou dos cookies
+    const oldRefreshToken = req.body.refreshToken || req.cookies.refreshToken;
     
     if (!oldRefreshToken) {
         return res.status(401).json({ message: 'Sessão expirada. Faça login novamente.' });
@@ -1297,12 +1300,9 @@ app.post('/api/refresh-token', async (req, res) => {
         const [storedToken] = await connection.query("SELECT * FROM refresh_tokens WHERE token = ?", [oldRefreshToken]);
 
         // DETECÇÃO DE REUSO DE TOKEN (Roubo de Sessão)
-        // Se o token é válido criptograficamente mas não está no banco, ele já foi usado/rotacionado.
-        // Possível ataque: Alguém roubou o token antigo e está tentando usar.
         if (storedToken.length === 0) {
             try {
                 const decoded = jwt.verify(oldRefreshToken, process.env.JWT_SECRET);
-                // Se decodificou, sabemos quem é o usuário. Invalida TUDO dele por segurança.
                 console.warn(`[SEGURANÇA] Tentativa de reuso de Refresh Token detectada para User ID ${decoded.id}. Invalidando todas as sessões.`);
                 await connection.query("DELETE FROM refresh_tokens WHERE user_id = ?", [decoded.id]);
             } catch (e) {
@@ -1329,7 +1329,6 @@ app.post('/api/refresh-token', async (req, res) => {
         await connection.query("DELETE FROM refresh_tokens WHERE id = ?", [currentTokenData.id]);
 
         // 3. Gera novos tokens
-        // Busca dados atualizados do usuário (caso role/permissões tenham mudado)
         const [users] = await connection.query("SELECT id, name, role, cpf FROM users WHERE id = ?", [decoded.id]);
         if (users.length === 0) throw new Error("Usuário não encontrado.");
         const user = users[0];
@@ -1354,7 +1353,8 @@ app.post('/api/refresh-token', async (req, res) => {
         res.cookie('accessToken', newAccessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
         res.cookie('refreshToken', newRefreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
-        res.json({ message: 'Sessão renovada.' });
+        // Retorna os tokens na resposta
+        res.json({ message: 'Sessão renovada.', accessToken: newAccessToken, refreshToken: newRefreshToken });
 
     } catch (err) {
         await connection.rollback();
