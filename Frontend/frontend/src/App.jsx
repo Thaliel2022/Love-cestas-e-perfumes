@@ -599,46 +599,57 @@ const ShopProvider = ({ children }) => {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     try {
-                        // 1. Omitimos os headers restritos (que o navegador bloqueava).
-                        // 2. Adicionamos o 'email' via parâmetro na URL para a API não nos bloquear.
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1&email=loja@lovecestaseperfumes.com.br`);
-                        const data = await response.json();
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
                         
-                        if (data && data.address) {
-                            let cepDigit = data.address.postcode ? data.address.postcode.replace(/\D/g, '') : '';
-                            const city = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
-                            const state = data.address.state || '';
-                            
-                            // Correção Inteligente: A API de mapas as vezes acha a cidade mas não o CEP.
-                            // Se for João Pessoa e não tiver CEP, usamos um padrão só para destravar as opções de Motoboy!
-                            if (cepDigit.length !== 8) {
-                                const cityLower = city.toLowerCase();
-                                if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
-                                    cepDigit = '58030000'; // CEP Base de JP
-                                } else if (cityLower.includes('cabedelo')) {
-                                    cepDigit = '58100000'; // CEP Base de Cabedelo
-                                }
-                            }
+                        // Primeira tentativa: BigDataCloud (Rápida, não dá erro de CORS, nativa para browsers)
+                        const bdcResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`);
+                        const bdcData = await bdcResponse.json();
+                        
+                        let cepDigit = bdcData.postcode ? String(bdcData.postcode).replace(/\D/g, '') : '';
+                        let city = bdcData.city || bdcData.locality || '';
+                        let state = bdcData.principalSubdivision || '';
 
-                            if (cepDigit.length === 8) {
-                                setShippingLocation({ 
-                                    cep: cepDigit, 
-                                    city: city, 
-                                    state: state, 
-                                    alias: 'Localização Atual' 
-                                });
+                        // Segunda tentativa: OSM Nominatim original (Caso o BigDataCloud não retorne o CEP)
+                        if (cepDigit.length !== 8) {
+                            const osmResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+                            const osmData = await osmResponse.json();
+                            if (osmData && osmData.address) {
+                                cepDigit = osmData.address.postcode ? String(osmData.address.postcode).replace(/\D/g, '') : cepDigit;
+                                city = osmData.address.city || osmData.address.town || osmData.address.village || city;
+                                state = osmData.address.state || state;
                             }
+                        }
+
+                        // Fallback Inteligente (Se a API achar a cidade mas não o CEP exato)
+                        if (cepDigit.length !== 8) {
+                            const cityLower = city.toLowerCase();
+                            if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
+                                cepDigit = '58030000';
+                            } else if (cityLower.includes('cabedelo')) {
+                                cepDigit = '58100000';
+                            }
+                        }
+
+                        if (cepDigit.length === 8) {
+                            setShippingLocation({ 
+                                cep: cepDigit, 
+                                city: city, 
+                                state: state, 
+                                alias: 'Localização Atual' 
+                            });
                         }
                     } catch (error) { 
                         console.warn("Erro ao buscar CEP via Geo:", error); 
-                    } 
-                    finally { setIsGeolocating(false); }
+                    } finally { 
+                        setIsGeolocating(false); 
+                    }
                 }, 
                 (error) => {
                     console.warn("Geolocalização negada ou indisponível:", error.message);
                     setIsGeolocating(false);
                 }, 
-                { timeout: 10000, maximumAge: 60000 }
+                { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
