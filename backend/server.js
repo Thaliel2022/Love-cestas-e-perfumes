@@ -1420,39 +1420,38 @@ app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// Verifica o token e ativa o 2FA para o admin logado
 app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
-    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
+    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    const { token } = req.body;
-    try {
-        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0 || !users[0].two_factor_secret) {
-            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
-        }
+    const { token } = req.body;
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
+        }
 
-        const isVerified = speakeasy.totp.verify({
-            secret: users[0].two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: token
+        });
 
-        if (isVerified) {
-            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
-            logAdminAction(req.user, 'ATIVOU_2FA');
-            res.json({ message: '2FA ativado com sucesso!' });
-        } else {
-            res.status(400).json({ message: 'Código de verificação inválido.' });
-        }
-    } catch (err) {
-        console.error("Erro ao verificar e ativar o 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
-    }
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            res.status(400).json({ message: 'Código de verificação inválido.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
 });
 
 // Desativa o 2FA para o admin logado
@@ -1489,7 +1488,7 @@ app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
         }
 
         await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
-        logAdminAction(req.user, 'DESATIVOU_2FA');
+        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
         res.json({ message: '2FA desativado com sucesso.' });
 
     } catch (err) {
@@ -1522,34 +1521,34 @@ app.post('/api/forgot-password', [
 });
 
 app.post('/api/reset-password', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('cpf', 'CPF é obrigatório').notEmpty(),
-    body('newPassword', 'A nova senha deve ter no mínimo 6 caracteres').isLength({ min: 6 })
+    body('email', 'Email inválido').isEmail().normalizeEmail(),
+    body('cpf', 'CPF é obrigatório').notEmpty(),
+    body('newPassword', 'A nova senha deve ter no mínimo 6 caracteres').isLength({ min: 6 })
 ], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
 
-    const { email, cpf, newPassword } = req.body;
+    const { email, cpf, newPassword } = req.body;
 
-    try {
-        const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
-        }
-        
-        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
-        
-        logAdminAction({id: users[0].id, name: users[0].name}, 'REDEFINIU_SENHA');
-        
-        res.status(200).json({ message: "Senha redefinida com sucesso." });
+    try {
+        const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
+        if (users.length === 0) {
+            return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
+        }
+        
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+        await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
+        
+        logAdminAction({id: users[0].id, name: users[0].name}, 'REDEFINIU_SENHA', null, req.ip); // CORREÇÃO: IP ADICIONADO
+        
+        res.status(200).json({ message: "Senha redefinida com sucesso." });
 
-    } catch (err) {
-        console.error("Erro ao redefinir a senha:", err);
-        res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
-    }
+    } catch (err) {
+        console.error("Erro ao redefinir a senha:", err);
+        res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
+    }
 });
 
 
@@ -2130,16 +2129,16 @@ setInterval(async () => {
 }, 60000); // Verifica a cada minuto
 
 // 1. Criação de Produto (Bloqueado e Validado)
+// 1. Criação de Produto (Bloqueado e Validado)
+// 1. Criação de Produto (Bloqueado e Validado)
 app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
-    // Lista de campos base
     const fields = [
         'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
         'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
     ];
     
-    // Tratamento da data: converte string vazia para NULL se necessário
     const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
 
     const values = [
@@ -2166,7 +2165,6 @@ app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), asy
         values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
     } else if (product_type === 'clothing') {
         fields.push('variations', 'size_guide', 'care_instructions', 'stock');
-        // O Zod valida que é string, mas aqui parseamos para calcular o estoque total
         const variations = JSON.parse(productData.variations || '[]');
         const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
         values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
@@ -2176,11 +2174,274 @@ app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), asy
         const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
         const [result] = await db.query(sql, values);
         
-        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`);
+        logAdminAction(req.user, 'CRIOU PRODUTO', `ID: ${result.insertId}, Nome: "${productData.name}"`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.status(201).json({ message: "Produto criado com sucesso!", productId: result.insertId });
     } catch (err) {
         console.error("Erro ao criar produto:", err);
         res.status(500).json({ message: "Erro interno ao criar produto." });
+    }
+});
+
+// 2. Edição de Produto
+app.put('/api/products/:id', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
+    const { id } = req.params;
+    const { product_type = 'perfume', ...productData } = req.body;
+
+    let fieldsToUpdate = [
+        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
+        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
+    ];
+
+    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
+
+    let values = [
+        productData.name, 
+        productData.brand, 
+        productData.category, 
+        productData.price, 
+        productData.sale_price || null, 
+        saleEndDate, 
+        productData.is_on_sale ? 1 : 0,
+        productData.images, 
+        productData.description, 
+        productData.weight, 
+        productData.width,
+        productData.height, 
+        productData.length, 
+        productData.is_active ? 1 : 0, 
+        product_type, 
+        productData.video_url || null
+    ];
+
+    if (product_type === 'perfume') {
+        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
+        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
+    } else if (product_type === 'clothing') {
+        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
+        const variations = JSON.parse(productData.variations || '[]');
+        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
+    }
+    
+    values.push(id);
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
+        const wasOnSale = current[0] ? current[0].is_on_sale : 0;
+
+        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
+        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
+        await connection.query(sql, values);
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Produto atualizado com sucesso!" });
+
+        const isNowOnSale = productData.is_on_sale ? 1 : 0;
+        if (!wasOnSale && isNowOnSale) {
+            notifyWishlistUsers([id], db).catch(e => console.error("Erro background notify:", e));
+        }
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar produto:", err);
+        res.status(500).json({ message: "Erro interno ao atualizar produto." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Produto deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar produto:", err);
+        res.status(500).json({ message: "Erro interno ao deletar produto." });
+    }
+});
+
+app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs de produtos." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const CHUNK_SIZE = 100;
+        let totalAffectedRows = 0;
+
+        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+            const chunk = ids.slice(i, i + CHUNK_SIZE);
+            const placeholders = chunk.map(() => '?').join(',');
+            const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
+            const [result] = await connection.query(sql, chunk);
+            totalAffectedRows += result.affectedRows;
+        }
+        
+        await connection.commit();
+        logAdminAction(req.user, 'DELETOU PRODUTOS EM MASSA', `Total: ${totalAffectedRows}, IDs: ${ids.join(', ')}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
+    } catch (err) {
+        await connection.rollback();
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+            console.error("Tentativa de deletar produto referenciado em pedidos:", err);
+            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes. Considere desativá-los em vez de excluir." });
+        }
+        console.error("Erro ao deletar múltiplos produtos:", err);
+        res.status(500).json({ message: "Erro interno ao deletar produtos." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado." });
+    }
+    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
+        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const placeholders = productIds.map(() => '?').join(',');
+        const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
+
+        const productsToNotify = [];
+
+        for (const product of products) {
+            const originalPrice = parseFloat(product.price);
+            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
+            const salePrice = (originalPrice - discountValue).toFixed(2);
+            
+            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
+
+            await connection.query(
+                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
+                [salePrice, finalDate, product.id]
+            );
+            
+            productsToNotify.push(product.id);
+        }
+
+        await connection.commit();
+        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+
+        if (productsToNotify.length > 0) {
+            notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
+        }
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro na promoção em massa:", err);
+        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const placeholders = productIds.map(() => '?').join(',');
+        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
+        
+        const [result] = await connection.query(sql, productIds);
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao encerrar promoções selecionadas:", err);
+        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body;
+
+    if (!productId || newStock === undefined || newStock < 0) {
+        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+
+            let variations;
+            try {
+                variations = JSON.parse(product.variations || '[]');
+            } catch (parseError) {
+                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
+            }
+
+            const variationIndex = variations.findIndex(v =>
+                (variation.id && v.id === variation.id) || 
+                (v.color === variation.color && v.size === variation.size) 
+            );
+
+            if (variationIndex === -1) {
+                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
+            }
+
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
+
+        } else { 
+             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        }
+
+        await connection.commit();
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
     }
 });
 
@@ -2758,18 +3019,18 @@ app.get('/api/products/:id/reviews', checkMaintenanceMode, async (req, res) => {
 });
 
 app.delete('/api/reviews/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query("DELETE FROM reviews WHERE id = ?", [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Avaliação não encontrada." });
-        }
-        logAdminAction(req.user, 'DELETOU AVALIAÇÃO', `ID da avaliação: ${id}`);
-        res.status(200).json({ message: "Avaliação deletada com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar avaliação:", err);
-        res.status(500).json({ message: "Erro interno ao deletar avaliação." });
-    }
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM reviews WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Avaliação não encontrada." });
+        }
+        logAdminAction(req.user, 'DELETOU AVALIAÇÃO', `ID da avaliação: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.status(200).json({ message: "Avaliação deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar avaliação:", err);
+        res.status(500).json({ message: "Erro interno ao deletar avaliação." });
+    }
 });
 // --- ROTAS DE CARRINHO PERSISTENTE ---
 app.get('/api/cart', verifyToken, async (req, res) => {
@@ -4004,27 +4265,25 @@ app.get('/api/users/:id/details', verifyToken, verifyAdmin, async (req, res) => 
 });
 
 app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
+    const { id } = req.params;
+    const { status } = req.body;
 
-    if (status !== 'active' && status !== 'blocked') {
-        return res.status(400).json({ message: "Status inválido. Use 'active' ou 'blocked'." });
-    }
+    if (status !== 'active' && status !== 'blocked') {
+        return res.status(400).json({ message: "Status inválido. Use 'active' ou 'blocked'." });
+    }
 
-    try {
-        const [result] = await db.query("UPDATE users SET status = ? WHERE id = ?", [status, id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        logAdminAction(req.user, 'ATUALIZOU STATUS DE USUÁRIO', `ID do usuário: ${id}, Novo Status: ${status}`);
-        res.json({ message: `Usuário ${status === 'active' ? 'desbloqueado' : 'bloqueado'} com sucesso.` });
-    } catch (err) {
-        console.error("Erro ao atualizar status do usuário:", err);
-        res.status(500).json({ message: "Erro ao atualizar status do usuário." });
-    }
+    try {
+        const [result] = await db.query("UPDATE users SET status = ? WHERE id = ?", [status, id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        logAdminAction(req.user, 'ATUALIZOU STATUS DE USUÁRIO', `ID do usuário: ${id}, Novo Status: ${status}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Usuário ${status === 'active' ? 'desbloqueado' : 'bloqueado'} com sucesso.` });
+    } catch (err) {
+        console.error("Erro ao atualizar status do usuário:", err);
+        res.status(500).json({ message: "Erro ao atualizar status do usuário." });
+    }
 });
-
-
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
         // CORREÇÃO: Adicionado 'phone' na lista de campos retornados
@@ -4039,20 +4298,17 @@ app.get('/api/users/me', verifyToken, async (req, res) => {
 
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
-    // ATUALIZAÇÃO: Recebendo cpf e phone
     const { name, email, role, password, cpf, phone } = req.body;
 
     if (!name || !email || !role) {
         return res.status(400).json({ message: "Nome, email e função são obrigatórios." });
     }
 
-    // Impede que um admin se auto-remova do status de admin
     if (String(req.user.id) === String(id) && role !== 'admin') {
         return res.status(403).json({ message: "Você não pode remover sua própria permissão de administrador." });
     }
 
     try {
-        // Limpeza básica dos dados
         const cleanCpf = cpf ? String(cpf).replace(/\D/g, '') : null;
         const cleanPhone = phone ? String(phone).replace(/\D/g, '') : null;
 
@@ -4077,7 +4333,7 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
             return res.status(404).json({ message: "Usuário não encontrado." });
         }
         
-        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`);
+        logAdminAction(req.user, 'EDITOU USUÁRIO', `ID do usuário: ${id}, Nome: ${name}`, req.ip); // CORREÇÃO: IP ADICIONADO
 
         res.json({ message: "Usuário atualizado com sucesso!" });
     } catch (err) {
@@ -4092,42 +4348,41 @@ app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.put('/api/users/me/password', verifyToken, async (req, res) => {
-    const userId = req.user.id;
-    const { password } = req.body;
-    if (!password || password.length < 6) {
-        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
-    }
+    const userId = req.user.id;
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+        return res.status(400).json({ message: "A senha é obrigatória e deve ter no mínimo 6 caracteres." });
+    }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
-        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA');
-        res.json({ message: "Senha atualizada com sucesso." });
-    } catch(err) {
-        console.error("Erro ao atualizar senha do usuário:", err);
-        res.status(500).json({ message: "Erro ao atualizar a senha." });
-    }
+    try {
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        await db.query("UPDATE users SET password = ? WHERE id = ?", [hashedPassword, userId]);
+        logAdminAction(req.user, 'ALTEROU A PRÓPRIA SENHA', null, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Senha atualizada com sucesso." });
+    } catch(err) {
+        console.error("Erro ao atualizar senha do usuário:", err);
+        res.status(500).json({ message: "Erro ao atualizar a senha." });
+    }
 });
 
 app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.params;
 
-    // Impede que um admin se auto-delete
-    if (String(req.user.id) === String(id)) {
-        return res.status(403).json({ message: "Você não pode excluir sua própria conta." });
-    }
+    if (String(req.user.id) === String(id)) {
+        return res.status(403).json({ message: "Você não pode excluir sua própria conta." });
+    }
 
-    try {
-        const [result] = await db.query("DELETE FROM users WHERE id = ?", [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado." });
-        }
-        logAdminAction(req.user, 'DELETOU USUÁRIO', `ID do usuário: ${id}`);
-        res.json({ message: "Usuário deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar usuário:", err);
-        res.status(500).json({ message: "Erro interno ao deletar usuário." });
-    }
+    try {
+        const [result] = await db.query("DELETE FROM users WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Usuário não encontrado." });
+        }
+        logAdminAction(req.user, 'DELETOU USUÁRIO', `ID do usuário: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Usuário deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar usuário:", err);
+        res.status(500).json({ message: "Erro interno ao deletar usuário." });
+    }
 });
 
 // --- ROTAS DE CUPONS ---
@@ -4217,7 +4472,6 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
         return res.status(400).json({ message: "Código, tipo e valor são obrigatórios." });
     }
     
-    // Se não for global, exige pelo menos uma categoria ou marca
     if (!is_global && (!allowed_categories?.length && !allowed_brands?.length)) {
         return res.status(400).json({ message: "Se o cupom não for global, selecione ao menos uma categoria ou marca." });
     }
@@ -4234,7 +4488,7 @@ app.post('/api/coupons', verifyToken, verifyAdmin, async (req, res) => {
         ];
         
         const [result] = await db.query(sql, params);
-        logAdminAction(req.user, 'CRIOU CUPOM', `Código: ${code.toUpperCase()}`);
+        logAdminAction(req.user, 'CRIOU CUPOM', `Código: ${code.toUpperCase()}`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.status(201).json({ message: "Cupom criado com sucesso!", couponId: result.insertId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
@@ -4278,7 +4532,7 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
         ];
         
         await db.query(sql, params);
-        logAdminAction(req.user, 'EDITOU CUPOM', `ID: ${id}, Código: ${code.toUpperCase()}`);
+        logAdminAction(req.user, 'EDITOU CUPOM', `ID: ${id}, Código: ${code.toUpperCase()}`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.json({ message: "Cupom atualizado com sucesso." });
     } catch (err) {
          if (err.code === 'ER_DUP_ENTRY') {
@@ -4290,14 +4544,14 @@ app.put('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 app.delete('/api/coupons/:id', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        await db.query("DELETE FROM coupons WHERE id = ?", [req.params.id]);
-        logAdminAction(req.user, 'DELETOU CUPOM', `ID: ${req.params.id}`);
-        res.json({ message: "Cupom deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar cupom:", err);
-        res.status(500).json({ message: "Erro interno ao deletar cupom." });
-    }
+    try {
+        await db.query("DELETE FROM coupons WHERE id = ?", [req.params.id]);
+        logAdminAction(req.user, 'DELETOU CUPOM', `ID: ${req.params.id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Cupom deletado com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar cupom:", err);
+        res.status(500).json({ message: "Erro interno ao deletar cupom." });
+    }
 });
 
 // --- ROTAS DA LISTA DE DESEJOS (WISHLIST) ---
@@ -4478,98 +4732,94 @@ app.get('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => 
     }
 });
 
-// (Admin) Cria uma nova categoria
 app.post('/api/collections/admin', verifyToken, verifyAdmin, async (req, res) => {
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
-    try {
-        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
-        const [result] = await db.query(sql, params);
-        logAdminAction(req.user, 'CRIOU CATEGORIA DE COLEÇÃO', `ID: ${result.insertId}, Nome: "${name}"`);
-        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao criar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao criar categoria." });
-    }
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
+    try {
+        const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) SELECT ?, ?, ?, ?, ?, ?, COALESCE(MAX(display_order), -1) + 1 FROM collection_categories";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section];
+        const [result] = await db.query(sql, params);
+        logAdminAction(req.user, 'CRIOU CATEGORIA DE COLEÇÃO', `ID: ${result.insertId}, Nome: "${name}"`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.status(201).json({ message: "Categoria criada com sucesso!", id: result.insertId });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao criar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao criar categoria." });
+    }
 });
 
-// (Admin) Atualiza a ORDEM de múltiplas categorias
 app.put('/api/collections/order', verifyToken, verifyAdmin, async (req, res) => {
-    const { orderedIds } = req.body; 
+    const { orderedIds } = req.body; 
 
-    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
-        return res.status(400).json({ message: "É necessário fornecer um array de IDs ordenados." });
-    }
+    if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+        return res.status(400).json({ message: "É necessário fornecer um array de IDs ordenados." });
+    }
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        const updatePromises = orderedIds.map((id, index) => {
-            return connection.query("UPDATE collection_categories SET display_order = ? WHERE id = ?", [index, id]);
-        });
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const updatePromises = orderedIds.map((id, index) => {
+            return connection.query("UPDATE collection_categories SET display_order = ? WHERE id = ?", [index, id]);
+        });
 
-        await Promise.all(updatePromises);
+        await Promise.all(updatePromises);
 
-        await connection.commit();
-        logAdminAction(req.user, 'REORDENOU CATEGORIAS DE COLEÇÃO');
-        res.json({ message: "Ordem das coleções atualizada com sucesso." });
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao reordenar categorias da coleção:", err);
-        res.status(500).json({ message: "Erro ao reordenar categorias." });
-    } finally {
-        connection.release();
-    }
+        await connection.commit();
+        logAdminAction(req.user, 'REORDENOU CATEGORIAS DE COLEÇÃO', null, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Ordem das coleções atualizada com sucesso." });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao reordenar categorias da coleção:", err);
+        res.status(500).json({ message: "Erro ao reordenar categorias." });
+    } finally {
+        connection.release();
+    }
 });
 
-// (Admin) Atualiza uma categoria
 app.put('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
+    const { id } = req.params;
+    const { name, image, filter, is_active, product_type_association, menu_section } = req.body;
 
-    if (!name || !image || !filter || !product_type_association || !menu_section) {
-        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
-    }
+    if (!name || !image || !filter || !product_type_association || !menu_section) {
+        return res.status(400).json({ message: "Todos os campos são obrigatórios." });
+    }
 
-    try {
-        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
-        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
-        const [result] = await db.query(sql, params);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
-        }
-        logAdminAction(req.user, 'EDITOU CATEGORIA DE COLEÇÃO', `ID: ${id}, Nome: "${name}"`);
-        res.json({ message: "Categoria da coleção atualizada com sucesso." });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
-        }
-        console.error("Erro ao atualizar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao atualizar categoria." });
-    }
+    try {
+        const sql = "UPDATE collection_categories SET name = ?, image = ?, filter = ?, is_active = ?, product_type_association = ?, menu_section = ? WHERE id = ?";
+        const params = [name, image, filter, is_active ? 1 : 0, product_type_association, menu_section, id];
+        const [result] = await db.query(sql, params);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        logAdminAction(req.user, 'EDITOU CATEGORIA DE COLEÇÃO', `ID: ${id}, Nome: "${name}"`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Categoria da coleção atualizada com sucesso." });
+    } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: "Uma categoria com este valor de filtro já existe." });
+        }
+        console.error("Erro ao atualizar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao atualizar categoria." });
+    }
 });
 
-// (Admin) Deleta uma categoria
 app.delete('/api/collections/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Categoria não encontrada." });
-        }
-        logAdminAction(req.user, 'DELETOU CATEGORIA DE COLEÇÃO', `ID: ${id}`);
-        res.json({ message: "Categoria deletada com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar categoria da coleção:", err);
-        res.status(500).json({ message: "Erro ao deletar categoria." });
-    }
+    const { id } = req.params;
+    try {
+        const [result] = await db.query("DELETE FROM collection_categories WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Categoria não encontrada." });
+        }
+        logAdminAction(req.user, 'DELETOU CATEGORIA DE COLEÇÃO', `ID: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Categoria deletada com sucesso." });
+    } catch (err) {
+        console.error("Erro ao deletar categoria da coleção:", err);
+        res.status(500).json({ message: "Erro ao deletar categoria." });
+    }
 });
 
 // (Público) Pega todas as categorias da coleção para a home page
@@ -4611,9 +4861,6 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
              const [rows] = await connection.query("SELECT COALESCE(MAX(display_order), -1) + 1 as nextOrder FROM banners WHERE display_order < 50");
              orderToUse = rows[0].nextOrder;
         } else {
-            // LÓGICA ATUALIZADA:
-            // Se for Card (60 ou 61), remove o anterior para substituir (mantém fixo)
-            // Para Destaque (50), NÃO DELETA MAIS, permitindo múltiplos banners rotativos
             if (orderToUse >= 60) {
                 await connection.query("DELETE FROM banners WHERE display_order = ?", [orderToUse]);
             }
@@ -4626,7 +4873,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
         const params = [image_url, image_url_mobile || null, title || null, subtitle || null, link_url, cta_text || null, cta_enabled ? 1 : 0, is_active ? 1 : 0, orderToUse, validStart, validEnd];
         
         const [result] = await connection.query(sql, params);
-        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`);
+        logAdminAction(req.user, 'CRIOU BANNER', `ID: ${result.insertId}, Ordem: ${orderToUse}`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.status(201).json({ message: "Banner salvo com sucesso!", id: result.insertId });
     } catch (err) {
         console.error("Erro ao criar banner:", err);
@@ -4636,8 +4883,6 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-
-// (Admin) Atualiza a ORDEM de múltiplos banners (Drag & Drop)
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     const { orderedIds } = req.body; 
     
@@ -4649,8 +4894,6 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await connection.beginTransaction();
         
-        // Atualiza a ordem sequencialmente (0, 1, 2, 3...)
-        // Isso garante que o Index 0 seja sempre o Destaque, 1 e 2 os Cards, etc.
         const updatePromises = orderedIds.map((id, index) => {
             return connection.query("UPDATE banners SET display_order = ? WHERE id = ?", [index, id]);
         });
@@ -4658,7 +4901,7 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
         await Promise.all(updatePromises);
 
         await connection.commit();
-        logAdminAction(req.user, 'REORDENOU BANNERS', `Nova ordem salva.`);
+        logAdminAction(req.user, 'REORDENOU BANNERS', `Nova ordem salva.`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.json({ message: "Ordem dos banners atualizada com sucesso." });
     } catch (err) {
         await connection.rollback();
@@ -4669,7 +4912,6 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
@@ -4684,7 +4926,7 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
         const [result] = await db.query(sql, params);
         if (result.affectedRows === 0) return res.status(404).json({ message: "Banner não encontrado." });
         
-        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`);
+        logAdminAction(req.user, 'EDITOU BANNER', `ID: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.json({ message: "Banner atualizado com sucesso." });
     } catch (err) {
         console.error("Erro ao atualizar banner:", err);
@@ -4692,44 +4934,18 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
-// (Admin) Deleta um banner
 app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query("DELETE FROM banners WHERE id = ?", [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Banner não encontrado." });
-        }
-        logAdminAction(req.user, 'DELETOU BANNER', `ID: ${id}`);
-        res.json({ message: "Banner deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar banner:", err);
-        res.status(500).json({ message: "Erro ao deletar banner." });
-    }
-});
-
-// (Público) Pega Banners Ativos e Válidos (Priorizando Eventos Sazonais)
-app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
+    const { id } = req.params;
     try {
-        // Lógica "Padrão Amazon":
-        // 1. Traz todos os banners ativos que estão dentro do prazo (ou sem prazo)
-        // 2. Ordena por display_order (Topo < Destaque < Cards)
-        // 3. CRÍTICO: Para o mesmo display_order (ex: 50), prioriza quem tem data definida (Natal) sobre quem não tem (Padrão)
-        const sql = `
-            SELECT * FROM banners 
-            WHERE is_active = 1 
-            AND (start_date IS NULL OR start_date <= NOW()) 
-            AND (end_date IS NULL OR end_date >= NOW())
-            ORDER BY 
-                display_order ASC, 
-                CASE WHEN start_date IS NOT NULL THEN 1 ELSE 0 END DESC, -- Banner agendado ganha do padrão
-                start_date DESC -- O evento mais recente ganha
-        `;
-        const [banners] = await db.query(sql);
-        res.json(banners);
+        const [result] = await db.query("DELETE FROM banners WHERE id = ?", [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Banner não encontrado." });
+        }
+        logAdminAction(req.user, 'DELETOU BANNER', `ID: ${id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Banner deletado com sucesso." });
     } catch (err) {
-        console.error("Erro ao buscar banners:", err);
-        res.status(500).json({ message: "Erro ao buscar banners." });
+        console.error("Erro ao deletar banner:", err);
+        res.status(500).json({ message: "Erro ao deletar banner." });
     }
 });
 
@@ -4738,7 +4954,6 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
     try {
         await connection.beginTransaction();
 
-        // Dados padrão (Ficam seguros no servidor)
         const CAMPAIGN_BLUEPRINTS = [
             {
                 title: "Semana do Consumidor", subtitle: "Até 50% OFF em itens selecionados.",
@@ -4775,7 +4990,6 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
                 link_url: "products", cta_text: "Presentes de Natal",
                 month: 12, day: 1, duration: 25, display_order: 50
             },
-            // Cards Fixos
             {
                 title: "Moda & Estilo", subtitle: "Peças exclusivas.",
                 image_url: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=2070&auto=format&fit=crop",
@@ -4788,7 +5002,6 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
             }
         ];
 
-        // Lógica de Data (Backend)
         const getNextOccurrence = (month, day, duration) => {
             if (!month || !day) return { start: null, end: null };
             const now = new Date();
@@ -4811,7 +5024,6 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
         let insertedCount = 0;
 
         for (const bp of CAMPAIGN_BLUEPRINTS) {
-            // Verifica duplicidade básica pelo título E ordem (evita duplicar se já existir)
             const [existing] = await connection.query(
                 "SELECT id FROM banners WHERE title = ? AND display_order = ?", 
                 [bp.title, bp.display_order]
@@ -4829,7 +5041,7 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
         }
 
         await connection.commit();
-        logAdminAction(req.user, 'SEED_BANNERS', `Inseriu ${insertedCount} banners padrão.`);
+        logAdminAction(req.user, 'SEED_BANNERS', `Inseriu ${insertedCount} banners padrão.`, req.ip); // CORREÇÃO: IP ADICIONADO
         res.json({ message: `Banco atualizado! ${insertedCount} novos banners inseridos.` });
 
     } catch (err) {
@@ -4868,18 +5080,18 @@ app.get('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) 
 
 // (Admin) Atualiza o status do modo manutenção
 app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) => {
-    const { status } = req.body;
-    if (status !== 'on' && status !== 'off') {
-        return res.status(400).json({ message: "Status inválido. Use 'on' ou 'off'." });
-    }
-    try {
-        await db.query("UPDATE site_settings SET setting_value = ? WHERE setting_key = 'maintenance_mode'", [status]);
-        logAdminAction(req.user, 'ATUALIZOU MODO MANUTENÇÃO', `Status: ${status.toUpperCase()}`);
-        res.json({ message: `Modo de manutenção foi ${status === 'on' ? 'ativado' : 'desativado'}.` });
-    } catch (err) {
-        console.error("Erro ao atualizar status de manutenção:", err);
-        res.status(500).json({ message: "Erro ao atualizar status de manutenção." });
-    }
+    const { status } = req.body;
+    if (status !== 'on' && status !== 'off') {
+        return res.status(400).json({ message: "Status inválido. Use 'on' ou 'off'." });
+    }
+    try {
+        await db.query("UPDATE site_settings SET setting_value = ? WHERE setting_key = 'maintenance_mode'", [status]);
+        logAdminAction(req.user, 'ATUALIZOU MODO MANUTENÇÃO', `Status: ${status.toUpperCase()}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Modo de manutenção foi ${status === 'on' ? 'ativado' : 'desativado'}.` });
+    } catch (err) {
+        console.error("Erro ao atualizar status de manutenção:", err);
+        res.status(500).json({ message: "Erro ao atualizar status de manutenção." });
+    }
 });
 
 // [SEÇÃO AFETADA]: Rotas de Configuração de Frete (Adicionar junto com as outras rotas de settings)
@@ -5318,183 +5530,179 @@ app.get('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
 
 // (Admin) Solicitar um novo reembolso para um pedido
 app.post('/api/refunds', verifyToken, verifyAdmin, async (req, res) => {
-    const { order_id, amount, reason } = req.body;
-    const requested_by_admin_id = req.user.id;
+    const { order_id, amount, reason } = req.body;
+    const requested_by_admin_id = req.user.id;
 
-    if (!order_id || !amount || !reason) {
-        return res.status(400).json({ message: "ID do pedido, valor e motivo são obrigatórios." });
-    }
+    if (!order_id || !amount || !reason) {
+        return res.status(400).json({ message: "ID do pedido, valor e motivo são obrigatórios." });
+    }
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [order_id]);
-        if (orderResult.length === 0) {
-            throw new Error("Pedido não encontrado.");
-        }
-        const order = orderResult[0];
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [order_id]);
+        if (orderResult.length === 0) {
+            throw new Error("Pedido não encontrado.");
+        }
+        const order = orderResult[0];
 
-        if (order.refund_id) {
-            throw new Error("Este pedido já possui uma solicitação de reembolso ativa ou concluída.");
-        }
+        if (order.refund_id) {
+            throw new Error("Este pedido já possui uma solicitação de reembolso ativa ou concluída.");
+        }
 
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        if (new Date(order.date) < thirtyDaysAgo) {
-            throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
-        }
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (new Date(order.date) < thirtyDaysAgo) {
+            throw new Error("Não é possível solicitar reembolso para pedidos com mais de 30 dias.");
+        }
 
-        if (parseFloat(amount) > parseFloat(order.total)) {
-            throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
-        }
-        
-        const [refundInsertResult] = await connection.query(
-            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
-            [order_id, requested_by_admin_id, amount, reason, 'pending_approval']
-        );
-        const refundId = refundInsertResult.insertId;
+        if (parseFloat(amount) > parseFloat(order.total)) {
+            throw new Error("O valor do reembolso não pode ser maior que o total do pedido.");
+        }
+        
+        const [refundInsertResult] = await connection.query(
+            "INSERT INTO refunds (order_id, requested_by_admin_id, amount, reason, status) VALUES (?, ?, ?, ?, ?)",
+            [order_id, requested_by_admin_id, amount, reason, 'pending_approval']
+        );
+        const refundId = refundInsertResult.insertId;
 
-        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
-        
-        await connection.query(
-            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
-            [refundId, requested_by_admin_id, 'solicitado', `Motivo: ${reason}`]
-        );
+        await connection.query("UPDATE orders SET refund_id = ? WHERE id = ?", [refundId, order_id]);
+        
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, requested_by_admin_id, 'solicitado', `Motivo: ${reason}`]
+        );
 
-        await connection.commit();
-        
-        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`);
-        res.status(201).json({ message: "Solicitação de reembolso criada com sucesso.", refundId });
+        await connection.commit();
+        
+        logAdminAction(req.user, 'SOLICITOU_REEMBOLSO', `Pedido ID: ${order_id}, Reembolso ID: ${refundId}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.status(201).json({ message: "Solicitação de reembolso criada com sucesso.", refundId });
 
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao solicitar reembolso:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao solicitar reembolso." });
-    } finally {
-        connection.release();
-    }
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao solicitar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao solicitar reembolso." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Admin) Aprovar e processar um reembolso
 app.post('/api/refunds/:id/approve', verifyToken, verifyAdmin, async (req, res) => {
-    const { id: refundId } = req.params;
-    const approved_by_admin_id = req.user.id;
+    const { id: refundId } = req.params;
+    const approved_by_admin_id = req.user.id;
 
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
-        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
-        const refund = refundResult[0];
+        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
+        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
+        const refund = refundResult[0];
 
-        if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
+        if (refund.status !== 'pending_approval') throw new Error(`Esta solicitação não está pendente de aprovação (status atual: ${refund.status}).`);
 
-        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [refund.order_id]);
-        const order = orderResult[0];
-        if (!order.payment_gateway_id || order.payment_status !== 'approved') {
-            throw new Error(`O pagamento deste pedido não foi aprovado no gateway (Status: ${order.payment_status}). Reembolso bloqueado.`);
-        }
+        const [orderResult] = await connection.query("SELECT * FROM orders WHERE id = ?", [refund.order_id]);
+        const order = orderResult[0];
+        if (!order.payment_gateway_id || order.payment_status !== 'approved') {
+            throw new Error(`O pagamento deste pedido não foi aprovado no gateway (Status: ${order.payment_status}). Reembolso bloqueado.`);
+        }
 
-        // --- INTERAÇÃO COM MERCADO PAGO ---
-        const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${order.payment_gateway_id}/refunds`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': crypto.randomUUID() },
-            body: JSON.stringify({ amount: parseFloat(refund.amount) })
-        });
-        const refundData = await refundResponse.json();
-        if (!refundResponse.ok) {
-            await connection.query("UPDATE refunds SET status = 'failed', notes = ? WHERE id = ?", [refundData.message || "Falha no gateway", refundId]);
-            await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, approved_by_admin_id, 'falhou', refundData.message || "Falha no gateway"]);
-            throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
-        }
-        
-        // --- ATUALIZAÇÕES NO BANCO DE DADOS ---
-        await connection.query(
-            "UPDATE refunds SET status = 'processed', approved_by_admin_id = ?, approved_at = NOW(), processed_at = NOW() WHERE id = ?",
-            [approved_by_admin_id, refundId]
-        );
-        await updateOrderStatus(order.id, ORDER_STATUS.REFUNDED, connection, `Reembolso processado via painel. ID da Solicitação: ${refundId}.`);
-        await connection.query(
-            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
-            [refundId, approved_by_admin_id, 'processado', `Reembolso de R$ ${refund.amount} confirmado no MP.`]
-        );
-        
-        // Reverter estoque
-        const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [order.id]);
-        for (const item of itemsToReturn) {
-             const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
-             const product = productResult[0];
-             if (product.product_type === 'clothing' && item.variation_details) {
-                 const variation = JSON.parse(item.variation_details);
-                 let variations = JSON.parse(product.variations || '[]');
-                 const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
-                 if (variationIndex !== -1) {
-                     variations[variationIndex].stock += item.quantity;
-                     const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
-                     await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
-                 }
-             } else {
-                 await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
-             }
-        }
-        
-        await connection.commit();
+        const refundResponse = await fetch(`https://api.mercadopago.com/v1/payments/${order.payment_gateway_id}/refunds`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${MP_ACCESS_TOKEN}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': crypto.randomUUID() },
+            body: JSON.stringify({ amount: parseFloat(refund.amount) })
+        });
+        const refundData = await refundResponse.json();
+        if (!refundResponse.ok) {
+            await connection.query("UPDATE refunds SET status = 'failed', notes = ? WHERE id = ?", [refundData.message || "Falha no gateway", refundId]);
+            await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, approved_by_admin_id, 'falhou', refundData.message || "Falha no gateway"]);
+            throw new Error(refundData.message || "O Mercado Pago recusou o reembolso.");
+        }
+        
+        await connection.query(
+            "UPDATE refunds SET status = 'processed', approved_by_admin_id = ?, approved_at = NOW(), processed_at = NOW() WHERE id = ?",
+            [approved_by_admin_id, refundId]
+        );
+        await updateOrderStatus(order.id, ORDER_STATUS.REFUNDED, connection, `Reembolso processado via painel. ID da Solicitação: ${refundId}.`);
+        await connection.query(
+            "INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)",
+            [refundId, approved_by_admin_id, 'processado', `Reembolso de R$ ${refund.amount} confirmado no MP.`]
+        );
+        
+        const [itemsToReturn] = await connection.query("SELECT product_id, quantity, variation_details FROM order_items WHERE order_id = ?", [order.id]);
+        for (const item of itemsToReturn) {
+             const [productResult] = await connection.query("SELECT product_type, variations FROM products WHERE id = ?", [item.product_id]);
+             const product = productResult[0];
+             if (product.product_type === 'clothing' && item.variation_details) {
+                 const variation = JSON.parse(item.variation_details);
+                 let variations = JSON.parse(product.variations || '[]');
+                 const variationIndex = variations.findIndex(v => v.color === variation.color && v.size === variation.size);
+                 if (variationIndex !== -1) {
+                     variations[variationIndex].stock += item.quantity;
+                     const newTotalStock = variations.reduce((sum, v) => sum + v.stock, 0);
+                     await connection.query("UPDATE products SET variations = ?, stock = ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [JSON.stringify(variations), newTotalStock, item.quantity, item.product_id]);
+                 }
+             } else {
+                 await connection.query("UPDATE products SET stock = stock + ?, sales = GREATEST(0, sales - ?) WHERE id = ?", [item.quantity, item.quantity, item.product_id]);
+             }
+        }
+        
+        await connection.commit();
 
-        // --- NOTIFICAÇÃO POR E-MAIL ---
-        const [customer] = await db.query("SELECT name, email FROM users WHERE id = ?", [order.user_id]);
-        if (customer.length > 0) {
-            const emailHtml = createRefundProcessedEmail(customer[0].name, order.id, Number(refund.amount), refund.reason);
-            sendEmailAsync({ from: FROM_EMAIL, to: customer[0].email, subject: `Seu reembolso do pedido #${order.id} foi processado`, html: emailHtml });
-        }
-        
-        logAdminAction(req.user, 'APROVOU_E_PROCESSOU_REEMBOLSO', `Pedido ID: ${order.id}, Reembolso ID: ${refundId}`);
-        res.json({ message: "Reembolso aprovado e processado com sucesso!" });
+        const [customer] = await db.query("SELECT name, email FROM users WHERE id = ?", [order.user_id]);
+        if (customer.length > 0) {
+            const emailHtml = createRefundProcessedEmail(customer[0].name, order.id, Number(refund.amount), refund.reason);
+            sendEmailAsync({ from: FROM_EMAIL, to: customer[0].email, subject: `Seu reembolso do pedido #${order.id} foi processado`, html: emailHtml });
+        }
+        
+        logAdminAction(req.user, 'APROVOU_E_PROCESSOU_REEMBOLSO', `Pedido ID: ${order.id}, Reembolso ID: ${refundId}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Reembolso aprovado e processado com sucesso!" });
 
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao aprovar reembolso:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao aprovar reembolso." });
-    } finally {
-        connection.release();
-    }
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao aprovar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao aprovar reembolso." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Admin) Negar uma solicitação de reembolso
 app.post('/api/refunds/:id/deny', verifyToken, verifyAdmin, async (req, res) => {
-    const { id: refundId } = req.params;
-    const { reason } = req.body;
-    const admin_id = req.user.id;
+    const { id: refundId } = req.params;
+    const { reason } = req.body;
+    const admin_id = req.user.id;
 
-    if (!reason) {
-        return res.status(400).json({ message: "O motivo da negação é obrigatório." });
-    }
-    
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
+    if (!reason) {
+        return res.status(400).json({ message: "O motivo da negação é obrigatório." });
+    }
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
 
-        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
-        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
-        if (refundResult[0].status !== 'pending_approval') throw new Error("Esta solicitação não pode mais ser negada.");
+        const [refundResult] = await connection.query("SELECT * FROM refunds WHERE id = ? FOR UPDATE", [refundId]);
+        if (refundResult.length === 0) throw new Error("Solicitação de reembolso não encontrada.");
+        if (refundResult[0].status !== 'pending_approval') throw new Error("Esta solicitação não pode mais ser negada.");
 
-        await connection.query("UPDATE refunds SET status = 'denied', notes = ?, approved_by_admin_id = ?, approved_at = NOW() WHERE id = ?", [reason, admin_id, refundId]);
-        await connection.query("UPDATE orders SET refund_id = NULL WHERE id = ?", [refundResult[0].order_id]);
-        await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, admin_id, 'negado', `Motivo: ${reason}`]);
-        
-        await connection.commit();
-        
-        logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`);
-        res.json({ message: "Solicitação de reembolso negada com sucesso." });
-        
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao negar reembolso:", err);
-        res.status(500).json({ message: err.message || "Erro interno ao negar reembolso." });
-    } finally {
-        connection.release();
-    }
+        await connection.query("UPDATE refunds SET status = 'denied', notes = ?, approved_by_admin_id = ?, approved_at = NOW() WHERE id = ?", [reason, admin_id, refundId]);
+        await connection.query("UPDATE orders SET refund_id = NULL WHERE id = ?", [refundResult[0].order_id]);
+        await connection.query("INSERT INTO refund_logs (refund_id, admin_id, action, details) VALUES (?, ?, ?, ?)", [refundId, admin_id, 'negado', `Motivo: ${reason}`]);
+        
+        await connection.commit();
+        
+        logAdminAction(req.user, 'NEGOU_REEMBOLSO', `Pedido ID: ${refundResult[0].order_id}, Reembolso ID: ${refundId}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: "Solicitação de reembolso negada com sucesso." });
+        
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao negar reembolso:", err);
+        res.status(500).json({ message: err.message || "Erro interno ao negar reembolso." });
+    } finally {
+        connection.release();
+    }
 });
 
 // (Cliente) Rota para o cliente solicitar um reembolso/cancelamento
@@ -5592,7 +5800,7 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
             html: emailHtml,
         });
         
-        logAdminAction(req.user, 'ENVIOU_EMAIL_DIRETO', `Para: ${user.email}, Assunto: "${subject}"`);
+        logAdminAction(req.user, 'ENVIOU_EMAIL_DIRETO', `Para: ${user.email}, Assunto: "${subject}"`, req.ip); // CORREÇÃO: IP ADICIONADO
 
         res.json({ message: `E-mail enviado com sucesso para ${user.name}.` });
 
@@ -5612,9 +5820,8 @@ app.get('/api/newsletter/subscribers', verifyToken, verifyAdmin, async (req, res
     }
 });
 
-// (Admin) Enviar Campanha (Broadcast)
 app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res) => {
-    const { subject, message, ctaLink, ctaText } = req.body;
+    const { subject, message, ctaLink, ctaText, productId, discountText } = req.body;
 
     if (!subject || !message) {
         return res.status(400).json({ message: "Assunto e mensagem são obrigatórios." });
@@ -5622,17 +5829,46 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
 
     const connection = await db.getConnection();
     try {
-        // Busca todos os inscritos ativos
         const [subscribers] = await connection.query("SELECT email FROM newsletter_subscribers WHERE is_active = 1");
 
         if (subscribers.length === 0) {
             return res.status(400).json({ message: "Não há inscritos ativos para enviar." });
         }
 
-        console.log(`[Newsletter] Iniciando envio para ${subscribers.length} contatos...`);
+        let productHtml = '';
+        if (productId) {
+            const [products] = await connection.query("SELECT * FROM products WHERE id = ?", [productId]);
+            if (products.length > 0) {
+                const product = products[0];
+                const imageUrl = getFirstImage(product.images); 
+                const productUrl = `${process.env.APP_URL || 'http://localhost:3000'}/#product/${product.id}`;
+                
+                productHtml = `
+                    <div style="background-color: #2D3748; border: 1px solid #4A5568; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center;">
+                        <p style="color: #F6E05E; font-weight: bold; text-transform: uppercase; font-size: 14px; margin-bottom: 15px; letter-spacing: 1px;">
+                            ${discountText || 'Oferta Especial para Você'}
+                        </p>
+                        <img src="${imageUrl}" alt="${product.name}" style="max-width: 200px; max-height: 200px; border-radius: 4px; margin-bottom: 15px; object-fit: contain;">
+                        <h3 style="color: #fff; font-size: 18px; margin: 0 0 5px;">${product.name}</h3>
+                        <p style="color: #CBD5E0; font-size: 14px; margin: 0 0 15px;">${product.brand}</p>
+                        
+                        <div style="margin-bottom: 20px;">
+                            ${product.is_on_sale 
+                                ? `<span style="text-decoration: line-through; color: #718096; margin-right: 10px;">R$ ${Number(product.price).toFixed(2)}</span>
+                                   <span style="color: #F6E05E; font-size: 20px; font-weight: bold;">R$ ${Number(product.sale_price).toFixed(2)}</span>`
+                                : `<span style="color: #fff; font-size: 20px; font-weight: bold;">R$ ${Number(product.price).toFixed(2)}</span>`
+                            }
+                        </div>
+                        
+                        <a href="${productUrl}" style="background-color: #F6E05E; color: #1A202C; padding: 10px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-family: Arial, sans-serif; display: inline-block;">
+                            Comprar Agora
+                        </a>
+                    </div>
+                `;
+            }
+        }
 
-        // Função para gerar o HTML do e-mail de campanha
-        const createCampaignEmail = (msg, link, text) => {
+        const createCampaignEmail = (msg, link, text, prodHtml) => {
             let buttonHtml = '';
             if (link && text) {
                 buttonHtml = `
@@ -5649,6 +5885,7 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
                 <div style="color: #E5E7EB; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.6; white-space: pre-line;">
                     ${msg}
                 </div>
+                ${prodHtml}
                 ${buttonHtml}
                 <hr style="border: 0; border-top: 1px solid #374151; margin: 40px 0 20px;" />
                 <p style="text-align: center; color: #6B7280; font-size: 12px;">
@@ -5658,10 +5895,8 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
             return createEmailBase(content);
         };
 
-        const emailHtml = createCampaignEmail(message, ctaLink, ctaText);
+        const emailHtml = createCampaignEmail(message, ctaLink, ctaText, productHtml);
         
-        // Envio em lotes (Promises) para não bloquear, mas garantindo execução
-        // Nota: Em produção massiva (milhares), ideal usar filas (Bull/Redis). Para PME, isso atende bem.
         const emailPromises = subscribers.map(sub => 
             sendEmailAsync({
                 from: process.env.FROM_EMAIL,
@@ -5671,14 +5906,9 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
             })
         );
 
-        // Não aguarda todos os promises terminarem para responder ao Admin (evita timeout)
-        // O log registrará o término.
         Promise.allSettled(emailPromises).then(results => {
             const successCount = results.filter(r => r.status === 'fulfilled').length;
-            console.log(`[Newsletter] Envio concluído. Sucesso: ${successCount}/${subscribers.length}`);
-            
-            // Opcional: Registrar no log do admin
-            logAdminAction(req.user, 'ENVIOU NEWSLETTER', `Assunto: "${subject}" para ${successCount} inscritos.`);
+            logAdminAction(req.user, 'ENVIOU NEWSLETTER', `Assunto: "${subject}" para ${successCount} inscritos.`, req.ip); // CORREÇÃO: IP ADICIONADO
         });
 
         res.json({ message: `Campanha iniciada! Enviando para ${subscribers.length} inscritos.` });
