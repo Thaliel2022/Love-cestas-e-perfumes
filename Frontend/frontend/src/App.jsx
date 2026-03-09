@@ -424,7 +424,6 @@ const ShopProvider = ({ children }) => {
             }
         } catch (error) {
             // Silencia erros de polling para não atrapalhar a UX
-            // console.warn("Falha ao buscar notificações:", error);
         }
     }, [isAuthenticated]);
 
@@ -432,19 +431,15 @@ const ShopProvider = ({ children }) => {
     const markOrderAsSeen = useCallback(async (orderId) => {
         if (!isAuthenticated) return;
         try {
-            // Chama API para atualizar o status da notificação no banco
             await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
-            // Atualiza o contador localmente imediatamente para UX instantânea
             checkNotifications(); 
         } catch (error) {
             console.error("Erro ao marcar pedido como visto:", error);
         }
     }, [isAuthenticated, checkNotifications]);
 
-    // Efeito para Polling de Notificações - INTERVALO REDUZIDO PARA 5 SEGUNDOS
     useEffect(() => {
         checkNotifications();
-        // Verifica a cada 5 segundos se há novas atualizações
         const interval = setInterval(checkNotifications, 5000);
         return () => clearInterval(interval);
     }, [checkNotifications]);
@@ -454,17 +449,8 @@ const ShopProvider = ({ children }) => {
         const date = new Date();
         let added = 0;
         
-        // Lista de Feriados Fixos (Dia/Mês)
         const holidays = [
-            "01/01", // Confraternização Universal
-            "21/04", // Tiradentes
-            "01/05", // Dia do Trabalho
-            "24/06", // São João (Forte no NE/JP)
-            "07/09", // Independência
-            "12/10", // N. Sra. Aparecida
-            "02/11", // Finados
-            "15/11", // Proclamação da República
-            "25/12"  // Natal
+            "01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"
         ];
 
         while (added < daysToAdd) {
@@ -475,7 +461,7 @@ const ShopProvider = ({ children }) => {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const dateString = `${day}/${month}`;
             
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
             const isHoliday = holidays.includes(dateString);
 
             if (!isWeekend && !isHoliday) {
@@ -485,7 +471,6 @@ const ShopProvider = ({ children }) => {
         return date;
     }, []);
     
-    // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
             .then(data => {
@@ -609,20 +594,37 @@ const ShopProvider = ({ children }) => {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
         }
+        
         if (!locationDetermined && navigator.geolocation) {
             setIsGeolocating(true);
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                        // Headers adicionados para evitar bloqueios HTTP 403 da API do OpenStreetMap
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1`, {
+                            headers: {
+                                'User-Agent': 'LoveCestasEPerfumesWeb/1.0',
+                                'Accept-Language': 'pt-BR'
+                            }
+                        });
                         const data = await response.json();
-                        if (data.address && data.address.postcode) {
-                            setShippingLocation({ cep: data.address.postcode.replace(/\D/g, ''), city: data.address.city || '', state: data.address.state || '', alias: 'Localização Atual' });
+                        
+                        if (data && data.address && data.address.postcode) {
+                            const cepDigit = data.address.postcode.replace(/\D/g, '');
+                            if (cepDigit.length === 8) {
+                                setShippingLocation({ 
+                                    cep: cepDigit, 
+                                    city: data.address.city || data.address.town || '', 
+                                    state: data.address.state || '', 
+                                    alias: 'Localização Atual' 
+                                });
+                            }
                         }
                     } catch (error) { console.warn("Erro geo:", error); } 
                     finally { setIsGeolocating(false); }
                 }, 
-                () => setIsGeolocating(false), { timeout: 10000 }
+                () => setIsGeolocating(false), 
+                { timeout: 10000, maximumAge: 60000 }
             );
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
@@ -642,7 +644,7 @@ const ShopProvider = ({ children }) => {
                 await fetchPersistentCart();
                 determineShippingLocation();
                 apiService('/wishlist').then(setWishlist).catch(console.error);
-                checkNotifications(); // Checa notificações ao iniciar
+                checkNotifications(); 
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
@@ -710,7 +712,6 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
-    // ... (restante das funções addToCart, removeFromCart, etc. - inalteradas)
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
@@ -821,7 +822,7 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate,
-            orderNotificationCount, markOrderAsSeen, checkNotifications // EXPOSTO
+            orderNotificationCount, markOrderAsSeen, checkNotifications
         }}>
             {children}
         </ShopContext.Provider>
