@@ -4105,22 +4105,13 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                 </div>
                                 <div className="p-6">
                                     <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
-                                        <div className="flex items-center justify-between mb-5">
+                                        <div className="flex items-center mb-5">
                                             <div className="flex items-center gap-2">
                                                 <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
                                                     <ShirtIcon className="h-5 w-5" />
                                                 </div>
                                                 <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
                                             </div>
-                                            {/* BOTÃO GUIA MEDIDAS NO MOBILE */}
-                                            {isClothing && product.size_guide && (
-                                                <button 
-                                                    onClick={() => setIsSizeGuideModalOpen(true)}
-                                                    className="text-xs font-bold text-amber-400 flex items-center gap-1 px-2 py-1 rounded border border-amber-400/30 hover:bg-amber-400/10 transition-colors"
-                                                >
-                                                    <RulerIcon className="h-3.5 w-3.5"/> Guia de Medidas
-                                                </button>
-                                            )}
                                         </div>
                                         <VariationSelector 
                                             product={product} 
@@ -4411,7 +4402,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     setSelectedSize={setSelectedSize} 
                                     error={selectionError} 
                                 /> 
-                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP - MOVIDO PARA BAIXO) --- */}
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
                                 {product.size_guide && (
                                     <div className="flex justify-end mt-4">
                                         <button 
@@ -4459,7 +4450,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     </div>
                 </div>
                 
-                {/* ... (Conteúdo Inferior mantido) ... */}
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
