@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
 
@@ -112,7 +113,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -128,10 +128,18 @@ const processQueue = (error, token = null) => {
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Essencial para enviar cookies httpOnly
+        headers,
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -162,8 +170,17 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
@@ -182,7 +199,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
             }
              
              if (response.status === 401 || response.status === 403) {
-                 // CORREÇÃO: Só redireciona se a chamada NÃO pediu para suprimir o erro (ex: checagem inicial)
                  if (!options.suppressAuthError) {
                     window.dispatchEvent(new Event('auth-error'));
                  }
@@ -311,8 +327,10 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Removemos o redirecionamento forçado aqui para evitar loops indesejados
-            // O componente AppContent cuidará de redirecionar se a página exigir auth
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
             }
@@ -321,8 +339,6 @@ const AuthProvider = ({ children }) => {
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            // CORREÇÃO: Passamos suppressAuthError: true
-            // Se falhar (401), apenas define user como null e não dispara o evento global de logout/redirecionamento
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
@@ -349,6 +365,9 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
         return response;
     };
@@ -392,7 +411,6 @@ const ShopProvider = ({ children }) => {
     };
 
     // --- Busca notificações de pedidos (Polling) ---
-    // Verifica no banco de dados se há pedidos com atualizações não vistas
     const checkNotifications = useCallback(async () => {
         if (!isAuthenticated) {
             setOrderNotificationCount(0);
@@ -404,8 +422,7 @@ const ShopProvider = ({ children }) => {
                 setOrderNotificationCount(data.count);
             }
         } catch (error) {
-            // Silencia erros de polling para não atrapalhar a UX
-            // console.warn("Falha ao buscar notificações:", error);
+            // Silencia erros de polling
         }
     }, [isAuthenticated]);
 
@@ -413,19 +430,15 @@ const ShopProvider = ({ children }) => {
     const markOrderAsSeen = useCallback(async (orderId) => {
         if (!isAuthenticated) return;
         try {
-            // Chama API para atualizar o status da notificação no banco
             await apiService(`/orders/${orderId}/mark-seen`, 'PUT');
-            // Atualiza o contador localmente imediatamente para UX instantânea
             checkNotifications(); 
         } catch (error) {
             console.error("Erro ao marcar pedido como visto:", error);
         }
     }, [isAuthenticated, checkNotifications]);
 
-    // Efeito para Polling de Notificações - INTERVALO REDUZIDO PARA 5 SEGUNDOS
     useEffect(() => {
         checkNotifications();
-        // Verifica a cada 5 segundos se há novas atualizações
         const interval = setInterval(checkNotifications, 5000);
         return () => clearInterval(interval);
     }, [checkNotifications]);
@@ -435,17 +448,8 @@ const ShopProvider = ({ children }) => {
         const date = new Date();
         let added = 0;
         
-        // Lista de Feriados Fixos (Dia/Mês)
         const holidays = [
-            "01/01", // Confraternização Universal
-            "21/04", // Tiradentes
-            "01/05", // Dia do Trabalho
-            "24/06", // São João (Forte no NE/JP)
-            "07/09", // Independência
-            "12/10", // N. Sra. Aparecida
-            "02/11", // Finados
-            "15/11", // Proclamação da República
-            "25/12"  // Natal
+            "01/01", "21/04", "01/05", "24/06", "07/09", "12/10", "02/11", "15/11", "25/12"
         ];
 
         while (added < daysToAdd) {
@@ -456,7 +460,7 @@ const ShopProvider = ({ children }) => {
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const dateString = `${day}/${month}`;
             
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; 
             const isHoliday = holidays.includes(dateString);
 
             if (!isWeekend && !isHoliday) {
@@ -466,7 +470,6 @@ const ShopProvider = ({ children }) => {
         return date;
     }, []);
     
-    // --- Fetch Configuração de Frete Local (Com Polling Automático) ---
     const fetchShippingConfig = useCallback(() => {
         apiService('/settings/shipping-local')
             .then(data => {
@@ -584,27 +587,88 @@ const ShopProvider = ({ children }) => {
         return false;
     }, []);
 
+    // --- NOVA LÓGICA DE GEOLOCALIZAÇÃO BLINDADA ---
     const determineShippingLocation = useCallback(async () => {
         let locationDetermined = false;
+        
         if (isAuthenticated) {
             const userAddresses = await fetchAddresses();
             if (userAddresses && userAddresses.length > 0) locationDetermined = updateDefaultShippingLocation(userAddresses);
         }
-        if (!locationDetermined && navigator.geolocation) {
+        
+        if (!locationDetermined) {
             setIsGeolocating(true);
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-                        const data = await response.json();
-                        if (data.address && data.address.postcode) {
-                            setShippingLocation({ cep: data.address.postcode.replace(/\D/g, ''), city: data.address.city || '', state: data.address.state || '', alias: 'Localização Atual' });
-                        }
-                    } catch (error) { console.warn("Erro geo:", error); } 
-                    finally { setIsGeolocating(false); }
-                }, 
-                () => setIsGeolocating(false), { timeout: 10000 }
-            );
+            
+            // Função de backup (GeoIP) caso o GPS falhe ou seja negado
+            const fetchGeoIP = async () => {
+                try {
+                    const ipRes = await fetch('https://ipapi.co/json/');
+                    const ipData = await ipRes.json();
+                    if (ipData && ipData.postal) {
+                        setShippingLocation({
+                            cep: String(ipData.postal).replace(/\D/g, ''),
+                            city: ipData.city || '',
+                            state: ipData.region_code || '',
+                            alias: 'Localização Atual'
+                        });
+                    }
+                } catch (e) {
+                    console.warn("Erro no fallback de IP:", e);
+                } finally {
+                    setIsGeolocating(false);
+                }
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            const lat = position.coords.latitude;
+                            const lon = position.coords.longitude;
+                            
+                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&email=loja@lovecestaseperfumes.com.br`);
+                            const data = await response.json();
+                            
+                            let cepFound = data.address?.postcode ? String(data.address.postcode).replace(/\D/g, '') : '';
+                            let cityFound = data.address?.city || data.address?.town || data.address?.municipality || '';
+                            let stateFound = data.address?.state || '';
+
+                            // Fallback Inteligente (Se achar a cidade mas o CEP vier vazio)
+                            if (cepFound.length !== 8) {
+                                const cityLower = cityFound.toLowerCase();
+                                if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
+                                    cepFound = '58030000'; // CEP base de JP
+                                } else if (cityLower.includes('cabedelo')) {
+                                    cepFound = '58100000'; // CEP base de Cabedelo
+                                }
+                            }
+
+                            if (cepFound.length === 8) {
+                                setShippingLocation({ 
+                                    cep: cepFound, 
+                                    city: cityFound, 
+                                    state: stateFound, 
+                                    alias: 'Localização Atual' 
+                                });
+                                setIsGeolocating(false);
+                            } else {
+                                // Se ainda assim não achou CEP válido, tenta pelo IP
+                                fetchGeoIP();
+                            }
+                        } catch (error) { 
+                            console.warn("Erro no GPS:", error); 
+                            fetchGeoIP(); // Dispara o backup
+                        } 
+                    }, 
+                    (error) => {
+                        console.warn("Permissão de GPS negada/indisponível:", error.message);
+                        fetchGeoIP(); // Dispara o backup
+                    }, 
+                    { timeout: 10000, maximumAge: 60000 }
+                );
+            } else {
+                fetchGeoIP(); // Dispara o backup se navegador não tiver GPS
+            }
         }
     }, [isAuthenticated, fetchAddresses, updateDefaultShippingLocation]);
 
@@ -623,7 +687,7 @@ const ShopProvider = ({ children }) => {
                 await fetchPersistentCart();
                 determineShippingLocation();
                 apiService('/wishlist').then(setWishlist).catch(console.error);
-                checkNotifications(); // Checa notificações ao iniciar
+                checkNotifications(); 
             } else {
                 const localCart = localStorage.getItem('lovecestas_cart');
                 if (localCart) { try { const parsed = JSON.parse(localCart); if (Array.isArray(parsed)) setCart(parsed); } catch (e) { setCart([]); } }
@@ -691,7 +755,6 @@ const ShopProvider = ({ children }) => {
         return () => clearTimeout(debounceTimer);
     }, [cart, shippingLocation, previewShippingItem, selectedShippingName, calculateLocalDeliveryPrice, calculateDeliveryDate]);
 
-    // ... (restante das funções addToCart, removeFromCart, etc. - inalteradas)
     const addToCart = useCallback(async (productToAdd, qty = 1, variation = null) => {
         setPreviewShippingItem(null);
         const cartItemId = productToAdd.product_type === 'clothing' && variation ? `${productToAdd.id}-${variation.color}-${variation.size}` : productToAdd.id;
@@ -802,7 +865,7 @@ const ShopProvider = ({ children }) => {
             updateDefaultShippingLocation, determineShippingLocation, setPreviewShippingItem, setSelectedShippingName, isGeolocating, 
             couponCode, setCouponCode, couponMessage, applyCoupon, appliedCoupon, removeCoupon, discount,
             calculateLocalDeliveryPrice, calculateDeliveryDate,
-            orderNotificationCount, markOrderAsSeen, checkNotifications // EXPOSTO
+            orderNotificationCount, markOrderAsSeen, checkNotifications
         }}>
             {children}
         </ShopContext.Provider>
@@ -1204,6 +1267,269 @@ const BackToTopButton = ({ scrollableRef }) => {
     );
 };
 
+// --- ILUSTRAÇÃO COM FOTO 3D ---
+const MeasurementIllustration = ({ highlightedPart }) => {
+    const normalize = (str) => str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+    const part = normalize(highlightedPart);
+
+    // Mapeamento de imagens para cada parte do corpo
+    const images = {
+        default: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1768960483/nqnr0xsv9efkbdf6cnox.jpg",
+        busto: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136284/pa8anzq4wjiiqhrzabwv.png",
+        cintura: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136317/n2eqa8eapljs2hiwcncq.png",
+        quadril: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1769136334/igo6ctd9lyu9kppyvavg.png"
+    };
+
+    // Seleciona a imagem ativa baseada na parte destacada ou usa a padrão
+    const activeImage = images[part] || images.default;
+    
+    // Só exibe os desenhos SVG de overlay se estivermos usando a imagem padrão.
+    // Para as novas imagens de busto/cintura/quadril, a própria imagem já serve de guia.
+    const showOverlay = activeImage === images.default;
+
+    return (
+        <div className="relative w-full max-w-[200px] mx-auto transition-all duration-300 select-none rounded-lg overflow-hidden shadow-md bg-white aspect-[2/3]">
+            {/* FOTO DO BONECO (Dinâmica) */}
+            <img 
+                key={activeImage} // Key força re-render suave ao trocar imagem
+                src={activeImage} 
+                alt={`Guia de Medidas - ${highlightedPart || 'Geral'}`}
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            />
+
+            {/* CAMADA DE DESTAQUE (SVG Overlay) */}
+            <svg 
+                viewBox="0 0 500 750" 
+                className="absolute inset-0 w-full h-full pointer-events-none"
+                preserveAspectRatio="none"
+            >
+                <defs>
+                    <marker id="arrow" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
+                        <path d="M0,0 L0,4 L4,2 z" fill="#ef4444" />
+                    </marker>
+                </defs>
+
+                {/* Só desenha as linhas de Busto/Cintura/Quadril se estiver na imagem padrão */}
+                {showOverlay && (
+                    <>
+                        {/* BUSTO (Altura ajustada) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'busto' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="210" rx="100" ry="25" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="210" x2="400" y2="210" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="200" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>BUSTO</text>
+                        </g>
+
+                        {/* CINTURA (Parte mais fina) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'cintura' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="315" rx="85" ry="20" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="120" y1="315" x2="380" y2="315" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="305" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>CINTURA</text>
+                        </g>
+
+                        {/* QUADRIL (Parte mais larga) */}
+                        <g className={`transition-opacity duration-300 ease-in-out ${part === 'quadril' ? 'opacity-100' : 'opacity-0'}`}>
+                            <ellipse cx="250" cy="410" rx="110" ry="28" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth="4" className="animate-pulse" />
+                            <line x1="100" y1="410" x2="400" y2="410" stroke="#ef4444" strokeWidth="2" strokeDasharray="8,4" />
+                            <text x="250" y="400" textAnchor="middle" fill="#ef4444" fontSize="24" fontWeight="bold" style={{textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>QUADRIL</text>
+                        </g>
+                    </>
+                )}
+
+                {/* COMPRIMENTO (Lateral Vertical) - Mantém visível sempre que solicitado */}
+                <g className={`transition-opacity duration-300 ease-in-out ${part && part.includes('comp') ? 'opacity-100' : 'opacity-0'}`}>
+                    {/* Linha vertical com marcadores */}
+                    <line x1="60" y1="150" x2="60" y2="600" stroke="#ef4444" strokeWidth="5" markerEnd="url(#arrow)" markerStart="url(#arrow)" />
+                    {/* Tracinhos horizontais nas pontas */}
+                    <line x1="40" y1="150" x2="80" y2="150" stroke="#ef4444" strokeWidth="3" />
+                    <line x1="40" y1="600" x2="80" y2="600" stroke="#ef4444" strokeWidth="3" />
+                    {/* Texto vertical */}
+                    <text x="85" y="375" fill="#ef4444" fontSize="22" fontWeight="bold" style={{writingMode: "vertical-rl", textOrientation: "upright", textShadow: '0 1px 3px rgba(255,255,255,0.9)'}}>COMPRIMENTO</text>
+                </g>
+            </svg>
+            
+            {/* LEGENDA FLUTUANTE */}
+            <div className={`absolute bottom-3 left-0 right-0 text-center transition-all duration-300 ${part ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>
+                <span className="bg-black/90 backdrop-blur text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-gray-600 uppercase tracking-widest">
+                    {highlightedPart}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const SizeGuideAdminInput = ({ value, onChange }) => {
+    const safeValue = useMemo(() => {
+        try {
+            const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+            if (parsed && Array.isArray(parsed.rows)) return parsed;
+        } catch(e) {}
+        return {
+            columns: ["Tam.", "Busto", "Cintura", "Quadril", "Comp."],
+            rows: [
+                { size: "P", values: ["", "", "", ""] },
+                { size: "M", values: ["", "", "", ""] },
+                { size: "G", values: ["", "", "", ""] },
+                { size: "GG", values: ["", "", "", ""] },
+            ]
+        };
+    }, [value]);
+
+    const [data, setData] = useState(safeValue);
+
+    useEffect(() => {
+        onChange(JSON.stringify(data));
+    }, [data, onChange]);
+
+    const handleValueChange = (rowIndex, colIndex, val) => {
+        const newRows = [...data.rows];
+        newRows[rowIndex].values[colIndex] = val;
+        setData({ ...data, rows: newRows });
+    };
+
+    return (
+        <div className="border border-gray-200 rounded-lg bg-white shadow-sm w-full max-w-full overflow-hidden">
+            <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                <p className="text-sm font-bold text-gray-700">Preencher Medidas (cm)</p>
+            </div>
+            
+            <div className="md:hidden p-3 space-y-3 bg-gray-50/30">
+                {data.rows.map((row, rIndex) => (
+                    <div key={rIndex} className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
+                            <span className="flex items-center justify-center w-8 h-8 font-black text-gray-800 bg-gray-100 rounded-full border border-gray-200 text-sm">
+                                {row.size}
+                            </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                            {row.values.map((val, cIndex) => (
+                                <div key={cIndex} className="flex flex-col gap-1">
+                                    <label className="text-[9px] font-bold text-gray-500 uppercase text-center truncate w-full">
+                                        {data.columns[cIndex + 1]}
+                                    </label>
+                                    <input 
+                                        type="tel" 
+                                        value={val} 
+                                        onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                        className="w-full h-9 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-center text-sm font-bold bg-white"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase">
+                        <tr>
+                            {data.columns.map((col, i) => (
+                                <th key={i} className="px-3 py-2 border-b text-center">{col}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {data.rows.map((row, rIndex) => (
+                            <tr key={rIndex} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-black text-gray-800 bg-gray-50/50 text-center border-r border-gray-100 w-16">
+                                    {row.size}
+                                </td>
+                                {row.values.map((val, cIndex) => (
+                                    <td key={cIndex} className="px-2 py-1">
+                                        <input 
+                                            type="text" 
+                                            value={val} 
+                                            onChange={(e) => handleValueChange(rIndex, cIndex, e.target.value)}
+                                            className="w-full h-8 border border-gray-300 rounded focus:ring-1 focus:ring-amber-500 text-center text-xs font-medium"
+                                            placeholder="-"
+                                        />
+                                    </td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
+
+const SizeGuideDisplay = ({ dataString }) => {
+    const [highlightedPart, setHighlightedPart] = useState(null);
+
+    const data = useMemo(() => {
+        try {
+            return JSON.parse(dataString);
+        } catch (e) {
+            return null;
+        }
+    }, [dataString]);
+
+    if (!data || !data.rows) return null;
+
+    return (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden w-full">
+            <div className="p-4 md:p-6 flex flex-col md:flex-row gap-6 md:gap-12 items-center md:items-start">
+                <div className="flex-1 w-full min-w-0">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <RulerIcon className="h-5 w-5 text-amber-400" />
+                            <h4 className="text-amber-400 font-bold uppercase tracking-wider text-sm">Guia de Tamanhos (cm)</h4>
+                        </div>
+                        <span className="text-[10px] text-gray-400 bg-gray-800 px-2 py-1 rounded hidden md:inline-block border border-gray-700">
+                            Passe o mouse na tabela
+                        </span>
+                    </div>
+                    
+                    <div className="md:hidden space-y-3">
+                        <p className="text-[10px] text-center text-gray-400 mb-2">Toque nas medidas para ver no manequim</p>
+                        {data.rows.map((row, i) => (
+                            <div key={i} className="bg-gray-800/50 rounded p-3 flex items-center justify-between border border-gray-700">
+                                <span className="font-black text-white bg-gray-700 w-8 h-8 flex items-center justify-center rounded-full text-sm border border-gray-600">{row.size}</span>
+                                <div className="flex gap-4 text-xs text-gray-300">
+                                    {row.values.map((val, j) => (
+                                        <div key={j} className="text-center" onClick={() => setHighlightedPart(data.columns[j+1])}>
+                                            <span className={`block text-[9px] uppercase font-bold mb-0.5 ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-gray-500'}`}>{data.columns[j+1]}</span>
+                                            <span className={`font-bold ${highlightedPart === data.columns[j+1] ? 'text-amber-400' : 'text-white'}`}>{val || '-'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="hidden md:block w-full overflow-hidden rounded-lg border border-gray-700 shadow-inner bg-gray-800/50">
+                        <table className="w-full text-sm text-gray-300">
+                            <thead>
+                                <tr className="bg-gray-800 border-b border-gray-700">
+                                    {data.columns.map((col, i) => (
+                                        <th key={i} className={`px-4 py-3 font-bold text-amber-500 ${i === 0 ? 'text-left pl-6' : 'text-center cursor-help hover:bg-gray-700 transition-colors'}`} onMouseEnter={() => i > 0 && setHighlightedPart(col)} onMouseLeave={() => setHighlightedPart(null)}>{col}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-700/50">
+                                {data.rows.map((row, i) => (
+                                    <tr key={i} className="hover:bg-white/5 transition-colors">
+                                        <td className="px-4 py-3 pl-6 font-bold text-white bg-gray-800/30 border-r border-gray-700/50">{row.size}</td>
+                                        {row.values.map((val, j) => (
+                                            <td key={j} className={`px-4 py-3 text-center font-medium transition-colors ${highlightedPart === data.columns[j+1] ? 'bg-amber-400/20 text-amber-300' : ''}`} onMouseEnter={() => setHighlightedPart(data.columns[j+1])} onMouseLeave={() => setHighlightedPart(null)}>{val || '-'}</td>
+                                        ))}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div className="w-full md:w-auto flex flex-col items-center justify-center bg-white p-4 rounded-xl border-4 border-gray-800 shadow-xl relative min-w-[200px]">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-amber-400 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-gray-700 shadow-md whitespace-nowrap">Como Medir</div>
+                    <MeasurementIllustration highlightedPart={highlightedPart} />
+                </div>
+            </div>
+        </div>
+    );
+};
 const ProductCard = memo(({ product, onNavigate }) => {
     const { addToCart, shippingLocation, calculateLocalDeliveryPrice } = useShop(); // Pega a função de cálculo do contexto
     const notification = useNotification();
@@ -2840,7 +3166,8 @@ const HomePage = ({ onNavigate }) => {
       <div className="bg-black min-h-screen pb-0 overflow-x-hidden">
         {/* Banner Principal Rotativo */}
         {isLoadingBanners ? (
-            <div className="relative h-[90vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
+            // ATUALIZAÇÃO: Altura do loading ajustada para h-[55vh] no mobile para coincidir com o banner real
+            <div className="relative h-[55vh] sm:h-[70vh] bg-gray-900 flex items-center justify-center">
                 <SpinnerIcon className="h-10 w-10 text-amber-400" />
             </div>
         ) : (
@@ -3281,23 +3608,32 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
         </>
     );
 });
-const VariationSelector = ({ product, variations, onSelectionChange }) => {
-    const [selectedColor, setSelectedColor] = useState('');
-    const [selectedSize, setSelectedSize] = useState('');
-
+const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
+    
+    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
-        const colors = new Map();
+        const colorsMap = new Map();
         if (!variations || !product) return [];
 
         variations.forEach(v => {
-            if (v.color && !colors.has(v.color)) {
-                const primaryImage = (v.images && v.images.length > 0) 
-                    ? v.images[0] 
-                    : getFirstImage(product.images);
-                colors.set(v.color, primaryImage);
+            if (v.color) {
+                if (!colorsMap.has(v.color)) {
+                    // Tenta pegar a imagem da variação, senão a principal do produto
+                    const primaryImage = (v.images && v.images.length > 0) 
+                        ? v.images[0] 
+                        : getFirstImage(product.images);
+                    // Inicializa assumindo sem estoque
+                    colorsMap.set(v.color, { image: primaryImage, hasStock: false });
+                }
+                
+                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
+                if (v.stock > 0) {
+                    const info = colorsMap.get(v.color);
+                    info.hasStock = true;
+                }
             }
         });
-        return Array.from(colors, ([name, image]) => ({ name, image }));
+        return Array.from(colorsMap, ([name, info]) => ({ name, image: info.image, hasStock: info.hasStock }));
     }, [variations, product]);
 
     const allSizesForColor = useMemo(() => {
@@ -3312,15 +3648,11 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
         return Array.from(sizeMap.values());
     }, [variations, selectedColor]);
 
-    useEffect(() => {
-        const fullSelection = (selectedColor && selectedSize)
-            ? variations.find(v => v.color === selectedColor && v.size === selectedSize)
-            : null;
-        onSelectionChange(fullSelection, selectedColor);
-    }, [selectedColor, selectedSize, variations, onSelectionChange]);
+    const handleColorChange = (color, hasStock) => {
+        if (!hasStock) return; // Impede seleção de cores esgotadas
 
-    const handleColorChange = (color) => {
         setSelectedColor(color);
+        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3328,64 +3660,101 @@ const VariationSelector = ({ product, variations, onSelectionChange }) => {
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize('');
+            setSelectedSize(''); // Reseta para forçar o usuário a escolher
         }
     };
+
+    const showError = error && !selectedSize;
     
     return (
         <div className="space-y-6">
+            {/* Seção de Cores */}
             <div>
-                 <h3 className="text-lg font-semibold text-gray-300 mb-3">Cor: <span className="font-normal">{selectedColor || 'Selecione uma cor'}</span></h3>
-                <div className="flex flex-wrap gap-2">
-                    {uniqueColors.map(colorInfo => (
-                         <div key={colorInfo.name}
-                            onClick={() => handleColorChange(colorInfo.name)}
-                            className={`p-1 border-2 bg-white rounded-md cursor-pointer transition-all ${selectedColor === colorInfo.name ? 'border-amber-400 scale-105 shadow-lg' : 'border-transparent hover:border-gray-400'}`}
-                            title={colorInfo.name}
-                        >
-                             <img src={colorInfo.image} alt={colorInfo.name} className="w-16 h-16 object-contain"/>
-                         </div>
-                    ))}
+                 <h3 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                    Cor: <span className="text-white font-normal capitalize">{selectedColor || 'Selecione'}</span>
+                 </h3>
+                <div className="flex flex-wrap gap-4">
+                    {uniqueColors.map(colorInfo => {
+                         const isOutOfStock = !colorInfo.hasStock;
+                         return (
+                             <div key={colorInfo.name}
+                                onClick={() => handleColorChange(colorInfo.name, colorInfo.hasStock)}
+                                className={`group relative w-16 h-16 rounded-full transition-all duration-300 p-0.5 
+                                    ${selectedColor === colorInfo.name 
+                                        ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-gray-900 scale-110 cursor-default' 
+                                        : isOutOfStock 
+                                            ? 'opacity-40 cursor-not-allowed grayscale filter' 
+                                            : 'cursor-pointer hover:ring-2 hover:ring-gray-600 hover:ring-offset-1 hover:ring-offset-gray-900 opacity-90 hover:opacity-100 hover:scale-105'}`}
+                                title={colorInfo.name + (isOutOfStock ? " (Esgotado)" : "")}
+                            >
+                                 <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
+                                 
+                                 {/* Indicador visual de Esgotado (X vermelho) */}
+                                 {isOutOfStock && (
+                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                         <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
+                                         <div className="w-full h-0.5 bg-red-500/80 -rotate-45 absolute"></div>
+                                     </div>
+                                 )}
+                             </div>
+                         );
+                    })}
                 </div>
             </div>
-            {selectedColor && (
-                 <div>
-                    <h3 className="text-lg font-semibold text-gray-300 mb-3">Tamanho:</h3>
-                    <div className="flex flex-wrap gap-3">
-                        {allSizesForColor.length > 0 ? (
-                            allSizesForColor.map(({ size, stock }) => (
-                                <div key={size} className="relative">
+
+            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
+            <AnimatePresence>
+                {selectedColor && (
+                     <motion.div 
+                        initial={{ opacity: 0, height: 0 }} 
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className={`transition-colors duration-300 ${showError ? 'p-3 -m-3 bg-red-900/10 border border-red-500/30 rounded-lg' : ''}`}
+                     >
+                        <h3 className={`text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${showError ? 'text-red-400' : 'text-gray-400'}`}>
+                            Tamanho: 
+                            <span className={showError ? 'text-red-400 font-bold animate-pulse' : 'text-white font-normal'}>
+                                {selectedSize || (showError ? 'SELECIONE UM TAMANHO' : 'Selecione')}
+                            </span>
+                            {showError && <ExclamationCircleIcon className="h-4 w-4 text-red-500 inline ml-1" />}
+                        </h3>
+                        
+                        <div className="flex flex-wrap gap-2.5">
+                            {allSizesForColor.length > 0 ? (
+                                allSizesForColor.map(({ size, stock }) => (
                                     <button
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
-                                        className={`px-5 py-2 border-2 rounded-md font-bold transition-colors duration-200 
-                                            ${selectedSize === size ? 'bg-amber-400 text-black border-amber-400' : 'border-gray-600 hover:bg-gray-800 hover:border-gray-500'}
-                                            ${stock === 0 ? 'opacity-40 bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed' : ''}`
+                                        className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
+                                            ${selectedSize === size 
+                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
+                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
+                                            }
+                                            ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
+                                            ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
+                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
+                                        {stock > 0 && stock <= 2 && selectedSize !== size && (
+                                            <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                                        )}
                                     </button>
-                                    {stock === 0 && (
-                                        <div className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold border-2 border-black">
-                                            X
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                             <p className="text-gray-500">Nenhum tamanho disponível para esta cor.</p>
-                        )}
-                    </div>
-                </div>
-            )}
+                                ))
+                            ) : (
+                                 <p className="text-gray-500 text-sm italic py-2">Indisponível nesta cor.</p>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
 
 const ProductDetailPage = ({ productId, onNavigate }) => {
     const { user } = useAuth();
-    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); // Adicionado calculateLocalDeliveryPrice e shippingLocation
+    const { addToCart, calculateLocalDeliveryPrice, shippingLocation } = useShop(); 
     const notification = useNotification();
     const confirmation = useConfirmation();
     const [isLoading, setIsLoading] = useState(true);
@@ -3401,22 +3770,83 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [installments, setInstallments] = useState([]);
     const [isLoadingInstallments, setIsLoadingInstallments] = useState(true);
     const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-    const [selectedVariation, setSelectedVariation] = useState(null);
-    const [galleryImages, setGalleryImages] = useState([]);
     
-    // REMOVIDOS estados do preview de frete que causavam duplicidade
-    // const [cardShippingInfo, setCardShippingInfo] = useState(null);
-    // const [isCardShippingLoading, setIsCardShippingLoading] = useState(false);
+    // --- ESTADOS DE SELEÇÃO E MODAL ---
+    const [selectedColor, setSelectedColor] = useState('');
+    const [selectedSize, setSelectedSize] = useState('');
+    const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+    
+    // --- ESTADO DO MODAL DE MEDIDAS ---
+    const [isSizeGuideModalOpen, setIsSizeGuideModalOpen] = useState(false);
+    
+    const [pendingAction, setPendingAction] = useState(null); 
+    const [selectionError, setSelectionError] = useState(false); 
+
+    const [selectedVariation, setSelectedVariation] = useState(null); 
+    const [galleryImages, setGalleryImages] = useState([]);
     
     const [timeLeft, setTimeLeft] = useState('');
     const [isPromoActive, setIsPromoActive] = useState(false);
 
+    // --- ESTADO DE IMAGEM (Índice) ---
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
     const galleryRef = useRef(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    
+    // Estados para controle de scroll vertical da galeria (Desktop)
+    const [canScrollUp, setCanScrollUp] = useState(false);
+    const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
+
+    // Helper para garantir imagem principal atualizada pelo índice
+    useEffect(() => {
+        if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
+            setMainImage(galleryImages[currentImageIndex]);
+        }
+    }, [currentImageIndex, galleryImages]);
+
+    // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
+    useEffect(() => {
+        if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
+            const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
+            if (firstVar && firstVar.color) {
+                setSelectedColor(firstVar.color);
+            }
+        }
+    }, [product, productVariations, selectedColor]);
+
+    // --- Sincroniza a variação completa baseada na cor/tamanho selecionados ---
+    useEffect(() => {
+        if (selectedColor && selectedSize) {
+            const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
+            setSelectedVariation(found || null);
+            setSelectionError(false); 
+        } else {
+            setSelectedVariation(null);
+        }
+        
+        if (selectedColor) {
+             const allImagesForColor = productVariations
+                .filter(v => v.color === selectedColor && v.images && v.images.length > 0)
+                .flatMap(v => v.images)
+                .filter((value, index, self) => self.indexOf(value) === index);
+
+            if (allImagesForColor.length > 0) {
+                setGalleryImages(allImagesForColor);
+                setCurrentImageIndex(0);
+            } else {
+                setGalleryImages(productImages);
+            }
+        } else {
+             setGalleryImages(productImages);
+        }
+
+    }, [selectedColor, selectedSize, productVariations, productImages]);
+
 
     useEffect(() => {
         if (product) {
@@ -3430,7 +3860,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, selectedVariation]);
 
-    const currentPrice = isPromoActive ? product.sale_price : product?.price;
+    const currentPrice = isPromoActive ? product?.sale_price : product?.price;
 
     const discountPercent = useMemo(() => {
         if (isPromoActive && product) {
@@ -3440,13 +3870,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     }, [isPromoActive, product]);
 
     useEffect(() => {
-        if (!product?.sale_end_date) {
+        if (!product?.sale_end_date || !isPromoActive) {
             setTimeLeft(null);
             return;
-        }
-        if (!isPromoActive) {
-             setTimeLeft(null);
-             return;
         }
 
         const calculateTimeLeft = () => {
@@ -3459,22 +3885,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((difference % (1000 * 60)) / 1000);
-
                 setTimeLeft({ days, hours, minutes, seconds });
             } else {
                 setTimeLeft('Expirada');
-                setIsPromoActive(false); 
             }
         };
-
         calculateTimeLeft();
         const timer = setInterval(calculateTimeLeft, 1000);
-
         return () => clearInterval(timer);
     }, [isPromoActive, product?.sale_end_date]);
-
-    // --- REMOVIDO EFEITO DE CÁLCULO DE FRETE (PREVIEW) ---
-    // O useEffect que calculava o cardShippingInfo foi removido para eliminar a duplicidade.
 
     const isNew = useMemo(() => {
         if (!product || !product.created_at) return false;
@@ -3493,41 +3912,15 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     const isClothing = product?.product_type === 'clothing';
     const isPerfume = product?.product_type === 'perfume';
-    const isProductOutOfStock = product?.stock <= 0;
+    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
+    const productOrVariationOutOfStock = currentStockStatus <= 0;
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    const getYouTubeEmbedUrl = (url) => {
-        if (!url) return null;
-        let videoId;
-        try {
-            const urlObj = new URL(url);
-            if (urlObj.hostname === 'youtu.be') {
-                videoId = urlObj.pathname.slice(1);
-            } else if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
-                videoId = urlObj.searchParams.get('v');
-            } else { return null; }
-            return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
-        } catch (e) {
-            console.error("URL do YouTube inválida:", e);
-            return null;
-        }
-    };
-
-    const parseTextToList = (text) => {
-        if (!text || text.trim() === '') return null;
-        return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>;
-    };
-
-    const getInstallmentSummary = () => {
-        if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; }
-        if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; }
-        const noInterest = [...installments].reverse().find(p => p.installment_rate === 0);
-        if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; }
-        const lastInstallment = installments[installments.length - 1];
-        if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; }
-        return null;
-    };
+    // --- HELPERS ---
+    const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
+    const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
+    const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
 
     const fetchProductData = useCallback(async (id) => {
         const controller = new AbortController();
@@ -3544,8 +3937,9 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             if (signal.aborted) return;
 
             const images = parseJsonString(productData.images, ['https://placehold.co/600x400/222/fff?text=Produto']);
-            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setGalleryImages(images);
+            setCurrentImageIndex(0);
+            setMainImage(images[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
             setProduct(productData);
             setReviews(Array.isArray(reviewsData) ? reviewsData : []);
             setCrossSellProducts(Array.isArray(crossSellData) ? crossSellData : []);
@@ -3556,7 +3950,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         } catch (err) {
             if (err.name !== 'AbortError') {
-                 console.error("Falha ao buscar dados do produto:", err);
                  setProduct({ error: true, message: "Produto não encontrado ou ocorreu um erro." });
                  notification.show(err.message || "Produto não encontrado", 'error');
             }
@@ -3577,7 +3970,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         });
     };
-
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
         const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
@@ -3601,9 +3993,32 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         });
     };
 
-    const handleAction = async (action) => {
+    const handleAction = (action) => {
         if (!product) return;
-        if (isClothing && !selectedVariation) { notification.show("Por favor, selecione uma cor e um tamanho.", "error"); return; }
+        if (isClothing) {
+            setPendingAction(action);
+            setIsSelectionModalOpen(true);
+            setSelectionError(false);
+        } else {
+            processAddToCart(action);
+        }
+    };
+
+    const handleConfirmSelection = () => {
+        if (isClothing && (!selectedColor || !selectedSize)) {
+            setSelectionError(true);
+            if (navigator.vibrate) navigator.vibrate(200);
+            return;
+        }
+        if (isClothing && !selectedVariation) {
+             notification.show("Esta combinação não está disponível.", "error");
+             return;
+        }
+        processAddToCart(pendingAction);
+        setIsSelectionModalOpen(false);
+    };
+
+    const processAddToCart = async (action) => {
         try {
             await addToCart(product, quantity, selectedVariation);
             notification.show(`${quantity}x ${product.name} adicionado(s) ao carrinho!`);
@@ -3611,122 +4026,186 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    const handleVariationSelection = useCallback((variation, color) => {
-        setQuantity(1);
-        setSelectedVariation(variation);
-        if (color && productVariations.length > 0) {
-            const allImagesForColor = productVariations
-                .filter(v => v.color === color && v.images && v.images.length > 0)
-                .flatMap(v => v.images)
-                .filter((value, index, self) => self.indexOf(value) === index);
+    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
+    const handleNextImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        setCurrentImageIndex(prev => (prev + 1) % galleryImages.length);
+    };
 
-            if (allImagesForColor.length > 0) {
-                setGalleryImages(allImagesForColor);
-                setMainImage(allImagesForColor[0]);
-                return;
-            }
-        }
-        setGalleryImages(productImages);
-        setMainImage(productImages[0] || 'https://placehold.co/600x400/222/fff?text=Produto');
+    const handlePrevImage = (e) => {
+        e.stopPropagation();
+        if (galleryImages.length <= 1) return;
+        setCurrentImageIndex(prev => (prev === 0 ? galleryImages.length - 1 : prev - 1));
+    };
 
-    }, [productVariations, productImages]);
-
-    useEffect(() => {
-        fetchProductData(productId);
-        window.scrollTo(0, 0);
-    }, [productId, fetchProductData]);
-
-    useEffect(() => {
-        const fetchInstallments = async (price) => {
-            if (!price || price <= 0) {
-                setInstallments([]);
-                setIsLoadingInstallments(false);
-                return;
-            }
-            setIsLoadingInstallments(true);
-            setInstallments([]);
-            try {
-                const installmentData = await apiService(`/mercadopago/installments?amount=${price}`);
-                setInstallments(installmentData || []);
-            } catch (error) {
-                console.warn("Não foi possível carregar as opções de parcelamento.", error);
-                setInstallments([]);
-            } finally {
-                setIsLoadingInstallments(false);
-            }
-        };
-        if (product && !product.error && currentPrice > 0) {
-            fetchInstallments(currentPrice);
-        } else if (!product || product.error || !(currentPrice > 0)) {
-             setInstallments([]);
-             setIsLoadingInstallments(false);
-        }
-    }, [product, currentPrice]);
-
-    const checkScrollButtons = useCallback(() => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            setCanScrollLeft(gallery.scrollLeft > 0);
+    useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
+    useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
+    
+    // --- CONTROLE DE SCROLL DA GALERIA ---
+    const checkScrollButtons = useCallback(() => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            // Horizontal (Mobile)
+            setCanScrollLeft(gallery.scrollLeft > 0); 
             setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-        }
+            // Vertical (Desktop)
+            setCanScrollUp(gallery.scrollTop > 0);
+            setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
+        } 
     }, []);
 
-    useEffect(() => {
-        checkScrollButtons();
-        const gallery = galleryRef.current;
-        if (gallery) {
-            gallery.addEventListener('scroll', checkScrollButtons);
-            window.addEventListener('resize', checkScrollButtons);
-            return () => {
-                gallery.removeEventListener('scroll', checkScrollButtons);
-                window.removeEventListener('resize', checkScrollButtons);
-            };
-        }
+    useEffect(() => { 
+        checkScrollButtons(); 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            gallery.addEventListener('scroll', checkScrollButtons); 
+            window.addEventListener('resize', checkScrollButtons); 
+            return () => { 
+                gallery.removeEventListener('scroll', checkScrollButtons); 
+                window.removeEventListener('resize', checkScrollButtons); 
+            }; 
+        } 
     }, [galleryImages, checkScrollButtons]);
 
-    const scrollGallery = (direction) => {
-        const gallery = galleryRef.current;
-        if (gallery) {
-            const scrollAmount = gallery.clientWidth * 0.7;
-            gallery.scrollBy({
-                left: direction === 'left' ? -scrollAmount : scrollAmount,
-                behavior: 'smooth'
-            });
-        }
+    const scrollGallery = (direction) => { 
+        const gallery = galleryRef.current; 
+        if (gallery) { 
+            if (direction === 'left' || direction === 'right') {
+                const scrollAmount = gallery.clientWidth * 0.7; 
+                gallery.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' }); 
+            } else {
+                const scrollAmount = gallery.clientHeight * 0.7;
+                gallery.scrollBy({ top: direction === 'up' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+            }
+        } 
     };
 
-    const TabButton = ({ label, tabName, isVisible = true }) => {
-        if (!isVisible) return null;
-        return (
-            <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button>
-        );
-    };
-
-    const Lightbox = ({ mainImage, onClose }) => (
-        <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}>
-            <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button>
-            <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div>
-        </div>
-    );
+    const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     if (isLoading) return <div className="text-white text-center py-20 bg-black min-h-screen">Carregando...</div>;
     if (product?.error) return <div className="text-white text-center py-20 bg-black min-h-screen">{product.message}</div>;
     if (!product) return <div className="bg-black min-h-screen"></div>;
 
-    const currentStockStatus = isClothing ? selectedVariation?.stock : product?.stock;
-    const productOrVariationOutOfStock = currentStockStatus <= 0;
-
-    const showGalleryArrows = galleryImages.length + (product.video_url ? 1 : 0) > 4;
+    const showGalleryArrows = galleryImages.length > 1;
 
     return (
         <div className="bg-black text-white min-h-screen">
+             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA --- */}
+            <style>{`
+                .scrollbar-hide::-webkit-scrollbar {
+                    display: none;
+                }
+                .scrollbar-hide {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+            `}</style>
+            
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
+            
+            {/* --- MODAL DO GUIA DE MEDIDAS --- */}
+            <AnimatePresence>
+                {isSizeGuideModalOpen && product.size_guide && (
+                    <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="2xl">
+                        <SizeGuideDisplay dataString={product.size_guide} />
+                    </Modal>
+                )}
+            </AnimatePresence>
+
+            {/* --- MODAL DE SELEÇÃO --- */}
+            <AnimatePresence>
+                {isSelectionModalOpen && (
+                    <>
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
+                            onClick={() => setIsSelectionModalOpen(false)}
+                        />
+                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                            <motion.div
+                                initial={{ y: "100%" }} 
+                                animate={{ y: 0 }} 
+                                exit={{ y: "100%" }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
+                            >
+                                <div className="p-6 pb-0 flex justify-between items-start">
+                                    <div className="pr-4">
+                                        <h3 className="font-bold text-lg text-white leading-snug">{product.name}</h3>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                            <p className="text-amber-400 font-bold text-2xl">R$ {Number(currentPrice).toFixed(2).replace('.', ',')}</p>
+                                            {isPromoActive && <span className="bg-red-600/20 text-red-400 text-xs font-bold px-2 py-0.5 rounded-md">-{discountPercent}%</span>}
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsSelectionModalOpen(false)} 
+                                        className="bg-gray-800 p-2 rounded-full text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                                    >
+                                        <XMarkIcon className="h-6 w-6"/>
+                                    </button>
+                                </div>
+                                <div className="p-6">
+                                    <div className="py-4 border-t border-gray-800 border-b border-gray-800 mb-6">
+                                        <div className="flex items-center mb-5">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-blue-500/20 text-blue-400 p-2 rounded-lg">
+                                                    <ShirtIcon className="h-5 w-5" />
+                                                </div>
+                                                <p className="text-sm text-gray-200 font-medium">Personalize sua escolha</p>
+                                            </div>
+                                        </div>
+                                        <VariationSelector 
+                                            product={product} 
+                                            variations={productVariations} 
+                                            selectedColor={selectedColor} 
+                                            setSelectedColor={setSelectedColor} 
+                                            selectedSize={selectedSize} 
+                                            setSelectedSize={setSelectedSize} 
+                                            error={selectionError} 
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleConfirmSelection}
+                                        className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
+                                            ${selectionError && !selectedSize 
+                                                ? 'bg-red-600 text-white animate-pulse' 
+                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
+                                        }
+                                    >
+                                        {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
+                                        {!selectionError && <CheckIcon className="h-5 w-5" />}
+                                    </button>
+                                    <p className="text-center text-[10px] text-gray-500 mt-4 flex items-center justify-center gap-1.5 opacity-80">
+                                        <ShieldCheckIcon className="h-3.5 w-3.5" /> Compra 100% Segura e Garantida
+                                    </p>
+                                </div>
+                            </motion.div>
+                        </div>
+                    </>
+                )}
+            </AnimatePresence>
+            
             <AnimatePresence>
                 {isVideoModalOpen && product.video_url && (
                      <Modal isOpen={true} onClose={() => setIsVideoModalOpen(false)} title="Vídeo do Produto" size="2xl">
                         <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, backgroundColor: 'black' }}>
-                            <iframe src={getYouTubeEmbedUrl(product.video_url)} title={product.name} frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></iframe>
+                            {getYouTubeEmbedUrl(product.video_url) ? (
+                                <iframe 
+                                    src={getYouTubeEmbedUrl(product.video_url)} 
+                                    title={product.name} 
+                                    frameBorder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowFullScreen 
+                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                                ></iframe>
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm">
+                                    <p>Vídeo indisponível.</p>
+                                </div>
+                            )}
                         </div>
                     </Modal>
                 )}
@@ -3737,81 +4216,150 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                     <button onClick={() => onNavigate('products')} className="text-sm text-amber-400 hover:underline flex items-center w-fit transition-colors"> <ArrowUturnLeftIcon className="h-4 w-4 mr-1.5"/> Voltar para todos os produtos </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16">
-                    <div className="lg:sticky lg:top-24 self-start">
-                        <div onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} className={`aspect-square bg-white rounded-lg flex items-center justify-center relative mb-4 shadow-lg overflow-hidden group ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}>
-                             {!productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 flex flex-col gap-2 z-10"> {isPromoActive ? ( <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> <SaleIcon className="h-4 w-4"/> <span>PROMOÇÃO {discountPercent}%</span> </div> ) : isNew ? ( <div className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> ) : null} </div> )}
-                             {productOrVariationOutOfStock && ( <div className="absolute top-3 left-3 bg-gray-700 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">ESGOTADO</div> )}
-                            <img src={mainImage} alt={product.name} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105" />
-                        </div>
-
-                        <div className="relative group">
-                            <div
-                                ref={galleryRef}
-                                className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide"
-                                style={{
-                                    msOverflowStyle: 'none', 
-                                    scrollbarWidth: 'none' 
-                                }}
-                            >
-                                <style>{` .scrollbar-hide::-webkit-scrollbar { display: none; } `}</style>
-
-                               {product.video_url && (
-                                    <div onClick={() => setIsVideoModalOpen(true)} className="w-20 h-20 flex-shrink-0 bg-black p-1 rounded-md cursor-pointer border-2 border-transparent hover:border-amber-400 relative flex items-center justify-center transition-colors">
-                                        <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo do produto" className="w-full h-full object-contain filter blur-sm opacity-50"/>
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
-                                            <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd"></path></svg>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
+                    {/* COLUNA GALERIA (Mantida original "Perfeita") */}
+                    <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
+                        <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
+                            
+                            {/* Lista de Miniaturas */}
+                            <div className="relative flex-shrink-0 order-2 lg:order-1 flex flex-col justify-center">
+                                {/* Botão Scroll Cima (Desktop) */}
+                                {canScrollUp && (
+                                    <button 
+                                        onClick={() => scrollGallery('up')} 
+                                        className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                                    </button>
+                                )}
+                                
+                                {/* Container Scrollável */}
+                                <div 
+                                    ref={galleryRef}
+                                    className="flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto lg:w-24 max-h-[80vh] scrollbar-hide py-2 lg:py-4"
+                                    style={{ maxHeight: '80vh' }}
+                                >
+                                    {product.video_url && (
+                                        <div 
+                                            onClick={() => setIsVideoModalOpen(true)} 
+                                            className="relative w-16 h-16 lg:w-24 lg:h-24 flex-shrink-0 bg-black rounded-lg cursor-pointer border-2 border-gray-800 hover:border-gray-500 overflow-hidden group/video transition-all shadow-md"
+                                        >
+                                            <img src={galleryImages[0] || getFirstImage(product.images)} alt="Vídeo" className="w-full h-full object-contain filter blur-[2px] opacity-60 group-hover/video:opacity-80 transition-opacity"/>
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="bg-red-600 rounded-full p-1.5 shadow-md group-hover/video:scale-110 transition-transform">
+                                                    <svg className="w-4 h-4 text-white fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
+                                    {galleryImages.map((img, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => setCurrentImageIndex(index)} 
+                                            onMouseEnter={() => setCurrentImageIndex(index)} 
+                                            className={`relative w-16 h-16 lg:w-24 lg:h-32 flex-shrink-0 bg-white rounded-lg cursor-pointer border-2 overflow-hidden transition-all duration-200 shadow-sm
+                                                ${currentImageIndex === index 
+                                                    ? 'border-amber-400 opacity-100 ring-2 ring-amber-400/50' 
+                                                    : 'border-transparent hover:border-gray-400 opacity-70 hover:opacity-100'}`}
+                                        >
+                                            <img src={img} alt={`Thumb ${index}`} className="w-full h-full object-contain p-1" />
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                {/* Botão Scroll Baixo (Desktop) */}
+                                {canScrollDown && (
+                                    <button 
+                                        onClick={() => scrollGallery('down')} 
+                                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 bg-black/50 text-white rounded-full p-1 hidden lg:block hover:bg-amber-500 transition-colors shadow-lg border border-gray-700"
+                                    >
+                                        <ChevronDownIcon className="h-4 w-4" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Imagem Principal */}
+                            <div className="w-full relative bg-white rounded-xl overflow-hidden shadow-xl border border-gray-800 order-1 lg:order-2 group flex justify-center items-center aspect-square lg:aspect-[3/4]">
+                                {/* Badges */}
+                                {!productOrVariationOutOfStock && (
+                                    <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 pointer-events-none">
+                                        {isPromoActive ? ( 
+                                            <div className="bg-gradient-to-r from-red-600 to-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg flex items-center gap-1.5"> 
+                                                <SaleIcon className="h-4 w-4"/> 
+                                                <span>PROMOÇÃO {discountPercent}%</span> 
+                                            </div> 
+                                        ) : isNew ? ( 
+                                            <div className="bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">LANÇAMENTO</div> 
+                                        ) : null}
                                     </div>
                                 )}
-                                {galleryImages.map((img, index) => (
-                                    <div
-                                        key={index}
-                                        onClick={() => setMainImage(img)}
-                                        onMouseEnter={() => setMainImage(img)}
-                                        className={`w-20 h-20 flex-shrink-0 bg-white p-1 rounded-md cursor-pointer border-2 transition-all duration-150 ${mainImage === img ? 'border-amber-400' : 'border-transparent hover:border-gray-400'}`}
-                                    >
-                                        <img src={img} alt={`Thumbnail ${index + 1}`} className="w-full h-full object-contain" />
-                                    </div>
-                                ))}
+                                {productOrVariationOutOfStock && ( 
+                                    <div className="absolute top-4 left-4 bg-gray-800 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-10 border border-gray-600">ESGOTADO</div> 
+                                )}
+
+                                {/* Container de Imagem */}
+                                <div className="absolute inset-0 flex items-center justify-center p-4 lg:p-8">
+                                    <img 
+                                        src={mainImage} 
+                                        alt={product.name} 
+                                        onClick={() => galleryImages.length > 0 && setIsLightboxOpen(true)} 
+                                        className={`max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105 ${galleryImages.length > 0 ? 'cursor-zoom-in' : ''}`}
+                                    />
+                                </div>
+                                
+                                {/* Botões de Navegação da Imagem Principal */}
+                                {showGalleryArrows && (
+                                    <>
+                                        <button 
+                                            onClick={handlePrevImage} 
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Imagem anterior"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 rotate-90" />
+                                        </button>
+                                        <button 
+                                            onClick={handleNextImage} 
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg border border-gray-200 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-300 z-20"
+                                            aria-label="Próxima imagem"
+                                        >
+                                            <ChevronDownIcon className="h-6 w-6 -rotate-90" />
+                                        </button>
+                                    </>
+                                )}
+
+                                {/* Dica de Zoom (Desktop) */}
+                                <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-sm p-2 rounded-full text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 hidden lg:flex items-center justify-center pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2" /></svg>
+                                </div>
                             </div>
-                            {showGalleryArrows && (
-                                <>
-                                    <button onClick={() => scrollGallery('left')} disabled={!canScrollLeft} className={`absolute top-1/2 left-0 transform -translate-y-1/2 -ml-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Left">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" /></svg>
-                                    </button>
-                                     <button onClick={() => scrollGallery('right')} disabled={!canScrollRight} className={`absolute top-1/2 right-0 transform -translate-y-1/2 -mr-3 z-10 p-2 bg-gray-800/70 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-gray-700 disabled:opacity-0 disabled:cursor-default`} aria-label="Scroll Right">
-                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" /></svg>
-                                    </button>
-                                </>
-                            )}
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
+                    <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
-                            <h1 className="text-2xl lg:text-3xl font-bold mb-1.5">{product.name}</h1>
-                            {isPerfume && product.volume && <h2 className="text-base font-light text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
-                            <div className="flex items-center mt-2 justify-between">
-                                <div className="flex items-center gap-1.5">
-                                    <div className="flex items-center gap-0.5">{[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'text-amber-400' : 'text-gray-600'}`} isFilled={i < Math.round(avgRating)} />)}</div>
-                                    {reviews.length > 0 && <span className="text-xs text-gray-500">({reviews.length} avaliações)</span>}
-                                    {reviews.length === 0 && <span className="text-xs text-gray-500">Seja o primeiro a avaliar</span>}
+                            <h1 className="text-2xl lg:text-4xl font-bold mb-2 leading-tight">{product.name}</h1>
+                            {isPerfume && product.volume && <h2 className="text-base font-medium text-gray-400">{String(product.volume).toLowerCase().includes('ml') ? product.volume : `${product.volume}ml`}</h2>}
+                            <div className="flex items-center mt-3 justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center text-amber-400 gap-0.5">
+                                        {[...Array(5)].map((_, i) => <StarIcon key={i} className={`h-4 w-4 ${i < Math.round(avgRating) ? 'fill-current' : 'text-gray-700'}`} isFilled={i < Math.round(avgRating)} />)}
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-medium">({reviews.length > 0 ? `${reviews.length} avaliações` : 'Novo'})</span>
                                 </div>
-                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-amber-400 transition-colors p-1 rounded-md text-sm"> <ShareIcon className="h-4 w-4"/> <span className="hidden sm:inline">Compartilhar</span> </button>
+                                <button onClick={handleShare} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors bg-gray-800/50 hover:bg-gray-800 px-3 py-1.5 rounded-full text-xs font-bold"> <ShareIcon className="h-3.5 w-3.5"/> Compartilhar </button>
                             </div>
                         </div>
 
-                        {/* REMOVIDO o bloco de exibição duplicada do frete que estava aqui */}
-
+                        {/* --- ÁREA DE PREÇO E PROMOÇÃO --- */}
                         {isPromoActive && timeLeft && timeLeft !== 'Expirada' && (
-                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                            <div className="bg-gradient-to-br from-red-900/40 to-black border border-red-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-red-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <ClockIcon className="h-24 w-24 text-red-500" />
                                 </div>
                                 <div className="flex items-center justify-center sm:justify-start gap-2 mb-3 text-red-400 font-bold uppercase tracking-wide text-xs sm:text-sm">
-                                    <SparklesIcon className="h-4 w-4 animate-pulse" />
+                                    <SparklesIcon className="h-4 w-4 animate-pulse text-yellow-400" />
                                     Oferta por Tempo Limitado
                                 </div>
                                 
@@ -3821,19 +4369,19 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                             <span>{String(timeLeft.days).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">DIAS</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.hours).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">HORAS</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
                                             <span>{String(timeLeft.minutes).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">MIN</span>
                                         </div>
-                                        <span className="self-center text-red-500">:</span>
+                                        <span className="self-center text-red-500 animate-pulse">:</span>
                                         <div className="bg-black/50 px-2 py-1 rounded border border-red-900/50 flex flex-col items-center min-w-[45px] sm:min-w-[50px]">
-                                            <span>{String(timeLeft.seconds).padStart(2, '0')}</span>
+                                            <span className="text-red-500">{String(timeLeft.seconds).padStart(2, '0')}</span>
                                             <span className="text-[9px] sm:text-[10px] font-sans font-normal text-gray-400">SEG</span>
                                         </div>
                                     </div>
@@ -3843,14 +4391,14 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                         <div className="flex items-center justify-center sm:justify-end gap-2">
                                             <p className="text-white font-bold text-xl">Por: <span className="text-amber-400">R$ {Number(product.sale_price).toFixed(2).replace('.', ',')}</span></p>
                                         </div>
-                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block">Economize {discountPercent}%</p>
+                                        <p className="text-xs text-green-400 font-semibold mt-1 bg-green-900/20 px-3 py-0.5 rounded-full inline-block border border-green-900/30">Economize {discountPercent}%</p>
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         {isPromoActive && (!timeLeft || timeLeft === 'Expirada') && (
-                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden">
+                             <div className="bg-gradient-to-br from-green-900/40 to-black border border-green-800 rounded-lg p-4 mb-4 relative overflow-hidden shadow-lg shadow-green-900/20">
                                 <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
                                     <TagIcon className="h-24 w-24 text-green-500" />
                                 </div>
@@ -3886,7 +4434,31 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                             </div>
                         </div>
 
-                        {isClothing && ( <VariationSelector product={product} variations={productVariations} onSelectionChange={handleVariationSelection} /> )}
+                        {/* Seletor na página principal (também controlado pelo estado da página) */}
+                        {isClothing && ( 
+                            <div className="mb-2">
+                                <VariationSelector 
+                                    product={product} 
+                                    variations={productVariations} 
+                                    selectedColor={selectedColor} 
+                                    setSelectedColor={setSelectedColor} 
+                                    selectedSize={selectedSize} 
+                                    setSelectedSize={setSelectedSize} 
+                                    error={selectionError} 
+                                /> 
+                                {/* --- BOTÃO DE GUIA DE MEDIDAS (DESKTOP E MOBILE PRINCIPAL) --- */}
+                                {product.size_guide && (
+                                    <div className="flex justify-end mt-4">
+                                        <button 
+                                            onClick={() => setIsSizeGuideModalOpen(true)}
+                                            className="text-xs font-bold text-amber-400 hover:text-white flex items-center gap-1.5 transition-colors border border-amber-400/30 px-3 py-1.5 rounded hover:bg-amber-400/10"
+                                        >
+                                            <RulerIcon className="h-4 w-4"/> Tabela de Medidas
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {!productOrVariationOutOfStock && (
                             <div className="flex items-center space-x-4">
@@ -3902,28 +4474,48 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         )}
 
                         <div className="space-y-3 pt-2">
-                            {productOrVariationOutOfStock ? ( <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} </div> ) : ( <> <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md hover:shadow-lg" disabled={isClothing && !selectedVariation} > Comprar Agora </button> <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow hover:shadow-md" disabled={isClothing && !selectedVariation} > <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho </button> </> )}
+                            {productOrVariationOutOfStock ? ( 
+                                <div className="w-full bg-gray-700 text-gray-400 py-3 rounded-md text-base text-center font-bold"> 
+                                    {isClothing && selectedVariation ? 'Variação Esgotada' : 'Produto Esgotado'} 
+                                </div> 
+                            ) : ( 
+                                <> 
+                                    <button onClick={() => handleAction('buyNow')} className="w-full bg-amber-400 text-black py-3.5 rounded-md text-base hover:bg-amber-300 transition font-bold shadow-md hover:shadow-lg flex items-center justify-center gap-2"> 
+                                        Comprar Agora 
+                                    </button> 
+                                    <button onClick={() => handleAction('addToCart')} className="w-full bg-gray-800 border border-gray-700 text-white py-3 rounded-md text-base hover:bg-gray-700 transition font-bold shadow hover:shadow-md flex items-center justify-center gap-2"> 
+                                        <CartIcon className="h-5 w-5" /> Adicionar ao Carrinho 
+                                    </button> 
+                                </> 
+                            )}
                         </div>
 
                         <ShippingCalculator items={itemsForShipping} />
                     </div>
                 </div>
-
+                
                 <div className="mt-16 lg:mt-24 pt-10 border-t border-gray-800">
                     <div className="flex justify-center border-b border-gray-800 mb-8 flex-wrap -mt-3">
                         <TabButton label="Descrição" tabName="description" />
+                        <TabButton label="Tabela de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Notas Olfativas" tabName="notes" isVisible={isPerfume} />
                         <TabButton label="Como Usar" tabName="how_to_use" isVisible={isPerfume} />
                         <TabButton label="Ideal Para" tabName="ideal_for" isVisible={isPerfume} />
-                        <TabButton label="Guia de Medidas" tabName="size_guide" isVisible={isClothing} />
                         <TabButton label="Cuidados com a Peça" tabName="care" isVisible={isClothing} />
                     </div>
-                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base prose-li:my-1 prose-p:my-2">
+                    <div className="text-gray-300 leading-relaxed max-w-3xl mx-auto min-h-[100px] prose prose-invert prose-sm sm:prose-base">
                         {activeTab === 'description' && <p>{product.description || 'Descrição não disponível.'}</p>}
+                        
+                        {/* --- ATUALIZAÇÃO DA TAB DE GUIA DE MEDIDAS --- */}
+                        {isClothing && activeTab === 'size_guide' && (
+                            product.size_guide 
+                            ? <SizeGuideDisplay dataString={product.size_guide} /> 
+                            : <p className="text-center text-gray-500 italic">Guia de medidas não disponível para este produto.</p>
+                        )}
+                        
                         {isPerfume && activeTab === 'notes' && (product.notes ? parseTextToList(product.notes) : <p>Notas olfativas não disponíveis.</p>)}
                         {isPerfume && activeTab === 'how_to_use' && <p>{product.how_to_use || 'Instruções de uso não disponíveis.'}</p>}
                         {isPerfume && activeTab === 'ideal_for' && (product.ideal_for ? parseTextToList(product.ideal_for) : <p>Informação não disponível.</p>)}
-                        {isClothing && activeTab === 'size_guide' && (product.size_guide ? <div className="prose prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: product.size_guide }}/> : <p>Guia de medidas não disponível.</p>)}
                         {isClothing && activeTab === 'care' && (product.care_instructions ? parseTextToList(product.care_instructions) : <p>Instruções de cuidado não disponíveis.</p>)}
                     </div>
                 </div>
@@ -3975,7 +4567,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
+const LoginPage = ({ onNavigate, redirectPath }) => { 
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -3996,7 +4588,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     // --- Lógica de Navegação Pós-Login ---
     const handleSuccessRedirect = () => {
         if (redirectPath) {
-            // Se houver um caminho salvo (ex: link do WhatsApp), vai para ele
+            // Se houver um caminho salvo, vai para ele
             onNavigate(redirectPath);
         } else {
             // Caso contrário, vai para a home
@@ -4016,7 +4608,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
                 setIsTwoFactorStep(true);
             } else {
                 notification.show('Login bem-sucedido!');
-                handleSuccessRedirect(); // Usa a nova função de redirecionamento
+                handleSuccessRedirect();
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -4032,13 +4624,16 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
+            // Salva os tokens do 2FA no localStorage
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
-            handleSuccessRedirect(); // Usa a nova função de redirecionamento
+            handleSuccessRedirect();
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -4049,9 +4644,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     };
 
     return (
-        // --- CORREÇÃO DE LAYOUT MOBILE ---
-        // Alterado de 'min-h-screen' para 'min-h-[calc(100vh-4rem)]'
-        // Isso desconta a altura do Header (4rem/64px) para centralizar perfeitamente na área visível
         <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
@@ -4138,7 +4730,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         </div>
     );
 };
-
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
@@ -4479,17 +5070,20 @@ const ForgotPasswordPage = ({ onNavigate }) => {
 const CartPage = ({ onNavigate }) => {
     const {
         cart,
+        setCart, // Necessário para atualização otimista
         updateQuantity,
         removeFromCart,
+        addToCart, // Necessário para trocar a variação (remove old, add new)
         autoCalculatedShipping,
         isLoadingShipping,
         shippingError,
         couponCode, setCouponCode,
         applyCoupon, removeCoupon,
         couponMessage, appliedCoupon,
-        discount // Usando o desconto calculado no Contexto (que tem a validação correta)
+        discount
     } = useShop();
     const notification = useNotification();
+    const { isAuthenticated } = useAuth(); // Necessário para sincronização API
 
     const subtotal = useMemo(() => cart.reduce((sum, item) => {
         const price = item.is_on_sale && item.sale_price ? item.sale_price : item.price;
@@ -4506,7 +5100,6 @@ const CartPage = ({ onNavigate }) => {
     }
 
     const total = useMemo(() => {
-        // O desconto já vem calculado corretamente do ShopProvider, respeitando as restrições
         const calculatedTotal = subtotal - discount + shippingCost;
         return calculatedTotal < 0 ? 0 : calculatedTotal; 
     }, [subtotal, discount, shippingCost]);
@@ -4519,6 +5112,73 @@ const CartPage = ({ onNavigate }) => {
             notification.show(error.message, 'error');
         }
     };
+
+    // --- NOVA FUNÇÃO: Trocar Tamanho no Carrinho ---
+    const handleSizeChange = async (item, newSize) => {
+        if (!item.variation || item.variation.size === newSize) return;
+
+        // 1. Encontrar a variação completa correspondente ao novo tamanho
+        const allVariations = parseJsonString(item.variations, []);
+        const newVariation = allVariations.find(v => v.color === item.variation.color && v.size === newSize);
+
+        if (!newVariation) {
+            notification.show("Tamanho indisponível.", "error");
+            return;
+        }
+
+        if (newVariation.stock < item.qty) {
+            notification.show(`Estoque insuficiente para o tamanho ${newSize}.`, "error");
+            return;
+        }
+
+        // 2. Criar o ID do novo item
+        const newCartItemId = `${item.id}-${newVariation.color}-${newVariation.size}`;
+        
+        // 3. Verificar se já existe esse item no carrinho (para mesclar)
+        const existingItemIndex = cart.findIndex(i => i.cartItemId === newCartItemId);
+        
+        let newCart = [...cart];
+
+        if (existingItemIndex > -1) {
+            // Se já existe, soma a quantidade e remove o item antigo que estava sendo editado
+            newCart[existingItemIndex].qty += item.qty;
+            // Remove o item "antigo" (que tinha o tamanho anterior)
+            newCart = newCart.filter(i => i.cartItemId !== item.cartItemId);
+        } else {
+            // Se não existe, atualiza o item atual com a nova variação e ID
+            newCart = newCart.map(i => {
+                if (i.cartItemId === item.cartItemId) {
+                    return { ...i, variation: newVariation, cartItemId: newCartItemId };
+                }
+                return i;
+            });
+        }
+
+        // 4. Atualiza Estado Local (UI Instantânea)
+        setCart(newCart);
+        notification.show(`Tamanho alterado para ${newSize}`);
+
+        // 5. Sincroniza com Backend (se logado)
+        if (isAuthenticated) {
+            try {
+                // Remove o antigo
+                await apiService(`/cart/${item.id}`, 'DELETE', { variation: item.variation });
+                // Adiciona o novo (ou atualiza se mesclou)
+                // Para simplificar, o backend trata adição como "insert or update qty"
+                await apiService('/cart', 'POST', { 
+                    productId: item.id, 
+                    quantity: item.qty, // Quantidade que estava no item sendo movido
+                    variationId: newVariation.id, 
+                    variation: newVariation,
+                    variation_details: JSON.stringify(newVariation)
+                });
+            } catch (error) {
+                console.error("Erro ao sincronizar troca de tamanho:", error);
+            }
+        }
+    };
+
+    const itemsForShipping = useMemo(() => cart, [cart]);
 
     return (
         <div className="bg-black text-white min-h-screen">
@@ -4544,10 +5204,20 @@ const CartPage = ({ onNavigate }) => {
                                         const isOnSale = item.is_on_sale && item.sale_price > 0;
                                         const currentPrice = isOnSale ? item.sale_price : item.price;
                                         const itemSubtotal = currentPrice * item.qty;
+                                        
+                                        // Preparar opções de tamanho se for roupa
+                                        let availableSizes = [];
+                                        if (item.product_type === 'clothing' && item.variation) {
+                                            const allVars = parseJsonString(item.variations, []);
+                                            availableSizes = allVars
+                                                .filter(v => v.color === item.variation.color && v.stock > 0)
+                                                .map(v => v.size);
+                                        }
+
                                         return (
                                         <motion.div
                                             key={item.cartItemId}
-                                            layout // Anima a remoção
+                                            layout 
                                             initial={{ opacity: 0 }}
                                             animate={{ opacity: 1 }}
                                             exit={{ opacity: 0, x: -50 }}
@@ -4563,18 +5233,38 @@ const CartPage = ({ onNavigate }) => {
                                                 </div>
                                                 <div className="flex-grow px-4">
                                                     <h3 className="font-bold text-lg cursor-pointer hover:text-amber-400 transition line-clamp-2" onClick={() => onNavigate(`product/${item.id}`)}>{item.name}</h3>
+                                                    
+                                                    {/* SEÇÃO DE VARIAÇÃO (COR E TAMANHO) */}
                                                     {item.variation && (
-                                                        <p className="text-xs text-gray-400 mt-1">
-                                                            {item.variation.color} / {item.variation.size}
-                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-3 mt-2">
+                                                            <div className="flex items-center gap-1 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded border border-gray-700">
+                                                                <span className="text-gray-500">Cor:</span>
+                                                                <span className="font-bold text-white">{item.variation.color}</span>
+                                                            </div>
+
+                                                            {/* SELETOR DE TAMANHO NO CARRINHO */}
+                                                            <div className="flex items-center gap-2">
+                                                                <label className="text-xs text-gray-500">Tam:</label>
+                                                                <select 
+                                                                    value={item.variation.size} 
+                                                                    onChange={(e) => handleSizeChange(item, e.target.value)}
+                                                                    className="bg-gray-800 text-white text-xs font-bold border border-gray-600 rounded px-2 py-1 focus:ring-1 focus:ring-amber-400 outline-none cursor-pointer"
+                                                                >
+                                                                    {availableSizes.map(size => (
+                                                                        <option key={size} value={size}>{size}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
                                                     )}
+
                                                     {isOnSale ? (
-                                                        <div className="flex items-baseline gap-2 mt-1">
+                                                        <div className="flex items-baseline gap-2 mt-2">
                                                             <p className="text-base text-red-500 font-bold">R$&nbsp;{Number(currentPrice).toFixed(2)}</p>
                                                             <p className="text-xs text-gray-500 line-through">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-base text-amber-400 mt-1">R$&nbsp;{Number(item.price).toFixed(2)}</p>
+                                                        <p className="text-base text-amber-400 mt-2">R$&nbsp;{Number(item.price).toFixed(2)}</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -4602,8 +5292,7 @@ const CartPage = ({ onNavigate }) => {
                                     </button>
                                 </div>
                             </div>
-                            {/* Calculadora de Frete (mantém componente externo) */}
-                            <ShippingCalculator items={cart} />
+                            <ShippingCalculator items={itemsForShipping} />
                         </div>
 
                         {/* Coluna de Resumo */}
@@ -5420,10 +6109,19 @@ const CheckoutPage = ({ onNavigate }) => {
                                 <h2 className="text-xl font-bold mb-5 text-amber-400 border-b border-gray-700 pb-3">Resumo do Pedido</h2>
                                 <div className="space-y-2 mb-4 max-h-60 overflow-y-auto pr-2">
                                     {cart.map(item => (
-                                        <div key={item.cartItemId} className="flex justify-between items-center text-gray-300 text-sm py-1 gap-2">
-                                            <div className="flex items-center gap-2 overflow-hidden">
+                                        <div key={item.cartItemId} className="flex justify-between items-start text-gray-300 text-sm py-2 gap-2 border-b border-gray-800 last:border-0">
+                                            <div className="flex items-start gap-3 overflow-hidden">
                                                  <img src={getFirstImage(item.images)} alt={item.name} className="w-10 h-10 object-contain bg-white rounded flex-shrink-0"/>
-                                                <span className="truncate flex-grow">{item.qty}x {item.name} {item.variation ? `(${item.variation.size})` : ''}</span>
+                                                <div>
+                                                    <span className="block font-semibold text-white truncate max-w-[150px]">{item.qty}x {item.name}</span>
+                                                    {/* DISPLAY DE VARIAÇÃO NO CHECKOUT - CORRIGIDO */}
+                                                    {item.variation && (
+                                                        <div className="text-xs text-gray-400 mt-0.5 flex flex-col">
+                                                            <span>Cor: {item.variation.color}</span>
+                                                            <span>Tam: {item.variation.size}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                             <span className="font-medium flex-shrink-0">R$&nbsp;{( (Number(item.is_on_sale && item.sale_price ? item.sale_price : item.price) || 0) * (Number(item.qty) || 0) ).toFixed(2)}</span>
                                         </div>
@@ -9001,9 +9699,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
         { name: 'ideal_for', label: 'Ideal Para', type: 'textarea', placeholder: 'Ocasiões, tipo de pele...' },
     ];
     
+    // --- ATUALIZAÇÃO: Removido size_guide de textarea simples ---
     const clothingFields = [
         { name: 'variations', label: 'Grade de Variações', type: 'variations' },
-        { name: 'size_guide', label: 'Guia de Medidas (HTML/Texto)', type: 'textarea', placeholder: '<p>P: 38cm</p>...' },
         { name: 'care_instructions', label: 'Cuidados com a Peça', type: 'textarea', placeholder: 'Lavar à mão\nNão usar alvejante...' },
     ];
 
@@ -9050,6 +9748,9 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.images = parseJsonString(item.images, []);
             initialData.variations = parseJsonString(item.variations, []);
             
+            // --- ATUALIZAÇÃO: Carregar size_guide existente ---
+            initialData.size_guide = item.size_guide || '';
+
             initialData.is_on_sale = !!item.is_on_sale;
             initialData.sale_price = item.sale_price || '';
             
@@ -9085,6 +9786,7 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
             initialData.is_on_sale = false;
             initialData.sale_price = '';
             initialData.sale_end_date = '';
+            initialData.size_guide = ''; // Inicializa vazio
         }
 
         setFormData(initialData);
@@ -9540,14 +10242,19 @@ const ProductForm = ({ item, onSave, onCancel, productType, setProductType, bran
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (HTML/Texto)</label>
-                            <textarea name="size_guide" value={formData.size_guide || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32 font-mono text-xs"></textarea>
-                        </div>
+                    <div className="space-y-5 pt-4 border-t border-gray-100">
+                        {/* --- ATUALIZAÇÃO DE LAYOUT: Cuidados acima, Tabela abaixo --- */}
                         <div>
                              <label className="block text-sm font-bold text-gray-700 mb-1">Cuidados com a Peça</label>
                             <textarea name="care_instructions" value={formData.care_instructions || ''} onChange={handleChange} className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm h-32"></textarea>
+                        </div>
+
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 mb-1">Guia de Medidas (Tabela)</label>
+                             <SizeGuideAdminInput 
+                                value={formData.size_guide} 
+                                onChange={(newVal) => setFormData(prev => ({...prev, size_guide: newVal}))} 
+                             />
                         </div>
                     </div>
                  </FormSection>
@@ -13673,7 +14380,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
     return (
         <section 
-            className="relative h-[90vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
+            className="relative h-[55vh] sm:h-[70vh] w-full overflow-hidden group bg-black"
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -13703,7 +14410,7 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.title && (
                                 <motion.h1 
                                     variants={itemVariants}
-                                    className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
+                                    className="text-3xl sm:text-5xl md:text-7xl font-extrabold tracking-wider drop-shadow-lg"
                                 >
                                     {currentBanner.title}
                                 </motion.h1>
@@ -13711,14 +14418,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-lg md:text-xl mt-4 max-w-2xl text-gray-200"
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    <button className="mt-8 bg-amber-400 text-black px-8 sm:px-10 py-3 rounded-md text-lg font-bold hover:bg-amber-300 transition-colors">
+                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
+                                    <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
                                 </motion.div>
@@ -13746,7 +14454,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
         </section>
     );
 });
-
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
 // --- Função auxiliar para converter a chave VAPID ---
