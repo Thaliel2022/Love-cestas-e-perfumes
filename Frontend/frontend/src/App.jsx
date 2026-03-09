@@ -113,7 +113,6 @@ const maskCEP = (value) => {
         .substring(0, 9);
 };
 
-// --- SERVIÇO DE API (COM ABORTCONTROLLER) ---
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -129,10 +128,18 @@ const processQueue = (error, token = null) => {
 };
 
 async function apiService(endpoint, method = 'GET', body = null, options = {}) {
+    // Pega o token do localStorage para enviar no header (corrige bloqueios de cookies no mobile)
+    const token = localStorage.getItem('accessToken');
+    const headers = { 'Content-Type': 'application/json' };
+    
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Essencial para enviar cookies httpOnly
+        headers,
+        credentials: 'include', // Essencial para enviar cookies caso o navegador permita
         signal: options.signal,
     };
 
@@ -163,8 +170,17 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
 
                 isRefreshing = true;
                 return new Promise((resolve, reject) => {
-                    apiService('/refresh-token', 'POST')
-                        .then(() => {
+                    const currentRefreshToken = localStorage.getItem('refreshToken');
+                    // Envia o refreshToken no body como fallback para navegadores restritos
+                    apiService('/refresh-token', 'POST', { refreshToken: currentRefreshToken })
+                        .then((refreshData) => {
+                            // Salva os novos tokens
+                            if (refreshData && refreshData.accessToken) {
+                                localStorage.setItem('accessToken', refreshData.accessToken);
+                                if (refreshData.refreshToken) {
+                                    localStorage.setItem('refreshToken', refreshData.refreshToken);
+                                }
+                            }
                             processQueue(null);
                             resolve(apiService(endpoint, method, body, options));
                         })
@@ -183,7 +199,6 @@ async function apiService(endpoint, method = 'GET', body = null, options = {}) {
             }
              
              if (response.status === 401 || response.status === 403) {
-                 // CORREÇÃO: Só redireciona se a chamada NÃO pediu para suprimir o erro (ex: checagem inicial)
                  if (!options.suppressAuthError) {
                     window.dispatchEvent(new Event('auth-error'));
                  }
@@ -312,8 +327,10 @@ const AuthProvider = ({ children }) => {
             console.error("Erro na API de logout.", error);
         } finally {
             setUser(null);
-            // Removemos o redirecionamento forçado aqui para evitar loops indesejados
-            // O componente AppContent cuidará de redirecionar se a página exigir auth
+            // Limpa os tokens do localStorage no logout
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            
             if (window.location.hash !== '#home' && window.location.hash !== '') {
                  window.location.hash = '#login';
             }
@@ -322,8 +339,6 @@ const AuthProvider = ({ children }) => {
 
     const fetchUserProfile = useCallback(async () => {
         try {
-            // CORREÇÃO: Passamos suppressAuthError: true
-            // Se falhar (401), apenas define user como null e não dispara o evento global de logout/redirecionamento
             const userData = await apiService('/users/me', 'GET', null, { suppressAuthError: true });
             setUser(userData);
         } catch (error) {
@@ -350,6 +365,9 @@ const AuthProvider = ({ children }) => {
         const response = await apiService('/login', 'POST', { email, password });
         if (response && response.user) {
             setUser(response.user);
+            // Salva os tokens no localStorage para navegadores mobile restritos
+            if (response.accessToken) localStorage.setItem('accessToken', response.accessToken);
+            if (response.refreshToken) localStorage.setItem('refreshToken', response.refreshToken);
         }
         return response;
     };
@@ -4515,7 +4533,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     );
 };
 
-const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
+const LoginPage = ({ onNavigate, redirectPath }) => { 
     const { login, setUser } = useAuth();
     const notification = useNotification();
 
@@ -4536,7 +4554,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     // --- Lógica de Navegação Pós-Login ---
     const handleSuccessRedirect = () => {
         if (redirectPath) {
-            // Se houver um caminho salvo (ex: link do WhatsApp), vai para ele
+            // Se houver um caminho salvo, vai para ele
             onNavigate(redirectPath);
         } else {
             // Caso contrário, vai para a home
@@ -4556,7 +4574,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
                 setIsTwoFactorStep(true);
             } else {
                 notification.show('Login bem-sucedido!');
-                handleSuccessRedirect(); // Usa a nova função de redirecionamento
+                handleSuccessRedirect();
             }
         } catch (err) {
             setError(err.message || "Ocorreu um erro desconhecido.");
@@ -4572,13 +4590,16 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         setIsLoading(true);
         try {
             const response = await apiService('/login/2fa/verify', 'POST', { token: twoFactorCode, tempAuthToken });
-            const { user } = response;
+            const { user, accessToken, refreshToken } = response;
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
+            // Salva os tokens do 2FA no localStorage
+            if (accessToken) localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
             notification.show('Login bem-sucedido!');
-            handleSuccessRedirect(); // Usa a nova função de redirecionamento
+            handleSuccessRedirect();
 
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
@@ -4589,9 +4610,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
     };
 
     return (
-        // --- CORREÇÃO DE LAYOUT MOBILE ---
-        // Alterado de 'min-h-screen' para 'min-h-[calc(100vh-4rem)]'
-        // Isso desconta a altura do Header (4rem/64px) para centralizar perfeitamente na área visível
         <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center bg-black p-4 sm:p-6"> 
             <motion.div
                 variants={containerVariants}
@@ -4678,7 +4696,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => { // Recebe redirectPath
         </div>
     );
 };
-
 const RegisterPage = ({ onNavigate }) => {
     const { register } = useAuth();
     const notification = useNotification();
