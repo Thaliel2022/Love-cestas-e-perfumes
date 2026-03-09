@@ -411,7 +411,6 @@ const ShopProvider = ({ children }) => {
     };
 
     // --- Busca notificações de pedidos (Polling) ---
-    // Verifica no banco de dados se há pedidos com atualizações não vistas
     const checkNotifications = useCallback(async () => {
         if (!isAuthenticated) {
             setOrderNotificationCount(0);
@@ -423,7 +422,7 @@ const ShopProvider = ({ children }) => {
                 setOrderNotificationCount(data.count);
             }
         } catch (error) {
-            // Silencia erros de polling para não atrapalhar a UX
+            // Silencia erros de polling
         }
     }, [isAuthenticated]);
 
@@ -600,30 +599,45 @@ const ShopProvider = ({ children }) => {
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
                     try {
-                        // Headers adicionados para evitar bloqueios HTTP 403 da API do OpenStreetMap
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1`, {
-                            headers: {
-                                'User-Agent': 'LoveCestasEPerfumesWeb/1.0',
-                                'Accept-Language': 'pt-BR'
-                            }
-                        });
+                        // 1. Omitimos os headers restritos (que o navegador bloqueava).
+                        // 2. Adicionamos o 'email' via parâmetro na URL para a API não nos bloquear.
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&addressdetails=1&email=loja@lovecestaseperfumes.com.br`);
                         const data = await response.json();
                         
-                        if (data && data.address && data.address.postcode) {
-                            const cepDigit = data.address.postcode.replace(/\D/g, '');
+                        if (data && data.address) {
+                            let cepDigit = data.address.postcode ? data.address.postcode.replace(/\D/g, '') : '';
+                            const city = data.address.city || data.address.town || data.address.village || data.address.municipality || '';
+                            const state = data.address.state || '';
+                            
+                            // Correção Inteligente: A API de mapas as vezes acha a cidade mas não o CEP.
+                            // Se for João Pessoa e não tiver CEP, usamos um padrão só para destravar as opções de Motoboy!
+                            if (cepDigit.length !== 8) {
+                                const cityLower = city.toLowerCase();
+                                if (cityLower.includes('joão pessoa') || cityLower.includes('joao pessoa')) {
+                                    cepDigit = '58030000'; // CEP Base de JP
+                                } else if (cityLower.includes('cabedelo')) {
+                                    cepDigit = '58100000'; // CEP Base de Cabedelo
+                                }
+                            }
+
                             if (cepDigit.length === 8) {
                                 setShippingLocation({ 
                                     cep: cepDigit, 
-                                    city: data.address.city || data.address.town || '', 
-                                    state: data.address.state || '', 
+                                    city: city, 
+                                    state: state, 
                                     alias: 'Localização Atual' 
                                 });
                             }
                         }
-                    } catch (error) { console.warn("Erro geo:", error); } 
+                    } catch (error) { 
+                        console.warn("Erro ao buscar CEP via Geo:", error); 
+                    } 
                     finally { setIsGeolocating(false); }
                 }, 
-                () => setIsGeolocating(false), 
+                (error) => {
+                    console.warn("Geolocalização negada ou indisponível:", error.message);
+                    setIsGeolocating(false);
+                }, 
                 { timeout: 10000, maximumAge: 60000 }
             );
         }
