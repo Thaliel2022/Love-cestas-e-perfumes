@@ -4847,8 +4847,20 @@ app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
+
+// (Admin) Pega TODOS os banners (incluindo futuros e expirados) para gestão
+app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC, start_date DESC");
+        res.json(banners);
+    } catch (err) {
+        console.error("Erro ao buscar banners (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar banners." });
+    }
+});
+
 // (Admin) Cria um novo banner
-// (Admin) Cria um novo banner - VERSÃO CORRIGIDA PARA RESPEITAR SLOTS FIXOS
 app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
@@ -4884,6 +4896,7 @@ app.post('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Admin) Atualiza a ORDEM de múltiplos banners (Drag & Drop)
 app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     const { orderedIds } = req.body; 
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
@@ -4914,6 +4927,7 @@ app.put('/api/banners/order', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Admin) Atualiza os detalhes de um banner
 app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { image_url, image_url_mobile, title, subtitle, link_url, cta_text, cta_enabled, is_active, display_order, start_date, end_date } = req.body;
@@ -4937,6 +4951,7 @@ app.put('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Admin) Deleta um banner
 app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
@@ -4955,6 +4970,7 @@ app.delete('/api/banners/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // --- ROTA PÚBLICA RESTAURADA (Resolve o erro 404 e traz os banners de volta) ---
+// (Público) Pega Banners Ativos e Válidos (Priorizando Eventos Sazonais)
 app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
     try {
         const sql = `
@@ -4975,6 +4991,7 @@ app.get('/api/banners', checkMaintenanceMode, async (req, res) => {
     }
 });
 
+// (Admin) Popula o banco com banners padrão
 app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res) => {
     const connection = await db.getConnection();
     const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
