@@ -8104,7 +8104,6 @@ const MyProfileSection = () => {
 
             if (verification && verification.verified) {
                 notification.show("Biometria cadastrada com sucesso! Você já pode usar no próximo login.");
-                // Atualiza o estado visual do usuário na hora
                 const updatedUser = { ...user, has_biometrics: true };
                 setUser(updatedUser);
                 localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -8125,7 +8124,6 @@ const MyProfileSection = () => {
         try {
             await apiService('/webauthn/remove', 'DELETE');
             notification.show('Biometria desativada com sucesso.');
-            // Remove o selo ativo do frontend
             const updatedUser = { ...user, has_biometrics: false };
             setUser(updatedUser);
             localStorage.setItem('user', JSON.stringify(updatedUser));
@@ -8197,7 +8195,8 @@ const MyProfileSection = () => {
                         <form onSubmit={handlePasswordChange} className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
-                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
+                                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Mínimo 6 caracteres" className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <button type="submit" disabled={isPasswordLoading} className="w-full bg-amber-500 text-black font-bold py-2 rounded-md hover:bg-amber-400 flex justify-center items-center disabled:opacity-50">
                                 {isPasswordLoading ? <SpinnerIcon/> : "Confirmar Alteração"}
@@ -8217,13 +8216,14 @@ const MyProfileSection = () => {
                             <p className="font-mono bg-gray-200 p-2 rounded-md text-gray-800 break-all">{twoFactorSecret}</p>
                             <form onSubmit={handleVerifyAndEnable2FA} className="space-y-3 pt-4 border-t">
                                 <label className="block text-sm font-medium text-gray-700">2. Insira o código de 6 dígitos gerado:</label>
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={verificationCode}
                                     onChange={e => setVerificationCode(e.target.value)}
                                     maxLength="6"
                                     placeholder="123456"
-                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 border border-gray-300 rounded-md text-xl font-mono"
+                                    className="w-full max-w-xs mx-auto text-center tracking-[0.5em] p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-xl font-mono"
                                 />
                                 <button type="submit" disabled={is2faLoading} className="w-full max-w-xs mx-auto bg-green-600 text-white font-bold py-2 rounded-md hover:bg-green-700 flex justify-center items-center disabled:opacity-50">
                                     {is2faLoading ? <SpinnerIcon/> : "Ativar e Verificar"}
@@ -8241,10 +8241,12 @@ const MyProfileSection = () => {
                             <p className="text-red-700 bg-red-100 p-3 rounded-md text-sm">Atenção: Para desativar o 2FA, por segurança, você deve fornecer sua **senha** e um **código de autenticação** válido.</p>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Sua Senha</label>
-                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md" />
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
+                                <input type="password" value={disablePassword} onChange={e => setDisablePassword(e.target.value)} required className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md" />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Código de Autenticação (2FA)</label>
+                                {/* CORREÇÃO: text-gray-900 adicionado */}
                                 <input 
                                     type="text" 
                                     value={disableVerificationCode} 
@@ -8252,7 +8254,7 @@ const MyProfileSection = () => {
                                     maxLength="6"
                                     placeholder="123456"
                                     required 
-                                    className="w-full p-2 bg-gray-100 border border-gray-300 rounded-md text-center font-mono tracking-widest"
+                                    className="w-full p-2 bg-gray-100 text-gray-900 border border-gray-300 rounded-md text-center font-mono tracking-widest"
                                 />
                             </div>
                             <button type="submit" disabled={is2faLoading} className="w-full bg-red-600 text-white font-bold py-2 rounded-md hover:bg-red-700 flex justify-center items-center disabled:opacity-50">
