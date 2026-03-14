@@ -19,6 +19,7 @@ const qrcode = require('qrcode');
 const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 
 
 // Carrega variáveis de ambiente do arquivo .env
@@ -47,6 +48,11 @@ const ORDER_STATUS = {
     CANCELLED: 'Cancelado',
     REFUNDED: 'Reembolsado'
 };
+
+// --- Memória Temporária para Biometria ---
+// Armazena os desafios criptográficos baseados no ID do usuário ou sessão
+const webauthnChallenges = {};
+
 // --- Configuração das Chaves de Notificação ---
 // Adicione este bloco LOGO APÓS os imports e ANTES das rotas
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -5963,6 +5969,202 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
         res.status(500).json({ message: "Erro interno ao processar o envio." });
     } finally {
         connection.release();
+    }
+});
+
+// ============================================================================
+// --- ROTAS DE BIOMETRIA / RECONHECIMENTO FACIAL (WEBAUTHN / PASSKEYS) ---
+// ============================================================================
+
+const rpName = 'Love Cestas e Perfumes';
+const rpID = process.env.APP_URL ? new URL(process.env.APP_URL).hostname : 'localhost';
+const expectedOrigin = process.env.APP_URL || 'http://localhost:3000';
+
+// 1. Gera opções para o usuário cadastrar uma nova biometria (Apenas Logados)
+app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, res) => {
+    try {
+        const [users] = await db.query("SELECT id, email, name FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+        const user = users[0];
+
+        const [authenticators] = await db.query("SELECT credential_id FROM user_authenticators WHERE user_id = ?", [user.id]);
+
+        const options = await generateRegistrationOptions({
+            rpName,
+            rpID,
+            userID: String(user.id),
+            userName: user.email,
+            userDisplayName: user.name,
+            attestationType: 'none',
+            excludeCredentials: authenticators.map(auth => ({
+                id: Buffer.from(auth.credential_id, 'base64url'),
+                type: 'public-key',
+                transports: ['internal'],
+            })),
+            authenticatorSelection: {
+                residentKey: 'required',
+                userVerification: 'preferred',
+            },
+        });
+
+        // Salva o desafio na memória para validar na próxima requisição
+        webauthnChallenges[`reg_${user.id}`] = options.challenge;
+
+        res.json(options);
+    } catch (err) {
+        console.error("Erro ao gerar opções de registro biométrico:", err);
+        res.status(500).json({ message: "Erro interno ao configurar biometria." });
+    }
+});
+
+// 2. Verifica a biometria cadastrada e salva no banco
+app.post('/api/webauthn/verify-registration', verifyToken, async (req, res) => {
+    const { body } = req;
+    const userId = req.user.id;
+    const expectedChallenge = webauthnChallenges[`reg_${userId}`];
+
+    if (!expectedChallenge) {
+        return res.status(400).json({ message: "Desafio expirado ou inválido. Tente novamente." });
+    }
+
+    try {
+        const verification = await verifyRegistrationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+        });
+
+        const { verified, registrationInfo } = verification;
+
+        if (verified && registrationInfo) {
+            const { credentialPublicKey, credentialID, counter } = registrationInfo;
+            
+            // Converte a chave pública e o ID para string base64 para salvar no DB
+            const base64PublicKey = Buffer.from(credentialPublicKey).toString('base64');
+            const base64CredentialID = Buffer.from(credentialID).toString('base64url');
+
+            await db.query(
+                "INSERT INTO user_authenticators (user_id, credential_id, credential_public_key, counter) VALUES (?, ?, ?, ?)",
+                [userId, base64CredentialID, base64PublicKey, counter]
+            );
+
+            delete webauthnChallenges[`reg_${userId}`]; // Limpa a memória
+            res.json({ verified: true, message: "Biometria ativada com sucesso!" });
+        } else {
+            res.status(400).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar registro biométrico:", err);
+        res.status(500).json({ message: "Erro ao salvar a biometria." });
+    }
+});
+
+// 3. Gera opções para o usuário fazer Login com a biometria
+app.get('/api/webauthn/generate-authentication-options', async (req, res) => {
+    try {
+        // Gera um session ID anônimo para rastrear o desafio de login
+        const sessionId = crypto.randomBytes(16).toString('hex');
+
+        const options = await generateAuthenticationOptions({
+            rpID,
+            userVerification: 'preferred',
+        });
+
+        webauthnChallenges[`auth_${sessionId}`] = options.challenge;
+
+        res.json({ options, sessionId });
+    } catch (err) {
+        console.error("Erro ao gerar opções de login biométrico:", err);
+        res.status(500).json({ message: "Erro ao iniciar login biométrico." });
+    }
+});
+
+// 4. Verifica a digital/face lida e faz o Login (Respeitando 2FA Admin)
+app.post('/api/webauthn/verify-authentication', async (req, res) => {
+    const { body, sessionId } = req.body;
+    const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
+
+    if (!expectedChallenge) {
+        return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
+    }
+
+    try {
+        // Encontra o usuário pelo ID da credencial biométrica
+        const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
+        
+        if (authenticators.length === 0) {
+            return res.status(404).json({ message: "Biometria não reconhecida em nossa base." });
+        }
+        
+        const authenticator = authenticators[0];
+
+        // Decodifica a chave pública salva no banco
+        const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
+
+        const verification = await verifyAuthenticationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+            authenticator: {
+                credentialID: Buffer.from(authenticator.credential_id, 'base64url'),
+                credentialPublicKey: publicKeyBuffer,
+                counter: authenticator.counter,
+                transports: ['internal'],
+            },
+        });
+
+        const { verified, authenticationInfo } = verification;
+
+        if (verified) {
+            // Atualiza o contador contra ataques de replay
+            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [authenticationInfo.newCounter, authenticator.id]);
+            delete webauthnChallenges[`auth_${sessionId}`];
+
+            // Busca os dados do usuário para efetuar o login
+            const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
+            const user = users[0];
+
+            if (user.status === 'blocked') {
+                return res.status(403).json({ message: "Conta bloqueada." });
+            }
+
+            // === LÓGICA DE 2FA PARA ADMINS ===
+            // Passa pelo reconhecimento facial/digital, mas se tiver 2FA, exige o código!
+            if (user.role === 'admin' && user.is_two_factor_enabled) {
+                 const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
+                 return res.json({ twoFactorEnabled: true, token: tempToken });
+            }
+
+            // === LOGIN BEM-SUCEDIDO NORMAL ===
+            const userPayload = { id: user.id, name: user.name, role: user.role };
+            const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+            const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+
+            const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+            await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            };
+
+            res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+
+            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, req.ip, req.headers['user-agent']]);
+
+            const { password: _, two_factor_secret, ...userData } = user;
+            
+            res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
+        } else {
+            res.status(401).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro no login biométrico:", err);
+        res.status(500).json({ message: "Erro interno no servidor ao verificar biometria." });
     }
 });
 

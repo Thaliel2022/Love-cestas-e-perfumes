@@ -66,6 +66,7 @@ const PaperAirplaneIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/
 const CurrencyDollarArrowIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v2.5h-2.5a.75.75 0 0 0 0 1.5h2.5v2.5a.75.75 0 0 0 1.5 0v-2.5h2.5a.75.75 0 0 0 0-1.5h-2.5v-2.5Z" clipRule="evenodd" /><path d="M8.293 6.293a1 1 0 0 1 1.414 0l2.5 2.5a1 1 0 0 1 0 1.414l-2.5 2.5a1 1 0 0 1-1.414-1.414L9.586 10 8.293 8.707a1 1 0 0 1 0-1.414Z" /></svg>;
 const ArrowUturnLeftIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M15 10a.75.75 0 0 1-.75.75H7.707l2.293 2.293a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L7.707 9.25H14.25A.75.75 0 0 1 15 10Z" clipRule="evenodd" /></svg>;
 const ShieldCheckIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className}><path fillRule="evenodd" d="M10 1a.75.75 0 0 1 .75.75v1.252a1.75 1.75 0 0 1 2.476 1.222l.17.682a.75.75 0 0 1-1.42.354l-.17-.682a.25.25 0 0 0-.353-.175.75.75 0 0 1-.586 0 .25.25 0 0 0-.353.175l-.17.682a.75.75 0 0 1-1.42-.354l.17-.682A1.75 1.75 0 0 1 9.25 3.002V1.75A.75.75 0 0 1 10 1ZM5.113 4.634a.75.75 0 0 1 1.06 0l1.592 1.591a.75.75 0 0 1-1.06 1.06l-1.592-1.59a.75.75 0 0 1 0-1.061Zm8.714 0a.75.75 0 0 1 0 1.06l-1.591 1.591a.75.75 0 1 1-1.06-1.06l1.59-1.591a.75.75 0 0 1 1.061 0ZM10 4.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75ZM10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm-2.207-6.207a1 1 0 0 1 1.414 0L10 12.586l.793-.793a1 1 0 1 1 1.414 1.414l-1.5 1.5a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 0 1 0-1.414Z" clipRule="evenodd" /></svg>;
+const FingerprintIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" /></svg>;
 
 // --- FUNÇÕES AUXILIARES DE FORMATAÇÃO E VALIDAÇÃO ---
 const validateCPF = (cpf) => {
@@ -4655,10 +4656,8 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     // --- Lógica de Navegação Pós-Login ---
     const handleSuccessRedirect = () => {
         if (redirectPath) {
-            // Se houver um caminho salvo, vai para ele
             onNavigate(redirectPath);
         } else {
-            // Caso contrário, vai para a home
             onNavigate('home');
         }
     };
@@ -4695,7 +4694,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
 
             setUser(user);
             localStorage.setItem('user', JSON.stringify(user));
-            // Salva os tokens do 2FA no localStorage
             if (accessToken) localStorage.setItem('accessToken', accessToken);
             if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
@@ -4705,6 +4703,63 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         } catch (err) {
             setError(err.message || "Código 2FA inválido ou expirado.");
             notification.show(err.message || "Código 2FA inválido.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // --- LÓGICA DE LOGIN BIOMÉTRICO ---
+    const handleBiometricLogin = async () => {
+        try {
+            // Requer as funções da biblioteca caso ela esteja instalada no window (CDN) ou build
+            const startAuth = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startAuthentication : null;
+            
+            if (!startAuth) {
+                notification.show("A biblioteca de biometria não está carregada. Certifique-se de executar 'npm install @simplewebauthn/browser' ou adicionar via CDN.", "error");
+                return;
+            }
+
+            setIsLoading(true);
+            setError('');
+
+            // 1. Busca as opções de autenticação do backend
+            const optionsResp = await apiService('/webauthn/generate-authentication-options');
+            
+            // 2. Chama a API do navegador para ler a digital/face
+            let authResponse;
+            try {
+                authResponse = await startAuth(optionsResp.options);
+            } catch (err) {
+                console.log("Biometria cancelada ou falhou localmente:", err);
+                setIsLoading(false);
+                return; // Usuário cancelou o prompt
+            }
+
+            // 3. Envia a resposta validada para o backend
+            const verificationResp = await apiService('/webauthn/verify-authentication', 'POST', {
+                body: authResponse,
+                sessionId: optionsResp.sessionId
+            });
+
+            // 4. Trata a resposta (pode ser login direto ou pedir 2FA se for admin)
+            if (verificationResp.twoFactorEnabled) {
+                setTempAuthToken(verificationResp.token);
+                setIsTwoFactorStep(true);
+            } else {
+                const { user, accessToken, refreshToken } = verificationResp;
+                setUser(user);
+                localStorage.setItem('user', JSON.stringify(user));
+                if (accessToken) localStorage.setItem('accessToken', accessToken);
+                if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+                
+                notification.show('Login biométrico bem-sucedido!');
+                handleSuccessRedirect();
+            }
+
+        } catch (err) {
+            console.error("Erro no login biométrico:", err);
+            setError(err.message || "Falha na autenticação biométrica.");
+            notification.show("Falha na autenticação biométrica.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -4720,7 +4775,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             >
                 {error && <p className="text-red-400 text-center mb-4 bg-red-900/50 p-3 rounded-md text-sm">{error}</p>}
                 
-                {/* --- AVISO DE REDIRECIONAMENTO --- */}
                 {redirectPath && !isTwoFactorStep && (
                     <div className="mb-6 p-3 bg-amber-900/40 border border-amber-600 rounded-md flex items-center gap-3">
                         <ExclamationCircleIcon className="h-5 w-5 text-amber-500 flex-shrink-0" />
@@ -4754,9 +4808,23 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                     </div>
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
-                                     {isLoading ? <SpinnerIcon /> : 'Entrar'}
+                                     {isLoading ? <SpinnerIcon /> : 'Entrar com Senha'}
                                 </button>
                             </form>
+
+                            {/* --- BOTÃO DE LOGIN BIOMÉTRICO --- */}
+                            <div className="mt-4 pt-4 border-t border-gray-800">
+                                <button 
+                                    type="button" 
+                                    onClick={handleBiometricLogin} 
+                                    disabled={isLoading}
+                                    className="w-full py-2.5 sm:py-3 px-4 bg-gray-800 border border-gray-700 text-white font-bold rounded-md hover:bg-gray-700 transition flex justify-center items-center gap-2 disabled:opacity-60 text-base sm:text-lg"
+                                >
+                                    <FingerprintIcon className="h-5 w-5" /> 
+                                    Entrar com Biometria / Face ID
+                                </button>
+                            </div>
+
                              <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
                                 <a href="#forgot-password" onClick={(e) => {e.preventDefault(); onNavigate('forgot-password')}} className="text-gray-500 hover:underline mt-2 inline-block">Esqueceu sua senha?</a>
@@ -7981,8 +8049,11 @@ const MyProfileSection = () => {
     const [twoFactorSecret, setTwoFactorSecret] = useState('');
     const [verificationCode, setVerificationCode] = useState('');
     const [disablePassword, setDisablePassword] = useState('');
-    const [disableVerificationCode, setDisableVerificationCode] = useState(''); // NOVO ESTADO
+    const [disableVerificationCode, setDisableVerificationCode] = useState(''); 
     const [is2faLoading, setIs2faLoading] = useState(false);
+
+    // Estado para Biometria
+    const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
     const handlePasswordChange = async (e) => {
         e.preventDefault();
@@ -8000,6 +8071,50 @@ const MyProfileSection = () => {
             notification.show(`Erro: ${error.message}`, 'error');
         } finally {
             setIsPasswordLoading(false);
+        }
+    };
+
+    // --- LÓGICA DE CADASTRO BIOMÉTRICO ---
+    const handleRegisterBiometrics = async () => {
+        try {
+            const startReg = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startRegistration : null;
+            if (!startReg) {
+                notification.show("A biblioteca de biometria não está carregada.", "error");
+                return;
+            }
+
+            setIsBiometricLoading(true);
+
+            // 1. Pede as opções pro servidor
+            const options = await apiService('/webauthn/generate-registration-options');
+
+            // 2. Chama a API do navegador para cadastrar a digital/rosto
+            let attResp;
+            try {
+                attResp = await startReg(options);
+            } catch (err) {
+                if (err.name === 'InvalidStateError') {
+                    notification.show("Esta biometria já está cadastrada.", "error");
+                } else {
+                    console.log("Biometria cancelada:", err);
+                }
+                setIsBiometricLoading(false);
+                return;
+            }
+
+            // 3. Envia o resultado pro servidor verificar e salvar
+            const verification = await apiService('/webauthn/verify-registration', 'POST', attResp);
+
+            if (verification && verification.verified) {
+                notification.show("Biometria cadastrada com sucesso! Você já pode usar no próximo login.");
+            } else {
+                notification.show("Não foi possível salvar a biometria.", "error");
+            }
+        } catch (err) {
+            console.error("Erro ao registrar biometria:", err);
+            notification.show(err.message || "Erro ao configurar biometria.", "error");
+        } finally {
+            setIsBiometricLoading(false);
         }
     };
 
@@ -8040,7 +8155,7 @@ const MyProfileSection = () => {
         try {
             await apiService('/2fa/disable', 'POST', { 
                 password: disablePassword,
-                token: disableVerificationCode // ENVIA O TOKEN
+                token: disableVerificationCode 
             });
             notification.show('Autenticação de Dois Fatores desativada.');
             const updatedUser = { ...user, is_two_factor_enabled: 0 };
@@ -8048,7 +8163,7 @@ const MyProfileSection = () => {
             localStorage.setItem('user', JSON.stringify(updatedUser));
             setIs2faDisableModalOpen(false);
             setDisablePassword('');
-            setDisableVerificationCode(''); // LIMPA O ESTADO
+            setDisableVerificationCode(''); 
         } catch (error) {
             notification.show(`Erro ao desativar: ${error.message}`, 'error');
         } finally {
@@ -8135,29 +8250,58 @@ const MyProfileSection = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Nome:</strong><span className="text-white">{user?.name}</span></div>
                 <div className="flex flex-col sm:flex-row sm:items-center"><strong className="w-24 text-gray-400 flex-shrink-0">Email:</strong><span className="text-white">{user?.email}</span></div>
             </div>
-            <button onClick={() => setIsPasswordModalOpen(true)} className="mt-6 bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600">Alterar Senha</button>
 
-            {user?.role === 'admin' && (
-                <div className="mt-8 pt-6 border-t border-gray-800">
-                    <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança (Admin)</h3>
+            {/* --- SEÇÃO DE SEGURANÇA E ACESSO RÁPIDO --- */}
+            <div className="mt-8 pt-6 border-t border-gray-800">
+                <h3 className="text-xl font-bold text-amber-400 mb-4">Segurança e Acesso</h3>
+                
+                <div className="grid grid-cols-1 gap-4">
+                    {/* Alterar Senha Tradicional */}
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
-                            <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-amber-400"/> Autenticação de Dois Fatores (2FA)</h4>
-                            <p className="text-sm text-gray-400 mt-1">Aumente a segurança da sua conta exigindo um código de verificação ao fazer login.</p>
+                            <h4 className="font-bold flex items-center gap-2">Senha de Acesso</h4>
+                            <p className="text-sm text-gray-400 mt-1">Atualize sua senha periodicamente para manter a conta segura.</p>
                         </div>
-                        {user.is_two_factor_enabled ? (
-                            <div className="text-center flex-shrink-0">
-                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
-                                <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
-                            </div>
-                        ) : (
-                            <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-amber-500 text-black font-bold py-2 px-4 rounded-md hover:bg-amber-400 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
-                                {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
-                            </button>
-                        )}
+                        <button onClick={() => setIsPasswordModalOpen(true)} className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex-shrink-0">Alterar Senha</button>
                     </div>
+
+                    {/* Cadastrar Biometria (Para Todos) */}
+                    <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h4 className="font-bold flex items-center gap-2"><FingerprintIcon className="h-5 w-5 text-amber-400"/> Login Biométrico / Face ID</h4>
+                            <p className="text-sm text-gray-400 mt-1">Cadastre sua digital ou reconhecimento facial para um acesso mais rápido e seguro (Passkeys).</p>
+                        </div>
+                        <button 
+                            onClick={handleRegisterBiometrics} 
+                            disabled={isBiometricLoading}
+                            className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex items-center justify-center disabled:opacity-50 flex-shrink-0 gap-2"
+                        >
+                            {isBiometricLoading ? <SpinnerIcon/> : <FingerprintIcon className="h-5 w-5" />}
+                            Ativar Biometria
+                        </button>
+                    </div>
+
+                    {/* 2FA Apenas para Admins */}
+                    {user?.role === 'admin' && (
+                        <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border border-indigo-900/50">
+                            <div>
+                                <h4 className="font-bold flex items-center gap-2"><ShieldCheckIcon className="h-5 w-5 text-indigo-400"/> Autenticação de Dois Fatores (Admin)</h4>
+                                <p className="text-sm text-gray-400 mt-1">Exija um código de verificação via app ao fazer login no painel administrativo.</p>
+                            </div>
+                            {user.is_two_factor_enabled ? (
+                                <div className="text-center flex-shrink-0">
+                                    <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                    <button onClick={() => setIs2faDisableModalOpen(true)} className="text-xs text-red-400 hover:underline">Desativar</button>
+                                </div>
+                            ) : (
+                                <button onClick={handleGenerate2FA} disabled={is2faLoading} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 flex items-center justify-center disabled:opacity-50 flex-shrink-0">
+                                    {is2faLoading ? <SpinnerIcon/> : "Ativar 2FA"}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </>
     );
 };
@@ -14520,7 +14664,8 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 });
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
-// --- Função auxiliar para converter a chave VAPID ---
+// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -14677,9 +14822,6 @@ function AppContent({ deferredPrompt }) {
         );
     }
 
-    // --- ATUALIZAÇÃO AQUI ---
-    // Se o usuário tenta acessar uma página protegida (como account ou checkout) sem estar logado,
-    // passamos o 'redirectPath' para a LoginPage. Assim, ao logar, ele volta para cá.
     if ((mainPage === 'account' || mainPage === 'wishlist' || mainPage === 'checkout') && !isAuthenticated) {
         return <LoginPage onNavigate={navigate} redirectPath={currentPath} />;
     }
@@ -14782,15 +14924,14 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
+
+// ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     useEffect(() => {
         window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); setDeferredPrompt(e); });
         
-        // --- CORREÇÃO DO REGISTRO DO SERVICE WORKER ---
-        // O código anterior esperava o evento 'load' que pode já ter passado.
-        // Agora verificamos se a página já carregou.
         if ('serviceWorker' in navigator) {
             const registerSW = () => {
                 navigator.serviceWorker.register('/sw.js')
@@ -14805,7 +14946,7 @@ export default function App() {
             }
         }
 
-        // Scripts externos
+        // Scripts externos (Chart, Excel, PDF, MercadoPago e agora o WEBAUTHN)
         const loadScript = (src, id, callback) => {
             if (document.getElementById(id)) { if (callback) callback(); return; }
             const script = document.createElement('script');
@@ -14813,6 +14954,10 @@ export default function App() {
             script.onload = () => { if (callback) callback(); };
             document.body.appendChild(script);
         };
+        
+        // --- NOVO: Carrega a biblioteca de biometria via CDN dinamicamente ---
+        loadScript('https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js', 'webauthn-browser-script');
+        
         loadScript('https://cdn.jsdelivr.net/npm/chart.js', 'chartjs-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js', 'xlsx-script');
         loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js', 'jspdf-script', () => {
