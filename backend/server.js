@@ -4306,12 +4306,11 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 });
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
-        // CORREÇÃO: Adicionado o campo 'is_two_factor_enabled' na consulta SQL
-        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone, is_two_factor_enabled FROM users WHERE id = ?", [req.user.id]);
+        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         const user = rows[0];
 
-        // Verifica se o usuário tem biometria cadastrada
+        // --- NOVO: Verifica se o usuário tem biometria cadastrada ---
         const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
         user.has_biometrics = auths.length > 0;
 
