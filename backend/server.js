@@ -1246,60 +1246,460 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
     }
 });
 
-app.post('/api/login/2fa/verify', [
-    body('token', 'Token 2FA é obrigatório').notEmpty(),
-    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
+
+// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
+
+// Gera um segredo e QR Code para o admin logado
+app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const secret = speakeasy.generateSecret({
+            name: `LoveCestas (${req.user.name})`
+        });
+
+        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
+
+        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+            if (err) {
+                throw new Error('Não foi possível gerar o QR Code.');
+            }
+            res.json({
+                secret: secret.base32,
+                qrCodeUrl: data_url
+            });
+        });
+   } catch (err) {
+        console.error("Erro ao gerar segredo 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao gerar o segredo 2FA." });
+    }
+});
+
+// Ativa o 2FA
+app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, async (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) return res.status(400).json({ message: "O código é obrigatório." });
+
+    // Limpa qualquer espaço vazio, letra ou formatação que o celular mande junto
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    if (cleanToken.length !== 6) {
+        return res.status(400).json({ message: "O código deve ter exatamente 6 números." });
     }
 
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Feche a janela e gere um novo QR Code.' });
+        }
+
+        // Janela de tolerância alta (window: 4) aceita códigos de até 2 minutos atrás ou na frente
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            console.error(`[2FA FALHOU] Token recebido: ${cleanToken}, Segredo no DB: ${users[0].two_factor_secret}`);
+            res.status(400).json({ message: 'Código de verificação inválido. Exclua do aplicativo e tente gerar um novo QR Code.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
+});
+
+// Desativa o 2FA
+app.post('/api/2fa/disable', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+
+    if (!password || !token) return res.status(400).json({ message: "Senha e código são obrigatórios." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+        
+        const user = users[0];
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) return res.status(401).json({ message: 'Senha incorreta.' });
+
+        const isTokenVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (!isTokenVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
+});
+
+// Login com 2FA
+app.post('/api/login/2fa/verify', async (req, res) => {
     const { token, tempAuthToken } = req.body;
     
+    if (!token || !tempAuthToken) return res.status(400).json({ message: "Dados incompletos para validação 2FA." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
     try {
-        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
-        if (!decodedTemp.twoFactorAuth) {
-            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
-        }
+        const decodedTemp = jwt.verify(tempAuthToken, process.env.JWT_SECRET);
+        if (!decodedTemp.twoFactorAuth) return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
         
         const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
         const user = users[0];
 
         const isVerified = speakeasy.totp.verify({
             secret: user.two_factor_secret,
             encoding: 'base32',
-            token: token
+            token: cleanToken,
+            window: 4
         });
 
-        if (!isVerified) {
-            return res.status(401).json({ message: 'Código 2FA inválido.' });
-        }
+        if (!isVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
 
-        // Se verificado, gera os tokens de acesso e refresh
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+        const userPayload = { id: user.id, name: user.name, role: user.role };
+        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
         
         const { password: _, two_factor_secret, ...userData } = user;
-        // Envia tokens na resposta para garantir o acesso no mobile
         res.json({ message: "Login bem-sucedido", user: userData, accessToken, refreshToken });
 
     } catch (err) {
-        console.error("Erro na verificação 2FA:", err);
-        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
+        console.error("Erro na verificação 2FA do login:", err);
+        res.status(500).json({ message: 'Sessão temporária expirada. Volte e faça login novamente.' });
+    }
+});
+
+// Ação de Segurança com 2FA
+app.post('/api/auth/verify-action', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+    const adminId = req.user.id;
+
+    if (!password && !token) return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (users.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = users[0];
+
+        if (admin.is_two_factor_enabled && token) {
+            const cleanToken = String(token).replace(/\D/g, '');
+            const isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: cleanToken,
+                window: 4
+            });
+            if (isVerified) return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
+        }
+
+        if (password) {
+            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
+            if (isPasswordCorrect) return res.json({ success: true, message: 'Identidade verificada com senha.' });
+        }
+        
+        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
+
+    } catch (err) {
+        console.error("Erro na verificação de ação crítica:", err);
+        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
+    }
+});
+// Ativa o 2FA
+app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, async (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) return res.status(400).json({ message: "O código é obrigatório." });
+
+    // Limpa qualquer espaço vazio, letra ou formatação que o celular mande junto
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    if (cleanToken.length !== 6) {
+        return res.status(400).json({ message: "O código deve ter exatamente 6 números." });
+    }
+
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Feche a janela e gere um novo QR Code.' });
+        }
+
+        // Janela de tolerância alta (window: 4) aceita códigos de até 2 minutos atrás ou na frente
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            console.error(`[2FA FALHOU] Token recebido: ${cleanToken}, Segredo no DB: ${users[0].two_factor_secret}`);
+            res.status(400).json({ message: 'Código de verificação inválido. Exclua do aplicativo e tente gerar um novo QR Code.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
+});
+
+// Desativa o 2FA
+app.post('/api/2fa/disable', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+
+    if (!password || !token) return res.status(400).json({ message: "Senha e código são obrigatórios." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+        
+        const user = users[0];
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) return res.status(401).json({ message: 'Senha incorreta.' });
+
+        const isTokenVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (!isTokenVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
+});
+
+// Login com 2FA
+app.post('/api/login/2fa/verify', async (req, res) => {
+    const { token, tempAuthToken } = req.body;
+    
+    if (!token || !tempAuthToken) return res.status(400).json({ message: "Dados incompletos para validação 2FA." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    try {
+        const decodedTemp = jwt.verify(tempAuthToken, process.env.JWT_SECRET);
+        if (!decodedTemp.twoFactorAuth) return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
+        
+        const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+        const user = users[0];
+
+        const isVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (!isVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
+
+        const userPayload = { id: user.id, name: user.name, role: user.role };
+        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+
+        const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+        
+        const { password: _, two_factor_secret, ...userData } = user;
+        res.json({ message: "Login bem-sucedido", user: userData, accessToken, refreshToken });
+
+    } catch (err) {
+        console.error("Erro na verificação 2FA do login:", err);
+        res.status(500).json({ message: 'Sessão temporária expirada. Volte e faça login novamente.' });
+    }
+});
+
+// Ação de Segurança com 2FA
+app.post('/api/auth/verify-action', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+    const adminId = req.user.id;
+
+    if (!password && !token) return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (users.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = users[0];
+
+        if (admin.is_two_factor_enabled && token) {
+            const cleanToken = String(token).replace(/\D/g, '');
+            const isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: cleanToken,
+                window: 4
+            });
+            if (isVerified) return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
+        }
+
+        if (password) {
+            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
+            if (isPasswordCorrect) return res.json({ success: true, message: 'Identidade verificada com senha.' });
+        }
+        
+        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
+
+    } catch (err) {
+        console.error("Erro na verificação de ação crítica:", err);
+        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
+    }
+});
+
+// --- ATIVAÇÃO DO 2FA ---
+app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
+    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { token } = req.body;
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
+        }
+
+        // CORREÇÃO: Adicionada janela de tolerância de tempo (window: 2)
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: token,
+            window: 2
+        });
+
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA', null, req.ip); 
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            res.status(400).json({ message: 'Código de verificação inválido.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
+});
+
+// --- DESATIVAÇÃO DO 2FA ---
+app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
+    body('password', 'A senha é obrigatória').notEmpty(),
+    body('token', 'O código 2FA de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { password, token } = req.body;
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+        
+        const user = users[0];
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) return res.status(401).json({ message: 'Senha incorreta.' });
+
+        // CORREÇÃO: Adicionada janela de tolerância de tempo (window: 2)
+        const isTokenVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: token,
+            window: 2
+        });
+
+        if (!isTokenVerified) return res.status(401).json({ message: 'Código de autenticação inválido.' });
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.ip); 
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
+});
+
+// --- VERIFICAÇÃO DE IDENTIDADE PARA AÇÕES CRÍTICAS ---
+app.post('/api/auth/verify-action', verifyToken, verifyAdmin, [
+    body('password').optional().isString(),
+    body('token').optional().isString().isLength({ min: 6, max: 6 })
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+    const { password, token } = req.body;
+    const adminId = req.user.id;
+
+    if (!password && !token) return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (users.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = users[0];
+
+        // Prioriza a verificação 2FA se estiver habilitada
+        if (admin.is_two_factor_enabled && token) {
+            // CORREÇÃO: Adicionada janela de tolerância de tempo (window: 2)
+            const isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: token,
+                window: 2
+            });
+            if (isVerified) return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
+        }
+
+        // Se 2FA falhar ou não for usado, verifica a senha
+        if (password) {
+            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
+            if (isPasswordCorrect) return res.json({ success: true, message: 'Identidade verificada com senha.' });
+        }
+        
+        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
+
+    } catch (err) {
+        console.error("Erro na verificação de ação crítica:", err);
+        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
     }
 });
 
@@ -4306,11 +4706,12 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 });
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
-        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
+        // CORREÇÃO: Adicionado o campo 'is_two_factor_enabled' na consulta SQL
+        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone, is_two_factor_enabled FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
         const user = rows[0];
 
-        // --- NOVO: Verifica se o usuário tem biometria cadastrada ---
+        // Verifica se o usuário tem biometria cadastrada
         const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
         user.has_biometrics = auths.length > 0;
 
