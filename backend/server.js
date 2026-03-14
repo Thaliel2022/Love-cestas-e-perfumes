@@ -6488,7 +6488,6 @@ try {
 
 const rpName = 'Love Cestas e Perfumes';
 
-// Helper blindado para garantir URL válida
 const getAppOrigin = () => {
     let url = process.env.APP_URL || 'http://localhost:3000';
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -6498,7 +6497,6 @@ const getAppOrigin = () => {
 };
 
 const expectedOrigin = getAppOrigin();
-// Tenta extrair o hostname com segurança
 let rpID;
 try {
     rpID = new URL(expectedOrigin).hostname;
@@ -6506,6 +6504,23 @@ try {
     console.warn("URL inválida detectada, usando localhost como fallback para rpID.");
     rpID = 'localhost';
 }
+
+// --- NOVO: Rota para o Frontend verificar silenciosamente se o e-mail tem biometria ---
+app.post('/api/webauthn/check', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.json({ hasBiometrics: false });
+
+    try {
+        const [users] = await db.query("SELECT id FROM users WHERE email = ?", [email]);
+        if (users.length === 0) return res.json({ hasBiometrics: false });
+
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [users[0].id]);
+        res.json({ hasBiometrics: auths.length > 0 });
+    } catch (err) {
+        console.error("Erro ao checar biometria:", err);
+        res.json({ hasBiometrics: false }); 
+    }
+});
 
 // 1. Gera opções para o usuário cadastrar uma nova biometria (Apenas Logados)
 app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, res) => {

@@ -4651,8 +4651,35 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     const [twoFactorCode, setTwoFactorCode] = useState('');
     const [tempAuthToken, setTempAuthToken] = useState('');
 
+    // --- NOVO: Estado para controle de exibição do botão de Biometria ---
+    const [hasBiometrics, setHasBiometrics] = useState(false);
+
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     
+    // --- NOVO: Efeito que verifica se o e-mail digitado possui biometria cadastrada ---
+    useEffect(() => {
+        const checkBiometrics = async () => {
+            // Só faz a verificação se for um e-mail com formato válido para evitar requisições inúteis
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                try {
+                    const response = await apiService('/webauthn/check', 'POST', { email });
+                    setHasBiometrics(response.hasBiometrics);
+                } catch (err) {
+                    setHasBiometrics(false);
+                }
+            } else {
+                setHasBiometrics(false);
+            }
+        };
+
+        // Usa um "debounce" de 500ms para não travar o celular enquanto a pessoa digita
+        const timeoutId = setTimeout(() => {
+            checkBiometrics();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [email]);
+
     // --- Lógica de Navegação Pós-Login ---
     const handleSuccessRedirect = () => {
         if (redirectPath) {
@@ -4711,37 +4738,32 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     // --- LÓGICA DE LOGIN BIOMÉTRICO ---
     const handleBiometricLogin = async () => {
         try {
-            // Requer as funções da biblioteca caso ela esteja instalada no window (CDN) ou build
             const startAuth = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startAuthentication : null;
             
             if (!startAuth) {
-                notification.show("A biblioteca de biometria não está carregada. Certifique-se de executar 'npm install @simplewebauthn/browser' ou adicionar via CDN.", "error");
+                notification.show("A biblioteca de biometria não está carregada.", "error");
                 return;
             }
 
             setIsLoading(true);
             setError('');
 
-            // 1. Busca as opções de autenticação do backend
             const optionsResp = await apiService('/webauthn/generate-authentication-options');
             
-            // 2. Chama a API do navegador para ler a digital/face
             let authResponse;
             try {
                 authResponse = await startAuth(optionsResp.options);
             } catch (err) {
                 console.log("Biometria cancelada ou falhou localmente:", err);
                 setIsLoading(false);
-                return; // Usuário cancelou o prompt
+                return; 
             }
 
-            // 3. Envia a resposta validada para o backend
             const verificationResp = await apiService('/webauthn/verify-authentication', 'POST', {
                 body: authResponse,
                 sessionId: optionsResp.sessionId
             });
 
-            // 4. Trata a resposta (pode ser login direto ou pedir 2FA se for admin)
             if (verificationResp.twoFactorEnabled) {
                 setTempAuthToken(verificationResp.token);
                 setIsTwoFactorStep(true);
@@ -4812,18 +4834,27 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                 </button>
                             </form>
 
-                            {/* --- BOTÃO DE LOGIN BIOMÉTRICO --- */}
-                            <div className="mt-4 pt-4 border-t border-gray-800">
-                                <button 
-                                    type="button" 
-                                    onClick={handleBiometricLogin} 
-                                    disabled={isLoading}
-                                    className="w-full py-2.5 sm:py-3 px-4 bg-gray-800 border border-gray-700 text-white font-bold rounded-md hover:bg-gray-700 transition flex justify-center items-center gap-2 disabled:opacity-60 text-base sm:text-lg"
-                                >
-                                    <FingerprintIcon className="h-5 w-5" /> 
-                                    Entrar com Biometria / Face ID
-                                </button>
-                            </div>
+                            {/* --- BOTÃO DE LOGIN BIOMÉTRICO (AGORA CONDICIONAL) --- */}
+                            <AnimatePresence>
+                                {hasBiometrics && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, height: 0 }} 
+                                        animate={{ opacity: 1, height: 'auto' }} 
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="mt-4 pt-4 border-t border-gray-800 overflow-hidden"
+                                    >
+                                        <button 
+                                            type="button" 
+                                            onClick={handleBiometricLogin} 
+                                            disabled={isLoading}
+                                            className="w-full py-2.5 sm:py-3 px-4 bg-gray-800 border border-gray-700 text-white font-bold rounded-md hover:bg-gray-700 transition flex justify-center items-center gap-2 disabled:opacity-60 text-base sm:text-lg"
+                                        >
+                                            <FingerprintIcon className="h-5 w-5 text-amber-400" /> 
+                                            Entrar com Biometria / Face ID
+                                        </button>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
                              <div className="text-center mt-5 text-xs sm:text-sm">
                                 <p className="text-gray-400">Não tem uma conta?{' '}<a href="#register" onClick={(e) => {e.preventDefault(); onNavigate('register')}} className="font-semibold text-amber-400 hover:underline">Registre-se</a></p>
@@ -4849,7 +4880,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                         value={twoFactorCode}
                                         onChange={e => setTwoFactorCode(e.target.value)}
                                         required
-                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" />
+                                        className="w-full text-center tracking-[0.5em] sm:tracking-[1em] px-4 py-3 bg-gray-800 text-white border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-xl sm:text-2xl font-mono" />
                                 </div>
                                 <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
                                      {isLoading ? <SpinnerIcon /> : 'Verificar'}
