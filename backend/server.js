@@ -1192,14 +1192,11 @@ app.post('/api/register', validate(authSchemas.register), async (req, res) => {
 
 // --- ROTA DE LOGIN (COM ROTAÇÃO E DB) ---
 app.post('/api/login', validate(authSchemas.login), async (req, res) => {
-    // A validação de campos vazios/formato email já foi feita pelo Zod.
-    
     try {
         const { email, password } = req.body;
         const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
         const user = users[0];
 
-        // Validações básicas (existência, senha, bloqueio)
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: "Email ou senha inválidos." });
         }
@@ -1207,37 +1204,35 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
             return res.status(403).json({ message: "Conta bloqueada." });
         }
 
-        // Lógica de 2FA (se aplicável, retorna token temporário)
         if (user.role === 'admin' && user.is_two_factor_enabled) {
              const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
              return res.json({ twoFactorEnabled: true, token: tempToken });
         }
 
-        // --- GERAÇÃO DE TOKENS SEGUROS (Lógica Blindada) ---
         const userPayload = { id: user.id, name: user.name, role: user.role };
-        
         const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
         const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-        // Armazena Refresh Token no Banco (Rotação)
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
         await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-        // Cookies HttpOnly
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         };
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 }); // 15 min
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
         res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
-        // Log de sucesso
         await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, email, req.ip, req.headers['user-agent']]);
 
+        // --- CORREÇÃO: Busca se a biometria está ativa no ato do login ---
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
         const { password: _, two_factor_secret, ...userData } = user;
-        // Retorna os tokens na resposta JSON para os navegadores mobile restritos salvarem no localStorage
+        
+        userData.has_biometrics = auths.length > 0; // Informa o painel imediatamente
+
         res.json({ message: "Login realizado com sucesso.", user: userData, accessToken, refreshToken });
 
     } catch (err) {
@@ -1351,13 +1346,16 @@ app.post('/api/2fa/disable', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // Login com 2FA
-app.post('/api/login/2fa/verify', async (req, res) => {
+app.post('/api/login/2fa/verify', [
+    body('token', 'Token 2FA é obrigatório').notEmpty(),
+    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
     const { token, tempAuthToken } = req.body;
-    
-    if (!token || !tempAuthToken) return res.status(400).json({ message: "Dados incompletos para validação 2FA." });
-
     const cleanToken = String(token).replace(/\D/g, '');
-
+    
     try {
         const decodedTemp = jwt.verify(tempAuthToken, process.env.JWT_SECRET);
         if (!decodedTemp.twoFactorAuth) return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
@@ -1375,18 +1373,20 @@ app.post('/api/login/2fa/verify', async (req, res) => {
 
         if (!isVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
 
-        const userPayload = { id: user.id, name: user.name, role: user.role };
-        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
-        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
-
-        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
-        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
+        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '4h' });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
         const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
         
+        // --- CORREÇÃO: Busca biometria ao fazer login via 2FA ---
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
         const { password: _, two_factor_secret, ...userData } = user;
+        
+        userData.has_biometrics = auths.length > 0;
+
         res.json({ message: "Login bem-sucedido", user: userData, accessToken, refreshToken });
 
     } catch (err) {
@@ -4740,19 +4740,13 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
     const { body, sessionId } = req.body;
     const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
 
-    if (!expectedChallenge) {
-        return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
-    }
+    if (!expectedChallenge) return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
 
     try {
         const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
-        
-        if (authenticators.length === 0) {
-            return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
-        }
+        if (authenticators.length === 0) return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
         
         const authenticator = authenticators[0];
-
         const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
 
         const verification = await webauthnServer.verifyAuthenticationResponse({
@@ -4760,7 +4754,6 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
             expectedChallenge,
             expectedOrigin,
             expectedRPID: rpID,
-            // CORREÇÃO CRÍTICA V10+: O nome mudou de 'authenticator' para 'credential'
             credential: {
                 id: authenticator.credential_id,
                 publicKey: publicKeyBuffer,
@@ -4769,18 +4762,14 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
             },
         });
 
-        const { verified, authenticationInfo } = verification;
-
-        if (verified) {
-            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [authenticationInfo.newCounter, authenticator.id]);
+        if (verification.verified) {
+            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [verification.authenticationInfo.newCounter, authenticator.id]);
             delete webauthnChallenges[`auth_${sessionId}`];
 
             const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
             const user = users[0];
 
-            if (user.status === 'blocked') {
-                return res.status(403).json({ message: "Conta bloqueada." });
-            }
+            if (user.status === 'blocked') return res.status(403).json({ message: "Conta bloqueada." });
 
             if (user.role === 'admin' && user.is_two_factor_enabled) {
                  const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
@@ -4794,19 +4783,16 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
             const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
             await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-            const cookieOptions = {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-            };
-
+            const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
             res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
             res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
             const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
             await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
 
+            // --- CORREÇÃO: Como o usuário acabou de usar a biometria, ele CLARAMENTE tem biometria! ---
             const { password: _, two_factor_secret, ...userData } = user;
+            userData.has_biometrics = true; 
             
             res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
         } else {
