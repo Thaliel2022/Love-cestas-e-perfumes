@@ -6030,13 +6030,14 @@ app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, 
 
         const [authenticators] = await db.query("SELECT credential_id FROM user_authenticators WHERE user_id = ?", [user.id]);
 
-        // Formata o ID do usuário como String simples (Formato aceito pela v10+ do SimpleWebAuthn)
-        const userIDString = String(user.id);
+        // CORREÇÃO CRÍTICA: O SimpleWebAuthn v10+ não aceita String. Exige Uint8Array.
+        // Converte o ID numérico do banco de dados para um array de bytes seguro.
+        const userIDUint8Array = new Uint8Array(Buffer.from(String(user.id)));
 
         const options = await webauthnServer.generateRegistrationOptions({
             rpName,
             rpID,
-            userID: userIDString,
+            userID: userIDUint8Array, // <-- Formato de bytes aplicado aqui
             userName: user.email,
             userDisplayName: user.name,
             attestationType: 'none',
@@ -6058,7 +6059,6 @@ app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, 
         res.json(options);
     } catch (err) {
         console.error("Erro detalhado ao gerar opções de registro biométrico:", err);
-        // Agora retorna a mensagem real do erro para o frontend
         res.status(500).json({ message: `Erro ao configurar: ${err.message}` });
     }
 });
@@ -6090,7 +6090,7 @@ app.post('/api/webauthn/verify-registration', verifyToken, async (req, res) => {
             
             // Converte a chave pública e o ID para string base64 para salvar no DB com segurança
             const base64PublicKey = Buffer.from(credentialPublicKey).toString('base64');
-            // Em SimpleWebAuthn v10, credentialID já costuma ser string Base64URL, mas garantimos a conversão segura
+            // Garante a conversão segura do ID da credencial para string Base64URL
             const base64CredentialID = Buffer.isBuffer(credentialID) || credentialID instanceof Uint8Array 
                 ? Buffer.from(credentialID).toString('base64url') 
                 : String(credentialID);
@@ -6209,7 +6209,8 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
             res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
             res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
-            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, req.ip, req.headers['user-agent']]);
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
 
             const { password: _, two_factor_secret, ...userData } = user;
             
