@@ -4306,13 +4306,114 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 });
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
-        // CORREÇÃO: Adicionado 'phone' na lista de campos retornados
         const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
-        res.json(rows[0]);
+        const user = rows[0];
+
+        // --- NOVO: Verifica se o usuário tem biometria cadastrada ---
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
+        user.has_biometrics = auths.length > 0;
+
+        res.json(user);
     } catch (err) {
         console.error("Erro ao buscar dados do usuário:", err);
         res.status(500).json({ message: "Erro ao buscar dados do usuário." });
+    }
+});
+
+// (Novo) Rota para remover a biometria cadastrada
+app.delete('/api/webauthn/remove', verifyToken, async (req, res) => {
+    try {
+        await db.query("DELETE FROM user_authenticators WHERE user_id = ?", [req.user.id]);
+        res.json({ message: "Biometria removida com sucesso." });
+    } catch (err) {
+        console.error("Erro ao remover biometria:", err);
+        res.status(500).json({ message: "Erro ao remover biometria." });
+    }
+});
+
+// 4. Verifica a digital/face lida e faz o Login
+app.post('/api/webauthn/verify-authentication', async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
+    
+    const { body, sessionId } = req.body;
+    const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
+
+    if (!expectedChallenge) {
+        return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
+    }
+
+    try {
+        const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
+        
+        if (authenticators.length === 0) {
+            return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
+        }
+        
+        const authenticator = authenticators[0];
+
+        const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
+
+        const verification = await webauthnServer.verifyAuthenticationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+            // CORREÇÃO CRÍTICA V10+: O nome mudou de 'authenticator' para 'credential'
+            credential: {
+                id: authenticator.credential_id,
+                publicKey: publicKeyBuffer,
+                counter: Number(authenticator.counter),
+                transports: ['internal'],
+            },
+        });
+
+        const { verified, authenticationInfo } = verification;
+
+        if (verified) {
+            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [authenticationInfo.newCounter, authenticator.id]);
+            delete webauthnChallenges[`auth_${sessionId}`];
+
+            const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
+            const user = users[0];
+
+            if (user.status === 'blocked') {
+                return res.status(403).json({ message: "Conta bloqueada." });
+            }
+
+            if (user.role === 'admin' && user.is_two_factor_enabled) {
+                 const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
+                 return res.json({ twoFactorEnabled: true, token: tempToken });
+            }
+
+            const userPayload = { id: user.id, name: user.name, role: user.role };
+            const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+            const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+
+            const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+            await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            };
+
+            res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
+
+            const { password: _, two_factor_secret, ...userData } = user;
+            
+            res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
+        } else {
+            res.status(401).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro no login biométrico:", err);
+        res.status(500).json({ message: `Falha na verificação: ${err.message}` });
     }
 });
 

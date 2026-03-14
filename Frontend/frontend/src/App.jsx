@@ -8085,10 +8085,8 @@ const MyProfileSection = () => {
 
             setIsBiometricLoading(true);
 
-            // 1. Pede as opções pro servidor
             const options = await apiService('/webauthn/generate-registration-options');
 
-            // 2. Chama a API do navegador para cadastrar a digital/rosto
             let attResp;
             try {
                 attResp = await startReg(options);
@@ -8102,17 +8100,37 @@ const MyProfileSection = () => {
                 return;
             }
 
-            // 3. Envia o resultado pro servidor verificar e salvar
             const verification = await apiService('/webauthn/verify-registration', 'POST', attResp);
 
             if (verification && verification.verified) {
                 notification.show("Biometria cadastrada com sucesso! Você já pode usar no próximo login.");
+                // Atualiza o estado visual do usuário na hora
+                const updatedUser = { ...user, has_biometrics: true };
+                setUser(updatedUser);
+                localStorage.setItem('user', JSON.stringify(updatedUser));
             } else {
                 notification.show("Não foi possível salvar a biometria.", "error");
             }
         } catch (err) {
             console.error("Erro ao registrar biometria:", err);
             notification.show(err.message || "Erro ao configurar biometria.", "error");
+        } finally {
+            setIsBiometricLoading(false);
+        }
+    };
+
+    // --- LÓGICA PARA REMOVER BIOMETRIA ---
+    const handleRemoveBiometrics = async () => {
+        setIsBiometricLoading(true);
+        try {
+            await apiService('/webauthn/remove', 'DELETE');
+            notification.show('Biometria desativada com sucesso.');
+            // Remove o selo ativo do frontend
+            const updatedUser = { ...user, has_biometrics: false };
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+        } catch (err) {
+            notification.show('Erro ao remover biometria.', 'error');
         } finally {
             setIsBiometricLoading(false);
         }
@@ -8269,16 +8287,24 @@ const MyProfileSection = () => {
                     <div className="bg-gray-800 p-6 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <h4 className="font-bold flex items-center gap-2"><FingerprintIcon className="h-5 w-5 text-amber-400"/> Login Biométrico / Face ID</h4>
-                            <p className="text-sm text-gray-400 mt-1">Cadastre sua digital ou reconhecimento facial para um acesso mais rápido e seguro (Passkeys).</p>
+                            <p className="text-sm text-gray-400 mt-1">Acesse mais rápido e com segurança usando reconhecimento biométrico (Passkeys).</p>
                         </div>
-                        <button 
-                            onClick={handleRegisterBiometrics} 
-                            disabled={isBiometricLoading}
-                            className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex items-center justify-center disabled:opacity-50 flex-shrink-0 gap-2"
-                        >
-                            {isBiometricLoading ? <SpinnerIcon/> : <FingerprintIcon className="h-5 w-5" />}
-                            Ativar Biometria
-                        </button>
+                        
+                        {user?.has_biometrics ? (
+                            <div className="text-center flex-shrink-0">
+                                <p className="text-sm font-semibold text-green-400 bg-green-900/50 px-3 py-1 rounded-full mb-2">Ativo</p>
+                                <button onClick={handleRemoveBiometrics} disabled={isBiometricLoading} className="text-xs text-red-400 hover:underline">Remover</button>
+                            </div>
+                        ) : (
+                            <button 
+                                onClick={handleRegisterBiometrics} 
+                                disabled={isBiometricLoading}
+                                className="bg-gray-700 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-600 flex items-center justify-center disabled:opacity-50 flex-shrink-0 gap-2"
+                            >
+                                {isBiometricLoading ? <SpinnerIcon/> : <FingerprintIcon className="h-5 w-5" />}
+                                Ativar Biometria
+                            </button>
+                        )}
                     </div>
 
                     {/* 2FA Apenas para Admins */}
