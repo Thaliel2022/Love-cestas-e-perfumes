@@ -6000,7 +6000,7 @@ try {
 
 const rpName = 'Love Cestas e Perfumes';
 
-// Helper blindado para garantir URL válida (mesmo se esquecer o https:// no .env)
+// Helper blindado para garantir URL válida
 const getAppOrigin = () => {
     let url = process.env.APP_URL || 'http://localhost:3000';
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -6030,18 +6030,16 @@ app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, 
 
         const [authenticators] = await db.query("SELECT credential_id FROM user_authenticators WHERE user_id = ?", [user.id]);
 
-        // CORREÇÃO CRÍTICA: O SimpleWebAuthn v10+ não aceita String. Exige Uint8Array.
-        // Converte o ID numérico do banco de dados para um array de bytes seguro.
+        // Formata o ID do usuário como Array de Bytes (Uint8Array) exigido pela v10+
         const userIDUint8Array = new Uint8Array(Buffer.from(String(user.id)));
 
         const options = await webauthnServer.generateRegistrationOptions({
             rpName,
             rpID,
-            userID: userIDUint8Array, // <-- Formato de bytes aplicado aqui
+            userID: userIDUint8Array,
             userName: user.email,
             userDisplayName: user.name,
             attestationType: 'none',
-            // Mapeia as credenciais existentes (garantindo que se for null, caia para string vazia)
             excludeCredentials: authenticators.map(auth => ({
                 id: auth.credential_id || '', 
                 type: 'public-key',
@@ -6053,12 +6051,12 @@ app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, 
             },
         });
 
-        // Salva o desafio na memória para validar na próxima requisição
+        // Salva o desafio na memória
         webauthnChallenges[`reg_${user.id}`] = options.challenge;
 
         res.json(options);
     } catch (err) {
-        console.error("Erro detalhado ao gerar opções de registro biométrico:", err);
+        console.error("Erro ao gerar opções de registro biométrico:", err);
         res.status(500).json({ message: `Erro ao configurar: ${err.message}` });
     }
 });
@@ -6086,14 +6084,19 @@ app.post('/api/webauthn/verify-registration', verifyToken, async (req, res) => {
         const { verified, registrationInfo } = verification;
 
         if (verified && registrationInfo) {
-            const { credentialPublicKey, credentialID, counter } = registrationInfo;
+            // CORREÇÃO CRÍTICA PARA A VERSÃO 10+ DO SIMPLEWEBAUTHN
+            // Em versões novas, os dados vêm dentro de "credential"
+            const credentialData = registrationInfo.credential || registrationInfo;
             
-            // Converte a chave pública e o ID para string base64 para salvar no DB com segurança
-            const base64PublicKey = Buffer.from(credentialPublicKey).toString('base64');
-            // Garante a conversão segura do ID da credencial para string Base64URL
-            const base64CredentialID = Buffer.isBuffer(credentialID) || credentialID instanceof Uint8Array 
-                ? Buffer.from(credentialID).toString('base64url') 
-                : String(credentialID);
+            const publicKey = credentialData.publicKey || credentialData.credentialPublicKey;
+            const credID = credentialData.id || credentialData.credentialID;
+            const counter = credentialData.counter || 0;
+            
+            // Converte a chave pública e o ID para formato de string do banco de dados
+            const base64PublicKey = Buffer.from(publicKey).toString('base64');
+            const base64CredentialID = Buffer.isBuffer(credID) || credID instanceof Uint8Array 
+                ? Buffer.from(credID).toString('base64url') 
+                : String(credID);
 
             await db.query(
                 "INSERT INTO user_authenticators (user_id, credential_id, credential_public_key, counter) VALUES (?, ?, ?, ?)",
@@ -6116,7 +6119,6 @@ app.get('/api/webauthn/generate-authentication-options', async (req, res) => {
     if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
     
     try {
-        // Gera um session ID anônimo para rastrear o desafio de login
         const sessionId = crypto.randomBytes(16).toString('hex');
 
         const options = await webauthnServer.generateAuthenticationOptions({
@@ -6133,7 +6135,7 @@ app.get('/api/webauthn/generate-authentication-options', async (req, res) => {
     }
 });
 
-// 4. Verifica a digital/face lida e faz o Login (Respeitando 2FA Admin)
+// 4. Verifica a digital/face lida e faz o Login
 app.post('/api/webauthn/verify-authentication', async (req, res) => {
     if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
     
@@ -6164,7 +6166,7 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
             expectedOrigin,
             expectedRPID: rpID,
             authenticator: {
-                credentialID: credentialIdBuffer,
+                credentialID: authenticator.credential_id, // Passa a string base64url direta
                 credentialPublicKey: publicKeyBuffer,
                 counter: authenticator.counter,
                 transports: ['internal'],
@@ -6174,11 +6176,9 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
         const { verified, authenticationInfo } = verification;
 
         if (verified) {
-            // Atualiza o contador contra ataques de replay
             await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [authenticationInfo.newCounter, authenticator.id]);
             delete webauthnChallenges[`auth_${sessionId}`];
 
-            // Busca os dados do usuário para efetuar o login
             const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
             const user = users[0];
 
