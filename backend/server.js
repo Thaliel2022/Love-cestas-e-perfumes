@@ -388,71 +388,85 @@ const orderSchema = z.object({
     })
 });
 
-// ... (Resto dos middlewares existentes: verifyToken, verifyAdmin, etc.)
-
 // --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
 const initializeData = async () => {
-    const connection = await db.getConnection();
-    try {
-        console.log('Verificando dados iniciais...');
+    const connection = await db.getConnection();
+    try {
+        console.log('Verificando dados iniciais e tabelas...');
 
-        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
-        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
-        if (categories[0].count === 0) {
-            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
-            const initialCategories = [
-                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
-                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
-            ];
-            
-            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) VALUES ?";
-            const values = initialCategories.map((c, index) => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section, index]);
-            await connection.query(sql, [values]);
-            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
-        } else {
-            console.log('Tabela collection_categories já populada.');
-        }
+        // --- NOVO: GARANTE QUE A TABELA DE BIOMETRIA EXISTA ---
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS \`user_authenticators\` (
+              \`id\` int(11) NOT NULL AUTO_INCREMENT,
+              \`user_id\` int(11) NOT NULL,
+              \`credential_id\` varchar(255) NOT NULL,
+              \`credential_public_key\` text NOT NULL,
+              \`counter\` bigint(20) NOT NULL DEFAULT 0,
+              \`transports\` varchar(255) DEFAULT NULL,
+              \`created_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (\`id\`),
+              UNIQUE KEY \`credential_id\` (\`credential_id\`),
+              CONSTRAINT \`fk_user_auth\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
 
-        // --- SEED DE BANNERS ---
-        const [banners] = await connection.query("SELECT COUNT(*) as count FROM banners");
-        if (banners[0].count === 0) {
-            console.log('Tabela banners está vazia. Populando com banner principal...');
-            const mainBanner = [
-                'Elegância que Veste e Perfuma',
-                'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
-                'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
-                null, // image_url_mobile
-                '#products',
-                'Explorar Coleção',
-                1, // cta_enabled
-                1, // is_active
-                0  // display_order
-            ];
-            const sql = "INSERT INTO banners (title, subtitle, image_url, image_url_mobile, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            await connection.query(sql, mainBanner);
-            console.log('Banner principal inserido com sucesso.');
-        } else {
-            console.log('Tabela banners já populada.');
-        }
+        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
+        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
+        if (categories[0].count === 0) {
+            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
+            const initialCategories = [
+                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
+                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
+            ];
+            
+            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) VALUES ?";
+            const values = initialCategories.map((c, index) => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section, index]);
+            await connection.query(sql, [values]);
+            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
+        } else {
+            console.log('Tabela collection_categories já populada.');
+        }
 
-    } catch (err) {
-        console.error("Erro ao inicializar dados:", err);
-    } finally {
-        connection.release();
-    }
+        // --- SEED DE BANNERS ---
+        const [banners] = await connection.query("SELECT COUNT(*) as count FROM banners");
+        if (banners[0].count === 0) {
+            console.log('Tabela banners está vazia. Populando com banner principal...');
+            const mainBanner = [
+                'Elegância que Veste e Perfuma',
+                'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
+                'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
+                null, // image_url_mobile
+                '#products',
+                'Explorar Coleção',
+                1, // cta_enabled
+                1, // is_active
+                0  // display_order
+            ];
+            const sql = "INSERT INTO banners (title, subtitle, image_url, image_url_mobile, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            await connection.query(sql, mainBanner);
+            console.log('Banner principal inserido com sucesso.');
+        } else {
+            console.log('Tabela banners já populada.');
+        }
+
+    } catch (err) {
+        console.error("Erro ao inicializar dados:", err);
+    } finally {
+        connection.release();
+    }
 };
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
