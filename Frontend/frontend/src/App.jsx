@@ -3,7 +3,6 @@ import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useBranding } from '../../contexts/BrandingContext';
 
 // --- Constante da API ---
 const API_URL = process.env.REACT_APP_API_URL || 'https://love-cestas-e-perfumes.onrender.com/api';
@@ -1087,78 +1086,6 @@ const ConfirmationProvider = ({ children }) => {
     );
 };
 
-// --- CONTEXTO DE BRANDING (IDENTIDADE VISUAL) ---
-const BrandingContext = React.createContext();
-
-const BrandingProvider = ({ children }) => {
-    const [branding, setBranding] = React.useState({
-        site_name: 'Love Cestas e Perfumes',
-        logo_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png',
-        favicon_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png',
-        pwa_icon_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png',
-        login_icon_url: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'
-    });
-
-    const loadBranding = async () => {
-        try {
-            const data = await apiService('/settings/branding', 'GET');
-            setBranding(data);
-        } catch (error) {
-            console.error("Erro ao carregar branding", error);
-        }
-    };
-
-    React.useEffect(() => {
-        loadBranding();
-    }, []);
-
-    // Atualiza dinamicamente a aba do navegador e o PWA
-    React.useEffect(() => {
-        if (!branding) return;
-
-        document.title = branding.site_name;
-
-        let favicon = document.querySelector("link[rel~='icon']");
-        if (!favicon) {
-            favicon = document.createElement('link');
-            favicon.rel = 'icon';
-            document.head.appendChild(favicon);
-        }
-        favicon.href = branding.favicon_url;
-
-        const manifest = {
-            short_name: branding.site_name,
-            name: branding.site_name,
-            icons: [
-                { src: branding.pwa_icon_url, sizes: "192x192", type: "image/png", purpose: "any maskable" },
-                { src: branding.pwa_icon_url, sizes: "512x512", type: "image/png", purpose: "any maskable" }
-            ],
-            start_url: "/",
-            display: "standalone",
-            theme_color: "#000000",
-            background_color: "#000000"
-        };
-
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-
-        let manifestLink = document.querySelector("link[rel='manifest']");
-        if (!manifestLink) {
-            manifestLink = document.createElement('link');
-            manifestLink.rel = 'manifest';
-            document.head.appendChild(manifestLink);
-        }
-        manifestLink.href = manifestUrl;
-    }, [branding]);
-
-    return (
-        <BrandingContext.Provider value={{ branding, loadBranding }}>
-            {children}
-        </BrandingContext.Provider>
-    );
-};
-
-const useBranding = () => React.useContext(BrandingContext);
 
 // --- COMPONENTES DA UI ---
 const Modal = memo(({ isOpen, onClose, title, children, size = 'lg' }) => {
@@ -11370,97 +11297,6 @@ const AdminProducts = ({ onNavigate }) => {
     </div>
   )
 };
-
-// --- COMPONENTE ADMIN BRANDING ---
-const AdminBranding = () => {
-    const { branding, loadBranding } = useBranding();
-    const notification = useNotification();
-    const [formData, setFormData] = useState({
-        site_name: '', logo_url: '', favicon_url: '', pwa_icon_url: '', login_icon_url: ''
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const [uploadingField, setUploadingField] = useState(null);
-
-    useEffect(() => {
-        if (branding) setFormData(branding);
-    }, [branding]);
-
-    const handleImageUpload = async (e, field) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        setUploadingField(field);
-        const uploadData = new FormData();
-        uploadData.append('image', file);
-
-        try {
-            const response = await apiService('/upload/image', 'POST', uploadData, true);
-            setFormData(prev => ({ ...prev, [field]: response.imageUrl }));
-            notification.show('Imagem enviada com sucesso!');
-        } catch (error) {
-            notification.show(`Erro no upload: ${error.message}`, 'error');
-        } finally {
-            setUploadingField(null);
-        }
-    };
-
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            await apiService('/settings/branding', 'PUT', formData);
-            notification.show('Identidade Visual salva com sucesso!');
-            await loadBranding();
-        } catch (error) {
-            notification.show(`Erro ao salvar: ${error.message}`, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const ImageBox = ({ title, field, description, format }) => (
-        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                <div className="w-24 h-24 sm:w-32 sm:h-32 bg-black rounded-lg border border-gray-600 flex items-center justify-center p-2 flex-shrink-0 overflow-hidden relative group">
-                    {uploadingField === field ? (
-                        <SpinnerIcon className="h-8 w-8 text-amber-400" />
-                    ) : (
-                        <img src={formData[field]} alt={title} className={`max-w-full max-h-full ${format === 'square' ? 'object-cover rounded-md' : 'object-contain'}`} />
-                    )}
-                </div>
-                <div className="flex-grow">
-                    <h3 className="text-lg font-bold text-white mb-1">{title}</h3>
-                    <p className="text-sm text-gray-400 mb-4">{description}</p>
-                    <label className="relative cursor-pointer bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md inline-block transition-colors">
-                        <span>Escolher Imagem</span>
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, field)} disabled={uploadingField !== null} />
-                    </label>
-                </div>
-            </div>
-        </div>
-    );
-
-    return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-amber-400">Identidade Visual</h2>
-                <button onClick={handleSave} disabled={isSaving} className="bg-amber-500 text-black px-6 py-2 rounded-md font-bold hover:bg-amber-400 flex items-center disabled:opacity-50">
-                    {isSaving ? <SpinnerIcon className="mr-2"/> : null} Salvar Alterações
-                </button>
-            </div>
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 mb-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">Nome do Site / App</label>
-                <input type="text" value={formData.site_name} onChange={(e) => setFormData({...formData, site_name: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md p-3 text-white focus:outline-none focus:border-amber-500"/>
-            </div>
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <ImageBox title="Logo Principal" field="logo_url" format="contain" description="Aparece no cabeçalho do site (Header)." />
-                <ImageBox title="Ícone da Tela de Login" field="login_icon_url" format="contain" description="Ícone na página de acesso." />
-                <ImageBox title="Ícone PWA (App de Celular)" field="pwa_icon_url" format="square" description="Aparece ao instalar o aplicativo no celular." />
-                <ImageBox title="Favicon (Aba do Navegador)" field="favicon_url" format="square" description="Ícone da aba do Google Chrome." />
-            </div>
-        </div>
-    );
-};
-
 const AdminUsers = () => {
     const [users, setUsers] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -15226,17 +15062,15 @@ export default function App() {
         loadScript('https://sdk.mercadopago.com/js/v2', 'mercadopago-sdk');
     }, []);
 
- return (
+    return (
         <AuthProvider>
-            <BrandingProvider>  {/* <--- ADICIONE AQUI */}
-                <NotificationProvider>
-                    <ConfirmationProvider>
-                        <ShopProvider>
-                            <AppContent deferredPrompt={deferredPrompt} />
-                        </ShopProvider>
-                    </ConfirmationProvider>
-                </NotificationProvider>
-            </BrandingProvider>  {/* <--- E FECHE AQUI */}
+            <NotificationProvider>
+                <ConfirmationProvider>
+                    <ShopProvider>
+                        <AppContent deferredPrompt={deferredPrompt} />
+                    </ShopProvider>
+                </ConfirmationProvider>
+            </NotificationProvider>
         </AuthProvider>
     );
 }
