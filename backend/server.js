@@ -388,6 +388,22 @@ const orderSchema = z.object({
     })
 });
 
+// --- SEED DE CONFIGURAÇÕES DE BRANDING (IDENTIDADE VISUAL) ---
+        const defaultBranding = [
+            ['site_name', 'Love Cestas e Perfumes'],
+            ['logo_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['favicon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['pwa_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['login_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png']
+        ];
+
+        for (const [key, value] of defaultBranding) {
+            await connection.query(
+                "INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)", 
+                [key, value]
+            );
+        }
+
 // --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
 const initializeData = async () => {
     const connection = await db.getConnection();
@@ -490,22 +506,6 @@ db.getConnection()
     .catch(err => {
         console.error('Falha ao conectar ao banco de dados:', err);
     });
-
-// --- SEED DE CONFIGURAÇÕES DE BRANDING (IDENTIDADE VISUAL) ---
-        const defaultBranding = [
-            ['site_name', 'Love Cestas e Perfumes'],
-            ['logo_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
-            ['favicon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
-            ['pwa_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
-            ['login_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png']
-        ];
-
-        for (const [key, value] of defaultBranding) {
-            await connection.query(
-                "INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)", 
-                [key, value]
-            );
-        }
 
 // --- CONFIGURAÇÃO DO CLIENTE DO MERCADO PAGO ---
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
@@ -1256,9 +1256,6 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
         res.status(500).json({ message: "Erro interno." });
     }
 });
-
-// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
-
 // --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
 
 // Gera um segredo e QR Code para o admin logado
@@ -1830,108 +1827,6 @@ app.post('/api/logout', async (req, res) => {
     res.status(200).json({ message: 'Logout realizado com sucesso.' });
 });
 
-// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
-
-// Gera um segredo e QR Code para o admin logado
-app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const secret = speakeasy.generateSecret({
-            name: `LoveCestas (${req.user.name})`
-        });
-
-        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
-
-        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
-            if (err) {
-                throw new Error('Não foi possível gerar o QR Code.');
-            }
-            res.json({
-                secret: secret.base32,
-                qrCodeUrl: data_url
-            });
-        });
-   } catch (err) {
-        console.error("Erro ao gerar segredo 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao gerar o segredo 2FA." });
-    }
-});
-
-app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
-    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { token } = req.body;
-    try {
-        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0 || !users[0].two_factor_secret) {
-            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
-        }
-
-        const isVerified = speakeasy.totp.verify({
-            secret: users[0].two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (isVerified) {
-            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
-            logAdminAction(req.user, 'ATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
-            res.json({ message: '2FA ativado com sucesso!' });
-        } else {
-            res.status(400).json({ message: 'Código de verificação inválido.' });
-        }
-    } catch (err) {
-        console.error("Erro ao verificar e ativar o 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
-    }
-});
-
-// Desativa o 2FA para o admin logado
-app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
-    body('password', 'A senha é obrigatória').notEmpty(),
-    body('token', 'O código 2FA de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { password, token } = req.body;
-    try {
-        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-        const user = users[0];
-
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) {
-            return res.status(401).json({ message: 'Senha incorreta.' });
-        }
-
-        const isTokenVerified = speakeasy.totp.verify({
-            secret: user.two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (!isTokenVerified) {
-            return res.status(401).json({ message: 'Código de autenticação inválido.' });
-        }
-
-        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
-        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
-        res.json({ message: '2FA desativado com sucesso.' });
-
-    } catch (err) {
-        console.error("Erro ao desativar 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
-    }
-});
 
 app.post('/api/forgot-password', [
     body('email', 'Email inválido').isEmail().normalizeEmail(),
@@ -2268,51 +2163,6 @@ app.get('/api/products/search-suggestions', checkMaintenanceMode, async (req, re
     }
 });
 
-
-app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
-    const LOW_STOCK_THRESHOLD = 5;
-    try {
-        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
-
-        const lowStockItems = [];
-
-        for (const product of allProducts) {
-            if (product.product_type === 'clothing') {
-                try {
-                    const variations = JSON.parse(product.variations || '[]');
-                    for (const v of variations) {
-                        if (v.stock < LOW_STOCK_THRESHOLD) {
-                            lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: v.images && v.images.length > 0 ? JSON.stringify(v.images) : product.images, // Usa imagens da variação se houver, senão as principais
-                                product_type: 'clothing',
-                                variation: v // <--- ADICIONADO: Inclui o objeto completo da variação
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
-                }
-            } else { // perfume
-                if (product.stock < LOW_STOCK_THRESHOLD) {
-                    lowStockItems.push({
-                        id: product.id,
-                        name: product.name,
-                        stock: product.stock,
-                        images: product.images
-                    });
-                }
-            }
-        }
-        res.json(lowStockItems);
-    } catch (err) {
-        console.error("Erro ao buscar produtos com estoque baixo:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
-    }
-});
-
 app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
     try {
         const sql = `
@@ -2386,40 +2236,6 @@ app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (re
         console.error("Erro ao buscar produtos relacionados por compra:", err);
         res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
     }
-});
-
-app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
-        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
-        
-        if (ordersWithProduct.length === 0) {
-            return res.json([]);
-        }
-
-        const orderIds = ordersWithProduct.map(o => o.order_id);
-
-        const sqlFindRelated = `
-            SELECT 
-                p.*,
-                COUNT(oi.product_id) AS purchase_frequency
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id IN (?)
-            AND oi.product_id != ?
-            AND p.is_active = 1
-            GROUP BY oi.product_id
-            ORDER BY purchase_frequency DESC
-            LIMIT 8;
-        `;
-        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
-        res.json(relatedProducts);
-
-    } catch (err) {
-        console.error("Erro ao buscar produtos relacionados por compra:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
-    }
 });
 
 app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
@@ -4749,77 +4565,6 @@ app.delete('/api/webauthn/remove', verifyToken, async (req, res) => {
     }
 });
 
-// 4. Verifica a digital/face lida e faz o Login
-app.post('/api/webauthn/verify-authentication', async (req, res) => {
-    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
-    
-    const { body, sessionId } = req.body;
-    const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
-
-    if (!expectedChallenge) return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
-
-    try {
-        const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
-        if (authenticators.length === 0) return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
-        
-        const authenticator = authenticators[0];
-        const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
-
-        const verification = await webauthnServer.verifyAuthenticationResponse({
-            response: body,
-            expectedChallenge,
-            expectedOrigin,
-            expectedRPID: rpID,
-            credential: {
-                id: authenticator.credential_id,
-                publicKey: publicKeyBuffer,
-                counter: Number(authenticator.counter),
-                transports: ['internal'],
-            },
-        });
-
-        if (verification.verified) {
-            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [verification.authenticationInfo.newCounter, authenticator.id]);
-            delete webauthnChallenges[`auth_${sessionId}`];
-
-            const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
-            const user = users[0];
-
-            if (user.status === 'blocked') return res.status(403).json({ message: "Conta bloqueada." });
-
-            if (user.role === 'admin' && user.is_two_factor_enabled) {
-                 const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
-                 return res.json({ twoFactorEnabled: true, token: tempToken });
-            }
-
-            const userPayload = { id: user.id, name: user.name, role: user.role };
-            const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
-            const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
-
-            const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
-            await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
-
-            const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
-            res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
-
-            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
-            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
-
-            // --- CORREÇÃO: Como o usuário acabou de usar a biometria, ele CLARAMENTE tem biometria! ---
-            const { password: _, two_factor_secret, ...userData } = user;
-            userData.has_biometrics = true; 
-            
-            res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
-        } else {
-            res.status(401).json({ message: "A verificação biométrica falhou." });
-        }
-    } catch (err) {
-        console.error("Erro no login biométrico:", err);
-        res.status(500).json({ message: `Falha na verificação: ${err.message}` });
-    }
-});
-
 app.put('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, email, role, password, cpf, phone } = req.body;
@@ -5355,20 +5100,6 @@ app.get('/api/collections', checkMaintenanceMode, async (req, res) => {
         console.error("Erro ao buscar categorias da coleção:", err);
         res.status(500).json({ message: "Erro ao buscar categorias." });
     }
-});
-
-// --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
-
-// (Admin) Pega TODOS os banners (incluindo futuros e expirados) para gestão
-app.get('/api/banners/admin', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        // Traz tudo ordenado para o admin ver o calendário
-        const [banners] = await db.query("SELECT * FROM banners ORDER BY display_order ASC, start_date DESC");
-        res.json(banners);
-    } catch (err) {
-        console.error("Erro ao buscar banners (admin):", err);
-        res.status(500).json({ message: "Erro ao buscar banners." });
-    }
 });
 
 // --- ROTAS DE GERENCIAMENTO DE BANNERS (Admin & Público) ---
@@ -6429,16 +6160,6 @@ app.post('/api/users/:id/send-email', verifyToken, verifyAdmin, async (req, res)
     } catch (err) {
         console.error(`Erro ao enviar e-mail direto para o usuário ${id}:`, err);
         res.status(500).json({ message: "Erro interno ao enviar o e-mail." });
-    }
-});
-
-app.get('/api/newsletter/subscribers', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const [subscribers] = await db.query("SELECT * FROM newsletter_subscribers ORDER BY created_at DESC");
-        res.json(subscribers);
-    } catch (err) {
-        console.error("Erro ao listar inscritos:", err);
-        res.status(500).json({ message: "Erro ao buscar lista de e-mails." });
     }
 });
 
