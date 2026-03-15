@@ -2174,8 +2174,63 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+const createWishlistPromoEmail = (customerName, products) => {
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    
+    // Gera o HTML para a lista de produtos (limitado a 5 para não quebrar o email, com link "ver mais" se tiver muitos)
+    const displayProducts = products.slice(0, 5);
+    const remainingCount = products.length - 5;
 
+    const productsHtml = displayProducts.map(p => {
+        const originalPrice = parseFloat(p.price);
+        const salePrice = parseFloat(p.sale_price);
+        const discount = Math.round(((originalPrice - salePrice) / originalPrice) * 100);
 
+        return `
+            <div style="background-color: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 15px; border: 1px solid #374151; display: flex;">
+                <div style="width: 100px; height: 100px; padding: 10px; flex-shrink: 0; background-color: #f9fafb;">
+                    <img src="${getFirstImage(p.images)}" alt="${p.name}" style="width: 100%; height: 100%; object-fit: contain; display: block;">
+                </div>
+                <div style="padding: 10px 15px; flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <h3 style="color: #111827; font-size: 14px; margin: 0 0 5px 0; font-weight: 600;">${p.name}</h3>
+                    <div style="font-size: 12px; color: #6B7280; text-decoration: line-through;">R$ ${originalPrice.toFixed(2).replace('.', ',')}</div>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 2px;">
+                        <div style="color: #D4AF37; font-size: 16px; font-weight: bold;">R$ ${salePrice.toFixed(2).replace('.', ',')}</div>
+                        <div style="background-color: #059669; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold;">-${discount}%</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const moreItemsHtml = remainingCount > 0 
+        ? `<p style="text-align: center; color: #9CA3AF; font-size: 12px; margin-top: 10px;">E mais ${remainingCount} itens em oferta...</p>` 
+        : '';
+
+    const content = `
+        <div style="text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;">
+            <div style="margin-bottom: 20px;">
+                <span style="background-color: #D4AF37; color: #000; padding: 4px 12px; border-radius: 50px; font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Alerta de Ofertas</span>
+            </div>
+            <h1 style="color: #ffffff; font-size: 22px; margin-bottom: 10px; font-weight: 300;">Sua Lista de Desejos está brilhando! ✨</h1>
+            <p style="color: #9CA3AF; font-size: 15px; margin-bottom: 30px; line-height: 1.5;">Olá, ${customerName}. Selecionamos as melhores oportunidades dos itens que você salvou. Aproveite antes que o estoque acabe!</p>
+            
+            <div style="text-align: left; max-width: 400px; margin: 0 auto;">
+                ${productsHtml}
+                ${moreItemsHtml}
+            </div>
+            
+            <div style="margin-top: 30px; padding: 0 20px 20px;">
+                <a href="${appUrl}/#wishlist" target="_blank" style="display: block; width: 100%; max-width: 250px; margin: 0 auto; padding: 14px 0; background-color: #D4AF37; color: #000; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; text-align: center; transition: background 0.3s;">
+                    Ver Minha Lista Completa
+                </a>
+            </div>
+            
+            <p style="color: #6B7280; font-size: 12px; margin-top: 20px;">Estas ofertas são por tempo limitado.</p>
+        </div>
+    `;
+    return createEmailBase(content);
+};
 
 // --- FUNÇÃO PARA NOTIFICAR USUÁRIOS DA WISHLIST (AGRUPADA) ---
 const notifyWishlistUsers = async (productIds, connection) => {
