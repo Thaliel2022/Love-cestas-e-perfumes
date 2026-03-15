@@ -1978,6 +1978,92 @@ app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), asy
     }
 });
 
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body; // variation object is passed for clothing
+
+    // Add initial log
+    console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
+    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
+
+    if (!productId || newStock === undefined || newStock < 0) {
+        console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
+        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        console.log('[STOCK_UPDATE] Transaction started for product:', productId);
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            console.error('[STOCK_UPDATE] Product not found:', productId);
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+        console.log('[STOCK_UPDATE] Product found:', { id: product.id, type: product.product_type });
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                 console.error('[STOCK_UPDATE] Missing variation details for clothing:', { productId, variation });
+                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+            console.log('[STOCK_UPDATE] Processing clothing variation update. Target variation:', variation);
+
+            let variations;
+            try {
+                variations = JSON.parse(product.variations || '[]');
+                console.log('[STOCK_UPDATE] Variations parsed from DB:', variations);
+            } catch (parseError) {
+                console.error('[STOCK_UPDATE] Failed to parse variations JSON from DB:', product.variations, parseError);
+                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
+            }
+
+            // More robust findIndex: Check for ID if available, otherwise color/size
+            const variationIndex = variations.findIndex(v =>
+                (variation.id && v.id === variation.id) || // Prefer ID if present
+                (v.color === variation.color && v.size === variation.size) // Fallback to color/size
+            );
+
+            if (variationIndex === -1) {
+                console.error(`[STOCK_UPDATE] Variation not found in DB variations array. Target: ${JSON.stringify(variation)}, DB Variations: ${JSON.stringify(variations)}`);
+                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
+            }
+            console.log(`[STOCK_UPDATE] Variation found at index ${variationIndex}. Updating stock to ${newStock}.`);
+
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            // Use the corrected reduce from the previous step
+            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+            console.log(`[STOCK_UPDATE] New total stock calculated: ${totalStock}`);
+
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            console.log('[STOCK_UPDATE] Clothing product stock updated in DB.');
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
+
+        } else { // Perfume or other type
+             console.log(`[STOCK_UPDATE] Processing simple stock update for product type: ${product.product_type}`);
+             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+             console.log('[STOCK_UPDATE] Simple product stock updated in DB.');
+             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
+        }
+
+        await connection.commit();
+        console.log('[STOCK_UPDATE] Transaction committed successfully for product:', productId);
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        console.error("[STOCK_UPDATE] Error during stock update, rolling back transaction:", err); // Log the actual error
+        await connection.rollback();
+        // Send back a more specific error if available
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        if (connection) {
+            connection.release();
+            console.log('[STOCK_UPDATE] DB connection released for product:', productId);
+        }
+    }
+});
+
 // 3. Promoções em Massa (Bloqueado)
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
     try {
@@ -2112,91 +2198,6 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
         console.error(error.stack || error);
         res.status(500).json({ message: `Erro Servidor: ${error.message}` });
     }
-});
-app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
-    const { productId, newStock, variation } = req.body; // variation object is passed for clothing
-
-    // Add initial log
-    console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
-    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
-
-    if (!productId || newStock === undefined || newStock < 0) {
-        console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
-        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        console.log('[STOCK_UPDATE] Transaction started for product:', productId);
-
-        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
-        if (products.length === 0) {
-            console.error('[STOCK_UPDATE] Product not found:', productId);
-            throw new Error("Produto não encontrado.");
-        }
-        const product = products[0];
-        console.log('[STOCK_UPDATE] Product found:', { id: product.id, type: product.product_type });
-
-        if (product.product_type === 'clothing') {
-            if (!variation || !variation.color || !variation.size) {
-                 console.error('[STOCK_UPDATE] Missing variation details for clothing:', { productId, variation });
-                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
-            }
-            console.log('[STOCK_UPDATE] Processing clothing variation update. Target variation:', variation);
-
-            let variations;
-            try {
-                variations = JSON.parse(product.variations || '[]');
-                console.log('[STOCK_UPDATE] Variations parsed from DB:', variations);
-            } catch (parseError) {
-                console.error('[STOCK_UPDATE] Failed to parse variations JSON from DB:', product.variations, parseError);
-                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
-            }
-
-            // More robust findIndex: Check for ID if available, otherwise color/size
-            const variationIndex = variations.findIndex(v =>
-                (variation.id && v.id === variation.id) || // Prefer ID if present
-                (v.color === variation.color && v.size === variation.size) // Fallback to color/size
-            );
-
-            if (variationIndex === -1) {
-                console.error(`[STOCK_UPDATE] Variation not found in DB variations array. Target: ${JSON.stringify(variation)}, DB Variations: ${JSON.stringify(variations)}`);
-                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
-            }
-            console.log(`[STOCK_UPDATE] Variation found at index ${variationIndex}. Updating stock to ${newStock}.`);
-
-            variations[variationIndex].stock = parseInt(newStock, 10);
-            // Use the corrected reduce from the previous step
-            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-            console.log(`[STOCK_UPDATE] New total stock calculated: ${totalStock}`);
-
-            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
-            console.log('[STOCK_UPDATE] Clothing product stock updated in DB.');
-            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
-
-        } else { // Perfume or other type
-             console.log(`[STOCK_UPDATE] Processing simple stock update for product type: ${product.product_type}`);
-             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
-             console.log('[STOCK_UPDATE] Simple product stock updated in DB.');
-             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
-        }
-
-        await connection.commit();
-        console.log('[STOCK_UPDATE] Transaction committed successfully for product:', productId);
-        res.json({ message: "Estoque atualizado com sucesso!" });
-
-    } catch (err) {
-        console.error("[STOCK_UPDATE] Error during stock update, rolling back transaction:", err); // Log the actual error
-        await connection.rollback();
-        // Send back a more specific error if available
-        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
-    } finally {
-        if (connection) {
-            connection.release();
-            console.log('[STOCK_UPDATE] DB connection released for product:', productId);
-        }
-    }
 });
 
 // 2. Edição de Produto
