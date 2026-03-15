@@ -4646,20 +4646,31 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
+    // --- NOVO: Estado para "Lembrar meu e-mail" ---
+    const [rememberEmail, setRememberEmail] = useState(false);
+
     // Estados para o fluxo 2FA
     const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
     const [twoFactorCode, setTwoFactorCode] = useState('');
     const [tempAuthToken, setTempAuthToken] = useState('');
 
-    // --- NOVO: Estado para controle de exibição do botão de Biometria ---
+    // Estado para controle de exibição do botão de Biometria
     const [hasBiometrics, setHasBiometrics] = useState(false);
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     
-    // --- NOVO: Efeito que verifica se o e-mail digitado possui biometria cadastrada ---
+    // --- NOVO: Carrega o e-mail salvo ao abrir a página ---
+    useEffect(() => {
+        const savedEmail = localStorage.getItem('lovecestas_saved_email');
+        if (savedEmail) {
+            setEmail(savedEmail);
+            setRememberEmail(true);
+        }
+    }, []);
+
+    // Efeito que verifica se o e-mail digitado possui biometria cadastrada
     useEffect(() => {
         const checkBiometrics = async () => {
-            // Só faz a verificação se for um e-mail com formato válido para evitar requisições inúteis
             if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
                 try {
                     const response = await apiService('/webauthn/check', 'POST', { email });
@@ -4672,7 +4683,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             }
         };
 
-        // Usa um "debounce" de 500ms para não travar o celular enquanto a pessoa digita
         const timeoutId = setTimeout(() => {
             checkBiometrics();
         }, 500);
@@ -4680,7 +4690,15 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         return () => clearTimeout(timeoutId);
     }, [email]);
 
-    // --- Lógica de Navegação Pós-Login ---
+    // --- NOVO: Função para salvar/limpar o e-mail na memória ---
+    const handleSaveEmailChoice = () => {
+        if (rememberEmail && email) {
+            localStorage.setItem('lovecestas_saved_email', email);
+        } else {
+            localStorage.removeItem('lovecestas_saved_email');
+        }
+    };
+
     const handleSuccessRedirect = () => {
         if (redirectPath) {
             onNavigate(redirectPath);
@@ -4695,6 +4713,9 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         setIsLoading(true);
         try {
             const response = await login(email, password);
+
+            // Grava a decisão de lembrar o e-mail
+            handleSaveEmailChoice();
 
             if (response.twoFactorEnabled) {
                 setTempAuthToken(response.token);
@@ -4735,7 +4756,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         }
     };
 
-    // --- LÓGICA DE LOGIN BIOMÉTRICO ---
     const handleBiometricLogin = async () => {
         try {
             const startAuth = window.SimpleWebAuthnBrowser ? window.SimpleWebAuthnBrowser.startAuthentication : null;
@@ -4763,6 +4783,9 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                 body: authResponse,
                 sessionId: optionsResp.sessionId
             });
+
+            // Grava a decisão de lembrar o e-mail
+            handleSaveEmailChoice();
 
             if (verificationResp.twoFactorEnabled) {
                 setTempAuthToken(verificationResp.token);
@@ -4815,7 +4838,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                 </div>
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
-                            <form onSubmit={handleLogin} className="space-y-5"> 
+                            <form onSubmit={handleLogin} className="space-y-4"> 
                                 <div>
                                     <label className="text-xs sm:text-sm font-medium text-gray-400 mb-1 block">Email</label>
                                     <input type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required className="w-full px-3 py-2.5 sm:px-4 sm:py-3 bg-gray-800 border border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-amber-400 text-sm sm:text-base" />
@@ -4829,12 +4852,26 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                         </button>
                                     </div>
                                 </div>
-                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg">
+
+                                {/* --- NOVO: Checkbox de Lembrar E-mail --- */}
+                                <div className="flex items-center mb-2">
+                                    <input 
+                                        type="checkbox" 
+                                        id="remember-email"
+                                        checked={rememberEmail} 
+                                        onChange={(e) => setRememberEmail(e.target.checked)} 
+                                        className="h-4 w-4 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-gray-900 cursor-pointer"
+                                    />
+                                    <label htmlFor="remember-email" className="ml-2 block text-sm text-gray-400 cursor-pointer hover:text-white transition-colors select-none">
+                                        Lembrar meu e-mail
+                                    </label>
+                                </div>
+
+                                <button type="submit" disabled={isLoading} className="w-full py-2.5 sm:py-3 px-4 bg-amber-400 text-black font-bold rounded-md hover:bg-amber-300 transition flex justify-center items-center disabled:opacity-60 text-base sm:text-lg mt-2">
                                      {isLoading ? <SpinnerIcon /> : 'Entrar com Senha'}
                                 </button>
                             </form>
 
-                            {/* --- BOTÃO DE LOGIN BIOMÉTRICO (AGORA CONDICIONAL) --- */}
                             <AnimatePresence>
                                 {hasBiometrics && (
                                     <motion.div 
