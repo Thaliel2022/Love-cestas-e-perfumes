@@ -1792,40 +1792,6 @@ app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
 });
 
 app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
-        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
-        
-        if (ordersWithProduct.length === 0) {
-            return res.json([]);
-        }
-
-        const orderIds = ordersWithProduct.map(o => o.order_id);
-
-        const sqlFindRelated = `
-            SELECT 
-                p.*,
-                COUNT(oi.product_id) AS purchase_frequency
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id IN (?)
-            AND oi.product_id != ?
-            AND p.is_active = 1
-            GROUP BY oi.product_id
-            ORDER BY purchase_frequency DESC
-            LIMIT 8;
-        `;
-        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
-        res.json(relatedProducts);
-
-    } catch (err) {
-        console.error("Erro ao buscar produtos relacionados por compra:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
-    }
-});
-
-app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
     const { id } = req.params;
     try {
         const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
@@ -1857,52 +1823,6 @@ app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (re
         console.error("Erro ao buscar produtos relacionados por compra:", err);
         res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
     }
-});
-
-app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
-    const LOW_STOCK_THRESHOLD = 5;
-    try {
-        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
-
-        const lowStockItems = [];
-
-        for (const product of allProducts) {
-            if (product.product_type === 'clothing') {
-                try {
-                    const variations = JSON.parse(product.variations || '[]');
-                    for (const v of variations) {
-                        if (v.stock < LOW_STOCK_THRESHOLD) {
-                            lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: v.images,
-                                product_type: 'clothing',
-                                variation: v // Retorna o objeto da variação
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
-                }
-            } else { // perfume
-                if (product.stock < LOW_STOCK_THRESHOLD) {
-                    lowStockItems.push({
-                        id: product.id,
-                        name: product.name,
-                        stock: product.stock,
-                        images: product.images,
-                        product_type: 'perfume',
-                        variation: null
-                    });
-                }
-            }
-        }
-        res.json(lowStockItems);
-    } catch (err) {
-        console.error("Erro ao buscar produtos com estoque baixo:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
-    }
 });
 
 // --- TAREFA AUTOMÁTICA (CRON JOB) ---
