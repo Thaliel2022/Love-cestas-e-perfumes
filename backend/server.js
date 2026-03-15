@@ -2310,88 +2310,142 @@ const notifyWishlistUsers = async (productIds, connection) => {
 };
 // 3. Promoções em Massa (Bloqueado)
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado." });
-    }
-    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
-        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
-    }
-
-    const connection = await db.getConnection();
     try {
-        await connection.beginTransaction();
+        const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
 
-        const placeholders = productIds.map(() => '?').join(',');
-        const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
-
-        const productsToNotify = [];
-
-        for (const product of products) {
-            const originalPrice = parseFloat(product.price);
-            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
-            const salePrice = (originalPrice - discountValue).toFixed(2);
-            
-            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
-
-            await connection.query(
-                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
-                [salePrice, finalDate, product.id]
-            );
-            
-            // Adiciona à lista de notificação
-            productsToNotify.push(product.id);
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ message: "Nenhum produto selecionado." });
+        }
+        
+        const discount = parseFloat(discountPercentage);
+        if (isNaN(discount) || discount <= 0 || discount >= 100) {
+            return res.status(400).json({ message: "Porcentagem de desconto inválida." });
         }
 
-        await connection.commit();
-        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`);
-        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
-        // Chama a função de notificação
-        if (productsToNotify.length > 0) {
-            notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
+            const placeholders = productIds.map(() => '?').join(',');
+            // CORREÇÃO: Buscando product_type e variations para tratar roupas corretamente
+            const [products] = await connection.query(`SELECT id, price, product_type, variations FROM products WHERE id IN (${placeholders})`, productIds);
+
+            const productsToNotify = [];
+
+            for (const product of products) {
+                const originalPrice = parseFloat(product.price);
+                const discountValue = originalPrice * (discount / 100);
+                const salePrice = (originalPrice - discountValue).toFixed(2);
+
+                const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
+
+                // CORREÇÃO LÓGICA: Se for roupa, precisa atualizar a flag is_promo dentro do JSON de variações
+                if (product.product_type === 'clothing') {
+                    let variations = [];
+                    try {
+                        variations = JSON.parse(product.variations || '[]');
+                    } catch (e) {
+                        console.error(`Erro ao parsear variações do produto ${product.id}`, e);
+                    }
+                    
+                    const updatedVariations = variations.map(v => ({
+                        ...v,
+                        is_promo: true
+                    }));
+
+                    await connection.query(
+                        "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ?, variations = ? WHERE id = ?",
+                        [salePrice, finalDate, JSON.stringify(updatedVariations), product.id]
+                    );
+                } else {
+                    await connection.query(
+                        "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
+                        [salePrice, finalDate, product.id]
+                    );
+                }
+
+                // Adiciona à lista de notificação
+                productsToNotify.push(product.id);
+            }
+
+            await connection.commit();
+            logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discount}% em ${products.length} produtos.`, req.ip);
+            res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+
+            // Chama a função de notificação
+            if (productsToNotify.length > 0) {
+                notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
+            }
+
+        } catch (err) {
+            await connection.rollback();
+            console.error("Erro na promoção em massa (transação):", err);
+            res.status(500).json({ message: "Erro interno ao aplicar a promoção no banco de dados." });
+        } finally {
+            connection.release();
         }
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro na promoção em massa:", err);
-        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
-    } finally {
-        connection.release();
+    } catch (error) {
+        console.error("Erro fatal na rota de promoção em massa:", error);
+        res.status(500).json({ message: "Ocorreu um erro interno no servidor ao tentar aplicar a promoção." });
     }
 });
 
 // --- ROTA PARA ENCERRAR PROMOÇÕES SELECIONADAS (PUT) ---
 app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
-    }
-
-    const connection = await db.getConnection();
     try {
-        await connection.beginTransaction();
-        
-        // Atualiza apenas os produtos selecionados (IN (?))
-        // Define is_on_sale = 0, zera o preço promocional e a data
-        const placeholders = productIds.map(() => '?').join(',');
-        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
-        
-        const [result] = await connection.query(sql, productIds);
+        const { productIds } = req.body;
 
-        await connection.commit();
-        
-        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`);
-        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
+        }
 
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao encerrar promoções selecionadas:", err);
-        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
-    } finally {
-        connection.release();
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            
+            const placeholders = productIds.map(() => '?').join(',');
+            
+            // Atualiza os campos base de todos os produtos selecionados
+            const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
+            const [result] = await connection.query(sql, productIds);
+
+            // CORREÇÃO LÓGICA: Atualiza as variações (is_promo: false) de itens que são roupas
+            const [clothingProducts] = await connection.query(`SELECT id, variations FROM products WHERE id IN (${placeholders}) AND product_type = 'clothing'`, productIds);
+            
+            for (const product of clothingProducts) {
+                let variations = [];
+                try {
+                    variations = JSON.parse(product.variations || '[]');
+                } catch (e) {
+                    console.error(`Erro ao parsear variações do produto ${product.id}`, e);
+                }
+                
+                const updatedVariations = variations.map(v => ({
+                    ...v,
+                    is_promo: false
+                }));
+
+                await connection.query(
+                    "UPDATE products SET variations = ? WHERE id = ?",
+                    [JSON.stringify(updatedVariations), product.id]
+                );
+            }
+
+            await connection.commit();
+            
+            logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, req.ip);
+            res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
+
+        } catch (err) {
+            await connection.rollback();
+            console.error("Erro ao encerrar promoções selecionadas (transação):", err);
+            res.status(500).json({ message: "Erro interno ao encerrar as promoções no banco de dados." });
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error("Erro fatal na rota de encerrar promoção em massa:", error);
+        res.status(500).json({ message: "Ocorreu um erro interno no servidor ao tentar encerrar as promoções." });
     }
 });
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
