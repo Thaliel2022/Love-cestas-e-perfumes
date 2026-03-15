@@ -2336,10 +2336,10 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
                 const originalPrice = parseFloat(product.price);
                 const discountValue = originalPrice * (discount / 100);
                 const salePrice = (originalPrice - discountValue).toFixed(2);
-
+                
                 const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
 
-                // CORREÇÃO LÓGICA: Se for roupa, precisa atualizar a flag is_promo dentro do JSON de variações
+                // CORREÇÃO LÓGICA: Se for roupa, atualiza a flag is_promo nas variações JSON
                 if (product.product_type === 'clothing') {
                     let variations = [];
                     try {
@@ -2363,16 +2363,14 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
                         [salePrice, finalDate, product.id]
                     );
                 }
-
-                // Adiciona à lista de notificação
+                
                 productsToNotify.push(product.id);
             }
 
             await connection.commit();
-            logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discount}% em ${products.length} produtos.`, req.ip);
+            logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discount}% em ${products.length} produtos.`);
             res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
 
-            // Chama a função de notificação
             if (productsToNotify.length > 0) {
                 notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
             }
@@ -2380,7 +2378,7 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         } catch (err) {
             await connection.rollback();
             console.error("Erro na promoção em massa (transação):", err);
-            res.status(500).json({ message: "Erro interno ao aplicar a promoção no banco de dados." });
+            res.status(500).json({ message: "Erro ao aplicar promoção em massa no banco de dados." });
         } finally {
             connection.release();
         }
@@ -2405,7 +2403,7 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
             
             const placeholders = productIds.map(() => '?').join(',');
             
-            // Atualiza os campos base de todos os produtos selecionados
+            // Atualiza os campos base de todos os produtos
             const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
             const [result] = await connection.query(sql, productIds);
 
@@ -2433,7 +2431,7 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
 
             await connection.commit();
             
-            logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, req.ip);
+            logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`);
             res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
 
         } catch (err) {
