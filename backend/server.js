@@ -1792,37 +1792,38 @@ app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
 });
 
 app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
-        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
-        
-        if (ordersWithProduct.length === 0) {
-            return res.json([]);
-        }
+    const { id } = req.params;
+    try {
+        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
+        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
+        
+        if (ordersWithProduct.length === 0) {
+            return res.json([]);
+        }
 
-        const orderIds = ordersWithProduct.map(o => o.order_id);
+        const orderIds = ordersWithProduct.map(o => o.order_id);
 
-        const sqlFindRelated = `
-            SELECT 
-                p.*,
-                COUNT(oi.product_id) AS purchase_frequency
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id IN (?)
-            AND oi.product_id != ?
-            AND p.is_active = 1
-            GROUP BY oi.product_id
-            ORDER BY purchase_frequency DESC
-            LIMIT 8;
-        `;
-        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
-        res.json(relatedProducts);
+        const sqlFindRelated = `
+            SELECT 
+                p.*,
+                COUNT(oi.product_id) AS purchase_frequency
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id IN (?)
+            AND oi.product_id != ?
+            AND p.is_active = 1
+            GROUP BY p.id
+            ORDER BY purchase_frequency DESC
+            LIMIT 8;
+        `;
+        // Correção: Alterado GROUP BY oi.product_id para GROUP BY p.id para respeitar o ONLY_FULL_GROUP_BY do MySQL
+        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
+        res.json(relatedProducts);
 
-    } catch (err) {
-        console.error("Erro ao buscar produtos relacionados por compra:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
-    }
+    } catch (err) {
+        console.error("Erro ao buscar produtos relacionados por compra:", err);
+        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
+    }
 });
 
 // --- TAREFA AUTOMÁTICA (CRON JOB) ---
@@ -2276,9 +2277,16 @@ app.put('/api/products/:id', verifyToken, verifyAdmin, validate(productSchema), 
 app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
     try {
         await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
-        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        
+        const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`, clientIp);
+        
         res.json({ message: "Produto deletado com sucesso." });
     } catch (err) {
+        // Correção: Trata o erro de produto atrelado a um pedido (Chave Estrangeira)
+        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
+            return res.status(409).json({ message: "Este produto está vinculado a um pedido e não pode ser excluído. Em vez disso, clique em Editar e desative-o." });
+        }
         console.error("Erro ao deletar produto:", err);
         res.status(500).json({ message: "Erro interno ao deletar produto." });
     }
