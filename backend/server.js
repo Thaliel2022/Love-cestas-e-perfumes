@@ -2174,6 +2174,149 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado." });
+    }
+    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
+        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const placeholders = productIds.map(() => '?').join(',');
+        const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
+
+        const productsToNotify = [];
+
+        for (const product of products) {
+            const originalPrice = parseFloat(product.price);
+            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
+            const salePrice = (originalPrice - discountValue).toFixed(2);
+            
+            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
+
+            await connection.query(
+                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
+                [salePrice, finalDate, product.id]
+            );
+            
+            productsToNotify.push(product.id);
+        }
+
+        await connection.commit();
+        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+
+        if (productsToNotify.length > 0) {
+            notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
+        }
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro na promoção em massa:", err);
+        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
+    const { productIds } = req.body;
+
+    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        
+        const placeholders = productIds.map(() => '?').join(',');
+        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
+        
+        const [result] = await connection.query(sql, productIds);
+
+        await connection.commit();
+        
+        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
+        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
+
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao encerrar promoções selecionadas:", err);
+        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
+    } finally {
+        connection.release();
+    }
+});
+
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body;
+
+    if (!productId || newStock === undefined || newStock < 0) {
+        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+
+            let variations;
+            try {
+                variations = JSON.parse(product.variations || '[]');
+            } catch (parseError) {
+                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
+            }
+
+            const variationIndex = variations.findIndex(v =>
+                (variation.id && v.id === variation.id) || 
+                (v.color === variation.color && v.size === variation.size) 
+            );
+
+            if (variationIndex === -1) {
+                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
+            }
+
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
+
+        } else { 
+             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
+        }
+
+        await connection.commit();
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        if (connection) {
+            connection.release();
+        }
+    }
+});
+
 const createWishlistPromoEmail = (customerName, products) => {
     const appUrl = process.env.APP_URL || 'http://localhost:3000';
     
