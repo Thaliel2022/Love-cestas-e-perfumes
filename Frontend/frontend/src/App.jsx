@@ -10820,6 +10820,7 @@ const AdminProducts = ({ onNavigate }) => {
   const [bulkEndDate, setBulkEndDate] = useState('');
   const [isApplyingBulk, setIsApplyingBulk] = useState(false);
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
@@ -10935,12 +10936,69 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
+                setSearchTerm('');
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
           },
           { requiresAuth: true, confirmText: 'Deletar', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
+  };
+
+  // --- NOVA FUNÇÃO: Exclusão em Massa ---
+  const handleBulkDelete = () => {
+      if (selectedProducts.length === 0) return;
+      
+      confirmation.show(
+          `Tem certeza que deseja EXCLUIR permanentemente os ${selectedProducts.length} produto(s) selecionado(s)?`,
+          async () => {
+              try {
+                  await apiService('/products', 'DELETE', { ids: selectedProducts });
+                  notification.show(`${selectedProducts.length} produto(s) excluído(s) com sucesso.`);
+                  setSearchTerm('');
+                  setSelectedProducts([]);
+                  fetchProducts();
+              } catch (error) {
+                  notification.show(`Erro ao excluir produtos: ${error.message}`, 'error');
+              }
+          },
+          { requiresAuth: true, confirmText: 'Excluir Selecionados', confirmColor: 'bg-red-600 hover:bg-red-700' }
+      );
+  };
+
+  // --- NOVA FUNÇÃO: Ativação/Inativação em Massa ---
+  const handleBulkStatusUpdate = async (newStatus) => {
+      if (selectedProducts.length === 0) return;
+      const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
+
+      confirmation.show(
+          `Tem certeza que deseja ${actionText} os ${selectedProducts.length} produto(s) selecionado(s)?`,
+          async () => {
+              setIsUpdatingStatus(true);
+              try {
+                  const promises = selectedProducts.map(id => {
+                      const product = products.find(p => p.id === id);
+                      if (!product) return Promise.resolve();
+
+                      // Prepara payload enviando objeto completo modificado
+                      const payload = { ...product, is_active: newStatus ? 1 : 0 };
+                      if (payload.sale_end_date) {
+                          payload.sale_end_date = new Date(payload.sale_end_date).toISOString();
+                      }
+                      return apiService(`/products/${id}`, 'PUT', payload);
+                  });
+
+                  await Promise.all(promises);
+                  notification.show(`${selectedProducts.length} produto(s) atualizado(s) com sucesso!`);
+                  setSelectedProducts([]);
+                  fetchProducts();
+              } catch (error) {
+                  notification.show(`Erro ao atualizar status: ${error.message}`, 'error');
+              } finally {
+                  setIsUpdatingStatus(false);
+              }
+          },
+          { requiresAuth: true, confirmText: `Sim, ${actionText}`, confirmColor: newStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700' }
       );
   };
 
@@ -11017,6 +11075,10 @@ const AdminProducts = ({ onNavigate }) => {
           { requiresAuth: true, confirmText: 'Encerrar Promoções', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
   };
+
+  // Verificações lógicas para exibir botões apropriados na barra
+  const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
+  const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
 
   return (
     <div>
@@ -11103,30 +11165,52 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold">Gerenciar Produtos</h1>
             <div className="flex flex-wrap gap-2">
-                
-                {selectedProducts.length > 0 && (
-                    <>
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="bg-amber-500 text-black px-4 py-2 rounded-md hover:bg-amber-400 flex items-center space-x-2 font-bold animate-pulse">
-                            <SaleIcon className="h-5 w-5"/> <span>Aplicar Promoção ({selectedProducts.length})</span>
-                        </button>
-                        
-                        <button 
-                            onClick={handleClearSelectedPromotions} 
-                            disabled={isClearingPromos}
-                            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 flex items-center space-x-2 disabled:opacity-50"
-                            title="Remove a promoção apenas dos produtos selecionados"
-                        >
-                            {isClearingPromos ? <SpinnerIcon className="h-5 w-5"/> : <XMarkIcon className="h-5 w-5"/>}
-                            <span>Encerrar ({selectedProducts.length})</span>
-                        </button>
-                    </>
-                )}
-
-                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2">
+                <button onClick={() => handleOpenModal()} className="bg-gray-800 text-white px-4 py-2 rounded-md hover:bg-gray-900 flex items-center space-x-2 shadow-sm transition-colors">
                     <PlusIcon className="h-5 w-5"/> <span>Novo Produto</span>
                 </button>
             </div>
         </div>
+
+        {/* --- NOVA BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
+        <AnimatePresence>
+            {selectedProducts.length > 0 && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: -10 }}
+                    className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-3 sticky top-16 z-20 shadow-md"
+                >
+                    <div className="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                        <span className="bg-indigo-200 text-indigo-900 px-2.5 py-0.5 rounded-full">{selectedProducts.length}</span>
+                        itens selecionados
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {hasInactiveSelected && (
+                            <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                {isUpdatingStatus ? <SpinnerIcon className="h-3 w-3"/> : <CheckIcon className="h-3 w-3"/>} Ativar
+                            </button>
+                        )}
+                        {hasActiveSelected && (
+                            <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                                {isUpdatingStatus ? <SpinnerIcon className="h-3 w-3"/> : <XMarkIcon className="h-3 w-3"/>} Inativar
+                            </button>
+                        )}
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm">
+                            <SaleIcon className="h-3 w-3"/> Promoção
+                        </button>
+                        <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
+                            {isClearingPromos ? <SpinnerIcon className="h-3 w-3"/> : <XMarkIcon className="h-3 w-3"/>} Encerrar Promo
+                        </button>
+                        <button onClick={handleBulkDelete} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm">
+                            <TrashIcon className="h-3 w-3"/> Excluir
+                        </button>
+                        <button onClick={() => setSelectedProducts([])} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1">
+                            Cancelar
+                        </button>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
         
         <div className="mb-6">
             <input 
@@ -11167,8 +11251,8 @@ const AdminProducts = ({ onNavigate }) => {
                             const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                             
                             return (
-                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-amber-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
-                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} /></td>
+                                <tr key={p.id} className={`border-b ${selectedProducts.includes(p.id) ? 'bg-indigo-50' : ''} ${p.stock < LOW_STOCK_THRESHOLD ? 'bg-red-50' : ''}`}>
+                                    <td className="p-4"><input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="h-4 w-4 text-indigo-600 rounded focus:ring-indigo-500" /></td>
                                     <td className="p-4 flex items-center">
                                         <div className="w-10 h-10 mr-4 flex-shrink-0 bg-gray-200 rounded-md flex items-center justify-center">
                                             <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="max-h-full max-w-full object-contain" alt={p.name}/>
@@ -11226,11 +11310,11 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA COM O TIPO DO PRODUTO) --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN --- */}
             <div className="md:hidden">
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
-                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
+                        <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedProducts.length === filteredProducts.length} className="h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
                         Selecionar Todos
                      </label>
                      <span className="text-xs text-gray-500">{filteredProducts.length} itens</span>
@@ -11240,10 +11324,10 @@ const AdminProducts = ({ onNavigate }) => {
                     {filteredProducts.map(p => {
                         const isTimeLimited = p.is_on_sale && p.sale_end_date && new Date(p.sale_end_date).getTime() > new Date().getTime();
                         return (
-                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm ${selectedProducts.includes(p.id) ? 'border-amber-400 bg-amber-50' : ''}`}>
+                            <div key={p.id} className={`bg-white border rounded-lg p-4 shadow-sm transition-colors ${selectedProducts.includes(p.id) ? 'border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400' : ''}`}>
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center">
-                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-amber-500 focus:ring-amber-500"/>
+                                        <input type="checkbox" checked={selectedProducts.includes(p.id)} onChange={() => handleSelectProduct(p.id)} className="mr-4 h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"/>
                                         <img src={getFirstImage(p.images, 'https://placehold.co/40x40/222/fff?text=Img')} className="h-14 w-14 object-contain mr-3 bg-gray-100 rounded"/>
                                         <div>
                                             <p className="font-bold text-gray-900 line-clamp-1">{p.name}</p>
@@ -11251,9 +11335,7 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
-                                         {/* NOVO: Tag do Tipo de Produto */}
                                          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
                                          </span>
