@@ -2234,7 +2234,7 @@ const notifyWishlistUsers = async (productIds, connection) => {
 };
 // 3. Promoções em Massa (Bloqueado)
 app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
-    try {
+    try { // <-- NOVO TRY GLOBAL PARA PROTEGER A CONEXÃO
         const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
 
         if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
@@ -2251,6 +2251,7 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
             await connection.beginTransaction();
 
             const placeholders = productIds.map(() => '?').join(',');
+            // CORREÇÃO: Buscando product_type e variations para tratar roupas corretamente
             const [products] = await connection.query(`SELECT id, price, product_type, variations FROM products WHERE id IN (${placeholders})`, productIds);
 
             const productsToNotify = [];
@@ -2262,14 +2263,19 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
                 
                 const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
 
-                // Regra para aplicar is_promo nas variações (Roupas)
+                // CORREÇÃO LÓGICA: Se for roupa, atualiza a flag is_promo nas variações JSON
                 if (product.product_type === 'clothing') {
                     let variations = [];
-                    if (product.variations) {
-                        try { variations = JSON.parse(product.variations); } catch (e) {}
+                    try {
+                        variations = JSON.parse(product.variations || '[]');
+                    } catch (e) {
+                        console.error(`Erro ao parsear variações do produto ${product.id}`, e);
                     }
                     
-                    const updatedVariations = variations.map(v => ({ ...v, is_promo: true }));
+                    const updatedVariations = variations.map(v => ({
+                        ...v,
+                        is_promo: true
+                    }));
 
                     await connection.query(
                         "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ?, variations = ? WHERE id = ?",
@@ -2299,18 +2305,19 @@ app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) =
         } catch (err) {
             await connection.rollback();
             console.error("Erro na promoção em massa (transação):", err);
-            res.status(500).json({ message: "Erro ao aplicar promoção no banco de dados." });
+            res.status(500).json({ message: "Erro ao aplicar promoção em massa no banco de dados." });
         } finally {
             connection.release();
         }
     } catch (error) {
         console.error("Erro fatal na rota de promoção em massa:", error);
-        res.status(500).json({ message: "Ocorreu um erro interno no servidor ao tentar processar a requisição." });
+        res.status(500).json({ message: "Falha de comunicação com o banco de dados. Tente novamente." });
     }
 });
+
 // --- ROTA PARA ENCERRAR PROMOÇÕES SELECIONADAS (PUT) ---
 app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
-    try {
+    try { // <-- NOVO TRY GLOBAL PARA PROTEGER A CONEXÃO
         const { productIds } = req.body;
 
         if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
@@ -2323,18 +2330,25 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
             
             const placeholders = productIds.map(() => '?').join(',');
             
+            // Atualiza os campos base de todos os produtos
             const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
             const [result] = await connection.query(sql, productIds);
 
+            // CORREÇÃO LÓGICA: Atualiza as variações (is_promo: false) de itens que são roupas
             const [clothingProducts] = await connection.query(`SELECT id, variations FROM products WHERE id IN (${placeholders}) AND product_type = 'clothing'`, productIds);
             
             for (const product of clothingProducts) {
                 let variations = [];
-                if (product.variations) {
-                    try { variations = JSON.parse(product.variations); } catch (e) {}
+                try {
+                    variations = JSON.parse(product.variations || '[]');
+                } catch (e) {
+                    console.error(`Erro ao parsear variações do produto ${product.id}`, e);
                 }
                 
-                const updatedVariations = variations.map(v => ({ ...v, is_promo: false }));
+                const updatedVariations = variations.map(v => ({
+                    ...v,
+                    is_promo: false
+                }));
 
                 await connection.query(
                     "UPDATE products SET variations = ? WHERE id = ?",
@@ -2358,7 +2372,7 @@ app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, 
         }
     } catch (error) {
         console.error("Erro fatal na rota de encerrar promoção em massa:", error);
-        res.status(500).json({ message: "Ocorreu um erro interno no servidor ao tentar encerrar as promoções." });
+        res.status(500).json({ message: "Falha de comunicação com o banco de dados. Tente novamente." });
     }
 });
 app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
