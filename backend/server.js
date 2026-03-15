@@ -19,6 +19,7 @@ const qrcode = require('qrcode');
 const webpush = require('web-push');
 const { z } = require('zod'); // Substitui express-validator
 const compression = require('compression'); 
+const { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } = require('@simplewebauthn/server');
 
 
 // Carrega variáveis de ambiente do arquivo .env
@@ -47,6 +48,11 @@ const ORDER_STATUS = {
     CANCELLED: 'Cancelado',
     REFUNDED: 'Reembolsado'
 };
+
+// --- Memória Temporária para Biometria ---
+// Armazena os desafios criptográficos baseados no ID do usuário ou sessão
+const webauthnChallenges = {};
+
 // --- Configuração das Chaves de Notificação ---
 // Adicione este bloco LOGO APÓS os imports e ANTES das rotas
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
@@ -382,71 +388,85 @@ const orderSchema = z.object({
     })
 });
 
-// ... (Resto dos middlewares existentes: verifyToken, verifyAdmin, etc.)
-
 // --- FUNÇÃO PARA INICIALIZAR DADOS ESSENCIAIS ---
 const initializeData = async () => {
-    const connection = await db.getConnection();
-    try {
-        console.log('Verificando dados iniciais...');
+    const connection = await db.getConnection();
+    try {
+        console.log('Verificando dados iniciais e tabelas...');
 
-        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
-        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
-        if (categories[0].count === 0) {
-            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
-            const initialCategories = [
-                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
-                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
-                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
-                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
-                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
-                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
-            ];
-            
-            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) VALUES ?";
-            const values = initialCategories.map((c, index) => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section, index]);
-            await connection.query(sql, [values]);
-            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
-        } else {
-            console.log('Tabela collection_categories já populada.');
-        }
+        // --- NOVO: GARANTE QUE A TABELA DE BIOMETRIA EXISTA ---
+        await connection.query(`
+            CREATE TABLE IF NOT EXISTS \`user_authenticators\` (
+              \`id\` int(11) NOT NULL AUTO_INCREMENT,
+              \`user_id\` int(11) NOT NULL,
+              \`credential_id\` varchar(255) NOT NULL,
+              \`credential_public_key\` text NOT NULL,
+              \`counter\` bigint(20) NOT NULL DEFAULT 0,
+              \`transports\` varchar(255) DEFAULT NULL,
+              \`created_at\` timestamp NOT NULL DEFAULT current_timestamp(),
+              PRIMARY KEY (\`id\`),
+              UNIQUE KEY \`credential_id\` (\`credential_id\`),
+              CONSTRAINT \`fk_user_auth\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\` (\`id\`) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        `);
 
-        // --- SEED DE BANNERS ---
-        const [banners] = await connection.query("SELECT COUNT(*) as count FROM banners");
-        if (banners[0].count === 0) {
-            console.log('Tabela banners está vazia. Populando com banner principal...');
-            const mainBanner = [
-                'Elegância que Veste e Perfuma',
-                'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
-                'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
-                null, // image_url_mobile
-                '#products',
-                'Explorar Coleção',
-                1, // cta_enabled
-                1, // is_active
-                0  // display_order
-            ];
-            const sql = "INSERT INTO banners (title, subtitle, image_url, image_url_mobile, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            await connection.query(sql, mainBanner);
-            console.log('Banner principal inserido com sucesso.');
-        } else {
-            console.log('Tabela banners já populada.');
-        }
+        // --- SEED DE CATEGORIAS DA COLEÇÃO ---
+        const [categories] = await connection.query("SELECT COUNT(*) as count FROM collection_categories");
+        if (categories[0].count === 0) {
+            console.log('Tabela collection_categories está vazia. Populando com dados iniciais...');
+            const initialCategories = [
+                { name: "Perfumes Masculino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372606/njzkrlzyiy3mwp4j5b1x.png", filter: "Perfumes Masculino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Perfumes Feminino", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372618/h8uhenzasbkwpd7afygw.png", filter: "Perfumes Feminino", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Cestas de Perfumes", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372566/gsliungulolshrofyc85.png", filter: "Cestas de Perfumes", product_type_association: 'perfume', menu_section: 'Perfumaria' },
+                { name: "Blusas", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372642/ruxsqqumhkh228ga7n5m.png", filter: "Blusas", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Blazers", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372598/qblmaygxkv5runo5og8n.png", filter: "Blazers", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372520/gobrpsw1chajxuxp6anl.png", filter: "Calças", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372524/rppowup5oemiznvjnltr.png", filter: "Shorts", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Saias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752373223/etkzxqvlyp8lsh81yyyl.png", filter: "Saias", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Vestidos", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372516/djbkd3ygkkr6tvfujmbd.png", filter: "Vestidos", product_type_association: 'clothing', menu_section: 'Roupas' },
+                { name: "Conjunto de Calças", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372547/xgugdhfzusrkxqiat1jb.png", filter: "Conjunto de Calças", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Conjunto de Shorts", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372530/ieridlx39jf9grfrpsxz.png", filter: "Conjunto de Shorts", product_type_association: 'clothing', menu_section: 'Conjuntos' },
+                { name: "Lingerie", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372583/uetn3vaw5gwyvfa32h6o.png", filter: "Lingerie", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Moda Praia", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372574/c5jie2jdqeclrj94ecmh.png", filter: "Moda Praia", product_type_association: 'clothing', menu_section: 'Moda Íntima' },
+                { name: "Sandálias", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372591/ecpe7ezxjfeuusu4ebjx.png", filter: "Sandálias", product_type_association: 'clothing', menu_section: 'Calçados' },
+                { name: "Presente", image: "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752372557/l6milxrvjhttpmpaotfl.png", filter: "Presente", product_type_association: 'clothing', menu_section: 'Acessórios' },
+            ];
+            
+            const sql = "INSERT INTO collection_categories (name, image, filter, is_active, product_type_association, menu_section, display_order) VALUES ?";
+            const values = initialCategories.map((c, index) => [c.name, c.image, c.filter, 1, c.product_type_association, c.menu_section, index]);
+            await connection.query(sql, [values]);
+            console.log(`${initialCategories.length} categorias de coleção inseridas com novos campos.`);
+        } else {
+            console.log('Tabela collection_categories já populada.');
+        }
 
-    } catch (err) {
-        console.error("Erro ao inicializar dados:", err);
-    } finally {
-        connection.release();
-    }
+        // --- SEED DE BANNERS ---
+        const [banners] = await connection.query("SELECT COUNT(*) as count FROM banners");
+        if (banners[0].count === 0) {
+            console.log('Tabela banners está vazia. Populando com banner principal...');
+            const mainBanner = [
+                'Elegância que Veste e Perfuma',
+                'Descubra fragrâncias e peças que definem seu estilo e marcam momentos.',
+                'https://res.cloudinary.com/dvflxuxh3/image/upload/v1751867966/i2lmcb7oxa3zf71imdm2.png',
+                null, // image_url_mobile
+                '#products',
+                'Explorar Coleção',
+                1, // cta_enabled
+                1, // is_active
+                0  // display_order
+            ];
+            const sql = "INSERT INTO banners (title, subtitle, image_url, image_url_mobile, link_url, cta_text, cta_enabled, is_active, display_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            await connection.query(sql, mainBanner);
+            console.log('Banner principal inserido com sucesso.');
+        } else {
+            console.log('Tabela banners já populada.');
+        }
+
+    } catch (err) {
+        console.error("Erro ao inicializar dados:", err);
+    } finally {
+        connection.release();
+    }
 };
 
 // --- CONFIGURAÇÃO DA CONEXÃO COM O BANCO DE DADOS ---
@@ -1172,14 +1192,11 @@ app.post('/api/register', validate(authSchemas.register), async (req, res) => {
 
 // --- ROTA DE LOGIN (COM ROTAÇÃO E DB) ---
 app.post('/api/login', validate(authSchemas.login), async (req, res) => {
-    // A validação de campos vazios/formato email já foi feita pelo Zod.
-    
     try {
         const { email, password } = req.body;
         const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
         const user = users[0];
 
-        // Validações básicas (existência, senha, bloqueio)
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: "Email ou senha inválidos." });
         }
@@ -1187,37 +1204,35 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
             return res.status(403).json({ message: "Conta bloqueada." });
         }
 
-        // Lógica de 2FA (se aplicável, retorna token temporário)
         if (user.role === 'admin' && user.is_two_factor_enabled) {
              const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
              return res.json({ twoFactorEnabled: true, token: tempToken });
         }
 
-        // --- GERAÇÃO DE TOKENS SEGUROS (Lógica Blindada) ---
         const userPayload = { id: user.id, name: user.name, role: user.role };
-        
         const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
         const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-        // Armazena Refresh Token no Banco (Rotação)
         const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
         await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-        // Cookies HttpOnly
         const cookieOptions = {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         };
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 }); // 15 min
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
         res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
 
-        // Log de sucesso
         await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, email, req.ip, req.headers['user-agent']]);
 
+        // --- CORREÇÃO: Busca se a biometria está ativa no ato do login ---
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
         const { password: _, two_factor_secret, ...userData } = user;
-        // Retorna os tokens na resposta JSON para os navegadores mobile restritos salvarem no localStorage
+        
+        userData.has_biometrics = auths.length > 0; // Informa o painel imediatamente
+
         res.json({ message: "Login realizado com sucesso.", user: userData, accessToken, refreshToken });
 
     } catch (err) {
@@ -1226,60 +1241,186 @@ app.post('/api/login', validate(authSchemas.login), async (req, res) => {
     }
 });
 
-app.post('/api/login/2fa/verify', [
-    body('token', 'Token 2FA é obrigatório').notEmpty(),
-    body('tempAuthToken', 'Token de autorização temporário é obrigatório').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
+
+// Gera um segredo e QR Code para o admin logado
+app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const secret = speakeasy.generateSecret({
+            name: `LoveCestas (${req.user.name})`
+        });
+
+        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
+
+        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+            if (err) {
+                throw new Error('Não foi possível gerar o QR Code.');
+            }
+            res.json({
+                secret: secret.base32,
+                qrCodeUrl: data_url
+            });
+        });
+   } catch (err) {
+        console.error("Erro ao gerar segredo 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao gerar o segredo 2FA." });
+    }
+});
+
+// Ativa o 2FA
+app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, async (req, res) => {
+    const { token } = req.body;
+    
+    if (!token) return res.status(400).json({ message: "O código é obrigatório." });
+
+    // Limpa qualquer espaço vazio, letra ou formatação que o celular mande junto
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    if (cleanToken.length !== 6) {
+        return res.status(400).json({ message: "O código deve ter exatamente 6 números." });
     }
 
+    try {
+        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0 || !users[0].two_factor_secret) {
+            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Feche a janela e gere um novo QR Code.' });
+        }
+
+        // Janela de tolerância alta (window: 4) aceita códigos de até 2 minutos atrás ou na frente
+        const isVerified = speakeasy.totp.verify({
+            secret: users[0].two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (isVerified) {
+            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
+            logAdminAction(req.user, 'ATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+            res.json({ message: '2FA ativado com sucesso!' });
+        } else {
+            console.error(`[2FA FALHOU] Token recebido: ${cleanToken}, Segredo no DB: ${users[0].two_factor_secret}`);
+            res.status(400).json({ message: 'Código de verificação inválido. Exclua do aplicativo e tente gerar um novo QR Code.' });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar e ativar o 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
+    }
+});
+
+// Desativa o 2FA
+app.post('/api/2fa/disable', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+
+    if (!password || !token) return res.status(400).json({ message: "Senha e código são obrigatórios." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
+        
+        const user = users[0];
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) return res.status(401).json({ message: 'Senha incorreta.' });
+
+        const isTokenVerified = speakeasy.totp.verify({
+            secret: user.two_factor_secret,
+            encoding: 'base32',
+            token: cleanToken,
+            window: 4
+        });
+
+        if (!isTokenVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
+
+        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
+        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.headers['x-forwarded-for'] || req.ip); 
+        res.json({ message: '2FA desativado com sucesso.' });
+
+    } catch (err) {
+        console.error("Erro ao desativar 2FA:", err);
+        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
+    }
+});
+
+// Login com 2FA
+app.post('/api/login/2fa/verify', async (req, res) => {
     const { token, tempAuthToken } = req.body;
     
+    if (!token || !tempAuthToken) return res.status(400).json({ message: "Dados incompletos para validação 2FA." });
+
+    const cleanToken = String(token).replace(/\D/g, '');
+
     try {
-        const decodedTemp = jwt.verify(tempAuthToken, JWT_SECRET);
-        if (!decodedTemp.twoFactorAuth) {
-            return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
-        }
+        const decodedTemp = jwt.verify(tempAuthToken, process.env.JWT_SECRET);
+        if (!decodedTemp.twoFactorAuth) return res.status(403).json({ message: 'Token de autorização inválido para 2FA.' });
         
         const [users] = await db.query("SELECT * FROM users WHERE id = ?", [decodedTemp.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
+        if (users.length === 0) return res.status(404).json({ message: 'Usuário não encontrado.' });
         const user = users[0];
 
         const isVerified = speakeasy.totp.verify({
             secret: user.two_factor_secret,
             encoding: 'base32',
-            token: token
+            token: cleanToken,
+            window: 4
         });
 
-        if (!isVerified) {
-            return res.status(401).json({ message: 'Código 2FA inválido.' });
-        }
+        if (!isVerified) return res.status(401).json({ message: 'Código 2FA inválido.' });
 
-        // Se verificado, gera os tokens de acesso e refresh
-        const userPayload = { id: user.id, name: user.name, role: user.role, cpf: user.cpf };
-        const accessToken = jwt.sign(userPayload, JWT_SECRET, { expiresIn: '4h' });
-        const refreshToken = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+        const userPayload = { id: user.id, name: user.name, role: user.role };
+        const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+        const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
 
-        const cookieOptions = {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        };
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+        await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
 
-        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 4 * 60 * 60 * 1000 });
-        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
+        res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+        res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
         
         const { password: _, two_factor_secret, ...userData } = user;
-        // Envia tokens na resposta para garantir o acesso no mobile
         res.json({ message: "Login bem-sucedido", user: userData, accessToken, refreshToken });
 
     } catch (err) {
-        console.error("Erro na verificação 2FA:", err);
-        res.status(500).json({ message: 'Erro interno ou token temporário inválido.' });
+        console.error("Erro na verificação 2FA do login:", err);
+        res.status(500).json({ message: 'Sessão temporária expirada. Volte e faça login novamente.' });
+    }
+});
+
+// Ação de Segurança com 2FA
+app.post('/api/auth/verify-action', verifyToken, verifyAdmin, async (req, res) => {
+    const { password, token } = req.body;
+    const adminId = req.user.id;
+
+    if (!password && !token) return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
+
+    try {
+        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (users.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = users[0];
+
+        if (admin.is_two_factor_enabled && token) {
+            const cleanToken = String(token).replace(/\D/g, '');
+            const isVerified = speakeasy.totp.verify({
+                secret: admin.two_factor_secret,
+                encoding: 'base32',
+                token: cleanToken,
+                window: 4
+            });
+            if (isVerified) return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
+        }
+
+        if (password) {
+            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
+            if (isPasswordCorrect) return res.json({ success: true, message: 'Identidade verificada com senha.' });
+        }
+        
+        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
+
+    } catch (err) {
+        console.error("Erro na verificação de ação crítica:", err);
+        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
     }
 });
 
@@ -1392,274 +1533,6 @@ app.post('/api/logout', async (req, res) => {
     res.cookie('refreshToken', '', { ...cookieOptions, maxAge: 0, expires: new Date(0) });
 
     res.status(200).json({ message: 'Logout realizado com sucesso.' });
-});
-
-// --- ROTAS DE GERENCIAMENTO 2FA (ADMIN) ---
-
-// Gera um segredo e QR Code para o admin logado
-app.post('/api/2fa/generate', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const secret = speakeasy.generateSecret({
-            name: `LoveCestas (${req.user.name})`
-        });
-
-        await db.query("UPDATE users SET two_factor_secret = ? WHERE id = ?", [secret.base32, req.user.id]);
-
-        qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
-            if (err) {
-                throw new Error('Não foi possível gerar o QR Code.');
-            }
-            res.json({
-                secret: secret.base32,
-                qrCodeUrl: data_url
-            });
-        });
-   } catch (err) {
-        console.error("Erro ao gerar segredo 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao gerar o segredo 2FA." });
-    }
-});
-
-app.post('/api/2fa/verify-enable', verifyToken, verifyAdmin, [
-    body('token', 'O código de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { token } = req.body;
-    try {
-        const [users] = await db.query("SELECT two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0 || !users[0].two_factor_secret) {
-            return res.status(400).json({ message: 'Segredo 2FA não encontrado. Gere um novo código primeiro.' });
-        }
-
-        const isVerified = speakeasy.totp.verify({
-            secret: users[0].two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (isVerified) {
-            await db.query("UPDATE users SET is_two_factor_enabled = 1 WHERE id = ?", [req.user.id]);
-            logAdminAction(req.user, 'ATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
-            res.json({ message: '2FA ativado com sucesso!' });
-        } else {
-            res.status(400).json({ message: 'Código de verificação inválido.' });
-        }
-    } catch (err) {
-        console.error("Erro ao verificar e ativar o 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao ativar o 2FA." });
-    }
-});
-
-// Desativa o 2FA para o admin logado
-app.post('/api/2fa/disable', verifyToken, verifyAdmin, [
-    body('password', 'A senha é obrigatória').notEmpty(),
-    body('token', 'O código 2FA de 6 dígitos é obrigatório').isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { password, token } = req.body;
-    try {
-        const [users] = await db.query("SELECT password, two_factor_secret FROM users WHERE id = ?", [req.user.id]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Usuário não encontrado.' });
-        }
-        const user = users[0];
-
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) {
-            return res.status(401).json({ message: 'Senha incorreta.' });
-        }
-
-        const isTokenVerified = speakeasy.totp.verify({
-            secret: user.two_factor_secret,
-            encoding: 'base32',
-            token: token
-        });
-
-        if (!isTokenVerified) {
-            return res.status(401).json({ message: 'Código de autenticação inválido.' });
-        }
-
-        await db.query("UPDATE users SET is_two_factor_enabled = 0, two_factor_secret = NULL WHERE id = ?", [req.user.id]);
-        logAdminAction(req.user, 'DESATIVOU_2FA', null, req.ip); // CORREÇÃO: IP ADICIONADO
-        res.json({ message: '2FA desativado com sucesso.' });
-
-    } catch (err) {
-        console.error("Erro ao desativar 2FA:", err);
-        res.status(500).json({ message: "Erro interno ao desativar o 2FA." });
-    }
-});
-
-app.post('/api/forgot-password', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('cpf', 'CPF é obrigatório').notEmpty()
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, cpf } = req.body;
-
-    try {
-        const [users] = await db.query("SELECT id FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Usuário não encontrado com o e-mail e CPF fornecidos." });
-        }
-        res.status(200).json({ message: "Usuário validado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao validar usuário para recuperação de senha:", err);
-        res.status(500).json({ message: "Erro interno do servidor." });
-    }
-});
-
-app.post('/api/reset-password', [
-    body('email', 'Email inválido').isEmail().normalizeEmail(),
-    body('cpf', 'CPF é obrigatório').notEmpty(),
-    body('newPassword', 'A nova senha deve ter no mínimo 6 caracteres').isLength({ min: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, cpf, newPassword } = req.body;
-
-    try {
-        const [users] = await db.query("SELECT id, name FROM users WHERE email = ? AND cpf = ?", [email, cpf.replace(/\D/g, '')]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: "Credenciais inválidas. Não é possível redefinir a senha." });
-        }
-        
-        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await db.query("UPDATE users SET password = ? WHERE email = ? AND cpf = ?", [hashedPassword, email, cpf.replace(/\D/g, '')]);
-        
-        logAdminAction({id: users[0].id, name: users[0].name}, 'REDEFINIU_SENHA', null, req.ip); // CORREÇÃO: IP ADICIONADO
-        
-        res.status(200).json({ message: "Senha redefinida com sucesso." });
-
-    } catch (err) {
-        console.error("Erro ao redefinir a senha:", err);
-        res.status(500).json({ message: "Erro interno do servidor ao redefinir a senha." });
-    }
-});
-
-
-// --- ROTA DE RASTREIO ---
-const cheerio = require('cheerio');
-
-app.get('/api/track/:code', async (req, res) => {
-    const { code } = req.params;
-    const trackUrl = `https://linketrack.com/track?codigo=${code}&utm_source=track`;
-
-    console.log(`Iniciando rastreio via scraping para o código: ${code}`);
-    try {
-        const response = await fetch(trackUrl);
-        if (!response.ok) {
-            throw new Error(`O site de rastreio retornou um erro: ${response.statusText}`);
-        }
-        const html = await response.text();
-        const $ = cheerio.load(html);
-
-        const events = [];
-        $('.row.card-event').each((i, elem) => {
-            const lines = $(elem).text().trim().split('\n').map(line => line.trim()).filter(line => line);
-            
-            const eventData = {};
-            eventData.status = $(elem).find('h5').text().trim();
-            
-            lines.forEach(line => {
-                if (line.startsWith('Local:')) {
-                    eventData.location = line.replace('Local:', '').trim();
-                } else if (line.startsWith('Data:')) {
-                    const dateTimeString = line.replace('Data:', '').trim();
-                    const [datePart, timePart] = dateTimeString.split(' às ');
-                    if (datePart && timePart) {
-                         const [day, month, year] = datePart.split('/');
-                         eventData.date = new Date(`${year}-${month}-${day}T${timePart}`).toISOString();
-                    }
-                }
-            });
-            // Adiciona apenas se o evento foi parseado corretamente
-            if (eventData.status && eventData.date) {
-                events.push(eventData);
-            }
-        });
-
-        if (events.length === 0) {
-             const errorMsg = $('.alert-danger').text().trim();
-             if (errorMsg) {
-                 throw new Error(errorMsg);
-             }
-            throw new Error('Nenhum evento de rastreio encontrado. O código pode ser inválido ou o objeto ainda não foi postado.');
-        }
-
-        res.json(events);
-
-    } catch (error) {
-        console.error("ERRO DETALHADO ao fazer scraping do rastreio:", error);
-        res.status(500).json({ message: error.message || "Erro interno no servidor ao tentar buscar o rastreio." });
-    }
-});
-
-// Verifica a identidade do admin antes de uma ação crítica
-app.post('/api/auth/verify-action', verifyToken, verifyAdmin, [
-    body('password').optional().isString(),
-    body('token').optional().isString().isLength({ min: 6, max: 6 })
-], async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { password, token } = req.body;
-    const adminId = req.user.id;
-
-    if (!password && !token) {
-        return res.status(400).json({ message: 'Senha ou código 2FA é necessário para confirmação.' });
-    }
-
-    try {
-        const [users] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
-        if (users.length === 0) {
-            return res.status(404).json({ message: 'Administrador não encontrado.' });
-        }
-        const admin = users[0];
-
-        // Prioriza a verificação 2FA se estiver habilitada
-        if (admin.is_two_factor_enabled && token) {
-            const isVerified = speakeasy.totp.verify({
-                secret: admin.two_factor_secret,
-                encoding: 'base32',
-                token: token
-            });
-            if (isVerified) {
-                return res.json({ success: true, message: 'Identidade verificada com 2FA.' });
-            }
-        }
-
-        // Se 2FA falhar ou não for usado, verifica a senha
-        if (password) {
-            const isPasswordCorrect = await bcrypt.compare(password, admin.password);
-            if (isPasswordCorrect) {
-                return res.json({ success: true, message: 'Identidade verificada com senha.' });
-            }
-        }
-        
-        // Se nenhuma verificação passar
-        return res.status(401).json({ message: 'Credencial de verificação inválida.' });
-
-    } catch (err) {
-        console.error("Erro na verificação de ação crítica:", err);
-        res.status(500).json({ message: "Erro interno ao verificar a identidade." });
-    }
 });
 
 // --- ROTA DE CÁLCULO DE FRETE ---
@@ -1919,40 +1792,6 @@ app.get('/api/products/:id', checkMaintenanceMode, async (req, res) => {
 });
 
 app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
-        const [ordersWithProduct] = await db.query(sqlFindOrders, [id]);
-        
-        if (ordersWithProduct.length === 0) {
-            return res.json([]);
-        }
-
-        const orderIds = ordersWithProduct.map(o => o.order_id);
-
-        const sqlFindRelated = `
-            SELECT 
-                p.*,
-                COUNT(oi.product_id) AS purchase_frequency
-            FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
-            WHERE oi.order_id IN (?)
-            AND oi.product_id != ?
-            AND p.is_active = 1
-            GROUP BY oi.product_id
-            ORDER BY purchase_frequency DESC
-            LIMIT 8;
-        `;
-        const [relatedProducts] = await db.query(sqlFindRelated, [orderIds, id]);
-        res.json(relatedProducts);
-
-    } catch (err) {
-        console.error("Erro ao buscar produtos relacionados por compra:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos relacionados." });
-    }
-});
-
-app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (req, res) => {
     const { id } = req.params;
     try {
         const sqlFindOrders = `SELECT DISTINCT order_id FROM order_items WHERE product_id = ?`;
@@ -1986,57 +1825,12 @@ app.get('/api/products/:id/related-by-purchase', checkMaintenanceMode, async (re
     }
 });
 
-app.get('/api/products/low-stock', verifyToken, verifyAdmin, async (req, res) => {
-    const LOW_STOCK_THRESHOLD = 5;
-    try {
-        const [allProducts] = await db.query("SELECT id, name, stock, product_type, variations, images FROM products WHERE is_active = 1");
-
-        const lowStockItems = [];
-
-        for (const product of allProducts) {
-            if (product.product_type === 'clothing') {
-                try {
-                    const variations = JSON.parse(product.variations || '[]');
-                    for (const v of variations) {
-                        if (v.stock < LOW_STOCK_THRESHOLD) {
-                            lowStockItems.push({
-                                id: product.id,
-                                name: `${product.name} (${v.color} / ${v.size})`,
-                                stock: v.stock,
-                                images: v.images,
-                                product_type: 'clothing',
-                                variation: v // Retorna o objeto da variação
-                            });
-                        }
-                    }
-                } catch (e) {
-                    console.error(`Erro ao parsear variações do produto ${product.id}:`, e);
-                }
-            } else { // perfume
-                if (product.stock < LOW_STOCK_THRESHOLD) {
-                    lowStockItems.push({
-                        id: product.id,
-                        name: product.name,
-                        stock: product.stock,
-                        images: product.images,
-                        product_type: 'perfume',
-                        variation: null
-                    });
-                }
-            }
-        }
-        res.json(lowStockItems);
-    } catch (err) {
-        console.error("Erro ao buscar produtos com estoque baixo:", err);
-        res.status(500).json({ message: "Erro ao buscar produtos com estoque baixo." });
-    }
-});
-
 // --- TAREFA AUTOMÁTICA (CRON JOB) ---
-// Adicione este bloco no seu server.js (antes das rotas) para verificar promoções expiradas a cada minuto
+// Verifica promoções expiradas a cada minuto de forma segura para não vazar conexões
 setInterval(async () => {
+    let connection;
     try {
-        const connection = await db.getConnection();
+        connection = await db.getConnection();
         // Define is_on_sale = 0, zera sale_price e limpa a data onde a data atual é maior que sale_end_date
         const [result] = await connection.query(`
             UPDATE products 
@@ -2047,9 +1841,12 @@ setInterval(async () => {
         if (result.affectedRows > 0) {
             console.log(`[AUTO-PROMO] ${result.affectedRows} promoções expiradas foram encerradas e preços revertidos.`);
         }
-        connection.release();
     } catch (err) {
         console.error("[AUTO-PROMO] Erro ao verificar promoções expiradas:", err);
+    } finally {
+        if (connection) {
+            connection.release();
+        }
     }
 }, 60000);
 
@@ -2129,8 +1926,7 @@ setInterval(async () => {
 }, 60000); // Verifica a cada minuto
 
 // 1. Criação de Produto (Bloqueado e Validado)
-// 1. Criação de Produto (Bloqueado e Validado)
-// 1. Criação de Produto (Bloqueado e Validado)
+
 app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
     const { product_type = 'perfume', ...productData } = req.body;
     
@@ -2180,6 +1976,227 @@ app.post('/api/products', verifyToken, verifyAdmin, validate(productSchema), asy
         console.error("Erro ao criar produto:", err);
         res.status(500).json({ message: "Erro interno ao criar produto." });
     }
+});
+
+// 3. Promoções em Massa (Bloqueado)
+app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
+
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ message: "Nenhum produto selecionado." });
+        }
+        
+        const discount = parseFloat(discountPercentage);
+        if (isNaN(discount) || discount <= 0 || discount >= 100) {
+            return res.status(400).json({ message: "Porcentagem de desconto inválida." });
+        }
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const placeholders = productIds.map(() => '?').join(',');
+            const [products] = await connection.query(`SELECT id, price, product_type, variations FROM products WHERE id IN (${placeholders})`, productIds);
+
+            const productsToNotify = [];
+
+            for (const product of products) {
+                const originalPrice = parseFloat(product.price);
+                const discountValue = originalPrice * (discount / 100);
+                const salePrice = (originalPrice - discountValue).toFixed(2);
+                
+                const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
+
+                if (product.product_type === 'clothing') {
+                    let variations = [];
+                    if (product.variations) {
+                        try { variations = JSON.parse(product.variations); } catch (e) { console.error(`Erro parse JSON prod ${product.id}`, e); }
+                    }
+                    
+                    const updatedVariations = variations.map(v => ({ ...v, is_promo: true }));
+
+                    await connection.query(
+                        "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ?, variations = ? WHERE id = ?",
+                        [salePrice, finalDate, JSON.stringify(updatedVariations), product.id]
+                    );
+                } else {
+                    await connection.query(
+                        "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
+                        [salePrice, finalDate, product.id]
+                    );
+                }
+                
+                productsToNotify.push(product.id);
+            }
+
+            await connection.commit();
+            
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || null);
+            logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discount}% em ${products.length} produtos.`, clientIp);
+            
+            res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
+
+            if (productsToNotify.length > 0) {
+                notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
+            }
+
+        } catch (err) {
+            await connection.rollback();
+            console.error("===== ERRO DETALHADO TRANSAÇÃO BULK-PROMO =====");
+            console.error(err.stack || err);
+            // Retorna o erro exato para o frontend
+            res.status(500).json({ message: `Erro BD: ${err.message}` });
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error("===== ERRO FATAL ROTA BULK-PROMO =====");
+        console.error(error.stack || error);
+        // Retorna o erro exato para o frontend
+        res.status(500).json({ message: `Erro Servidor: ${error.message}` });
+    }
+});
+
+// --- ROTA PARA ENCERRAR PROMOÇÕES SELECIONADAS (PUT) ---
+app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
+    try {
+        const { productIds } = req.body;
+
+        if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
+        }
+
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+            
+            const placeholders = productIds.map(() => '?').join(',');
+            
+            const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
+            const [result] = await connection.query(sql, productIds);
+
+            const [clothingProducts] = await connection.query(`SELECT id, variations FROM products WHERE id IN (${placeholders}) AND product_type = 'clothing'`, productIds);
+            
+            for (const product of clothingProducts) {
+                let variations = [];
+                if (product.variations) {
+                    try { variations = JSON.parse(product.variations); } catch (e) {}
+                }
+                
+                const updatedVariations = variations.map(v => ({ ...v, is_promo: false }));
+
+                await connection.query(
+                    "UPDATE products SET variations = ? WHERE id = ?",
+                    [JSON.stringify(updatedVariations), product.id]
+                );
+            }
+
+            await connection.commit();
+            
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.ip || null);
+            logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, clientIp);
+            
+            res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
+
+        } catch (err) {
+            await connection.rollback();
+            console.error("===== ERRO DETALHADO TRANSAÇÃO BULK-CLEAR-PROMO =====");
+            console.error(err.stack || err);
+            res.status(500).json({ message: `Erro BD: ${err.message}` });
+        } finally {
+            connection.release();
+        }
+    } catch (error) {
+        console.error("===== ERRO FATAL ROTA BULK-CLEAR-PROMO =====");
+        console.error(error.stack || error);
+        res.status(500).json({ message: `Erro Servidor: ${error.message}` });
+    }
+});
+app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
+    const { productId, newStock, variation } = req.body; // variation object is passed for clothing
+
+    // Add initial log
+    console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
+    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
+
+    if (!productId || newStock === undefined || newStock < 0) {
+        console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
+        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        console.log('[STOCK_UPDATE] Transaction started for product:', productId);
+
+        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
+        if (products.length === 0) {
+            console.error('[STOCK_UPDATE] Product not found:', productId);
+            throw new Error("Produto não encontrado.");
+        }
+        const product = products[0];
+        console.log('[STOCK_UPDATE] Product found:', { id: product.id, type: product.product_type });
+
+        if (product.product_type === 'clothing') {
+            if (!variation || !variation.color || !variation.size) {
+                 console.error('[STOCK_UPDATE] Missing variation details for clothing:', { productId, variation });
+                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
+            }
+            console.log('[STOCK_UPDATE] Processing clothing variation update. Target variation:', variation);
+
+            let variations;
+            try {
+                variations = JSON.parse(product.variations || '[]');
+                console.log('[STOCK_UPDATE] Variations parsed from DB:', variations);
+            } catch (parseError) {
+                console.error('[STOCK_UPDATE] Failed to parse variations JSON from DB:', product.variations, parseError);
+                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
+            }
+
+            // More robust findIndex: Check for ID if available, otherwise color/size
+            const variationIndex = variations.findIndex(v =>
+                (variation.id && v.id === variation.id) || // Prefer ID if present
+                (v.color === variation.color && v.size === variation.size) // Fallback to color/size
+            );
+
+            if (variationIndex === -1) {
+                console.error(`[STOCK_UPDATE] Variation not found in DB variations array. Target: ${JSON.stringify(variation)}, DB Variations: ${JSON.stringify(variations)}`);
+                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
+            }
+            console.log(`[STOCK_UPDATE] Variation found at index ${variationIndex}. Updating stock to ${newStock}.`);
+
+            variations[variationIndex].stock = parseInt(newStock, 10);
+            // Use the corrected reduce from the previous step
+            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+            console.log(`[STOCK_UPDATE] New total stock calculated: ${totalStock}`);
+
+            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
+            console.log('[STOCK_UPDATE] Clothing product stock updated in DB.');
+            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
+
+        } else { // Perfume or other type
+             console.log(`[STOCK_UPDATE] Processing simple stock update for product type: ${product.product_type}`);
+             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
+             console.log('[STOCK_UPDATE] Simple product stock updated in DB.');
+             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
+        }
+
+        await connection.commit();
+        console.log('[STOCK_UPDATE] Transaction committed successfully for product:', productId);
+        res.json({ message: "Estoque atualizado com sucesso!" });
+
+    } catch (err) {
+        console.error("[STOCK_UPDATE] Error during stock update, rolling back transaction:", err); // Log the actual error
+        await connection.rollback();
+        // Send back a more specific error if available
+        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
+    } finally {
+        if (connection) {
+            connection.release();
+            console.log('[STOCK_UPDATE] DB connection released for product:', productId);
+        }
+    }
 });
 
 // 2. Edição de Produto
@@ -2299,149 +2316,6 @@ app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
         res.status(500).json({ message: "Erro interno ao deletar produtos." });
     } finally {
         connection.release();
-    }
-});
-
-app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado." });
-    }
-    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
-        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const placeholders = productIds.map(() => '?').join(',');
-        const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
-
-        const productsToNotify = [];
-
-        for (const product of products) {
-            const originalPrice = parseFloat(product.price);
-            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
-            const salePrice = (originalPrice - discountValue).toFixed(2);
-            
-            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
-
-            await connection.query(
-                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
-                [salePrice, finalDate, product.id]
-            );
-            
-            productsToNotify.push(product.id);
-        }
-
-        await connection.commit();
-        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
-        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
-
-        if (productsToNotify.length > 0) {
-            notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
-        }
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro na promoção em massa:", err);
-        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        const placeholders = productIds.map(() => '?').join(',');
-        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
-        
-        const [result] = await connection.query(sql, productIds);
-
-        await connection.commit();
-        
-        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`, req.ip); // CORREÇÃO: IP ADICIONADO
-        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao encerrar promoções selecionadas:", err);
-        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
-    const { productId, newStock, variation } = req.body;
-
-    if (!productId || newStock === undefined || newStock < 0) {
-        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
-        if (products.length === 0) {
-            throw new Error("Produto não encontrado.");
-        }
-        const product = products[0];
-
-        if (product.product_type === 'clothing') {
-            if (!variation || !variation.color || !variation.size) {
-                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
-            }
-
-            let variations;
-            try {
-                variations = JSON.parse(product.variations || '[]');
-            } catch (parseError) {
-                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
-            }
-
-            const variationIndex = variations.findIndex(v =>
-                (variation.id && v.id === variation.id) || 
-                (v.color === variation.color && v.size === variation.size) 
-            );
-
-            if (variationIndex === -1) {
-                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
-            }
-
-            variations[variationIndex].stock = parseInt(newStock, 10);
-            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-
-            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
-            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
-
-        } else { 
-             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
-             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`, req.ip); // CORREÇÃO: IP ADICIONADO
-        }
-
-        await connection.commit();
-        res.json({ message: "Estoque atualizado com sucesso!" });
-
-    } catch (err) {
-        await connection.rollback();
-        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
-    } finally {
-        if (connection) {
-            connection.release();
-        }
     }
 });
 
@@ -2579,380 +2453,6 @@ const notifyWishlistUsers = async (productIds, connection) => {
         console.error(`[Wishlist Notify] Erro crítico ao notificar usuários:`, err);
     }
 };
-// 3. Promoções em Massa (Bloqueado)
-app.put('/api/products/bulk-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds, discountPercentage, saleEndDate, isLimitedTime } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado." });
-    }
-    if (!discountPercentage || discountPercentage <= 0 || discountPercentage >= 100) {
-        return res.status(400).json({ message: "Porcentagem de desconto inválida." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        const placeholders = productIds.map(() => '?').join(',');
-        const [products] = await connection.query(`SELECT id, price FROM products WHERE id IN (${placeholders})`, productIds);
-
-        const productsToNotify = [];
-
-        for (const product of products) {
-            const originalPrice = parseFloat(product.price);
-            const discountValue = originalPrice * (parseFloat(discountPercentage) / 100);
-            const salePrice = (originalPrice - discountValue).toFixed(2);
-            
-            const finalDate = (isLimitedTime && saleEndDate) ? new Date(saleEndDate) : null;
-
-            await connection.query(
-                "UPDATE products SET is_on_sale = 1, sale_price = ?, sale_end_date = ? WHERE id = ?",
-                [salePrice, finalDate, product.id]
-            );
-            
-            // Adiciona à lista de notificação
-            productsToNotify.push(product.id);
-        }
-
-        await connection.commit();
-        logAdminAction(req.user, 'PROMOÇÃO EM MASSA', `Aplicou ${discountPercentage}% em ${products.length} produtos.`);
-        res.json({ message: `Promoção aplicada com sucesso em ${products.length} produtos!` });
-
-        // Chama a função de notificação
-        if (productsToNotify.length > 0) {
-            notifyWishlistUsers(productsToNotify, db).catch(e => console.error("Erro background notify:", e));
-        }
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro na promoção em massa:", err);
-        res.status(500).json({ message: "Erro ao aplicar promoção em massa." });
-    } finally {
-        connection.release();
-    }
-});
-
-// --- ROTA PARA ENCERRAR PROMOÇÕES SELECIONADAS (PUT) ---
-app.put('/api/products/bulk-clear-promo', verifyToken, verifyAdmin, async (req, res) => {
-    const { productIds } = req.body;
-
-    if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "Nenhum produto selecionado para encerrar promoção." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        
-        // Atualiza apenas os produtos selecionados (IN (?))
-        // Define is_on_sale = 0, zera o preço promocional e a data
-        const placeholders = productIds.map(() => '?').join(',');
-        const sql = `UPDATE products SET is_on_sale = 0, sale_price = NULL, sale_end_date = NULL WHERE id IN (${placeholders})`;
-        
-        const [result] = await connection.query(sql, productIds);
-
-        await connection.commit();
-        
-        logAdminAction(req.user, 'ENCERROU PROMOÇÕES (SELEÇÃO)', `Removeu promoção de ${result.affectedRows} produtos.`);
-        res.json({ message: `Promoção encerrada em ${result.affectedRows} produtos com sucesso!` });
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao encerrar promoções selecionadas:", err);
-        res.status(500).json({ message: "Erro interno ao encerrar promoções." });
-    } finally {
-        connection.release();
-    }
-});
-app.put('/api/products/stock-update', verifyToken, verifyAdmin, async (req, res) => {
-    const { productId, newStock, variation } = req.body; // variation object is passed for clothing
-
-    // Add initial log
-    console.log('[STOCK_UPDATE] Received request:', { productId, newStock, variation });
-    console.log('[STOCK_UPDATE] Detailed variation object received:', JSON.stringify(variation, null, 2)); // Log detalhado da variação recebida
-
-    if (!productId || newStock === undefined || newStock < 0) {
-        console.error('[STOCK_UPDATE] Invalid input:', { productId, newStock });
-        return res.status(400).json({ message: "ID do produto e novo estoque válido são obrigatórios." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        console.log('[STOCK_UPDATE] Transaction started for product:', productId);
-
-        const [products] = await connection.query("SELECT * FROM products WHERE id = ? FOR UPDATE", [productId]);
-        if (products.length === 0) {
-            console.error('[STOCK_UPDATE] Product not found:', productId);
-            throw new Error("Produto não encontrado.");
-        }
-        const product = products[0];
-        console.log('[STOCK_UPDATE] Product found:', { id: product.id, type: product.product_type });
-
-        if (product.product_type === 'clothing') {
-            if (!variation || !variation.color || !variation.size) {
-                 console.error('[STOCK_UPDATE] Missing variation details for clothing:', { productId, variation });
-                 throw new Error("Variação (cor e tamanho) é obrigatória para produtos de vestuário.");
-            }
-            console.log('[STOCK_UPDATE] Processing clothing variation update. Target variation:', variation);
-
-            let variations;
-            try {
-                variations = JSON.parse(product.variations || '[]');
-                console.log('[STOCK_UPDATE] Variations parsed from DB:', variations);
-            } catch (parseError) {
-                console.error('[STOCK_UPDATE] Failed to parse variations JSON from DB:', product.variations, parseError);
-                throw new Error("Erro interno: Dados de variação do produto estão corrompidos.");
-            }
-
-            // More robust findIndex: Check for ID if available, otherwise color/size
-            const variationIndex = variations.findIndex(v =>
-                (variation.id && v.id === variation.id) || // Prefer ID if present
-                (v.color === variation.color && v.size === variation.size) // Fallback to color/size
-            );
-
-            if (variationIndex === -1) {
-                console.error(`[STOCK_UPDATE] Variation not found in DB variations array. Target: ${JSON.stringify(variation)}, DB Variations: ${JSON.stringify(variations)}`);
-                throw new Error("Variação especificada não encontrada no produto. Não foi possível atualizar o estoque.");
-            }
-            console.log(`[STOCK_UPDATE] Variation found at index ${variationIndex}. Updating stock to ${newStock}.`);
-
-            variations[variationIndex].stock = parseInt(newStock, 10);
-            // Use the corrected reduce from the previous step
-            const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-            console.log(`[STOCK_UPDATE] New total stock calculated: ${totalStock}`);
-
-            await connection.query("UPDATE products SET variations = ?, stock = ? WHERE id = ?", [JSON.stringify(variations), totalStock, productId]);
-            console.log('[STOCK_UPDATE] Clothing product stock updated in DB.');
-            logAdminAction(req.user, 'ATUALIZOU ESTOQUE (VARIAÇÃO)', `Produto ID: ${productId} (${variation.color}/${variation.size}), Novo Estoque: ${newStock}`);
-
-        } else { // Perfume or other type
-             console.log(`[STOCK_UPDATE] Processing simple stock update for product type: ${product.product_type}`);
-             await connection.query("UPDATE products SET stock = ? WHERE id = ?", [parseInt(newStock, 10), productId]);
-             console.log('[STOCK_UPDATE] Simple product stock updated in DB.');
-             logAdminAction(req.user, 'ATUALIZOU ESTOQUE (SIMPLES)', `Produto ID: ${productId}, Novo Estoque: ${newStock}`);
-        }
-
-        await connection.commit();
-        console.log('[STOCK_UPDATE] Transaction committed successfully for product:', productId);
-        res.json({ message: "Estoque atualizado com sucesso!" });
-
-    } catch (err) {
-        console.error("[STOCK_UPDATE] Error during stock update, rolling back transaction:", err); // Log the actual error
-        await connection.rollback();
-        // Send back a more specific error if available
-        res.status(500).json({ message: err.message || "Erro interno ao atualizar estoque." });
-    } finally {
-        if (connection) {
-            connection.release();
-            console.log('[STOCK_UPDATE] DB connection released for product:', productId);
-        }
-    }
-});
-// 2. Edição de Produto (Bloqueado e Validado)
-app.put('/api/products/:id', verifyToken, verifyAdmin, validate(productSchema), async (req, res) => {
-    const { id } = req.params;
-    const { product_type = 'perfume', ...productData } = req.body;
-
-    let fieldsToUpdate = [
-        'name', 'brand', 'category', 'price', 'sale_price', 'sale_end_date', 'is_on_sale', 'images', 'description',
-        'weight', 'width', 'height', 'length', 'is_active', 'product_type', 'video_url'
-    ];
-
-    const saleEndDate = productData.sale_end_date ? new Date(productData.sale_end_date) : null;
-
-    let values = [
-        productData.name, 
-        productData.brand, 
-        productData.category, 
-        productData.price, 
-        productData.sale_price || null, 
-        saleEndDate, 
-        productData.is_on_sale ? 1 : 0,
-        productData.images, 
-        productData.description, 
-        productData.weight, 
-        productData.width,
-        productData.height, 
-        productData.length, 
-        productData.is_active ? 1 : 0, 
-        product_type, 
-        productData.video_url || null
-    ];
-
-    if (product_type === 'perfume') {
-        fieldsToUpdate.push('stock', 'notes', 'how_to_use', 'ideal_for', 'volume');
-        values.push(productData.stock, productData.notes, productData.how_to_use, productData.ideal_for, productData.volume);
-    } else if (product_type === 'clothing') {
-        fieldsToUpdate.push('variations', 'size_guide', 'care_instructions', 'stock');
-        const variations = JSON.parse(productData.variations || '[]');
-        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-        values.push(productData.variations, productData.size_guide, productData.care_instructions, totalStock);
-    }
-    
-    values.push(id);
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        // 1. Verifica estado ANTERIOR para notificação de promoção
-        const [current] = await connection.query("SELECT is_on_sale FROM products WHERE id = ?", [id]);
-        const wasOnSale = current[0] ? current[0].is_on_sale : 0;
-
-        // 2. Atualiza
-        const setClause = fieldsToUpdate.map(field => `\`${field}\` = ?`).join(', ');
-        const sql = `UPDATE products SET ${setClause} WHERE id = ?`;
-        await connection.query(sql, values);
-
-        await connection.commit();
-        
-        logAdminAction(req.user, 'EDITOU PRODUTO', `ID: ${id}, Nome: "${productData.name}"`);
-        res.json({ message: "Produto atualizado com sucesso!" });
-
-        // 3. Notifica se entrou em promoção (passando como array [id])
-        const isNowOnSale = productData.is_on_sale ? 1 : 0;
-        if (!wasOnSale && isNowOnSale) {
-            notifyWishlistUsers([id], db).catch(e => console.error("Erro background notify:", e));
-        }
-
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro ao atualizar produto:", err);
-        res.status(500).json({ message: "Erro interno ao atualizar produto." });
-    } finally {
-        connection.release();
-    }
-});
-
-
-app.delete('/api/products/:id', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        await db.query("DELETE FROM products WHERE id = ?", [req.params.id]);
-        logAdminAction(req.user, 'DELETOU PRODUTO', `ID: ${req.params.id}`);
-        res.json({ message: "Produto deletado com sucesso." });
-    } catch (err) {
-        console.error("Erro ao deletar produto:", err);
-        res.status(500).json({ message: "Erro interno ao deletar produto." });
-    }
-});
-
-app.delete('/api/products', verifyToken, verifyAdmin, async (req, res) => {
-    const { ids } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-        return res.status(400).json({ message: "É necessário fornecer um array de IDs de produtos." });
-    }
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-        const CHUNK_SIZE = 100;
-        let totalAffectedRows = 0;
-
-        for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
-            const chunk = ids.slice(i, i + CHUNK_SIZE);
-            const placeholders = chunk.map(() => '?').join(',');
-            const sql = `DELETE FROM products WHERE id IN (${placeholders})`;
-            const [result] = await connection.query(sql, chunk);
-            totalAffectedRows += result.affectedRows;
-        }
-        
-        await connection.commit();
-        logAdminAction(req.user, 'DELETOU PRODUTOS EM MASSA', `Total: ${totalAffectedRows}, IDs: ${ids.join(', ')}`);
-        res.json({ message: `${totalAffectedRows} produtos deletados com sucesso.` });
-    } catch (err) {
-        await connection.rollback();
-        if (err.code === 'ER_ROW_IS_REFERENCED_2' || err.errno === 1451) {
-            console.error("Tentativa de deletar produto referenciado em pedidos:", err);
-            return res.status(409).json({ message: "Erro: Um ou mais produtos não puderam ser excluídos pois estão associados a pedidos existentes. Considere desativá-los em vez de excluir." });
-        }
-        console.error("Erro ao deletar múltiplos produtos:", err);
-        res.status(500).json({ message: "Erro interno ao deletar produtos." });
-    } finally {
-        connection.release();
-    }
-});
-
-app.post('/api/products/import', verifyToken, verifyAdmin, csvUpload, async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo CSV enviado.' });
-    }
-
-    const products = [];
-    const connection = await db.getConnection();
-
-    try {
-        await new Promise((resolve, reject) => {
-            const bufferStream = new stream.PassThrough();
-            bufferStream.end(req.file.buffer);
-
-            bufferStream
-                .pipe(csv())
-                .on('data', (row) => {
-                    if (!row.name || !row.price || !row.product_type) return;
-
-                    let values;
-                    const isActive = row.is_active === '1' || String(row.is_active).toLowerCase() === 'true' ? 1 : 0;
-                    const isOnSale = row.is_on_sale === '1' || String(row.is_on_sale).toLowerCase() === 'true' ? 1 : 0;
-
-                    if (row.product_type === 'perfume') {
-                        values = {
-                            product_type: 'perfume',
-                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: parseFloat(row.sale_price) || null,
-                            stock: parseInt(row.stock) || 0, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
-                            description: row.description || '', notes: row.notes || '', how_to_use: row.how_to_use || '',
-                            ideal_for: row.ideal_for || '', volume: row.volume || '',
-                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
-                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
-                            is_active: isActive,
-                            is_on_sale: isOnSale
-                        };
-                    } else if (row.product_type === 'clothing') {
-                        const variations = JSON.parse(row.variations || '[]');
-                        const totalStock = variations.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
-                        values = {
-                            product_type: 'clothing',
-                            name: row.name, brand: row.brand || '', category: row.category || 'Geral', price: parseFloat(row.price) || 0,
-                            sale_price: parseFloat(row.sale_price) || null,
-                            stock: totalStock, images: row.images ? `["${row.images.split(',').join('","')}"]` : '[]',
-                            description: row.description || '', variations: row.variations || '[]',
-                            size_guide: row.size_guide || '', care_instructions: row.care_instructions || '',
-                            weight: parseFloat(row.weight) || 0.3, width: parseInt(row.width) || 11,
-                            height: parseInt(row.height) || 11, length: parseInt(row.length) || 16,
-                            is_active: isActive,
-                            is_on_sale: isOnSale
-                        };
-                    }
-                    if (values) products.push(values);
-                })
-                .on('end', resolve)
-                .on('error', reject);
-        });
-
-        if (products.length > 0) {
-            await connection.beginTransaction();
-            for (const product of products) {
-                const fields = Object.keys(product);
-                const values = Object.values(product);
-                const sql = `INSERT INTO products (${fields.map(f => `\`${f}\``).join(', ')}) VALUES (${fields.map(() => '?').join(', ')})`;
-                await connection.query(sql, values);
-            }
-            await connection.commit();
-            logAdminAction(req.user, 'IMPORTOU PRODUTOS', `Total: ${products.length} via CSV.`);
-            res.status(201).json({ message: `${products.length} produtos importados com sucesso!` });
-        } else {
-            res.status(400).json({ message: 'Nenhum produto válido foi encontrado no arquivo CSV.' });
-        }
-    } catch (err) {
-        await connection.rollback();
-        console.error("Erro durante a importação de CSV:", err);
-        res.status(500).json({ message: "Erro ao processar o arquivo. Verifique o formato e os dados." });
-    } finally {
-        connection.release();
-    }
-});
 
 // --- ROTAS DE AVALIAÇÕES (REVIEWS) ---
 app.post('/api/reviews', verifyToken, async (req, res) => {
@@ -4286,13 +3786,101 @@ app.put('/api/users/:id/status', verifyToken, verifyAdmin, async (req, res) => {
 });
 app.get('/api/users/me', verifyToken, async (req, res) => {
     try {
-        // CORREÇÃO: Adicionado 'phone' na lista de campos retornados
-        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone FROM users WHERE id = ?", [req.user.id]);
+        // CORREÇÃO: Adicionado o campo 'is_two_factor_enabled' na consulta SQL
+        const [rows] = await db.query("SELECT id, name, email, role, cpf, phone, is_two_factor_enabled FROM users WHERE id = ?", [req.user.id]);
         if (rows.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
-        res.json(rows[0]);
+        const user = rows[0];
+
+        // Verifica se o usuário tem biometria cadastrada
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [user.id]);
+        user.has_biometrics = auths.length > 0;
+
+        res.json(user);
     } catch (err) {
         console.error("Erro ao buscar dados do usuário:", err);
         res.status(500).json({ message: "Erro ao buscar dados do usuário." });
+    }
+});
+
+// (Novo) Rota para remover a biometria cadastrada
+app.delete('/api/webauthn/remove', verifyToken, async (req, res) => {
+    try {
+        await db.query("DELETE FROM user_authenticators WHERE user_id = ?", [req.user.id]);
+        res.json({ message: "Biometria removida com sucesso." });
+    } catch (err) {
+        console.error("Erro ao remover biometria:", err);
+        res.status(500).json({ message: "Erro ao remover biometria." });
+    }
+});
+
+// 4. Verifica a digital/face lida e faz o Login
+app.post('/api/webauthn/verify-authentication', async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
+    
+    const { body, sessionId } = req.body;
+    const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
+
+    if (!expectedChallenge) return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
+
+    try {
+        const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
+        if (authenticators.length === 0) return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
+        
+        const authenticator = authenticators[0];
+        const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
+
+        const verification = await webauthnServer.verifyAuthenticationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+            credential: {
+                id: authenticator.credential_id,
+                publicKey: publicKeyBuffer,
+                counter: Number(authenticator.counter),
+                transports: ['internal'],
+            },
+        });
+
+        if (verification.verified) {
+            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [verification.authenticationInfo.newCounter, authenticator.id]);
+            delete webauthnChallenges[`auth_${sessionId}`];
+
+            const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
+            const user = users[0];
+
+            if (user.status === 'blocked') return res.status(403).json({ message: "Conta bloqueada." });
+
+            if (user.role === 'admin' && user.is_two_factor_enabled) {
+                 const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
+                 return res.json({ twoFactorEnabled: true, token: tempToken });
+            }
+
+            const userPayload = { id: user.id, name: user.name, role: user.role };
+            const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+            const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+
+            const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+            await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+
+            const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' };
+            res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
+
+            // --- CORREÇÃO: Como o usuário acabou de usar a biometria, ele CLARAMENTE tem biometria! ---
+            const { password: _, two_factor_secret, ...userData } = user;
+            userData.has_biometrics = true; 
+            
+            res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
+        } else {
+            res.status(401).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro no login biométrico:", err);
+        res.status(500).json({ message: `Falha na verificação: ${err.message}` });
     }
 });
 
@@ -5963,6 +5551,259 @@ app.post('/api/newsletter/broadcast', verifyToken, verifyAdmin, async (req, res)
         res.status(500).json({ message: "Erro interno ao processar o envio." });
     } finally {
         connection.release();
+    }
+});
+
+// ============================================================================
+// --- ROTAS DE BIOMETRIA / RECONHECIMENTO FACIAL (WEBAUTHN / PASSKEYS) ---
+// ============================================================================
+
+// Tenta carregar a biblioteca de forma segura
+let webauthnServer;
+try {
+    webauthnServer = require('@simplewebauthn/server');
+} catch (e) {
+    console.error("ERRO CRÍTICO: Biblioteca @simplewebauthn/server não instalada no backend!");
+}
+
+const rpName = 'Love Cestas e Perfumes';
+
+const getAppOrigin = () => {
+    let url = process.env.APP_URL || 'http://localhost:3000';
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+    }
+    return url;
+};
+
+const expectedOrigin = getAppOrigin();
+let rpID;
+try {
+    rpID = new URL(expectedOrigin).hostname;
+} catch (e) {
+    console.warn("URL inválida detectada, usando localhost como fallback para rpID.");
+    rpID = 'localhost';
+}
+
+// --- NOVO: Rota para o Frontend verificar silenciosamente se o e-mail tem biometria ---
+app.post('/api/webauthn/check', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.json({ hasBiometrics: false });
+
+    try {
+        const [users] = await db.query("SELECT id FROM users WHERE email = ?", [email]);
+        if (users.length === 0) return res.json({ hasBiometrics: false });
+
+        const [auths] = await db.query("SELECT id FROM user_authenticators WHERE user_id = ?", [users[0].id]);
+        res.json({ hasBiometrics: auths.length > 0 });
+    } catch (err) {
+        console.error("Erro ao checar biometria:", err);
+        res.json({ hasBiometrics: false }); 
+    }
+});
+
+// 1. Gera opções para o usuário cadastrar uma nova biometria (Apenas Logados)
+app.get('/api/webauthn/generate-registration-options', verifyToken, async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada no servidor." });
+
+    try {
+        const [users] = await db.query("SELECT id, email, name FROM users WHERE id = ?", [req.user.id]);
+        if (users.length === 0) return res.status(404).json({ message: "Usuário não encontrado." });
+        const user = users[0];
+
+        const [authenticators] = await db.query("SELECT credential_id FROM user_authenticators WHERE user_id = ?", [user.id]);
+
+        // Formata o ID do usuário como Array de Bytes (Uint8Array) exigido pela v10+
+        const userIDUint8Array = new Uint8Array(Buffer.from(String(user.id)));
+
+        const options = await webauthnServer.generateRegistrationOptions({
+            rpName,
+            rpID,
+            userID: userIDUint8Array,
+            userName: user.email,
+            userDisplayName: user.name,
+            attestationType: 'none',
+            excludeCredentials: authenticators.map(auth => ({
+                id: auth.credential_id || '', 
+                type: 'public-key',
+                transports: ['internal'],
+            })),
+            authenticatorSelection: {
+                residentKey: 'preferred',
+                userVerification: 'preferred',
+            },
+        });
+
+        // Salva o desafio na memória
+        webauthnChallenges[`reg_${user.id}`] = options.challenge;
+
+        res.json(options);
+    } catch (err) {
+        console.error("Erro ao gerar opções de registro biométrico:", err);
+        res.status(500).json({ message: `Erro ao configurar: ${err.message}` });
+    }
+});
+
+// 2. Verifica a biometria cadastrada e salva no banco
+app.post('/api/webauthn/verify-registration', verifyToken, async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
+    
+    const { body } = req;
+    const userId = req.user.id;
+    const expectedChallenge = webauthnChallenges[`reg_${userId}`];
+
+    if (!expectedChallenge) {
+        return res.status(400).json({ message: "Desafio expirado ou inválido. Tente recarregar a página." });
+    }
+
+    try {
+        const verification = await webauthnServer.verifyRegistrationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+        });
+
+        const { verified, registrationInfo } = verification;
+
+        if (verified && registrationInfo) {
+            // CORREÇÃO CRÍTICA PARA A VERSÃO 10+ DO SIMPLEWEBAUTHN
+            // Em versões novas, os dados vêm dentro de "credential"
+            const credentialData = registrationInfo.credential || registrationInfo;
+            
+            const publicKey = credentialData.publicKey || credentialData.credentialPublicKey;
+            const credID = credentialData.id || credentialData.credentialID;
+            const counter = credentialData.counter || 0;
+            
+            // Converte a chave pública e o ID para formato de string do banco de dados
+            const base64PublicKey = Buffer.from(publicKey).toString('base64');
+            const base64CredentialID = Buffer.isBuffer(credID) || credID instanceof Uint8Array 
+                ? Buffer.from(credID).toString('base64url') 
+                : String(credID);
+
+            await db.query(
+                "INSERT INTO user_authenticators (user_id, credential_id, credential_public_key, counter) VALUES (?, ?, ?, ?)",
+                [userId, base64CredentialID, base64PublicKey, counter]
+            );
+
+            delete webauthnChallenges[`reg_${userId}`]; // Limpa a memória
+            res.json({ verified: true, message: "Biometria ativada com sucesso!" });
+        } else {
+            res.status(400).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro ao verificar registro biométrico:", err);
+        res.status(500).json({ message: `Erro ao salvar: ${err.message}` });
+    }
+});
+
+// 3. Gera opções para o usuário fazer Login com a biometria
+app.get('/api/webauthn/generate-authentication-options', async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
+    
+    try {
+        const sessionId = crypto.randomBytes(16).toString('hex');
+
+        const options = await webauthnServer.generateAuthenticationOptions({
+            rpID,
+            userVerification: 'preferred',
+        });
+
+        webauthnChallenges[`auth_${sessionId}`] = options.challenge;
+
+        res.json({ options, sessionId });
+    } catch (err) {
+        console.error("Erro ao gerar opções de login biométrico:", err);
+        res.status(500).json({ message: `Falha ao iniciar login: ${err.message}` });
+    }
+});
+
+// 4. Verifica a digital/face lida e faz o Login
+app.post('/api/webauthn/verify-authentication', async (req, res) => {
+    if (!webauthnServer) return res.status(500).json({ message: "Biblioteca de biometria não instalada." });
+    
+    const { body, sessionId } = req.body;
+    const expectedChallenge = webauthnChallenges[`auth_${sessionId}`];
+
+    if (!expectedChallenge) {
+        return res.status(400).json({ message: "Sessão de login expirada. Tente novamente." });
+    }
+
+    try {
+        // Encontra o usuário pelo ID da credencial biométrica
+        const [authenticators] = await db.query("SELECT * FROM user_authenticators WHERE credential_id = ?", [body.id]);
+        
+        if (authenticators.length === 0) {
+            return res.status(404).json({ message: "Biometria não reconhecida ou não cadastrada neste aparelho." });
+        }
+        
+        const authenticator = authenticators[0];
+
+        // Decodifica a chave pública salva no banco
+        const publicKeyBuffer = Buffer.from(authenticator.credential_public_key, 'base64');
+        const credentialIdBuffer = Buffer.from(authenticator.credential_id, 'base64url');
+
+        const verification = await webauthnServer.verifyAuthenticationResponse({
+            response: body,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID: rpID,
+            authenticator: {
+                credentialID: authenticator.credential_id, // Passa a string base64url direta
+                credentialPublicKey: publicKeyBuffer,
+                counter: authenticator.counter,
+                transports: ['internal'],
+            },
+        });
+
+        const { verified, authenticationInfo } = verification;
+
+        if (verified) {
+            await db.query("UPDATE user_authenticators SET counter = ? WHERE id = ?", [authenticationInfo.newCounter, authenticator.id]);
+            delete webauthnChallenges[`auth_${sessionId}`];
+
+            const [users] = await db.query("SELECT * FROM users WHERE id = ?", [authenticator.user_id]);
+            const user = users[0];
+
+            if (user.status === 'blocked') {
+                return res.status(403).json({ message: "Conta bloqueada." });
+            }
+
+            // === LÓGICA DE 2FA PARA ADMINS ===
+            if (user.role === 'admin' && user.is_two_factor_enabled) {
+                 const tempToken = jwt.sign({ id: user.id, twoFactorAuth: true }, process.env.JWT_SECRET, { expiresIn: '5m' });
+                 return res.json({ twoFactorEnabled: true, token: tempToken });
+            }
+
+            // === LOGIN BEM-SUCEDIDO NORMAL ===
+            const userPayload = { id: user.id, name: user.name, role: user.role };
+            const accessToken = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
+            const refreshToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+
+            const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MAX_AGE);
+            await db.query("INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)", [user.id, refreshToken, expiresAt]);
+
+            const cookieOptions = {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+            };
+
+            res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
+            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: REFRESH_TOKEN_MAX_AGE });
+
+            const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+            await db.query("INSERT INTO login_history (user_id, email, ip_address, user_agent, status) VALUES (?, ?, ?, ?, 'success')", [user.id, user.email, clientIp, req.headers['user-agent']]);
+
+            const { password: _, two_factor_secret, ...userData } = user;
+            
+            res.json({ message: "Login biométrico realizado com sucesso.", user: userData, accessToken, refreshToken });
+        } else {
+            res.status(401).json({ message: "A verificação biométrica falhou." });
+        }
+    } catch (err) {
+        console.error("Erro no login biométrico:", err);
+        res.status(500).json({ message: `Falha na verificação: ${err.message}` });
     }
 });
 
