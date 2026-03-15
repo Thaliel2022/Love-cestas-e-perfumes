@@ -10935,6 +10935,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
+                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -11130,8 +11131,11 @@ const AdminProducts = ({ onNavigate }) => {
         <div className="mb-6">
             <input 
                 type="text" 
-                name="search_products_admin_safe" 
-                autoComplete="off" 
+                name="search_products_no_autofill" 
+                autoComplete="new-password" 
+                spellCheck="false"
+                data-lpignore="true"
+                data-form-type="other"
                 placeholder="Pesquisar por nome, marca ou categoria..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
@@ -11152,6 +11156,7 @@ const AdminProducts = ({ onNavigate }) => {
                             <th className="p-4">Tipo</th>
                             <th className="p-4">Preço</th>
                             <th className="p-4">Promoção</th>
+                            <th className="p-4">Vendas</th>
                             <th className="p-4">Estoque</th>
                             <th className="p-4">Status</th>
                             <th className="p-4">Ações</th>
@@ -11202,6 +11207,9 @@ const AdminProducts = ({ onNavigate }) => {
                                         ) : (
                                             <span className="text-gray-400 text-xs">-</span>
                                         )}
+                                    </td>
+                                    <td className="p-4 font-semibold text-gray-700">
+                                        {p.sales || 0}
                                     </td>
                                     <td className={`p-4 font-bold ${p.stock < LOW_STOCK_THRESHOLD ? 'text-red-600' : ''}`}>
                                         {p.stock < LOW_STOCK_THRESHOLD && <ExclamationIcon className="h-4 w-4 inline-block mr-1 text-yellow-500"/>}
@@ -11258,7 +11266,7 @@ const AdminProducts = ({ onNavigate }) => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mt-4 text-sm border-t pt-4">
+                                <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t pt-4">
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Preço</strong> 
                                         {!!p.is_on_sale && p.sale_price > 0 ? (
@@ -11275,6 +11283,12 @@ const AdminProducts = ({ onNavigate }) => {
                                         ) : (
                                             <span className="font-bold text-gray-800">R$ {Number(p.price).toFixed(2)}</span>
                                         )}
+                                    </div>
+                                    <div>
+                                        <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Vendas</strong> 
+                                        <div className="font-bold text-gray-800">
+                                            {p.sales || 0} un.
+                                        </div>
                                     </div>
                                     <div>
                                         <strong className="text-gray-500 block text-xs uppercase tracking-wide mb-1">Estoque</strong> 
