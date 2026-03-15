@@ -491,6 +491,22 @@ db.getConnection()
         console.error('Falha ao conectar ao banco de dados:', err);
     });
 
+// --- SEED DE CONFIGURAÇÕES DE BRANDING (IDENTIDADE VISUAL) ---
+        const defaultBranding = [
+            ['site_name', 'Love Cestas e Perfumes'],
+            ['logo_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['favicon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['pwa_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png'],
+            ['login_icon_url', 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png']
+        ];
+
+        for (const [key, value] of defaultBranding) {
+            await connection.query(
+                "INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)", 
+                [key, value]
+            );
+        }
+
 // --- CONFIGURAÇÃO DO CLIENTE DO MERCADO PAGO ---
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN;
 const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN });
@@ -5732,6 +5748,59 @@ app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
     }
 });
 
+// (Público) Busca as configurações de Identidade Visual
+app.get('/api/settings/branding', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ('site_name', 'logo_url', 'favicon_url', 'pwa_icon_url', 'login_icon_url')");
+        const branding = {};
+        rows.forEach(row => branding[row.setting_key] = row.setting_value);
+        
+        // Garante que se algo falhar, retorna os padrões
+        const defaultLogo = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+        res.json({
+            site_name: branding.site_name || 'Love Cestas e Perfumes',
+            logo_url: branding.logo_url || defaultLogo,
+            favicon_url: branding.favicon_url || defaultLogo,
+            pwa_icon_url: branding.pwa_icon_url || defaultLogo,
+            login_icon_url: branding.login_icon_url || defaultLogo,
+        });
+    } catch (err) {
+        console.error("Erro ao buscar branding:", err);
+        res.status(500).json({ message: "Erro interno ao buscar identidade visual." });
+    }
+});
+
+// (Admin) Atualiza as configurações de Identidade Visual
+app.put('/api/settings/branding', verifyToken, verifyAdmin, async (req, res) => {
+    const updates = req.body;
+    const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : req.ip;
+
+    const allowedKeys = ['site_name', 'logo_url', 'favicon_url', 'pwa_icon_url', 'login_icon_url'];
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        for (const key of Object.keys(updates)) {
+            if (allowedKeys.includes(key)) {
+                await connection.query(
+                    "INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
+                    [key, updates[key], updates[key]]
+                );
+            }
+        }
+
+        await connection.commit();
+        logAdminAction(req.user, 'ATUALIZOU IDENTIDADE VISUAL', null, clientIp);
+        res.json({ message: "Identidade visual atualizada com sucesso!" });
+    } catch (err) {
+        await connection.rollback();
+        console.error("Erro ao atualizar branding:", err);
+        res.status(500).json({ message: "Erro ao salvar as configurações." });
+    } finally {
+        connection.release();
+    }
+});
 
 app.get('/api/reports/dashboard', verifyToken, verifyAdmin, async (req, res) => {
     const { filter } = req.query; // 'today', 'week', 'month', 'year'
