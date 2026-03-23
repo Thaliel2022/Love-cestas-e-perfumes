@@ -10822,6 +10822,9 @@ const AdminProducts = ({ onNavigate }) => {
   const [isClearingPromos, setIsClearingPromos] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // NOVO ESTADO: Controle da tela de carregamento em tela cheia para ações em massa
+  const [bulkProgress, setBulkProgress] = useState({ isRunning: false, text: '' });
+
   const [searchTerm, setSearchTerm] = useState('');
   const [uniqueBrands, setUniqueBrands] = useState([]);
   const [uniqueCategories, setUniqueCategories] = useState([]);
@@ -10936,7 +10939,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm('');
+                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -10952,6 +10955,7 @@ const AdminProducts = ({ onNavigate }) => {
       confirmation.show(
           `Tem certeza que deseja EXCLUIR permanentemente os ${selectedProducts.length} produto(s) selecionado(s)?`,
           async () => {
+              setBulkProgress({ isRunning: true, text: `Excluindo ${selectedProducts.length} produto(s)...` });
               try {
                   await apiService('/products', 'DELETE', { ids: selectedProducts });
                   notification.show(`${selectedProducts.length} produto(s) excluído(s) com sucesso.`);
@@ -10960,13 +10964,15 @@ const AdminProducts = ({ onNavigate }) => {
                   fetchProducts();
               } catch (error) {
                   notification.show(`Erro ao excluir produtos: ${error.message}`, 'error');
+              } finally {
+                  setBulkProgress({ isRunning: false, text: '' });
               }
           },
           { requiresAuth: true, confirmText: 'Excluir Selecionados', confirmColor: 'bg-red-600 hover:bg-red-700' }
       );
   };
 
-  // --- Ativação/Inativação em Massa (Com tratamento anti Erro 500) ---
+  // --- Ativação/Inativação em Massa ---
   const handleBulkStatusUpdate = async (newStatus) => {
       if (selectedProducts.length === 0) return;
       const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
@@ -10975,6 +10981,7 @@ const AdminProducts = ({ onNavigate }) => {
           `Tem certeza que deseja ${actionText} os ${selectedProducts.length} produto(s) selecionado(s)?`,
           async () => {
               setIsUpdatingStatus(true);
+              setBulkProgress({ isRunning: true, text: `${newStatus ? 'Ativando' : 'Inativando'} ${selectedProducts.length} produto(s)...` });
               try {
                   // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
                   for (const id of selectedProducts) {
@@ -10988,7 +10995,6 @@ const AdminProducts = ({ onNavigate }) => {
                       delete payload.created_at;
 
                       // Converte null para string vazia em todos os campos de texto opcionais
-                      // Isso evita o Erro 500 do validador (Zod) do backend que recusa valores null
                       const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
                       textFields.forEach(field => {
                           if (payload[field] === null || payload[field] === undefined) {
@@ -11031,6 +11037,7 @@ const AdminProducts = ({ onNavigate }) => {
                   notification.show(`Erro ao atualizar status: ${error.message}`, 'error');
               } finally {
                   setIsUpdatingStatus(false);
+                  setBulkProgress({ isRunning: false, text: '' });
               }
           },
           { requiresAuth: true, confirmText: `Sim, ${actionText}`, confirmColor: newStatus ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700' }
@@ -11064,6 +11071,7 @@ const AdminProducts = ({ onNavigate }) => {
       }
       
       setIsApplyingBulk(true);
+      setBulkProgress({ isRunning: true, text: `Aplicando desconto em ${selectedProducts.length} produto(s)...` });
       try {
           const formattedEndDate = isBulkLimitedTime ? new Date(bulkEndDate).toISOString() : null;
 
@@ -11085,6 +11093,7 @@ const AdminProducts = ({ onNavigate }) => {
           notification.show(`Erro ao aplicar promoção: ${error.message}`, 'error');
       } finally {
           setIsApplyingBulk(false);
+          setBulkProgress({ isRunning: false, text: '' });
       }
   };
 
@@ -11095,6 +11104,7 @@ const AdminProducts = ({ onNavigate }) => {
           `Tem certeza que deseja ENCERRAR a promoção de ${selectedProducts.length} produtos selecionados?`,
           async () => {
               setIsClearingPromos(true);
+              setBulkProgress({ isRunning: true, text: `Encerrando promoções de ${selectedProducts.length} produto(s)...` });
               try {
                   const result = await apiService('/products/bulk-clear-promo', 'PUT', { productIds: selectedProducts });
                   notification.show(result.message);
@@ -11105,6 +11115,7 @@ const AdminProducts = ({ onNavigate }) => {
                   notification.show(`Erro ao encerrar promoções: ${error.message}`, 'error');
               } finally {
                   setIsClearingPromos(false);
+                  setBulkProgress({ isRunning: false, text: '' });
               }
           },
           { requiresAuth: true, confirmText: 'Encerrar Promoções', confirmColor: 'bg-red-600 hover:bg-red-700' }
@@ -11117,6 +11128,25 @@ const AdminProducts = ({ onNavigate }) => {
 
   return (
     <div>
+        {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA */}
+        <AnimatePresence>
+            {bulkProgress.isRunning && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-sm"
+                >
+                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 text-center transform transition-all">
+                        <SpinnerIcon className="h-14 w-14 text-indigo-600 mb-5 animate-spin" />
+                        <h3 className="text-xl font-extrabold text-slate-800 mb-2">Processando</h3>
+                        <p className="text-sm font-medium text-slate-600">{bulkProgress.text}</p>
+                        <p className="text-xs text-slate-400 mt-4">Por favor, não feche esta janela.</p>
+                    </div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+
         <AnimatePresence>
             {isBulkPromoModalOpen && (
                 <Modal isOpen={isBulkPromoModalOpen} onClose={() => setIsBulkPromoModalOpen(false)} title={`Aplicar Promoção em ${selectedProducts.length} Produtos`}>
@@ -11165,8 +11195,8 @@ const AdminProducts = ({ onNavigate }) => {
                         )}
 
                         <div className="flex justify-end gap-3 pt-4 border-t">
-                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Cancelar</button>
-                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2">
+                            <button type="button" onClick={() => setIsBulkPromoModalOpen(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 disabled:opacity-50" disabled={isApplyingBulk}>Cancelar</button>
+                            <button type="submit" disabled={isApplyingBulk} className="px-6 py-2 bg-amber-500 text-black font-bold rounded-md hover:bg-amber-400 flex items-center gap-2 disabled:opacity-50">
                                 {isApplyingBulk ? <SpinnerIcon className="h-5 w-5"/> : <SaleIcon className="h-5 w-5"/>}
                                 Aplicar Desconto
                             </button>
@@ -11222,24 +11252,24 @@ const AdminProducts = ({ onNavigate }) => {
                     <div className="flex flex-wrap gap-2">
                         {hasInactiveSelected && (
                             <button onClick={() => handleBulkStatusUpdate(true)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                                {isUpdatingStatus ? <SpinnerIcon className="h-3 w-3"/> : <CheckIcon className="h-3 w-3"/>} Ativar
+                                <CheckIcon className="h-3 w-3"/> Ativar
                             </button>
                         )}
                         {hasActiveSelected && (
                             <button onClick={() => handleBulkStatusUpdate(false)} disabled={isUpdatingStatus} className="px-3 py-1.5 bg-gray-600 text-white text-xs font-bold rounded hover:bg-gray-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                                {isUpdatingStatus ? <SpinnerIcon className="h-3 w-3"/> : <XMarkIcon className="h-3 w-3"/>} Inativar
+                                <XMarkIcon className="h-3 w-3"/> Inativar
                             </button>
                         )}
-                        <button onClick={() => setIsBulkPromoModalOpen(true)} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm">
+                        <button onClick={() => setIsBulkPromoModalOpen(true)} disabled={isApplyingBulk} className="px-3 py-1.5 bg-amber-500 text-black text-xs font-bold rounded hover:bg-amber-400 flex items-center gap-1 shadow-sm disabled:opacity-50">
                             <SaleIcon className="h-3 w-3"/> Promoção
                         </button>
                         <button onClick={handleClearSelectedPromotions} disabled={isClearingPromos} className="px-3 py-1.5 bg-orange-600 text-white text-xs font-bold rounded hover:bg-orange-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
-                            {isClearingPromos ? <SpinnerIcon className="h-3 w-3"/> : <XMarkIcon className="h-3 w-3"/>} Encerrar Promo
+                            <XMarkIcon className="h-3 w-3"/> Encerrar Promo
                         </button>
-                        <button onClick={handleBulkDelete} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm">
+                        <button onClick={handleBulkDelete} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 flex items-center gap-1 shadow-sm disabled:opacity-50">
                             <TrashIcon className="h-3 w-3"/> Excluir
                         </button>
-                        <button onClick={() => setSelectedProducts([])} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1">
+                        <button onClick={() => setSelectedProducts([])} disabled={bulkProgress.isRunning} className="px-3 py-1.5 bg-white border border-gray-300 text-gray-600 text-xs font-bold rounded hover:bg-gray-100 shadow-sm ml-1 disabled:opacity-50">
                             Cancelar
                         </button>
                     </div>
@@ -11370,6 +11400,7 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
+                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
                                          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
