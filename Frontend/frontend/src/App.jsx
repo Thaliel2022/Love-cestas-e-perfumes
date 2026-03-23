@@ -10936,7 +10936,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
+                setSearchTerm('');
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -10945,7 +10945,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // --- NOVA FUNÇÃO: Exclusão em Massa ---
+  // --- Exclusão em Massa ---
   const handleBulkDelete = () => {
       if (selectedProducts.length === 0) return;
       
@@ -10966,7 +10966,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // --- NOVA FUNÇÃO: Ativação/Inativação em Massa ---
+  // --- Ativação/Inativação em Massa (Com tratamento anti Erro 500) ---
   const handleBulkStatusUpdate = async (newStatus) => {
       if (selectedProducts.length === 0) return;
       const actionText = newStatus ? 'ATIVAR' : 'INATIVAR';
@@ -10981,22 +10981,44 @@ const AdminProducts = ({ onNavigate }) => {
                       const product = products.find(p => p.id === id);
                       if (!product) continue;
 
-                      // Prepara o payload ajustando apenas o campo de ativação
+                      // Clona o produto e limpa campos excedentes gerados pelo select de agregação (evita conflito)
                       const payload = { ...product, is_active: newStatus ? 1 : 0 };
-                      if (payload.sale_end_date) {
+                      delete payload.avg_rating;
+                      delete payload.review_count;
+                      delete payload.created_at;
+
+                      // Converte null para string vazia em todos os campos de texto opcionais
+                      // Isso evita o Erro 500 do validador (Zod) do backend que recusa valores null
+                      const textFields = ['description', 'notes', 'how_to_use', 'ideal_for', 'volume', 'size_guide', 'care_instructions', 'video_url'];
+                      textFields.forEach(field => {
+                          if (payload[field] === null || payload[field] === undefined) {
+                              payload[field] = '';
+                          }
+                      });
+
+                      if (payload.sale_end_date && payload.sale_end_date !== '') {
                           payload.sale_end_date = new Date(payload.sale_end_date).toISOString();
+                      } else {
+                          payload.sale_end_date = null;
                       }
+
+                      if (!payload.sale_price) payload.sale_price = null;
                       
-                      // Sanitização preventiva para evitar erro 500 na rota PUT
+                      // Sanitização de arrays/objetos
                       if (payload.product_type === 'clothing') {
                           if (!payload.variations || payload.variations === 'null') {
                               payload.variations = '[]';
                           } else if (typeof payload.variations === 'object') {
                               payload.variations = JSON.stringify(payload.variations);
                           }
+                      } else {
+                          payload.variations = '[]';
                       }
+                      
                       if (typeof payload.images === 'object') {
                           payload.images = JSON.stringify(payload.images);
+                      } else if (!payload.images || payload.images === 'null') {
+                          payload.images = '[]';
                       }
 
                       await apiService(`/products/${id}`, 'PUT', payload);
@@ -11184,7 +11206,7 @@ const AdminProducts = ({ onNavigate }) => {
             </div>
         </div>
 
-        {/* --- NOVA BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
+        {/* --- BARRA DE AÇÕES EM MASSA FLUTUANTE --- */}
         <AnimatePresence>
             {selectedProducts.length > 0 && (
                 <motion.div 
@@ -11323,7 +11345,7 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA COM O TIPO DO PRODUTO) --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN --- */}
             <div className="md:hidden">
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
@@ -11348,7 +11370,6 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
-                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
                                          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
