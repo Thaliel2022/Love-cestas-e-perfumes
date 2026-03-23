@@ -3018,11 +3018,14 @@ const CategoriesPage = ({ onNavigate }) => {
         </motion.div>
     );
 
-    // --- TELA DE CARREGAMENTO CATEGORIAS (OTIMIZADA PARA MOBILE) ---
+    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <SpinnerIcon className="h-12 w-12 text-amber-400 animate-spin" />
+                <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
+                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
+                </div>
                 <div className="text-center space-y-2">
                     <h2 className="text-xl font-bold text-white tracking-wide">Organizando os Departamentos</h2>
                     <p className="text-sm text-gray-500">Preparando nossas coleções exclusivas para você...</p>
@@ -4143,14 +4146,17 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
-    // --- TELA DE CARREGAMENTO PRODUTO (OTIMIZADA PARA MOBILE) ---
+    // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <SpinnerIcon className="h-12 w-12 text-amber-400 animate-spin" />
+                <div className="relative">
+                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
+                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
+                </div>
                 <div className="text-center space-y-2">
                     <h2 className="text-xl font-bold text-white tracking-wide">Carregando Detalhes</h2>
-                    <p className="text-sm text-gray-500">Buscando informações do produto...</p>
+                    <p className="text-sm text-gray-500">Buscando as melhores imagens e informações para você...</p>
                 </div>
             </div>
         );
@@ -15061,13 +15067,18 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- TELA DE CARREGAMENTO INICIAL PREMIUM (OTIMIZADA PARA MOBILE) ---
+  // --- TELA DE CARREGAMENTO INICIAL PREMIUM ---
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
-            <div className="w-24 h-24 relative animate-pulse">
+            <motion.div 
+                animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
+                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                className="w-28 h-28 relative"
+            >
+                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
                 <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
-            </div>
+            </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
                 <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
