@@ -10936,7 +10936,7 @@ const AdminProducts = ({ onNavigate }) => {
                 await apiService(`/products/${id}`, 'DELETE');
                 fetchProducts();
                 notification.show('Produto deletado com sucesso.');
-                setSearchTerm('');
+                setSearchTerm(''); // Limpa a barra de pesquisa para evitar o bug de tela vazia com autofill
               } catch(error) {
                 notification.show(`Erro ao deletar produto: ${error.message}`, 'error');
               }
@@ -10976,19 +10976,32 @@ const AdminProducts = ({ onNavigate }) => {
           async () => {
               setIsUpdatingStatus(true);
               try {
-                  const promises = selectedProducts.map(id => {
+                  // Processa de forma sequencial para não sobrecarregar o pool de conexões do MySQL
+                  for (const id of selectedProducts) {
                       const product = products.find(p => p.id === id);
-                      if (!product) return Promise.resolve();
+                      if (!product) continue;
 
-                      // Prepara payload enviando objeto completo modificado
+                      // Prepara o payload ajustando apenas o campo de ativação
                       const payload = { ...product, is_active: newStatus ? 1 : 0 };
                       if (payload.sale_end_date) {
                           payload.sale_end_date = new Date(payload.sale_end_date).toISOString();
                       }
-                      return apiService(`/products/${id}`, 'PUT', payload);
-                  });
+                      
+                      // Sanitização preventiva para evitar erro 500 na rota PUT
+                      if (payload.product_type === 'clothing') {
+                          if (!payload.variations || payload.variations === 'null') {
+                              payload.variations = '[]';
+                          } else if (typeof payload.variations === 'object') {
+                              payload.variations = JSON.stringify(payload.variations);
+                          }
+                      }
+                      if (typeof payload.images === 'object') {
+                          payload.images = JSON.stringify(payload.images);
+                      }
 
-                  await Promise.all(promises);
+                      await apiService(`/products/${id}`, 'PUT', payload);
+                  }
+
                   notification.show(`${selectedProducts.length} produto(s) atualizado(s) com sucesso!`);
                   setSelectedProducts([]);
                   fetchProducts();
@@ -11076,7 +11089,7 @@ const AdminProducts = ({ onNavigate }) => {
       );
   };
 
-  // Verificações lógicas para exibir botões apropriados na barra
+  // Verificações lógicas para exibir botões apropriados na barra de ações em massa
   const hasInactiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 0);
   const hasActiveSelected = selectedProducts.some(id => products.find(p => p.id === id)?.is_active === 1);
 
@@ -11310,7 +11323,7 @@ const AdminProducts = ({ onNavigate }) => {
                 </table>
             </div>
             
-            {/* --- VERSÃO MOBILE DO ADMIN --- */}
+            {/* --- VERSÃO MOBILE DO ADMIN (ATUALIZADA COM O TIPO DO PRODUTO) --- */}
             <div className="md:hidden">
                 <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
                      <label className="flex items-center gap-3 font-bold text-gray-700">
@@ -11335,6 +11348,7 @@ const AdminProducts = ({ onNavigate }) => {
                                         </div>
                                     </div>
                                     
+                                    {/* Badge de Status e TIPO DE PRODUTO Mobile */}
                                     <div className="flex flex-col items-end gap-1">
                                          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase whitespace-nowrap">
                                              {p.product_type === 'clothing' ? 'Roupa' : (p.product_type === 'perfume' ? 'Perfume' : p.product_type)}
