@@ -3018,17 +3018,22 @@ const CategoriesPage = ({ onNavigate }) => {
         </motion.div>
     );
 
-    // --- TELA DE CARREGAMENTO CATEGORIAS ---
+    // --- TELA DE CARREGAMENTO CATEGORIAS (OTIMIZADA PARA MOBILE) ---
     if (isLoading) {
         return (
-            <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
-                </div>
-                <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-white tracking-wide">Organizando os Departamentos</h2>
-                    <p className="text-sm text-gray-500">Preparando nossas coleções exclusivas para você...</p>
+            <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6 relative overflow-hidden">
+                <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-0"></div>
+                <div className="absolute inset-0 opacity-[0.02] z-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMCAwaDR2NEgwVjB6bTRAdjRoNHY0SDRWNHpNMCAwaDR2NEgwVjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00Vjh6bS00LTRoNHY0aC00VjR6bS00LTRoNHY0aC00VjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00eiIvPjwvZz48L2c+PC9zdmc+')]"></div>
+
+                <div className="relative z-10 flex flex-col items-center gap-6">
+                    <div className="relative flex items-center justify-center">
+                        <div className="absolute inset-0 bg-amber-500 blur-xl opacity-10 rounded-full pointer-events-none"></div>
+                        <SpinnerIcon className="h-12 w-12 text-amber-400 animate-spin relative z-10" />
+                    </div>
+                    <div className="text-center space-y-2 relative z-10">
+                        <h2 className="text-xl font-bold text-white tracking-wide">Organizando os Departamentos</h2>
+                        <p className="text-sm text-gray-500">Preparando nossas coleções exclusivas para você...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -4146,17 +4151,25 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
-    // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
+    // --- TELA DE CARREGAMENTO PRODUTO (OTIMIZADA PARA MOBILE) ---
     if (isLoading) {
         return (
-            <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-amber-500 blur-xl opacity-20 rounded-full animate-pulse"></div>
-                    <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10" />
-                </div>
-                <div className="text-center space-y-2">
-                    <h2 className="text-xl font-bold text-white tracking-wide">Carregando Detalhes</h2>
-                    <p className="text-sm text-gray-500">Buscando as melhores imagens e informações para você...</p>
+            <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6 relative overflow-hidden">
+                {/* OTIMIZAÇÃO: Usamos opacidade alta e um blur sutil combinado com textura para o visual premium sem travar no mobile */}
+                <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-0"></div>
+                
+                {/* Textura de ruído sutil para aumentar a percepção de 'frost' sem processamento pesado */}
+                <div className="absolute inset-0 opacity-[0.02] z-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMCAwaDR2NEgwVjB6bTRAdjRoNHY0SDRWNHpNMCAwaDR2NEgwVjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00Vjh6bS00LTRoNHY0aC00VjR6bS00LTRoNHY0aC00VjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em04IDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00eiIvPjwvZz48L2c+PC9zdmc+')]"></div>
+
+                <div className="relative z-10 flex flex-col items-center gap-6">
+                    <div className="relative flex items-center justify-center">
+                        <div className="absolute inset-0 bg-amber-500 blur-xl opacity-10 rounded-full pointer-events-none"></div>
+                        <SpinnerIcon className="h-12 w-12 text-amber-400 animate-spin relative z-10" />
+                    </div>
+                    <div className="text-center space-y-2 relative z-10">
+                        <h2 className="text-xl font-bold text-white tracking-wide">Carregando Detalhes</h2>
+                        <p className="text-sm text-gray-500">Buscando informações do produto...</p>
+                    </div>
                 </div>
             </div>
         );
@@ -15067,19 +15080,26 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- TELA DE CARREGAMENTO INICIAL PREMIUM ---
+  // --- TELA DE CARREGAMENTO INICIAL (VISUAL PREMIUM + ALTA PERFORMANCE) ---
   if (isLoading || isStatusLoading) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
+        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6 relative overflow-hidden">
+            {/* OTIMIZAÇÃO: Usamos opacidade alta e um blur sutil combinado com textura para o visual premium sem travar no mobile */}
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-sm z-0"></div>
+            
+            {/* Textura de ruído sutil para aumentar a percepção de 'frost' sem processamento pesado */}
+            <div className="absolute inset-0 opacity-[0.02] z-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDQwIDQwIj48ZyBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC40Ij48cGF0aCBkPSJNMCAwaDR2NEgwVjB6bTRAdjRoNHY0SDRWNHpNMCAwaDR2NEgwVjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em04IDhoNHY0aC00Vjh6bS00LTRoNHY0aC00VjR6bS00LTRoNHY0aC00VjB6bTggOGg0djRIOFY4em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em00IDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00em0wIDRoNHY0aC00di00eiIvPjwvZz48L2c+PC9zdmc+')]"></div>
+
             <motion.div 
-                animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                className="w-28 h-28 relative"
+                animate={{ scale: [1, 1.02, 1], opacity: [0.9, 1, 0.9] }} 
+                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                className="w-28 h-28 relative z-10"
             >
-                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                {/* OTIMIZAÇÃO: Glow muito sutil e fixo, sem animação de pulso no glow para economizar GPU */}
+                <div className="absolute inset-0 bg-amber-500 blur-xl opacity-10 rounded-full pointer-events-none"></div>
                 <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
-            <div className="flex flex-col items-center gap-3">
+            <div className="flex flex-col items-center gap-3 relative z-10">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
                 <p className="text-amber-400/80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
