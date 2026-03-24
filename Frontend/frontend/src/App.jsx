@@ -6415,32 +6415,43 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         statusRef.current = pageStatus;
     }, [pageStatus]);
 
-    const pollStatus = useCallback(async () => {
+    const pollStatus = useCallback(async (isManualCheck = false) => {
         console.log(`Verificando status do pedido #${orderId}...`);
         
-        // --- CORREÇÃO DE UX: Leitura instantânea dos parâmetros da URL do Mercado Pago ---
-        // Isso evita que o cliente fique preso na tela de "Confirmando Pagamento" aguardando o webhook
+        // --- CORREÇÃO DE LÓGICA E UX ---
+        // Só lê os parâmetros da URL se NÃO for uma checagem manual.
+        // Isso resolve o bug do botão "Já Paguei" que ficava preso no status da URL.
         const hashParts = window.location.hash.split('?');
-        if (hashParts.length > 1) {
+        if (hashParts.length > 1 && !isManualCheck) {
             const params = new URLSearchParams(hashParts[1]);
             const mpStatus = params.get('status') || params.get('collection_status');
             
             if (mpStatus === 'approved') {
                 setFinalOrderStatus('Pagamento Aprovado');
                 setPageStatus('success');
+                // Limpa os parâmetros da URL para evitar que fiquem presos no cache visual
+                window.history.replaceState(null, '', `/#order-success/${orderId}`);
                 return true; 
             } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
                 setFinalOrderStatus('Pagamento Recusado');
                 setPageStatus('pending_action');
+                window.history.replaceState(null, '', `/#order-success/${orderId}`);
                 return true;
             }
         }
 
-        // Fallback: Consulta tradicional na API
+        // Fallback: Consulta tradicional na API com Anti-Cache Timestamp
         try {
-            const response = await apiService(`/orders/${orderId}/status`);
+            const response = await apiService(`/orders/${orderId}/status?_t=${Date.now()}`);
             if (response.status && response.status !== 'Pendente') {
                 setFinalOrderStatus(response.status);
+                
+                // Se foi cancelado ou recusado pela operadora, vai pra tela de pendente (para tentar pagar de novo)
+                if (response.status === 'Pagamento Recusado' || response.status === 'Cancelado') {
+                    setPageStatus('pending_action');
+                    return true;
+                }
+                
                 setPageStatus('success');
                 return true; 
             }
@@ -6455,7 +6466,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.assign(paymentResult.init_point);
             } else {
@@ -6469,14 +6479,21 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
     const handleManualCheck = async () => {
         setPageStatus('processing');
-        const isFinished = await pollStatus();
+        
+        // Mantém a animação rodando por pelo menos 1.5s para o cliente ver o processamento
+        const startTime = Date.now();
+        const isFinished = await pollStatus(true); // true sinaliza checagem manual
+        const elapsedTime = Date.now() - startTime;
+        
+        if (elapsedTime < 1500) {
+            await new Promise(resolve => setTimeout(resolve, 1500 - elapsedTime));
+        }
+
         if (!isFinished) {
-            setTimeout(() => {
-                 if (statusRef.current !== 'success') {
-                    setPageStatus('pending_action');
-                    notification.show("O pagamento ainda não foi confirmado. Aguarde alguns instantes.", "error");
-                 }
-            }, 2000);
+             if (statusRef.current !== 'success') {
+                setPageStatus('pending_action');
+                notification.show("O pagamento ainda não foi confirmado. Algumas operadoras e boletos levam mais tempo.", "error");
+             }
         }
     };
 
@@ -6500,8 +6517,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
     useEffect(() => {
         clearOrderState(); 
-        
-        // --- CORREÇÃO: Limpar do localStorage ---
         localStorage.removeItem('pendingOrderId');
 
         let pollInterval;
@@ -6558,79 +6573,120 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         };
     }, [orderId, clearOrderState, pollStatus]); 
 
+    // --- RENDERIZAÇÃO PREMIUM DO CONTEÚDO ---
     const renderContent = () => {
         switch (pageStatus) {
             case 'success':
                 return {
-                    icon: <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-4" />,
+                    icon: (
+                        <div className="w-24 h-24 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
+                            <CheckCircleIcon className="h-12 w-12 text-green-500" />
+                        </div>
+                    ),
                     title: "Pagamento Aprovado!",
-                    message: `Seu pedido #${orderId} foi confirmado e está com o status "${finalOrderStatus}". Já estamos preparando tudo para o envio!`,
+                    subtitle: "Tudo certo com o seu pedido 🎉",
+                    message: `O pedido #${orderId} foi confirmado em nosso sistema. Já estamos preparando seus produtos para envio com muito carinho!`,
                     actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ver Meus Pedidos</button>
-                    )
+                        <button onClick={() => onNavigate('account')} className="bg-gradient-to-r from-amber-400 to-amber-500 text-black px-8 py-4 rounded-xl font-extrabold text-lg hover:from-amber-300 hover:to-amber-400 w-full sm:w-auto shadow-lg hover:shadow-amber-500/25 transition-all transform hover:-translate-y-1">
+                            Acompanhar Pedido
+                        </button>
+                    ),
+                    borderColor: "border-green-500/30"
                 };
             case 'pending_action':
                 return {
-                    icon: <ExclamationCircleIcon className="h-16 w-16 text-amber-500 mx-auto mb-4" />,
+                    icon: (
+                        <div className="w-24 h-24 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_40px_rgba(245,158,11,0.2)]">
+                            <ExclamationCircleIcon className="h-12 w-12 text-amber-500" />
+                        </div>
+                    ),
                     title: "Aguardando Pagamento",
-                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela do Mercado Pago, clique abaixo para pagar.`,
+                    subtitle: "Finalize a compra para garantirmos o estoque.",
+                    message: `Ainda não recebemos a confirmação do pagamento para o pedido #${orderId}. Se você fechou a janela de pagamento ou gerou um boleto/Pix, você pode acessar ou pagar clicando abaixo.`,
                     actions: (
-                        <div className="flex flex-col gap-3 w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center">
                              <button 
                                 onClick={handleRetryPayment} 
                                 disabled={isRetryingPayment}
-                                className={`px-6 py-3 rounded-md font-bold flex items-center justify-center gap-2 w-full transition-colors ${isRetryingPayment ? 'bg-green-700 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                className={`px-8 py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 w-full sm:w-auto transition-all shadow-lg ${isRetryingPayment ? 'bg-green-800/50 text-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-green-500/30 hover:-translate-y-1'}`}
                             >
-                                {isRetryingPayment ? <SpinnerIcon className="h-5 w-5"/> : <CreditCardIcon className="h-5 w-5"/>}
+                                {isRetryingPayment ? <SpinnerIcon className="h-6 w-6"/> : <CreditCardIcon className="h-6 w-6"/>}
                                 {isRetryingPayment ? 'Abrindo...' : 'Realizar Pagamento'}
                             </button>
                             <button 
                                 onClick={handleManualCheck} 
-                                className="bg-gray-700 text-white px-6 py-3 rounded-md font-bold hover:bg-gray-600 w-full"
+                                className="bg-gray-800/80 backdrop-blur text-white border border-gray-600 px-8 py-4 rounded-xl font-bold hover:bg-gray-700 w-full sm:w-auto transition-all flex items-center justify-center gap-2"
                             >
-                                Já Paguei (Atualizar)
+                                <ArrowUturnLeftIcon className="h-5 w-5" /> Já Paguei (Atualizar)
                             </button>
                         </div>
-                    )
+                    ),
+                    borderColor: "border-amber-500/30"
                 };
             case 'timeout':
                 return {
-                    icon: <ClockIcon className="h-16 w-16 text-gray-500 mx-auto mb-4" />,
-                    title: "Processando...",
-                    message: `Seu pedido #${orderId} foi recebido. Estamos aguardando a confirmação do banco. Você pode verificar o status a qualquer momento em "Meus Pedidos".`,
+                    icon: (
+                        <div className="w-24 h-24 bg-gray-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <ClockIcon className="h-12 w-12 text-gray-400" />
+                        </div>
+                    ),
+                    title: "Processando Pagamento...",
+                    subtitle: "Isso pode levar alguns minutos.",
+                    message: `O pedido #${orderId} foi registrado. Estamos aguardando a confirmação do seu banco ou operadora de cartão. Assim que for confirmado, o status será atualizado automaticamente.`,
                     actions: (
-                        <button onClick={() => onNavigate('account')} className="bg-amber-500 text-black px-6 py-3 rounded-md font-bold hover:bg-amber-400 w-full sm:w-auto">Ir para Meus Pedidos</button>
-                    )
+                        <button onClick={() => onNavigate('account')} className="bg-gray-800 border border-gray-700 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-700 w-full sm:w-auto shadow-lg transition-all">
+                            Ir para Meus Pedidos
+                        </button>
+                    ),
+                    borderColor: "border-gray-600/30"
                 };
             case 'processing':
             default:
                 return {
                     icon: (
-                        <div className="relative mb-6">
-                            <SpinnerIcon className="h-16 w-16 text-amber-500 mx-auto animate-spin" />
+                        <div className="relative mb-8 w-24 h-24 mx-auto flex items-center justify-center">
+                            <div className="absolute inset-0 bg-amber-500/20 rounded-full animate-ping"></div>
+                            <div className="absolute inset-2 bg-amber-500/30 rounded-full animate-pulse"></div>
+                            <SpinnerIcon className="h-12 w-12 text-amber-400 relative z-10 animate-spin" />
                         </div>
                     ),
-                    title: "Confirmando Pagamento...",
-                    message: "Aguarde um instante, estamos confirmando seu pagamento com a operadora.",
-                    actions: null
+                    title: "Confirmando Pagamento",
+                    subtitle: "Por favor, não feche esta janela.",
+                    message: "Estamos verificando com o banco e o Mercado Pago a situação do seu pedido. Isso leva apenas alguns segundos.",
+                    actions: null,
+                    borderColor: "border-amber-500/30"
                 };
         }
     };
 
-    const { icon, title, message, actions } = renderContent();
+    const { icon, title, subtitle, message, actions, borderColor } = renderContent();
 
     return (
-        <div className="bg-black text-white min-h-screen flex items-center justify-center p-4">
-            <div className="text-center p-8 bg-gray-900 rounded-lg shadow-lg border border-gray-800 max-w-lg w-full">
+        <div className="bg-black text-white min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Efeitos de Luz de Fundo */}
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            {/* Cartão de Confirmação Premium */}
+            <div className={`relative z-10 text-center p-8 sm:p-12 bg-gray-900/80 backdrop-blur-xl rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.4)] border ${borderColor} max-w-2xl w-full transition-all duration-500`}>
+                
                 {icon}
-                <h1 className="text-2xl sm:text-3xl font-bold text-amber-400 mb-4">{title}</h1>
-                <p className="text-gray-300 mb-8 leading-relaxed">{message}</p>
+                
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">{title}</h1>
+                <p className="text-amber-400 font-bold mb-8 uppercase tracking-widest text-xs sm:text-sm">{subtitle}</p>
+                
+                <div className="bg-black/50 rounded-2xl p-6 mb-8 border border-gray-800/50 shadow-inner">
+                    <p className="text-gray-300 leading-relaxed text-sm sm:text-base">
+                        {message}
+                    </p>
+                </div>
                 
                 <div className="flex flex-col items-center gap-4">
                     {actions}
+                    
                     {pageStatus !== 'processing' && (
-                        <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white underline text-sm mt-2">
-                            Voltar à Página Inicial
+                        <button onClick={() => onNavigate('home')} className="text-gray-500 hover:text-white transition-colors text-sm mt-4 font-medium flex items-center gap-1.5">
+                            <HomeIcon className="h-4 w-4" /> Voltar à Página Inicial
                         </button>
                     )}
                 </div>
