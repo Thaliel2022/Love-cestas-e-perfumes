@@ -14964,8 +14964,6 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 });
 // --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
 
-// --- COMPONENTE PRINCIPAL DA APLICAÇÃO ---
-
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
