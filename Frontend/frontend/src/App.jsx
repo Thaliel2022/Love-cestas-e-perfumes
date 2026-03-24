@@ -5917,8 +5917,8 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
-    // --- CORREÇÃO: Usando localStorage para garantir persistência no retorno do MP no mobile ---
     useEffect(() => {
+        // --- CORREÇÃO: Usando localStorage em vez de sessionStorage ---
         const pendingOrderId = localStorage.getItem('pendingOrderId');
         if (pendingOrderId) {
             onNavigate(`order-success/${pendingOrderId}`);
@@ -6161,7 +6161,7 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
             if (paymentMethod === 'mercadopago') {
-                // --- CORREÇÃO: Salvando no localStorage para não perder ao fechar a aba do MP ---
+                // --- CORREÇÃO: Usando localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
                 if (init_point) window.location.assign(init_point);
@@ -6417,6 +6417,26 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
 
     const pollStatus = useCallback(async () => {
         console.log(`Verificando status do pedido #${orderId}...`);
+        
+        // --- CORREÇÃO DE UX: Leitura instantânea dos parâmetros da URL do Mercado Pago ---
+        // Isso evita que o cliente fique preso na tela de "Confirmando Pagamento" aguardando o webhook
+        const hashParts = window.location.hash.split('?');
+        if (hashParts.length > 1) {
+            const params = new URLSearchParams(hashParts[1]);
+            const mpStatus = params.get('status') || params.get('collection_status');
+            
+            if (mpStatus === 'approved') {
+                setFinalOrderStatus('Pagamento Aprovado');
+                setPageStatus('success');
+                return true; 
+            } else if (mpStatus === 'rejected' || mpStatus === 'null' || mpStatus === 'cancelled') {
+                setFinalOrderStatus('Pagamento Recusado');
+                setPageStatus('pending_action');
+                return true;
+            }
+        }
+
+        // Fallback: Consulta tradicional na API
         try {
             const response = await apiService(`/orders/${orderId}/status`);
             if (response.status && response.status !== 'Pendente') {
@@ -6435,7 +6455,8 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // Usa assign para navegação, mas o estado de loading será limpo pelo useEffect abaixo se o usuário voltar
+                // --- CORREÇÃO: localStorage ---
+                localStorage.setItem('pendingOrderId', orderId);
                 window.location.assign(paymentResult.init_point);
             } else {
                 throw new Error("Não foi possível obter o link de pagamento.");
@@ -6459,7 +6480,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
         }
     };
 
-    // --- Reset automático do botão de pagamento ao retornar à aba ---
     useEffect(() => {
         const resetPaymentState = () => {
             if (document.visibilityState === 'visible') {
@@ -6479,21 +6499,16 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
     }, []);
 
     useEffect(() => {
-        // Limpa o estado do carrinho
         clearOrderState(); 
         
-        // --- CORREÇÃO DE FLUXO ---
-        // Remove a flag de pedido pendente assim que esta página carrega com sucesso.
-        // Isso impede que o AppContent redirecione o usuário de volta para cá
-        // se ele tentar navegar para Home ou outras páginas.
-        sessionStorage.removeItem('pendingOrderId');
+        // --- CORREÇÃO: Limpar do localStorage ---
+        localStorage.removeItem('pendingOrderId');
 
         let pollInterval;
         let timeout;
 
         const forceCheck = () => {
             if (statusRef.current === 'processing' || statusRef.current === 'pending_action') {
-                console.log("Forçando verificação de status (evento de visibilidade/foco)");
                 setPageStatus('processing');
                 pollStatus().then(isFinished => {
                     if (!isFinished) {
@@ -6542,7 +6557,6 @@ const OrderSuccessPage = ({ orderId, onNavigate }) => {
             document.removeEventListener('visibilitychange', forceCheck);
         };
     }, [orderId, clearOrderState, pollStatus]); 
-
 
     const renderContent = () => {
         switch (pageStatus) {
@@ -6957,7 +6971,6 @@ const ProductReviewForm = ({ productId, orderId, onReviewSubmitted }) => {
 };
 
 const OrderDetailPage = ({ onNavigate, orderId }) => {
-    // --- ATUALIZAÇÃO: Extraindo 'logout' do hook useAuth ---
     const { user, logout } = useAuth(); 
     const { addToCart, markOrderAsSeen } = useShop(); 
     const notification = useNotification();
@@ -6971,13 +6984,10 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     const [selectedStatusDetails, setSelectedStatusDetails] = useState(null);
     
     const [reviewingItem, setReviewingItem] = useState(null);
-    
-    // --- Estados para o Modal de Reembolso/Cancelamento do Cliente ---
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [refundReason, setRefundReason] = useState('');
     const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
-    // --- NOVO: Marca o pedido como visto ao montar o componente ---
     useEffect(() => {
         if (orderId) {
             markOrderAsSeen(orderId);
@@ -6986,13 +6996,11 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     const fetchOrderDetails = useCallback(() => {
         setIsLoading(true);
-        // Adiciona timestamp para evitar cache do navegador
         return apiService(`/orders/my-orders?id=${orderId}&t=${new Date().getTime()}`)
             .then(data => {
                 if (data && data.length > 0) {
                     setOrder(data[0]);
                 } else {
-                    // Se a API retornar array vazio, significa que não encontrou para este usuário
                     setOrder(null);
                 }
             })
@@ -7021,7 +7029,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                sessionStorage.setItem('pendingOrderId', orderId);
+                // --- CORREÇÃO: localStorage ---
+                localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
         } catch (error) {
@@ -7068,7 +7077,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             notification.show(result.message);
             setIsRefundModalOpen(false);
             setRefundReason('');
-            fetchOrderDetails(); // ATUALIZA A TELA IMEDIATAMENTE
+            fetchOrderDetails(); 
         } catch (error) {
             notification.show(`Erro ao solicitar: ${error.message}`, 'error');
         } finally {
@@ -7094,7 +7103,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
             'denied': { text: 'Solicitação Negada', class: 'text-red-400 bg-red-900/50', icon: <XCircleIcon className="h-4 w-4"/> },
             'failed': { text: 'Falha no Reembolso', class: 'text-red-400 bg-red-900/50', icon: <ExclamationCircleIcon className="h-4 w-4"/> }
         };
-        // Ajuste para pedidos entregues
         if (order && order.status === 'Entregue' && status === 'pending_approval') {
             statuses['pending_approval'].text = 'Reembolso em análise';
         }
@@ -7163,7 +7171,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
     if (isLoading) return <div className="flex justify-center items-center py-20"><SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/></div>;
     
-    // --- UI PARA PEDIDO NÃO ENCONTRADO ---
     if (!order) {
         return (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center min-h-[60vh]">
@@ -7205,26 +7212,21 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const isWithinRefundPeriod = new Date(order.date) > thirtyDaysAgo;
     
-    // --- LÓGICA DE REEMBOLSO ATUALIZADA E CORRIGIDA ---
     const refundStatus = order.refund_status;
     const isRefundDenied = refundStatus === 'denied';
-    
-    // Verifica se existe nota de negação (pode vir como refund_notes ou notes da tabela refunds)
     const refundDeniedReason = order.refund_notes || "Motivo não informado pelo administrador."; 
 
     const canRequest = 
         order.payment_status === 'approved' && 
         cancellableStatuses.includes(order.status) && 
-        (!order.refund_id || isRefundDenied) && // Permite se não tem solicitação OU se a anterior foi negada
+        (!order.refund_id || isRefundDenied) && 
         (order.status !== 'Entregue' || isWithinRefundPeriod);
         
     const actionText = order.status === 'Entregue' ? 'Reembolso' : 'Cancelamento';
-    
     const refundInfo = order.refund_id ? getRefundStatusInfo(order.refund_status) : null;
     const isOrderInactive = ['Cancelado', 'Reembolsado', 'Pagamento Recusado'].includes(order.status);
 
     const LocalDeliveryTimeline = ({ history, currentStatus, onStatusClick }) => {
-        // ... (Mesma lógica de timeline)
         const displayLabels = {
             'Pendente': 'Pedido Pendente',
             'Pagamento Aprovado': 'Pagamento Aprovado',
@@ -7470,7 +7472,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             <p><strong>Endereço:</strong> R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB</p>
                             <p><strong>Horário:</strong> Seg a Sáb, 09h-11h30 e 15h-17h30</p>
                             {pickupDetails?.personName && <p><strong>Pessoa autorizada:</strong> {pickupDetails.personName}</p>}
-                            <p className="text-amber-300 text-xs mt-2">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
+                            <p className="text-amber-300 text-xs mt-2 font-semibold">Apresente um documento com foto e o número do pedido no momento da retirada.</p>
                         </div>
                     ) : (
                         <div className="my-4 p-3 bg-gray-800 rounded-md text-sm space-y-2">
@@ -7864,6 +7866,8 @@ const MyOrdersSection = ({ onNavigate }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
+                // --- CORREÇÃO: localStorage em vez de sessionStorage ---
+                localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else {
                 throw new Error("Não foi possível obter o link de pagamento.");
@@ -14982,7 +14986,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // Efeito para buscar o status de manutenção
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -15011,7 +15014,6 @@ function AppContent({ deferredPrompt }) {
     return () => clearInterval(intervalId); 
   }, [isStatusLoading]); 
 
-  // Lógica de Registro de Push Notifications
   useEffect(() => {
     const registerPush = async () => {
         if (!isAuthenticated || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -15037,20 +15039,38 @@ function AppContent({ deferredPrompt }) {
     window.location.hash = path;
   }, []);
   
-  // Redirecionamento de retorno do MP
+  // --- CORREÇÃO DE FLUXO E MOBILIDADE ---
   useEffect(() => {
-    const checkPendingOrder = () => {
-        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
-        if (pendingOrderId && !window.location.hash.includes('order-success')) {
+    const handleReturn = () => {
+        const hash = window.location.hash;
+        
+        // 1. Tenta recuperar pela URL (100% seguro, os dados vêm no redirecionamento do MP)
+        const hashParts = hash.split('?');
+        if (hashParts.length > 1) {
+            const params = new URLSearchParams(hashParts[1]);
+            const externalReference = params.get('external_reference');
+            
+            if (externalReference && !hash.includes('order-success')) {
+                // Redireciona repassando a string de busca para a tela de Sucesso usar
+                navigate(`order-success/${externalReference}?${hashParts[1]}`);
+                return;
+            }
+        }
+
+        // 2. Fallback para localStorage
+        const pendingOrderId = localStorage.getItem('pendingOrderId');
+        if (pendingOrderId && !hash.includes('order-success')) {
             navigate(`order-success/${pendingOrderId}`);
         }
     };
-    checkPendingOrder();
-    window.addEventListener('focus', checkPendingOrder);
-    window.addEventListener('visibilitychange', checkPendingOrder);
+
+    handleReturn();
+    window.addEventListener('focus', handleReturn);
+    window.addEventListener('visibilitychange', handleReturn);
+    
     return () => {
-        window.removeEventListener('focus', checkPendingOrder);
-        window.removeEventListener('visibilitychange', checkPendingOrder);
+        window.removeEventListener('focus', handleReturn);
+        window.removeEventListener('visibilitychange', handleReturn);
     };
   }, [navigate]); 
   
@@ -15066,7 +15086,6 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // --- TELA DE CARREGAMENTO INICIAL PREMIUM ---
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
