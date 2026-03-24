@@ -5917,8 +5917,9 @@ const CheckoutPage = ({ onNavigate }) => {
     const [pickupPersonCpf, setPickupPersonCpf] = useState('');
     const [whatsapp, setWhatsapp] = useState(''); 
 
+    // --- CORREÇÃO: Usando localStorage para garantir persistência no retorno do MP no mobile ---
     useEffect(() => {
-        const pendingOrderId = sessionStorage.getItem('pendingOrderId');
+        const pendingOrderId = localStorage.getItem('pendingOrderId');
         if (pendingOrderId) {
             onNavigate(`order-success/${pendingOrderId}`);
         }
@@ -6066,7 +6067,6 @@ const CheckoutPage = ({ onNavigate }) => {
     const getShippingName = (name) => name?.toLowerCase().includes('pac') ? 'PAC' : (name || 'N/A');
     
     const getDeliveryDateText = (deliveryTime) => {
-        // Correção: Verifica se já é o texto da Entrega Local
         if (typeof deliveryTime === 'string' && deliveryTime.includes('Receba até')) {
             return `${deliveryTime} (1 dia útil)`;
         }
@@ -6161,7 +6161,8 @@ const CheckoutPage = ({ onNavigate }) => {
             const { orderId } = await apiService('/orders', 'POST', orderPayload);
 
             if (paymentMethod === 'mercadopago') {
-                sessionStorage.setItem('pendingOrderId', orderId);
+                // --- CORREÇÃO: Salvando no localStorage para não perder ao fechar a aba do MP ---
+                localStorage.setItem('pendingOrderId', orderId);
                 const { init_point } = await apiService('/create-mercadopago-payment', 'POST', { orderId });
                 if (init_point) window.location.assign(init_point);
                 else throw new Error("Link de pagamento não obtido.");
