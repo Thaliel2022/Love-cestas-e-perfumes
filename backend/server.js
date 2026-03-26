@@ -4785,6 +4785,42 @@ app.get('/api/settings/app-icons', async (req, res) => {
     }
 });
 
+// (Público/Admin) Busca configurações de nome do App
+app.get('/api/settings/app-name', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_name'");
+        const defaultConfig = { short_name: 'Love Cestas', name: 'Love Cestas e Perfumes' };
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : defaultConfig;
+        res.json(config);
+    } catch (err) {
+        console.error("Erro ao buscar nome do app:", err);
+        res.status(500).json({ message: "Erro ao buscar configurações." });
+    }
+});
+
+// (Admin) Atualiza configurações de nome do App
+app.put('/api/settings/app-name', verifyToken, verifyAdmin, async (req, res) => {
+    const { nameConfig } = req.body;
+    const clientIp = req.ip || req.connection.remoteAddress;
+    
+    if (!nameConfig || !nameConfig.short_name || !nameConfig.name) {
+        return res.status(400).json({ message: "Configuração de nome inválida. Preencha todos os campos." });
+    }
+
+    try {
+        const configString = JSON.stringify(nameConfig);
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('app_name', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+            [configString, configString]
+        );
+        logAdminAction(req.user, 'ATUALIZOU NOME DO APP', `Novo nome curto: ${nameConfig.short_name}`, clientIp);
+        res.json({ message: "Nomes do aplicativo atualizados com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar nome do app:", err);
+        res.status(500).json({ message: "Erro ao salvar configuração." });
+    }
+});
+
 // (Admin) Atualiza configurações de ícones do App
 app.put('/api/settings/app-icons', verifyToken, verifyAdmin, async (req, res) => {
     const { icons } = req.body;
