@@ -14913,12 +14913,10 @@ const AdminCollections = () => {
 };
 
 const AdminAppIcons = () => {
-    // Estados para ícones
     const [icons, setIcons] = useState({
         favicon: { current: '', previous: null, default: '' },
         pwa_icon: { current: '', previous: null, default: '' }
     });
-    // NOVO: Estados para nome do app
     const [nameConfig, setNameConfig] = useState({ short_name: '', name: '' });
     
     const [isLoading, setIsLoading] = useState(true);
@@ -14927,30 +14925,46 @@ const AdminAppIcons = () => {
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
 
-    // Carrega configurações iniciais
+    // --- CORREÇÃO DO LOOP INFINITO ---
+    // O array vazio [] no final garante que isso rode apenas 1 vez!
     useEffect(() => {
+        let isMounted = true;
+
         const loadSettings = async () => {
             try {
-                // Busca ícones e nomes em paralelo
                 const [iconData, nameData] = await Promise.all([
                     apiService('/settings/app-icons'),
                     apiService('/settings/app-name')
                 ]);
-                setIcons(iconData);
-                setNameConfig(nameData);
+                if (isMounted) {
+                    setIcons(iconData);
+                    setNameConfig(nameData);
+                }
             } catch (err) {
-                notification.show("Erro ao carregar configurações.", "error");
+                if (isMounted) {
+                    notification.show("Erro ao carregar configurações.", "error");
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
-        loadSettings();
-    }, [notification]);
 
-    // Manipulação de upload de arquivo (inalterado)
+        loadSettings();
+
+        return () => { isMounted = false; };
+    }, []); // <-- ARRAY VAZIO AQUI!
+
     const handleFileChange = async (event, key) => {
         const file = event.target.files[0];
         if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            notification.show("Arquivo muito grande. O limite é 5MB.", "error");
+            event.target.value = '';
+            return;
+        }
 
         setIsSaving(true);
         try {
@@ -14973,7 +14987,6 @@ const AdminAppIcons = () => {
         }
     };
 
-    // Restauração de ícone (inalterado)
     const handleRestore = (key, type) => {
         setIcons(prev => {
             const iconObj = prev[key];
@@ -14997,15 +15010,23 @@ const AdminAppIcons = () => {
         notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
     };
 
-    // NOVO: Manipulação de alteração de nome do app
+    const handleSetAsDefault = (key) => {
+        setIcons(prev => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                default: prev[key].current
+            }
+        }));
+        notification.show(`Definido como padrão! Lembre-se de clicar em "Salvar Definitivamente".`);
+    };
+
     const handleNameChange = (e, key) => {
         const value = e.target.value;
         setNameConfig(prev => ({ ...prev, [key]: value }));
     };
 
-    // Salvar todas as configurações
     const handleSave = async () => {
-        // Validação básica dos nomes
         if (!nameConfig.short_name || !nameConfig.name) {
             notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
             return;
@@ -15013,19 +15034,17 @@ const AdminAppIcons = () => {
 
         setIsSaving(true);
         try {
-            // Salva ícones e nomes em paralelo
             await Promise.all([
                 apiService('/settings/app-icons', 'PUT', { icons }),
                 apiService('/settings/app-name', 'PUT', { nameConfig })
             ]);
             
-            // Atualiza o Favicon no DOM imediatamente
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
                 faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
             }
 
-            notification.show("Configurações do aplicativo atualizadas com sucesso!");
+            notification.show("Configurações atualizadas com sucesso!");
         } catch (err) {
             notification.show(`Erro ao salvar: ${err.message}`, "error");
         } finally {
@@ -15035,7 +15054,6 @@ const AdminAppIcons = () => {
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
 
-    // Componente auxiliar para inputs de nome (NOVO)
     const NameInput = ({ label, value, onChange, placeholder, maxLength }) => (
         <div>
             <label className="text-sm font-medium text-slate-700 block mb-1.5">{label}</label>
@@ -15050,7 +15068,6 @@ const AdminAppIcons = () => {
         </div>
     );
 
-    // Componente auxiliar para edição de ícone
     const IconEditor = ({ title, description, iconKey, fileRef }) => (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
@@ -15059,7 +15076,6 @@ const AdminAppIcons = () => {
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                     {icons[iconKey]?.current ? (
-                        // Adicionado cache buster na pré-visualização para não 'piscar' a imagem antiga
                         <img 
                             src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
                             alt="Preview" 
@@ -15099,6 +15115,13 @@ const AdminAppIcons = () => {
                                 🔄 Restaurar Padrão
                             </button>
                         </div>
+                        <button 
+                            onClick={() => handleSetAsDefault(iconKey)} 
+                            disabled={isSaving}
+                            className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs"
+                        >
+                            ⭐ Definir Imagem Atual como Novo Padrão
+                        </button>
                     </div>
                 </div>
             </div>
@@ -15112,7 +15135,6 @@ const AdminAppIcons = () => {
                 <p className="text-slate-500 text-sm mt-1">Altere o nome, ícones e logotipos do seu site e aplicativo (PWA).</p>
             </div>
 
-            {/* SEÇÃO NOVA: Edição de Nome do App */}
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
                 <div className="border-b border-gray-100 pb-5">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
@@ -15139,7 +15161,6 @@ const AdminAppIcons = () => {
                 </div>
             </div>
 
-            {/* Seções de Ícones (inalteradas, apenas organizadas) */}
             <IconEditor 
                 title="Favicon do Site" 
                 description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB)."
@@ -15154,7 +15175,6 @@ const AdminAppIcons = () => {
                 fileRef={fileInputRefPWA}
             />
 
-            {/* Botão Salvar (inalterado) */}
             <div className="flex justify-end pt-6 border-t border-gray-200">
                 <button 
                     onClick={handleSave} 
