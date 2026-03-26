@@ -1,16 +1,28 @@
-// public/sw.js - Service Worker Completo para Push Notifications
+// public/sw.js - Service Worker Atualizado (v6)
 
-// v5 para forçar atualização do cache no celular
-const CACHE_NAME = 'lovecestas-v5';
+// v6 para forçar atualização do cache no celular e limpar resquícios da imagem antiga
+const CACHE_NAME = 'lovecestas-v6';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
-  console.log('Service Worker: Instalado (v5)');
+  console.log('Service Worker: Instalado (v6)');
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
-  console.log('Service Worker: Ativo (v5)');
+  // ATUALIZAÇÃO: Rotina rigorosa para deletar caches de versões anteriores
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log('Service Worker: Limpando Cache Antigo');
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+  console.log('Service Worker: Ativo (v6)');
 });
 
 self.addEventListener('push', function(event) {
@@ -27,14 +39,15 @@ self.addEventListener('push', function(event) {
     }
   }
 
-  // URLs diretas do Cloudinary para garantir carregamento
-  const DEFAULT_ICON = 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
-  // Badge redimensionado para 96px para conformidade Android
-  const DEFAULT_BADGE = 'https://res.cloudinary.com/dvflxuxh3/image/upload/w_96,h_96,c_scale/v1766856538/ek6yjbqj5ozhup2yzlwp.png';
+  // ATUALIZAÇÃO: As imagens antigas foram removidas.
+  // Agora usamos um fallback genérico caso o backend não envie a imagem a tempo.
+  const DEFAULT_ICON = 'https://placehold.co/192x192/D4AF37/111827?text=Love+Cestas';
+  const DEFAULT_BADGE = 'https://placehold.co/96x96/111827/FFFFFF?text=L';
 
   const title = data.title || 'Love Cestas e Perfumes';
   const options = {
     body: data.body || 'Você tem uma nova notificação.',
+    // O ícone agora virá no pacote de dados dinâmico do servidor
     icon: data.icon || DEFAULT_ICON,
     badge: data.badge || DEFAULT_BADGE, 
     vibrate: data.vibrate || [100, 50, 100],
