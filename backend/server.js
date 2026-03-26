@@ -472,6 +472,16 @@ const initializeData = async () => {
             [JSON.stringify(defaultIcons)]
         );
 
+        // --- NOVO: SEED CONFIGURAÇÕES DE NOME DO APP ---
+        const defaultAppName = {
+            short_name: 'Love Cestas',
+            name: 'Love Cestas e Perfumes'
+        };
+        await connection.query(
+            "INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES ('app_name', ?)",
+            [JSON.stringify(defaultAppName)]
+        );
+
     } catch (err) {
         console.error("Erro ao inicializar dados:", err);
     } finally {
