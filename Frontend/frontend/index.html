@@ -21,8 +21,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#D4AF37" />
     
-    <link rel="manifest" crossorigin="anonymous" href="https://love-cestas-e-perfumes.onrender.com/manifest.json" />
+    <link id="pwa-manifest" rel="manifest" crossorigin="anonymous" href="https://love-cestas-e-perfumes.onrender.com/manifest.json" />
     
+    <script>
+      (function() {
+        // Adiciona um carimbo de tempo na URL do manifest para o Chrome NUNCA usar o cache antigo na instalação
+        var manifestLink = document.getElementById('pwa-manifest');
+        if (manifestLink) {
+            manifestLink.href = manifestLink.href + "?v=" + new Date().getTime();
+        }
+      })();
+    </script>
+
     <title>Love Cestas e Perfumes</title>
   </head>
   <body>
