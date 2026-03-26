@@ -14909,18 +14909,37 @@ const AdminAppIcons = () => {
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
 
+    // --- CORREÇÃO DE SEGURANÇA E LOOP NO REACT ---
+    // O array de dependências foi alterado para vazio [] para garantir que 
+    // o carregamento inicial ocorra APENAS NO MOUNT (ao abrir a página)
     useEffect(() => {
+        let isMounted = true; // Previne erro de atualização em componente desmontado
+
         apiService('/settings/app-icons')
-            .then(data => setIcons(data))
-            .catch(err => notification.show("Erro ao carregar ícones.", "error"))
-            .finally(() => setIsLoading(false));
-    }, [notification]);
+            .then(data => {
+                if (isMounted) {
+                    setIcons(data);
+                }
+            })
+            .catch(err => {
+                if (isMounted) {
+                    notification.show("Erro ao carregar ícones.", "error");
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            });
+
+        return () => { isMounted = false; }; // Função de limpeza
+    }, []); // <-- ARRAY VAZIO GARANTE QUE ISSO NÃO REPETE NO UPLOAD
 
     const handleFileChange = async (event, key) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Validação básica de tamanho no frontend antes de enviar
+        // Validação de tamanho no frontend
         if (file.size > 5 * 1024 * 1024) {
             notification.show("Arquivo muito grande. O limite é 5MB.", "error");
             event.target.value = '';
@@ -14931,17 +14950,17 @@ const AdminAppIcons = () => {
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
             
+            // Atualiza apenas o estado local da pré-visualização
             setIcons(prev => ({
                 ...prev,
                 [key]: {
                     ...prev[key],
-                    previous: prev[key].current, // Salva o atual como anterior
-                    current: uploadResult.imageUrl // Define o novo como atual
+                    previous: prev[key].current, 
+                    current: uploadResult.imageUrl 
                 }
             }));
             notification.show(`Pré-visualização carregada. Clique em salvar para aplicar.`);
         } catch (error) {
-            // Trata o erro vindo do servidor (incluindo o 'File too large' se passar da validação acima)
             notification.show(`Erro no upload: ${error.message}`, 'error');
         } finally {
             setIsSaving(false);
@@ -14964,7 +14983,7 @@ const AdminAppIcons = () => {
                 ...prev,
                 [key]: {
                     ...iconObj,
-                    previous: iconObj.current, // O atual vira o anterior antes de restaurar
+                    previous: iconObj.current,
                     current: newCurrent
                 }
             };
@@ -14975,12 +14994,13 @@ const AdminAppIcons = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            // Persiste as mudanças definitivas no banco de dados
             await apiService('/settings/app-icons', 'PUT', { icons });
             
-            // Atualiza o Favicon no DOM imediatamente para refletir a mudança
-            // Adicionamos o cache-busting aqui também
+            // Atualiza o Favicon no DOM imediatamente
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
+                // Truque do timestamp (?t=) para forçar o navegador a recarregar
                 faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
             }
 
@@ -15002,7 +15022,7 @@ const AdminAppIcons = () => {
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                     {icons[iconKey]?.current ? (
-                        /* ATUALIZAÇÃO: Adicionado ?t=timestamp para forçar a atualização da imagem (cache bust) */
+                        /* Truque do timestamp (?t=) na URL da imagem para a pré-visualização não cachear */
                         <img 
                             src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
                             alt="Preview" 
@@ -15057,7 +15077,6 @@ const AdminAppIcons = () => {
 
             <IconEditor 
                 title="Favicon do Site" 
-                /* ATUALIZAÇÃO: Aviso de limite de tamanho adicionado */
                 description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB)."
                 iconKey="favicon"
                 fileRef={fileInputRefFavicon}
@@ -15065,7 +15084,6 @@ const AdminAppIcons = () => {
 
             <IconEditor 
                 title="Ícone do Aplicativo (PWA)" 
-                /* ATUALIZAÇÃO: Aviso de limite de tamanho adicionado */
                 description="Ícone exibido na tela inicial do celular (Máx 5MB). O sistema gerará automaticamente as versões de 192px e 512px."
                 iconKey="pwa_icon"
                 fileRef={fileInputRefPWA}
