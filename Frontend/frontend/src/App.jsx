@@ -14913,10 +14913,12 @@ const AdminCollections = () => {
 };
 
 const AdminAppIcons = () => {
+    // Estados para ícones
     const [icons, setIcons] = useState({
         favicon: { current: '', previous: null, default: '' },
         pwa_icon: { current: '', previous: null, default: '' }
     });
+    // Estados para nome do app
     const [nameConfig, setNameConfig] = useState({ short_name: '', name: '' });
     
     const [isLoading, setIsLoading] = useState(true);
@@ -14925,13 +14927,13 @@ const AdminAppIcons = () => {
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
 
-    // --- CORREÇÃO DO LOOP INFINITO ---
-    // O array vazio [] no final garante que isso rode apenas 1 vez!
+    // Carrega configurações iniciais
     useEffect(() => {
         let isMounted = true;
 
         const loadSettings = async () => {
             try {
+                // Busca ícones e nomes em paralelo
                 const [iconData, nameData] = await Promise.all([
                     apiService('/settings/app-icons'),
                     apiService('/settings/app-name')
@@ -14954,8 +14956,9 @@ const AdminAppIcons = () => {
         loadSettings();
 
         return () => { isMounted = false; };
-    }, []); // <-- ARRAY VAZIO AQUI!
+    }, []);
 
+    // Manipulação de upload de arquivo
     const handleFileChange = async (event, key) => {
         const file = event.target.files[0];
         if (!file) return;
@@ -14987,6 +14990,7 @@ const AdminAppIcons = () => {
         }
     };
 
+    // Restauração de ícone
     const handleRestore = (key, type) => {
         setIcons(prev => {
             const iconObj = prev[key];
@@ -15010,6 +15014,7 @@ const AdminAppIcons = () => {
         notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
     };
 
+    // Definir como padrão
     const handleSetAsDefault = (key) => {
         setIcons(prev => ({
             ...prev,
@@ -15021,11 +15026,13 @@ const AdminAppIcons = () => {
         notification.show(`Definido como padrão! Lembre-se de clicar em "Salvar Definitivamente".`);
     };
 
+    // Manipulação de alteração de nome do app
     const handleNameChange = (e, key) => {
         const value = e.target.value;
         setNameConfig(prev => ({ ...prev, [key]: value }));
     };
 
+    // Salvar todas as configurações
     const handleSave = async () => {
         if (!nameConfig.short_name || !nameConfig.name) {
             notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
@@ -15039,6 +15046,7 @@ const AdminAppIcons = () => {
                 apiService('/settings/app-name', 'PUT', { nameConfig })
             ]);
             
+            // Atualiza o Favicon no DOM imediatamente
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
                 faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
@@ -15054,80 +15062,6 @@ const AdminAppIcons = () => {
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
 
-    const NameInput = ({ label, value, onChange, placeholder, maxLength }) => (
-        <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1.5">{label}</label>
-            <input 
-                type="text" 
-                value={value} 
-                onChange={onChange} 
-                placeholder={placeholder} 
-                maxLength={maxLength} 
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
-            />
-        </div>
-    );
-
-    const IconEditor = ({ title, description, iconKey, fileRef }) => (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
-            <p className="text-sm text-gray-500 mb-6">{description}</p>
-            
-            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
-                    {icons[iconKey]?.current ? (
-                        <img 
-                            src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
-                            alt="Preview" 
-                            className="max-w-full max-h-full object-contain" 
-                        />
-                    ) : (
-                        <PhotoIcon className="h-10 w-10 text-gray-400" />
-                    )}
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => fileRef.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
-                            Alterar
-                        </button>
-                    </div>
-                </div>
-                
-                <div className="flex-grow space-y-4 w-full">
-                    <input type="file" ref={fileRef} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, iconKey)} />
-                    
-                    <div className="flex flex-col gap-2">
-                        <button onClick={() => fileRef.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
-                            <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
-                        </button>
-
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={() => handleRestore(iconKey, 'previous')} 
-                                disabled={!icons[iconKey]?.previous || isSaving}
-                                className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs"
-                            >
-                                ↩️ Desfazer Última
-                            </button>
-                            <button 
-                                onClick={() => handleRestore(iconKey, 'default')} 
-                                disabled={!icons[iconKey]?.default || isSaving}
-                                className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs"
-                            >
-                                🔄 Restaurar Padrão
-                            </button>
-                        </div>
-                        <button 
-                            onClick={() => handleSetAsDefault(iconKey)} 
-                            disabled={isSaving}
-                            className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs"
-                        >
-                            ⭐ Definir Imagem Atual como Novo Padrão
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
     return (
         <div className="max-w-4xl mx-auto space-y-10">
             <div>
@@ -15135,6 +15069,7 @@ const AdminAppIcons = () => {
                 <p className="text-slate-500 text-sm mt-1">Altere o nome, ícones e logotipos do seu site e aplicativo (PWA).</p>
             </div>
 
+            {/* Edição de Nome do App */}
             <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
                 <div className="border-b border-gray-100 pb-5">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
@@ -15144,36 +15079,131 @@ const AdminAppIcons = () => {
                 </div>
                 
                 <div className="grid md:grid-cols-2 gap-6">
-                    <NameInput 
-                        label="Nome Curto (Exibido na Tela Inicial)" 
-                        value={nameConfig.short_name} 
-                        onChange={(e) => handleNameChange(e, 'short_name')} 
-                        placeholder="Love Cestas" 
-                        maxLength={12}
-                    />
-                    <NameInput 
-                        label="Nome Completo (Exibido na Instalação)" 
-                        value={nameConfig.name} 
-                        onChange={(e) => handleNameChange(e, 'name')} 
-                        placeholder="Love Cestas e Perfumes JP" 
-                        maxLength={30}
-                    />
+                    {/* Input Nome Curto */}
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Exibido na Tela Inicial)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.short_name} 
+                            onChange={(e) => handleNameChange(e, 'short_name')} 
+                            placeholder="Love Cestas" 
+                            maxLength={12} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
+                    {/* Input Nome Completo */}
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Completo (Exibido na Instalação)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.name} 
+                            onChange={(e) => handleNameChange(e, 'name')} 
+                            placeholder="Love Cestas e Perfumes JP" 
+                            maxLength={30} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <IconEditor 
-                title="Favicon do Site" 
-                description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB)."
-                iconKey="favicon"
-                fileRef={fileInputRefFavicon}
-            />
+            {/* Favicon Editor */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Favicon do Site</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                    Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB).<br/>
+                    <strong className="text-amber-600">Dica:</strong> Para o ícone não ficar pequeno, recorte a imagem removendo as bordas transparentes vazias antes de enviar.
+                </p>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center relative overflow-hidden group">
+                        {icons.favicon?.current ? (
+                            <img 
+                                src={`${icons.favicon.current}?t=${new Date().getTime()}`} 
+                                alt="Preview Favicon" 
+                                className="w-full h-full object-contain drop-shadow-md" 
+                            />
+                        ) : (
+                            <PhotoIcon className="h-10 w-10 text-gray-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => fileInputRefFavicon.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-grow space-y-4 w-full">
+                        <input type="file" ref={fileInputRefFavicon} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, 'favicon')} />
+                        
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => fileInputRefFavicon.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                                <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
+                            </button>
 
-            <IconEditor 
-                title="Ícone do Aplicativo (PWA)" 
-                description="Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px."
-                iconKey="pwa_icon"
-                fileRef={fileInputRefPWA}
-            />
+                            <div className="flex gap-2">
+                                <button onClick={() => handleRestore('favicon', 'previous')} disabled={!icons.favicon?.previous || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    ↩️ Desfazer Última
+                                </button>
+                                <button onClick={() => handleRestore('favicon', 'default')} disabled={!icons.favicon?.default || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    🔄 Restaurar Padrão
+                                </button>
+                            </div>
+                            <button onClick={() => handleSetAsDefault('favicon')} disabled={isSaving} className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs">
+                                ⭐ Definir Imagem Atual como Novo Padrão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* PWA Icon Editor */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">Ícone do Aplicativo (PWA)</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                    Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px.
+                </p>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center relative overflow-hidden group">
+                        {icons.pwa_icon?.current ? (
+                            <img 
+                                src={`${icons.pwa_icon.current}?t=${new Date().getTime()}`} 
+                                alt="Preview PWA" 
+                                className="w-full h-full object-contain drop-shadow-md" 
+                            />
+                        ) : (
+                            <PhotoIcon className="h-10 w-10 text-gray-400" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => fileInputRefPWA.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
+                                Alterar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-grow space-y-4 w-full">
+                        <input type="file" ref={fileInputRefPWA} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, 'pwa_icon')} />
+                        
+                        <div className="flex flex-col gap-2">
+                            <button onClick={() => fileInputRefPWA.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                                <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
+                            </button>
+
+                            <div className="flex gap-2">
+                                <button onClick={() => handleRestore('pwa_icon', 'previous')} disabled={!icons.pwa_icon?.previous || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    ↩️ Desfazer Última
+                                </button>
+                                <button onClick={() => handleRestore('pwa_icon', 'default')} disabled={!icons.pwa_icon?.default || isSaving} className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs">
+                                    🔄 Restaurar Padrão
+                                </button>
+                            </div>
+                            <button onClick={() => handleSetAsDefault('pwa_icon')} disabled={isSaving} className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs">
+                                ⭐ Definir Imagem Atual como Novo Padrão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="flex justify-end pt-6 border-t border-gray-200">
                 <button 
