@@ -9057,6 +9057,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
+                { key: 'app-icons', label: 'Ícones e PWA', icon: <CameraIcon className="h-5 w-5"/> }, // NOVO MENU ADICIONADO
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -14881,6 +14882,177 @@ const AdminCollections = () => {
     );
 };
 
+const AdminAppIcons = () => {
+    const [icons, setIcons] = useState({
+        favicon: { current: '', previous: null, default: '' },
+        pwa_icon: { current: '', previous: null, default: '' }
+    });
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+    const fileInputRefFavicon = useRef(null);
+    const fileInputRefPWA = useRef(null);
+
+    useEffect(() => {
+        apiService('/settings/app-icons')
+            .then(data => setIcons(data))
+            .catch(err => notification.show("Erro ao carregar ícones.", "error"))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    const handleFileChange = async (event, key) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setIsSaving(true);
+        try {
+            const uploadResult = await apiImageUploadService('/upload/image', file);
+            
+            setIcons(prev => ({
+                ...prev,
+                [key]: {
+                    ...prev[key],
+                    previous: prev[key].current, // Salva o atual como anterior
+                    current: uploadResult.imageUrl // Define o novo como atual
+                }
+            }));
+            notification.show(`Pré-visualização carregada. Clique em salvar para aplicar.`);
+        } catch (error) {
+            notification.show(`Erro no upload: ${error.message}`, 'error');
+        } finally {
+            setIsSaving(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleRestore = (key, type) => {
+        setIcons(prev => {
+            const iconObj = prev[key];
+            let newCurrent = iconObj.current;
+            
+            if (type === 'previous' && iconObj.previous) {
+                newCurrent = iconObj.previous;
+            } else if (type === 'default' && iconObj.default) {
+                newCurrent = iconObj.default;
+            }
+
+            return {
+                ...prev,
+                [key]: {
+                    ...iconObj,
+                    previous: iconObj.current, // O atual vira o anterior antes de restaurar
+                    current: newCurrent
+                }
+            };
+        });
+        notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await apiService('/settings/app-icons', 'PUT', { icons });
+            
+            // Atualiza o Favicon no DOM imediatamente para refletir a mudança
+            const faviconLink = document.querySelector("link[rel~='icon']");
+            if (faviconLink && icons.favicon.current) {
+                faviconLink.href = icons.favicon.current;
+            }
+
+            notification.show("Ícones atualizados com sucesso no sistema!");
+        } catch (err) {
+            notification.show(`Erro ao salvar: ${err.message}`, "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    const IconEditor = ({ title, description, iconKey, fileRef }) => (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+            <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
+            <p className="text-sm text-gray-500 mb-6">{description}</p>
+            
+            <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
+                    {icons[iconKey]?.current ? (
+                        <img src={icons[iconKey].current} alt="Preview" className="max-w-full max-h-full object-contain" />
+                    ) : (
+                        <PhotoIcon className="h-10 w-10 text-gray-400" />
+                    )}
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => fileRef.current.click()} className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-md shadow-md">
+                            Alterar
+                        </button>
+                    </div>
+                </div>
+                
+                <div className="flex-grow space-y-4 w-full">
+                    <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, iconKey)} />
+                    
+                    <div className="flex flex-col gap-2">
+                        <button onClick={() => fileRef.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
+                            <UploadIcon className="h-4 w-4"/> Fazer Upload Nova Imagem
+                        </button>
+
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => handleRestore(iconKey, 'previous')} 
+                                disabled={!icons[iconKey]?.previous || isSaving}
+                                className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs"
+                            >
+                                ↩️ Desfazer Última
+                            </button>
+                            <button 
+                                onClick={() => handleRestore(iconKey, 'default')} 
+                                disabled={!icons[iconKey]?.default || isSaving}
+                                className="flex-1 bg-gray-50 text-gray-600 border border-gray-200 font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition disabled:opacity-50 text-xs"
+                            >
+                                🔄 Restaurar Padrão
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Personalização Visual</h1>
+                <p className="text-slate-500 text-sm mt-1">Altere os ícones e logotipos do seu site e aplicativo (PWA).</p>
+            </div>
+
+            <IconEditor 
+                title="Favicon do Site" 
+                description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG)."
+                iconKey="favicon"
+                fileRef={fileInputRefFavicon}
+            />
+
+            <IconEditor 
+                title="Ícone do Aplicativo (PWA)" 
+                description="Ícone exibido na tela inicial do celular quando o app é instalado. O sistema gerará automaticamente as versões em 192px e 512px."
+                iconKey="pwa_icon"
+                fileRef={fileInputRefPWA}
+            />
+
+            <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 transition-all active:scale-95"
+                >
+                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
+                    Salvar Definitivamente
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // --- COMPONENTE DO BOTÃO DE INSTALAÇÃO PWA ---
 const InstallPWAButton = ({ deferredPrompt }) => {
     const handleInstallClick = async () => {
@@ -15056,6 +15228,20 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // --- NOVO EFEITO: Atualiza Favicon no Carregamento Principal ---
+  useEffect(() => {
+      apiService('/settings/app-icons')
+          .then(data => {
+              if (data && data.favicon && data.favicon.current) {
+                  const faviconLink = document.querySelector("link[rel~='icon']");
+                  if (faviconLink) {
+                      faviconLink.href = data.favicon.current;
+                  }
+              }
+          })
+          .catch(err => console.log("Favicon mantido como original."));
+  }, []);
+
   useEffect(() => {
     const checkStatus = () => {
         apiService('/settings/maintenance-status')
@@ -15109,25 +15295,21 @@ function AppContent({ deferredPrompt }) {
     window.location.hash = path;
   }, []);
   
-  // --- CORREÇÃO DE FLUXO E MOBILIDADE ---
   useEffect(() => {
     const handleReturn = () => {
         const hash = window.location.hash;
         
-        // 1. Tenta recuperar pela URL (100% seguro, os dados vêm no redirecionamento do MP)
         const hashParts = hash.split('?');
         if (hashParts.length > 1) {
             const params = new URLSearchParams(hashParts[1]);
             const externalReference = params.get('external_reference');
             
             if (externalReference && !hash.includes('order-success')) {
-                // Redireciona repassando a string de busca para a tela de Sucesso usar
                 navigate(`order-success/${externalReference}?${hashParts[1]}`);
                 return;
             }
         }
 
-        // 2. Fallback para localStorage
         const pendingOrderId = localStorage.getItem('pendingOrderId');
         if (pendingOrderId && !hash.includes('order-success')) {
             navigate(`order-success/${pendingOrderId}`);
@@ -15213,6 +15395,7 @@ function AppContent({ deferredPrompt }) {
             'logs': <AdminLogsPage />,
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
+            'app-icons': <AdminAppIcons />, // NOVO COMPONENTE ADICIONADO AO ROUTER
         };
 
         return (

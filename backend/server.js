@@ -462,6 +462,16 @@ const initializeData = async () => {
             console.log('Tabela banners já populada.');
         }
 
+        // --- SEED CONFIGURAÇÕES DE ÍCONES DO APP ---
+        const defaultIcons = {
+            favicon: { current: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', previous: null, default: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png' },
+            pwa_icon: { current: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png', previous: null, default: 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png' }
+        };
+        await connection.query(
+            "INSERT IGNORE INTO site_settings (setting_key, setting_value) VALUES ('app_icons', ?)",
+            [JSON.stringify(defaultIcons)]
+        );
+
     } catch (err) {
         console.error("Erro ao inicializar dados:", err);
     } finally {
@@ -4698,26 +4708,26 @@ app.post('/api/banners/seed-defaults', verifyToken, verifyAdmin, async (req, res
 
 // (Público) Rota para o frontend verificar rapidamente se o modo manutenção está ativo
 app.get('/api/settings/maintenance-status', async (req, res) => {
-    try {
-        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
-        const maintenanceMode = settings[0]?.setting_value || 'off';
-        res.json({ maintenanceMode });
-    } catch (err) {
-        console.error("Erro ao buscar status de manutenção:", err);
-        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
-    }
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
+        const maintenanceMode = settings[0]?.setting_value || 'off';
+        res.json({ maintenanceMode });
+    } catch (err) {
+        console.error("Erro ao buscar status de manutenção:", err);
+        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
+    }
 });
 
 // (Admin) Pega o status do modo manutenção para o painel
 app.get('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) => {
-    try {
-        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
-        const maintenanceMode = settings[0]?.setting_value || 'off';
-        res.json({ status: maintenanceMode });
-    } catch (err) {
-        console.error("Erro ao buscar status de manutenção (admin):", err);
-        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
-    }
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'maintenance_mode'");
+        const maintenanceMode = settings[0]?.setting_value || 'off';
+        res.json({ status: maintenanceMode });
+    } catch (err) {
+        console.error("Erro ao buscar status de manutenção (admin):", err);
+        res.status(500).json({ message: "Erro ao buscar status de manutenção." });
+    }
 });
 
 // (Admin) Atualiza o status do modo manutenção
@@ -4733,6 +4743,87 @@ app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) 
     } catch (err) {
         console.error("Erro ao atualizar status de manutenção:", err);
         res.status(500).json({ message: "Erro ao atualizar status de manutenção." });
+    }
+});
+
+// (Público/Admin) Busca configurações de ícones do App
+app.get('/api/settings/app-icons', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
+        const defaultIcons = {
+            favicon: { current: '', previous: null, default: '' },
+            pwa_icon: { current: '', previous: null, default: '' }
+        };
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : defaultIcons;
+        res.json(config);
+    } catch (err) {
+        console.error("Erro ao buscar ícones do app:", err);
+        res.status(500).json({ message: "Erro ao buscar configurações." });
+    }
+});
+
+// (Admin) Atualiza configurações de ícones do App
+app.put('/api/settings/app-icons', verifyToken, verifyAdmin, async (req, res) => {
+    const { icons } = req.body;
+    const clientIp = req.ip || req.connection.remoteAddress;
+    
+    if (!icons) {
+        return res.status(400).json({ message: "Configuração de ícones inválida." });
+    }
+
+    try {
+        const configString = JSON.stringify(icons);
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('app_icons', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+            [configString, configString]
+        );
+        logAdminAction(req.user, 'ATUALIZOU ÍCONES DO APP', 'Favicon / PWA Icon alterados', clientIp);
+        res.json({ message: "Ícones do aplicativo atualizados com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar ícones do app:", err);
+        res.status(500).json({ message: "Erro ao salvar configuração." });
+    }
+});
+
+// (Público) Serve o manifest.json dinâmico para o PWA
+app.get('/manifest.json', async (req, res) => {
+    try {
+        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
+        let iconUrl = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png"; // Fallback
+        
+        if (settings.length > 0) {
+            const parsedSettings = JSON.parse(settings[0].setting_value);
+            if (parsedSettings.pwa_icon && parsedSettings.pwa_icon.current) {
+                iconUrl = parsedSettings.pwa_icon.current;
+            }
+        }
+
+        const manifest = {
+            "short_name": "Love Cestas",
+            "name": "Love Cestas e Perfumes",
+            "icons": [
+                {
+                    "src": iconUrl,
+                    "type": "image/png",
+                    "sizes": "192x192"
+                },
+                {
+                    "src": iconUrl,
+                    "type": "image/png",
+                    "sizes": "512x512"
+                }
+            ],
+            "start_url": ".",
+            "display": "standalone",
+            "theme_color": "#D4AF37",
+            "background_color": "#111827"
+        };
+        
+        res.header('Content-Type', 'application/json');
+        res.send(JSON.stringify(manifest, null, 2));
+    } catch (error) {
+        console.error("Erro ao gerar manifest dinâmico:", error);
+        res.status(500).send("Erro ao gerar manifest");
     }
 });
 
