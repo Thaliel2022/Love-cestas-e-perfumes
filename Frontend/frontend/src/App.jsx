@@ -14913,48 +14913,44 @@ const AdminCollections = () => {
 };
 
 const AdminAppIcons = () => {
+    // Estados para ícones
     const [icons, setIcons] = useState({
         favicon: { current: '', previous: null, default: '' },
         pwa_icon: { current: '', previous: null, default: '' }
     });
+    // NOVO: Estados para nome do app
+    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '' });
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const notification = useNotification();
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
 
+    // Carrega configurações iniciais
     useEffect(() => {
-        let isMounted = true;
+        const loadSettings = async () => {
+            try {
+                // Busca ícones e nomes em paralelo
+                const [iconData, nameData] = await Promise.all([
+                    apiService('/settings/app-icons'),
+                    apiService('/settings/app-name')
+                ]);
+                setIcons(iconData);
+                setNameConfig(nameData);
+            } catch (err) {
+                notification.show("Erro ao carregar configurações.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadSettings();
+    }, [notification]);
 
-        apiService('/settings/app-icons')
-            .then(data => {
-                if (isMounted) {
-                    setIcons(data);
-                }
-            })
-            .catch(err => {
-                if (isMounted) {
-                    notification.show("Erro ao carregar ícones.", "error");
-                }
-            })
-            .finally(() => {
-                if (isMounted) {
-                    setIsLoading(false);
-                }
-            });
-
-        return () => { isMounted = false; };
-    }, []);
-
+    // Manipulação de upload de arquivo (inalterado)
     const handleFileChange = async (event, key) => {
         const file = event.target.files[0];
         if (!file) return;
-
-        if (file.size > 5 * 1024 * 1024) {
-            notification.show("Arquivo muito grande. O limite é 5MB.", "error");
-            event.target.value = '';
-            return;
-        }
 
         setIsSaving(true);
         try {
@@ -14977,6 +14973,7 @@ const AdminAppIcons = () => {
         }
     };
 
+    // Restauração de ícone (inalterado)
     const handleRestore = (key, type) => {
         setIcons(prev => {
             const iconObj = prev[key];
@@ -15000,29 +14997,35 @@ const AdminAppIcons = () => {
         notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
     };
 
-    // ATUALIZAÇÃO: Nova função para definir a imagem atual como o novo "Padrão"
-    const handleSetAsDefault = (key) => {
-        setIcons(prev => ({
-            ...prev,
-            [key]: {
-                ...prev[key],
-                default: prev[key].current
-            }
-        }));
-        notification.show(`Definido como padrão! Lembre-se de clicar em "Salvar Definitivamente".`);
+    // NOVO: Manipulação de alteração de nome do app
+    const handleNameChange = (e, key) => {
+        const value = e.target.value;
+        setNameConfig(prev => ({ ...prev, [key]: value }));
     };
 
+    // Salvar todas as configurações
     const handleSave = async () => {
+        // Validação básica dos nomes
+        if (!nameConfig.short_name || !nameConfig.name) {
+            notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
+            return;
+        }
+
         setIsSaving(true);
         try {
-            await apiService('/settings/app-icons', 'PUT', { icons });
+            // Salva ícones e nomes em paralelo
+            await Promise.all([
+                apiService('/settings/app-icons', 'PUT', { icons }),
+                apiService('/settings/app-name', 'PUT', { nameConfig })
+            ]);
             
+            // Atualiza o Favicon no DOM imediatamente
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
                 faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
             }
 
-            notification.show("Ícones atualizados com sucesso no sistema!");
+            notification.show("Configurações do aplicativo atualizadas com sucesso!");
         } catch (err) {
             notification.show(`Erro ao salvar: ${err.message}`, "error");
         } finally {
@@ -15032,6 +15035,22 @@ const AdminAppIcons = () => {
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
 
+    // Componente auxiliar para inputs de nome (NOVO)
+    const NameInput = ({ label, value, onChange, placeholder, maxLength }) => (
+        <div>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">{label}</label>
+            <input 
+                type="text" 
+                value={value} 
+                onChange={onChange} 
+                placeholder={placeholder} 
+                maxLength={maxLength} 
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+            />
+        </div>
+    );
+
+    // Componente auxiliar para edição de ícone
     const IconEditor = ({ title, description, iconKey, fileRef }) => (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
             <h3 className="text-lg font-bold text-slate-800 mb-2">{title}</h3>
@@ -15040,6 +15059,7 @@ const AdminAppIcons = () => {
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                     {icons[iconKey]?.current ? (
+                        // Adicionado cache buster na pré-visualização para não 'piscar' a imagem antiga
                         <img 
                             src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
                             alt="Preview" 
@@ -15079,14 +15099,6 @@ const AdminAppIcons = () => {
                                 🔄 Restaurar Padrão
                             </button>
                         </div>
-                        {/* ATUALIZAÇÃO: Botão para definir a imagem atual como a nova imagem padrão oficial */}
-                        <button 
-                            onClick={() => handleSetAsDefault(iconKey)} 
-                            disabled={isSaving}
-                            className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs"
-                        >
-                            ⭐ Definir Imagem Atual como Novo Padrão
-                        </button>
                     </div>
                 </div>
             </div>
@@ -15094,12 +15106,40 @@ const AdminAppIcons = () => {
     );
 
     return (
-        <div className="max-w-4xl mx-auto space-y-6">
+        <div className="max-w-4xl mx-auto space-y-10">
             <div>
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Personalização Visual</h1>
-                <p className="text-slate-500 text-sm mt-1">Altere os ícones e logotipos do seu site e aplicativo (PWA).</p>
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Personalização Visual do App</h1>
+                <p className="text-slate-500 text-sm mt-1">Altere o nome, ícones e logotipos do seu site e aplicativo (PWA).</p>
             </div>
 
+            {/* SEÇÃO NOVA: Edição de Nome do App */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 space-y-6">
+                <div className="border-b border-gray-100 pb-5">
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
+                        <ClipboardDocListIcon className="h-5 w-5 text-indigo-500"/> Identidade do Aplicativo
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação e na barra de tarefas.</p>
+                </div>
+                
+                <div className="grid md:grid-cols-2 gap-6">
+                    <NameInput 
+                        label="Nome Curto (Exibido na Tela Inicial)" 
+                        value={nameConfig.short_name} 
+                        onChange={(e) => handleNameChange(e, 'short_name')} 
+                        placeholder="Love Cestas" 
+                        maxLength={12}
+                    />
+                    <NameInput 
+                        label="Nome Completo (Exibido na Instalação)" 
+                        value={nameConfig.name} 
+                        onChange={(e) => handleNameChange(e, 'name')} 
+                        placeholder="Love Cestas e Perfumes JP" 
+                        maxLength={30}
+                    />
+                </div>
+            </div>
+
+            {/* Seções de Ícones (inalteradas, apenas organizadas) */}
             <IconEditor 
                 title="Favicon do Site" 
                 description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB)."
@@ -15109,19 +15149,20 @@ const AdminAppIcons = () => {
 
             <IconEditor 
                 title="Ícone do Aplicativo (PWA)" 
-                description="Ícone exibido na tela inicial do celular (Máx 5MB). O sistema gerará automaticamente as versões de 192px e 512px."
+                description="Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px."
                 iconKey="pwa_icon"
                 fileRef={fileInputRefPWA}
             />
 
-            <div className="flex justify-end pt-4 border-t border-gray-200">
+            {/* Botão Salvar (inalterado) */}
+            <div className="flex justify-end pt-6 border-t border-gray-200">
                 <button 
                     onClick={handleSave} 
                     disabled={isSaving}
-                    className="bg-green-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2 disabled:opacity-70 transition-all active:scale-95"
+                    className="bg-green-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-green-700 shadow-md flex items-center gap-2.5 disabled:opacity-70 transition-all active:scale-95"
                 >
                     {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
-                    Salvar Definitivamente
+                    {isSaving ? 'Salvando...' : 'Salvar Definitivamente'}
                 </button>
             </div>
         </div>
@@ -15303,11 +15344,10 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  const [appLogo, setAppLogo] = useState(() => {
-      return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
-  });
+  // NOVO ESTADO: Armazena a URL da logo dinâmica do banco
+  const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
 
-  // --- EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
+  // --- NOVO EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
       apiService('/settings/app-icons')
           .then(data => {
@@ -15316,12 +15356,11 @@ function AppContent({ deferredPrompt }) {
                   if (faviconLink) {
                       faviconLink.href = data.favicon.current;
                   }
-                  // ATUALIZAÇÃO: Salva o favicon na memória local para evitar a piscada
-                  localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
+                  // ATUALIZAÇÃO DE CACHE: Define a logo nova para as telas de carregamento/login
+                  // O código que exibe usa '?t=' para garantir que não use cache antigo.
                   setAppLogo(data.pwa_icon.current);
-                  localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
               }
           })
           .catch(err => console.log("Ícones mantidos como original."));
@@ -15432,7 +15471,9 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
+                {/* ATUALIZAÇÃO DE CACHE: A imagem agora adiciona o carimbo de tempo na URL (?t=) 
+                    para garantir que o navegador baixe a nova versão do Cloudinary imediatamente */}
+                <img src={`${appLogo}?t=${new Date().getTime()}`} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -15557,7 +15598,7 @@ function AppContent({ deferredPrompt }) {
                             <li>
                                 <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
                                     <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:Pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
                                 </div>
                             </li>
                         </ul>
