@@ -4696,8 +4696,10 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     // Estado para controle de exibição do botão de Biometria
     const [hasBiometrics, setHasBiometrics] = useState(false);
 
-    // ATUALIZAÇÃO: Estado para puxar a logo dinamicamente
-    const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
+    // ATUALIZAÇÃO: Inicializa a logo buscando da memória local (localStorage) primeiro
+    const [appLogo, setAppLogo] = useState(() => {
+        return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+    });
 
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     
@@ -4714,6 +4716,8 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
             .then(data => {
                 if (data && data.pwa_icon && data.pwa_icon.current) {
                     setAppLogo(data.pwa_icon.current);
+                    // ATUALIZAÇÃO: Atualiza a memória local para não piscar no próximo recarregamento
+                    localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
                 }
             })
             .catch(() => {}); // Ignora silenciosamente se der erro
@@ -4884,7 +4888,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> 
-                                  {/* ATUALIZAÇÃO: Usa a logo do painel de administração */}
                                   <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
                                 </div>
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
@@ -15289,10 +15292,13 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // ATUALIZAÇÃO: Novo estado para armazenar a Logo dinâmica do banco
-  const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
+  // ATUALIZAÇÃO: Inicializa a logo buscando da memória local (localStorage) primeiro.
+  // Se não tiver nada na memória, usa a padrão. Isso elimina a "piscada" da imagem antiga.
+  const [appLogo, setAppLogo] = useState(() => {
+      return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+  });
 
-  // --- NOVO EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
+  // --- EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
       apiService('/settings/app-icons')
           .then(data => {
@@ -15304,6 +15310,8 @@ function AppContent({ deferredPrompt }) {
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
                   setAppLogo(data.pwa_icon.current);
+                  // ATUALIZAÇÃO: Salva a nova logo na memória para a próxima vez que o app abrir
+                  localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
               }
           })
           .catch(err => console.log("Ícones mantidos como original."));
@@ -15414,7 +15422,6 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                {/* ATUALIZAÇÃO: A imagem agora puxa a variável 'appLogo' do estado */}
                 <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
