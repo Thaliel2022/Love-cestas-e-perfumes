@@ -14923,11 +14923,8 @@ const AdminAppIcons = () => {
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
 
-    // --- CORREÇÃO DE SEGURANÇA E LOOP NO REACT ---
-    // O array de dependências foi alterado para vazio [] para garantir que 
-    // o carregamento inicial ocorra APENAS NO MOUNT (ao abrir a página)
     useEffect(() => {
-        let isMounted = true; // Previne erro de atualização em componente desmontado
+        let isMounted = true;
 
         apiService('/settings/app-icons')
             .then(data => {
@@ -14946,14 +14943,13 @@ const AdminAppIcons = () => {
                 }
             });
 
-        return () => { isMounted = false; }; // Função de limpeza
-    }, []); // <-- ARRAY VAZIO GARANTE QUE ISSO NÃO REPETE NO UPLOAD
+        return () => { isMounted = false; };
+    }, []);
 
     const handleFileChange = async (event, key) => {
         const file = event.target.files[0];
         if (!file) return;
 
-        // Validação de tamanho no frontend
         if (file.size > 5 * 1024 * 1024) {
             notification.show("Arquivo muito grande. O limite é 5MB.", "error");
             event.target.value = '';
@@ -14964,7 +14960,6 @@ const AdminAppIcons = () => {
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
             
-            // Atualiza apenas o estado local da pré-visualização
             setIcons(prev => ({
                 ...prev,
                 [key]: {
@@ -15005,16 +15000,25 @@ const AdminAppIcons = () => {
         notification.show(`Restaurado na pré-visualização. Clique em salvar para aplicar.`);
     };
 
+    // ATUALIZAÇÃO: Nova função para definir a imagem atual como o novo "Padrão"
+    const handleSetAsDefault = (key) => {
+        setIcons(prev => ({
+            ...prev,
+            [key]: {
+                ...prev[key],
+                default: prev[key].current
+            }
+        }));
+        notification.show(`Definido como padrão! Lembre-se de clicar em "Salvar Definitivamente".`);
+    };
+
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            // Persiste as mudanças definitivas no banco de dados
             await apiService('/settings/app-icons', 'PUT', { icons });
             
-            // Atualiza o Favicon no DOM imediatamente
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
-                // Truque do timestamp (?t=) para forçar o navegador a recarregar
                 faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
             }
 
@@ -15036,7 +15040,6 @@ const AdminAppIcons = () => {
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                     {icons[iconKey]?.current ? (
-                        /* Truque do timestamp (?t=) na URL da imagem para a pré-visualização não cachear */
                         <img 
                             src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
                             alt="Preview" 
@@ -15076,6 +15079,14 @@ const AdminAppIcons = () => {
                                 🔄 Restaurar Padrão
                             </button>
                         </div>
+                        {/* ATUALIZAÇÃO: Botão para definir a imagem atual como a nova imagem padrão oficial */}
+                        <button 
+                            onClick={() => handleSetAsDefault(iconKey)} 
+                            disabled={isSaving}
+                            className="w-full bg-amber-50 text-amber-700 border border-amber-200 font-bold py-2 px-3 rounded-lg hover:bg-amber-100 transition disabled:opacity-50 text-xs"
+                        >
+                            ⭐ Definir Imagem Atual como Novo Padrão
+                        </button>
                     </div>
                 </div>
             </div>
@@ -15292,8 +15303,6 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // ATUALIZAÇÃO: Inicializa a logo buscando da memória local (localStorage) primeiro.
-  // Se não tiver nada na memória, usa a padrão. Isso elimina a "piscada" da imagem antiga.
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
@@ -15307,10 +15316,11 @@ function AppContent({ deferredPrompt }) {
                   if (faviconLink) {
                       faviconLink.href = data.favicon.current;
                   }
+                  // ATUALIZAÇÃO: Salva o favicon na memória local para evitar a piscada
+                  localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
                   setAppLogo(data.pwa_icon.current);
-                  // ATUALIZAÇÃO: Salva a nova logo na memória para a próxima vez que o app abrir
                   localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
               }
           })
