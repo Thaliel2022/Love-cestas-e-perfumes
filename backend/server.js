@@ -4807,7 +4807,9 @@ app.get('/manifest.json', async (req, res) => {
         if (settings.length > 0) {
             const parsedSettings = JSON.parse(settings[0].setting_value);
             if (parsedSettings.pwa_icon && parsedSettings.pwa_icon.current) {
-                iconUrl = parsedSettings.pwa_icon.current;
+                // ATUALIZAÇÃO: Adiciona um carimbo de tempo na URL para forçar o Android/Chrome
+                // a baixar a nova imagem da nuvem, ignorando o cache teimoso do celular.
+                iconUrl = `${parsedSettings.pwa_icon.current}?v=${new Date().getTime()}`;
             }
         }
 
@@ -4833,6 +4835,11 @@ app.get('/manifest.json', async (req, res) => {
         };
         
         res.header('Content-Type', 'application/json');
+        // ATUALIZAÇÃO DE SEGURANÇA E CACHE: Força o navegador a NUNCA salvar o manifest em cache
+        res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.header('Pragma', 'no-cache');
+        res.header('Expires', '0');
+        
         res.send(JSON.stringify(manifest, null, 2));
     } catch (error) {
         console.error("Erro ao gerar manifest dinâmico:", error);

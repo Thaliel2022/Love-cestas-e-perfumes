@@ -4685,7 +4685,7 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-    // --- NOVO: Estado para "Lembrar meu e-mail" ---
+    // Estado para "Lembrar meu e-mail"
     const [rememberEmail, setRememberEmail] = useState(false);
 
     // Estados para o fluxo 2FA
@@ -4696,15 +4696,27 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
     // Estado para controle de exibição do botão de Biometria
     const [hasBiometrics, setHasBiometrics] = useState(false);
 
+    // ATUALIZAÇÃO: Estado para puxar a logo dinamicamente
+    const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
+
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     
-    // --- NOVO: Carrega o e-mail salvo ao abrir a página ---
+    // Carrega o e-mail salvo e a Logo
     useEffect(() => {
         const savedEmail = localStorage.getItem('lovecestas_saved_email');
         if (savedEmail) {
             setEmail(savedEmail);
             setRememberEmail(true);
         }
+
+        // Puxa a logo do sistema para exibir no login
+        apiService('/settings/app-icons')
+            .then(data => {
+                if (data && data.pwa_icon && data.pwa_icon.current) {
+                    setAppLogo(data.pwa_icon.current);
+                }
+            })
+            .catch(() => {}); // Ignora silenciosamente se der erro
     }, []);
 
     // Efeito que verifica se o e-mail digitado possui biometria cadastrada
@@ -4729,7 +4741,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
         return () => clearTimeout(timeoutId);
     }, [email]);
 
-    // --- NOVO: Função para salvar/limpar o e-mail na memória ---
     const handleSaveEmailChoice = () => {
         if (rememberEmail && email) {
             localStorage.setItem('lovecestas_saved_email', email);
@@ -4873,7 +4884,8 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                         <motion.div key="login-form" initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }}>
                             <div className="text-center mb-6">
                                 <div className="mx-auto mb-3 inline-block w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center"> 
-                                  <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Logo" className="w-full h-full object-contain" />
+                                  {/* ATUALIZAÇÃO: Usa a logo do painel de administração */}
+                                  <img src={appLogo} alt="Logo" className="w-full h-full object-contain" />
                                 </div>
                                 <h2 className="text-2xl sm:text-3xl font-bold text-amber-400">Bem-vindo de Volta</h2>
                             </div>
@@ -4892,7 +4904,6 @@ const LoginPage = ({ onNavigate, redirectPath }) => {
                                     </div>
                                 </div>
 
-                                {/* --- NOVO: Checkbox de Lembrar E-mail --- */}
                                 <div className="flex items-center mb-2">
                                     <input 
                                         type="checkbox" 
@@ -15278,7 +15289,10 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // --- NOVO EFEITO: Atualiza Favicon no Carregamento Principal ---
+  // ATUALIZAÇÃO: Novo estado para armazenar a Logo dinâmica do banco
+  const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
+
+  // --- NOVO EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
       apiService('/settings/app-icons')
           .then(data => {
@@ -15288,8 +15302,11 @@ function AppContent({ deferredPrompt }) {
                       faviconLink.href = data.favicon.current;
                   }
               }
+              if (data && data.pwa_icon && data.pwa_icon.current) {
+                  setAppLogo(data.pwa_icon.current);
+              }
           })
-          .catch(err => console.log("Favicon mantido como original."));
+          .catch(err => console.log("Ícones mantidos como original."));
   }, []);
 
   useEffect(() => {
@@ -15397,7 +15414,8 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src="https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png" alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
+                {/* ATUALIZAÇÃO: A imagem agora puxa a variável 'appLogo' do estado */}
+                <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -15445,7 +15463,7 @@ function AppContent({ deferredPrompt }) {
             'logs': <AdminLogsPage />,
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
-            'app-icons': <AdminAppIcons />, // NOVO COMPONENTE ADICIONADO AO ROUTER
+            'app-icons': <AdminAppIcons />,
         };
 
         return (
