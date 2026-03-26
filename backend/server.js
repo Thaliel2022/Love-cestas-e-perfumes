@@ -520,11 +520,20 @@ const imageUpload = multer({
     storage: memoryStorage,
     limits: { fileSize: 5 * 1024 * 1024 }, // Limite de 5MB
     fileFilter: (req, file, cb) => {
-        const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        // ATUALIZAÇÃO DE SEGURANÇA: Removido SVG. Mantido apenas imagens raster e ícones estáticos.
+        const allowedMimes = [
+            'image/jpeg', 
+            'image/png', 
+            'image/gif', 
+            'image/webp', 
+            'image/x-icon', 
+            'image/vnd.microsoft.icon'
+        ];
+        
         if (allowedMimes.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error('Tipo de arquivo de imagem inválido. Apenas JPG, PNG, GIF e WebP são permitidos.'), false);
+            cb(new Error('Tipo de arquivo de imagem inválido. Apenas JPG, PNG, GIF, WEBP ou ICO são permitidos.'), false);
         }
     }
 }).single('image');
@@ -1114,29 +1123,33 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/upload/image', verifyToken, imageUpload, async (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
-    }
-    try {
-        const result = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                { resource_type: "image" },
-                (error, result) => {
-                    if (error) {
-                        console.error("Cloudinary upload error:", error);
-                        reject(error);
-                    } else {
-                        resolve(result);
-                    }
-                }
-            );
-            uploadStream.end(req.file.buffer);
-        });
-        res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
-    } catch (error) {
-        console.error("Erro no upload para o Cloudinary:", error);
-        res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
-    }
+    if (!req.file) {
+        return res.status(400).json({ message: 'Nenhum arquivo de imagem enviado.' });
+    }
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { 
+                    resource_type: "image",
+                    // ATUALIZAÇÃO DE SEGURANÇA: Limpa códigos maliciosos (XSS) de arquivos SVG
+                    sanitize: true 
+                },
+                (error, result) => {
+                    if (error) {
+                        console.error("Cloudinary upload error:", error);
+                        reject(error);
+                    } else {
+                        resolve(result);
+                    }
+                }
+            );
+            uploadStream.end(req.file.buffer);
+        });
+        res.status(200).json({ message: 'Upload bem-sucedido', imageUrl: result.secure_url });
+    } catch (error) {
+        console.error("Erro no upload para o Cloudinary:", error);
+        res.status(500).json({ message: 'Falha ao fazer upload da imagem.' });
+    }
 });
 
 
@@ -5909,6 +5922,11 @@ app.post('/api/webauthn/verify-authentication', async (req, res) => {
 
 // Middleware Global de Tratamento de Erros
 app.use((err, req, res, next) => {
+    // ATUALIZAÇÃO: Intercepta erros do Multer (arquivos não suportados) para não gerar erro 500
+    if (err instanceof multer.MulterError || (err.message && err.message.includes('Tipo de arquivo'))) {
+        return res.status(400).json({ message: err.message });
+    }
+
     console.error("Erro não tratado capturado:", err.stack);
     res.status(500).json({ 
         status: 'error',
