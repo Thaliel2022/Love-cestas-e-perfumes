@@ -4864,17 +4864,16 @@ app.get('/manifest.json', async (req, res) => {
             appNames = JSON.parse(nameSettings[0].setting_value);
         }
 
-        // ATUALIZAÇÃO CRÍTICA PARA O COMPUTADOR (DESKTOP):
-        // Força a imagem a ter EXATAMENTE 192x192 e 512x512 usando o motor do Cloudinary
-        // (c_pad garante que a imagem não seja esticada ou cortada, adicionando bordas transparentes se necessário)
         const timestamp = new Date().getTime();
         
+        // ATUALIZAÇÃO: Adicionado 'f_png' para forçar o Cloudinary a entregar um PNG puro.
+        // O Google Chrome no Computador é muito rigoroso e às vezes recusa instalar o PWA se a imagem for WEBP ou JPG.
         const icon192 = rawIconUrl.includes('res.cloudinary.com')
-            ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad/') + `?v=${timestamp}`
+            ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad,f_png/') + `?v=${timestamp}`
             : `${rawIconUrl}?v=${timestamp}`;
 
         const icon512 = rawIconUrl.includes('res.cloudinary.com')
-            ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad/') + `?v=${timestamp}`
+            ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/') + `?v=${timestamp}`
             : `${rawIconUrl}?v=${timestamp}`;
 
         const manifest = {
@@ -4885,7 +4884,7 @@ app.get('/manifest.json', async (req, res) => {
                     "src": icon192,
                     "type": "image/png",
                     "sizes": "192x192",
-                    "purpose": "any maskable" // Propriedade recomendada para PWAs modernos
+                    "purpose": "any maskable"
                 },
                 {
                     "src": icon512,
@@ -4894,8 +4893,7 @@ app.get('/manifest.json', async (req, res) => {
                     "purpose": "any maskable"
                 }
             ],
-            // start_url alterado para "/" para maior compatibilidade no Desktop
-            "start_url": "/",
+            "start_url": ".",
             "display": "standalone",
             "theme_color": "#D4AF37",
             "background_color": "#111827"
