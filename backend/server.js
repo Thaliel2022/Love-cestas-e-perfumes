@@ -4847,21 +4847,26 @@ app.put('/api/settings/app-icons', verifyToken, verifyAdmin, async (req, res) =>
 // (Público) Serve o manifest.json dinâmico para o PWA
 app.get('/manifest.json', async (req, res) => {
     try {
-        const [settings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
-        let iconUrl = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png"; // Fallback
+        const [iconSettings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
+        const [nameSettings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_name'");
         
-        if (settings.length > 0) {
-            const parsedSettings = JSON.parse(settings[0].setting_value);
-            if (parsedSettings.pwa_icon && parsedSettings.pwa_icon.current) {
-                // ATUALIZAÇÃO: Adiciona um carimbo de tempo na URL para forçar o celular
-                // a baixar a nova imagem da nuvem, ignorando o cache teimoso.
-                iconUrl = `${parsedSettings.pwa_icon.current}?v=${new Date().getTime()}`;
+        let iconUrl = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png"; 
+        let appNames = { short_name: "Love Cestas", name: "Love Cestas e Perfumes" };
+        
+        if (iconSettings.length > 0) {
+            const parsedIcon = JSON.parse(iconSettings[0].setting_value);
+            if (parsedIcon.pwa_icon && parsedIcon.pwa_icon.current) {
+                iconUrl = `${parsedIcon.pwa_icon.current}?v=${new Date().getTime()}`;
             }
         }
 
+        if (nameSettings.length > 0) {
+            appNames = JSON.parse(nameSettings[0].setting_value);
+        }
+
         const manifest = {
-            "short_name": "Love Cestas",
-            "name": "Love Cestas e Perfumes",
+            "short_name": appNames.short_name,
+            "name": appNames.name,
             "icons": [
                 {
                     "src": iconUrl,
@@ -4881,7 +4886,10 @@ app.get('/manifest.json', async (req, res) => {
         };
         
         res.header('Content-Type', 'application/json');
-        // ATUALIZAÇÃO: Força o navegador a NUNCA salvar o manifest em cache
+        
+        // ATUALIZAÇÃO CRÍTICA PARA O BOTÃO DE INSTALAR APARECER:
+        // Permite que qualquer domínio leia o manifest sem ser bloqueado pelo CORS
+        res.header('Access-Control-Allow-Origin', '*'); 
         res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.header('Pragma', 'no-cache');
         res.header('Expires', '0');
