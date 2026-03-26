@@ -4850,13 +4850,13 @@ app.get('/manifest.json', async (req, res) => {
         const [iconSettings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_icons'");
         const [nameSettings] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'app_name'");
         
-        let iconUrl = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png"; 
+        let rawIconUrl = "https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png"; 
         let appNames = { short_name: "Love Cestas", name: "Love Cestas e Perfumes" };
         
         if (iconSettings.length > 0) {
             const parsedIcon = JSON.parse(iconSettings[0].setting_value);
             if (parsedIcon.pwa_icon && parsedIcon.pwa_icon.current) {
-                iconUrl = `${parsedIcon.pwa_icon.current}?v=${new Date().getTime()}`;
+                rawIconUrl = parsedIcon.pwa_icon.current;
             }
         }
 
@@ -4864,31 +4864,44 @@ app.get('/manifest.json', async (req, res) => {
             appNames = JSON.parse(nameSettings[0].setting_value);
         }
 
+        // ATUALIZAÇÃO CRÍTICA PARA O COMPUTADOR (DESKTOP):
+        // Força a imagem a ter EXATAMENTE 192x192 e 512x512 usando o motor do Cloudinary
+        // (c_pad garante que a imagem não seja esticada ou cortada, adicionando bordas transparentes se necessário)
+        const timestamp = new Date().getTime();
+        
+        const icon192 = rawIconUrl.includes('res.cloudinary.com')
+            ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad/') + `?v=${timestamp}`
+            : `${rawIconUrl}?v=${timestamp}`;
+
+        const icon512 = rawIconUrl.includes('res.cloudinary.com')
+            ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad/') + `?v=${timestamp}`
+            : `${rawIconUrl}?v=${timestamp}`;
+
         const manifest = {
             "short_name": appNames.short_name,
             "name": appNames.name,
             "icons": [
                 {
-                    "src": iconUrl,
+                    "src": icon192,
                     "type": "image/png",
-                    "sizes": "192x192"
+                    "sizes": "192x192",
+                    "purpose": "any maskable" // Propriedade recomendada para PWAs modernos
                 },
                 {
-                    "src": iconUrl,
+                    "src": icon512,
                     "type": "image/png",
-                    "sizes": "512x512"
+                    "sizes": "512x512",
+                    "purpose": "any maskable"
                 }
             ],
-            "start_url": ".",
+            // start_url alterado para "/" para maior compatibilidade no Desktop
+            "start_url": "/",
             "display": "standalone",
             "theme_color": "#D4AF37",
             "background_color": "#111827"
         };
         
         res.header('Content-Type', 'application/json');
-        
-        // ATUALIZAÇÃO CRÍTICA PARA O BOTÃO DE INSTALAR APARECER:
-        // Permite que qualquer domínio leia o manifest sem ser bloqueado pelo CORS
         res.header('Access-Control-Allow-Origin', '*'); 
         res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.header('Pragma', 'no-cache');
