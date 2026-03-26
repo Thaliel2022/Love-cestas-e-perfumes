@@ -4856,7 +4856,7 @@ app.get('/manifest.json', async (req, res) => {
         if (iconSettings.length > 0) {
             const parsedIcon = JSON.parse(iconSettings[0].setting_value);
             if (parsedIcon.pwa_icon && parsedIcon.pwa_icon.current) {
-                rawIconUrl = parsedIcon.pwa_icon.current; // O link do Cloudinary já é único!
+                rawIconUrl = parsedIcon.pwa_icon.current; 
             }
         }
 
@@ -4864,8 +4864,6 @@ app.get('/manifest.json', async (req, res) => {
             appNames = JSON.parse(nameSettings[0].setting_value);
         }
         
-        // ATUALIZAÇÃO CRÍTICA PARA DESKTOP: Removemos o ?v=timestamp do final
-        // Deixamos a URL limpa terminando em .png para o Chrome não suspeitar do formato.
         const icon192 = rawIconUrl.includes('res.cloudinary.com')
             ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad,f_png/')
             : rawIconUrl;
@@ -4874,17 +4872,30 @@ app.get('/manifest.json', async (req, res) => {
             ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/')
             : rawIconUrl;
 
+        // --- ATUALIZAÇÃO CRÍTICA (RESOLVE O ERRO DO CONSOLE) ---
+        // Pega o endereço exato do seu frontend de onde o usuário está acessando
+        // e define como a URL inicial do aplicativo.
+        let appStartUrl = "/";
+        if (req.headers.referer) {
+            try {
+                // Extrai apenas o domínio principal (ex: https://seusite.vercel.app/)
+                appStartUrl = new URL(req.headers.referer).origin + "/";
+            } catch (e) {
+                console.error("Erro ao processar a URL do frontend", e);
+            }
+        }
+
         const manifest = {
             "short_name": appNames.short_name,
             "name": appNames.name,
             "icons": [
-                // Declaramos separadamente para agradar o validador do Chrome
                 { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "any" },
                 { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
                 { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "any" },
                 { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
             ],
-            "start_url": "/",
+            // Agora o start_url será dinâmico e apontará para o seu frontend
+            "start_url": appStartUrl, 
             "display": "standalone",
             "theme_color": "#D4AF37",
             "background_color": "#111827"
