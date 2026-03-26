@@ -15381,23 +15381,27 @@ function AppContent({ deferredPrompt }) {
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
-  // NOVO ESTADO: Armazena a URL da logo dinâmica do banco
-  const [appLogo, setAppLogo] = useState('https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png');
+  const [appLogo, setAppLogo] = useState(() => {
+      return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
+  });
 
-  // --- NOVO EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
+  // --- EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
-      apiService('/settings/app-icons')
+      // ATUALIZAÇÃO CRÍTICA: Adicionado ?v=timestamp na chamada da API
+      // Isso impede que o navegador faça cache da resposta e garante que ele sempre 
+      // pergunte ao banco de dados qual é a imagem mais recente!
+      apiService(`/settings/app-icons?v=${new Date().getTime()}`)
           .then(data => {
               if (data && data.favicon && data.favicon.current) {
                   const faviconLink = document.querySelector("link[rel~='icon']");
                   if (faviconLink) {
                       faviconLink.href = data.favicon.current;
                   }
+                  localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
-                  // ATUALIZAÇÃO DE CACHE: Define a logo nova para as telas de carregamento/login
-                  // O código que exibe usa '?t=' para garantir que não use cache antigo.
                   setAppLogo(data.pwa_icon.current);
+                  localStorage.setItem('lovecestas_app_logo', data.pwa_icon.current);
               }
           })
           .catch(err => console.log("Ícones mantidos como original."));
@@ -15508,9 +15512,7 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                {/* ATUALIZAÇÃO DE CACHE: A imagem agora adiciona o carimbo de tempo na URL (?t=) 
-                    para garantir que o navegador baixe a nova versão do Cloudinary imediatamente */}
-                <img src={`${appLogo}?t=${new Date().getTime()}`} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
+                <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -15635,7 +15637,7 @@ function AppContent({ deferredPrompt }) {
                             <li>
                                 <div className="flex justify-center md:justify-start items-center gap-4 mt-2">
                                     <a href="https://wa.me/5583987379573" target="_blank" rel="noopener noreferrer" className="hover:text-green-500 transition-colors"><WhatsappIcon className="h-6 w-6"/></a>
-                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:Pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
+                                    <a href="https://www.instagram.com/lovecestaseperfumesjp/" target="_blank" rel="noopener noreferrer" className="hover:text-pink-500 transition-colors"><InstagramIcon className="h-6 w-6"/></a>
                                 </div>
                             </li>
                         </ul>
