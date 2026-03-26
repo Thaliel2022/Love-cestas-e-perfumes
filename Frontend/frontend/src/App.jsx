@@ -14920,6 +14920,13 @@ const AdminAppIcons = () => {
         const file = event.target.files[0];
         if (!file) return;
 
+        // Validação básica de tamanho no frontend antes de enviar
+        if (file.size > 5 * 1024 * 1024) {
+            notification.show("Arquivo muito grande. O limite é 5MB.", "error");
+            event.target.value = '';
+            return;
+        }
+
         setIsSaving(true);
         try {
             const uploadResult = await apiImageUploadService('/upload/image', file);
@@ -14934,6 +14941,7 @@ const AdminAppIcons = () => {
             }));
             notification.show(`Pré-visualização carregada. Clique em salvar para aplicar.`);
         } catch (error) {
+            // Trata o erro vindo do servidor (incluindo o 'File too large' se passar da validação acima)
             notification.show(`Erro no upload: ${error.message}`, 'error');
         } finally {
             setIsSaving(false);
@@ -14970,9 +14978,10 @@ const AdminAppIcons = () => {
             await apiService('/settings/app-icons', 'PUT', { icons });
             
             // Atualiza o Favicon no DOM imediatamente para refletir a mudança
+            // Adicionamos o cache-busting aqui também
             const faviconLink = document.querySelector("link[rel~='icon']");
             if (faviconLink && icons.favicon.current) {
-                faviconLink.href = icons.favicon.current;
+                faviconLink.href = `${icons.favicon.current}?t=${new Date().getTime()}`;
             }
 
             notification.show("Ícones atualizados com sucesso no sistema!");
@@ -14993,7 +15002,12 @@ const AdminAppIcons = () => {
             <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                 <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                     {icons[iconKey]?.current ? (
-                        <img src={icons[iconKey].current} alt="Preview" className="max-w-full max-h-full object-contain" />
+                        /* ATUALIZAÇÃO: Adicionado ?t=timestamp para forçar a atualização da imagem (cache bust) */
+                        <img 
+                            src={`${icons[iconKey].current}?t=${new Date().getTime()}`} 
+                            alt="Preview" 
+                            className="max-w-full max-h-full object-contain" 
+                        />
                     ) : (
                         <PhotoIcon className="h-10 w-10 text-gray-400" />
                     )}
@@ -15005,7 +15019,7 @@ const AdminAppIcons = () => {
                 </div>
                 
                 <div className="flex-grow space-y-4 w-full">
-                    <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={(e) => handleFileChange(e, iconKey)} />
+                    <input type="file" ref={fileRef} className="hidden" accept="image/png,image/jpeg,image/gif,image/webp,image/x-icon" onChange={(e) => handleFileChange(e, iconKey)} />
                     
                     <div className="flex flex-col gap-2">
                         <button onClick={() => fileRef.current.click()} disabled={isSaving} className="w-full md:w-auto bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100 transition flex items-center justify-center gap-2">
@@ -15043,14 +15057,16 @@ const AdminAppIcons = () => {
 
             <IconEditor 
                 title="Favicon do Site" 
-                description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG)."
+                /* ATUALIZAÇÃO: Aviso de limite de tamanho adicionado */
+                description="Ícone exibido na aba do navegador. Recomenda-se formato quadrado (PNG ou ICO, Máx 5MB)."
                 iconKey="favicon"
                 fileRef={fileInputRefFavicon}
             />
 
             <IconEditor 
                 title="Ícone do Aplicativo (PWA)" 
-                description="Ícone exibido na tela inicial do celular quando o app é instalado. O sistema gerará automaticamente as versões em 192px e 512px."
+                /* ATUALIZAÇÃO: Aviso de limite de tamanho adicionado */
+                description="Ícone exibido na tela inicial do celular (Máx 5MB). O sistema gerará automaticamente as versões de 192px e 512px."
                 iconKey="pwa_icon"
                 fileRef={fileInputRefPWA}
             />
