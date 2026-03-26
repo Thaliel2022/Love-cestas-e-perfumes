@@ -4856,44 +4856,35 @@ app.get('/manifest.json', async (req, res) => {
         if (iconSettings.length > 0) {
             const parsedIcon = JSON.parse(iconSettings[0].setting_value);
             if (parsedIcon.pwa_icon && parsedIcon.pwa_icon.current) {
-                rawIconUrl = parsedIcon.pwa_icon.current;
+                rawIconUrl = parsedIcon.pwa_icon.current; // O link do Cloudinary já é único!
             }
         }
 
         if (nameSettings.length > 0) {
             appNames = JSON.parse(nameSettings[0].setting_value);
         }
-
-        const timestamp = new Date().getTime();
         
-        // ATUALIZAÇÃO: Adicionado 'f_png' para forçar o Cloudinary a entregar um PNG puro.
-        // O Google Chrome no Computador é muito rigoroso e às vezes recusa instalar o PWA se a imagem for WEBP ou JPG.
+        // ATUALIZAÇÃO CRÍTICA PARA DESKTOP: Removemos o ?v=timestamp do final
+        // Deixamos a URL limpa terminando em .png para o Chrome não suspeitar do formato.
         const icon192 = rawIconUrl.includes('res.cloudinary.com')
-            ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad,f_png/') + `?v=${timestamp}`
-            : `${rawIconUrl}?v=${timestamp}`;
+            ? rawIconUrl.replace('/upload/', '/upload/w_192,h_192,c_pad,f_png/')
+            : rawIconUrl;
 
         const icon512 = rawIconUrl.includes('res.cloudinary.com')
-            ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/') + `?v=${timestamp}`
-            : `${rawIconUrl}?v=${timestamp}`;
+            ? rawIconUrl.replace('/upload/', '/upload/w_512,h_512,c_pad,f_png/')
+            : rawIconUrl;
 
         const manifest = {
             "short_name": appNames.short_name,
             "name": appNames.name,
             "icons": [
-                {
-                    "src": icon192,
-                    "type": "image/png",
-                    "sizes": "192x192",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": icon512,
-                    "type": "image/png",
-                    "sizes": "512x512",
-                    "purpose": "any maskable"
-                }
+                // Declaramos separadamente para agradar o validador do Chrome
+                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "any" },
+                { "src": icon192, "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "any" },
+                { "src": icon512, "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
             ],
-            "start_url": ".",
+            "start_url": "/",
             "display": "standalone",
             "theme_color": "#D4AF37",
             "background_color": "#111827"
