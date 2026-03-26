@@ -229,9 +229,17 @@ async function apiUploadService(endpoint, file) {
     const formData = new FormData();
     formData.append('file', file);
 
+    // ATUALIZAÇÃO: Injeção do token no header para garantir autenticação em requisições Multipart
+    const token = localStorage.getItem('accessToken');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method: 'POST',
-        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        credentials: 'include', // Essencial para cookies
+        headers, // Headers adicionados aqui
         body: formData,
     };
 
@@ -255,9 +263,17 @@ async function apiImageUploadService(endpoint, file) {
     const formData = new FormData();
     formData.append('image', file);
 
+    // ATUALIZAÇÃO: Injeção do token no header para garantir autenticação em requisições Multipart
+    const token = localStorage.getItem('accessToken');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const config = {
         method: 'POST',
-        credentials: 'include', // Adicionado para enviar cookies de autenticação
+        credentials: 'include', // Essencial para cookies
+        headers, // Headers adicionados aqui
         body: formData,
     };
 
