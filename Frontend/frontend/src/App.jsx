@@ -2076,7 +2076,7 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 });
 
 
-const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas" }) => {
+const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas", appLogoText = "LovecestasePerfumes" }) => {
     const { isAuthenticated, user, logout } = useAuth();
     const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
     const [searchTerm, setSearchTerm] = useState('');
@@ -2392,7 +2392,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                             </svg>
                         </div>
-                        <span>{appName}</span>
+                        <span>{appLogoText}</span>
                     </a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
@@ -2465,7 +2465,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
                             <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                         </svg>
-                        {appName}
+                        {appLogoText}
                     </a>
                 </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
@@ -14913,13 +14913,13 @@ const AdminAppIcons = () => {
         favicon: { current: '', previous: null, default: '' },
         pwa_icon: { current: '', previous: null, default: '' }
     });
-    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '' });
+    const [nameConfig, setNameConfig] = useState({ short_name: '', name: '', logo_text: '' });
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
     const notification = useNotification();
-    const confirmation = useConfirmation(); // ATUALIZAÇÃO: Hook para exigir Senha/2FA
+    const confirmation = useConfirmation(); 
     
     const fileInputRefFavicon = useRef(null);
     const fileInputRefPWA = useRef(null);
@@ -15028,7 +15028,7 @@ const AdminAppIcons = () => {
         setNameConfig(prev => ({ ...prev, [key]: value }));
     };
 
-    // ATUALIZAÇÃO: Salvar com confirmação de Senha/2FA e Tela de Carregamento
+    // Salvar com confirmação de Senha/2FA e Tela de Carregamento
     const handleSave = () => {
         if (!nameConfig.short_name || !nameConfig.name) {
             notification.show("Preencha Nome e Nome Curto do Aplicativo.", "error");
@@ -15056,6 +15056,10 @@ const AdminAppIcons = () => {
                         localStorage.setItem('lovecestas_app_logo', icons.pwa_icon.current);
                     }
 
+                    // Dispara evento global para o frontend atualizar instantaneamente
+                    const nameEvent = new CustomEvent('app-name-updated', { detail: nameConfig });
+                    window.dispatchEvent(nameEvent);
+
                     notification.show("Identidade visual atualizada com sucesso!");
                 } catch (err) {
                     notification.show(`Erro ao salvar: ${err.message}`, "error");
@@ -15075,7 +15079,6 @@ const AdminAppIcons = () => {
 
     return (
         <div className="max-w-4xl mx-auto space-y-10">
-            {/* OVERLAY DE CARREGAMENTO EM TELA CHEIA (NOVO) */}
             <AnimatePresence>
                 {isSaving && (
                     <motion.div
@@ -15104,13 +15107,12 @@ const AdminAppIcons = () => {
                     <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2.5">
                         <ClipboardDocListIcon className="h-5 w-5 text-indigo-500"/> Identidade do Aplicativo
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação e na barra de tarefas.</p>
+                    <p className="text-sm text-gray-500 mt-1">Esses nomes aparecem na tela de instalação, barra de tarefas e cabeçalho.</p>
                 </div>
                 
-                {/* ATUALIZAÇÃO: Inputs colocados diretamente no HTML para não perder o foco ao digitar */}
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-3 gap-6">
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Exibido na Tela Inicial)</label>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Curto (Tela Inicial)</label>
                         <input 
                             type="text" 
                             value={nameConfig.short_name} 
@@ -15121,12 +15123,23 @@ const AdminAppIcons = () => {
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Completo (Exibido na Instalação)</label>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Nome Aba (Navegador)</label>
                         <input 
                             type="text" 
                             value={nameConfig.name} 
                             onChange={(e) => handleNameChange(e, 'name')} 
-                            placeholder="Love Cestas e Perfumes JP" 
+                            placeholder="Love Cestas e Perfumes" 
+                            maxLength={40} 
+                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Texto Logo (Cabeçalho)</label>
+                        <input 
+                            type="text" 
+                            value={nameConfig.logo_text || ''} 
+                            onChange={(e) => handleNameChange(e, 'logo_text')} 
+                            placeholder="LovecestasePerfumes" 
                             maxLength={30} 
                             className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-200 transition text-sm"
                         />
@@ -15142,7 +15155,6 @@ const AdminAppIcons = () => {
                     <strong className="text-amber-600">Dica:</strong> Para o ícone não ficar pequeno, recorte a imagem removendo as bordas transparentes vazias antes de enviar.
                 </p>
                 
-                {/* ATUALIZAÇÃO: Estrutura colocada diretamente no HTML para não perder o foco */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                     <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                         {icons.favicon?.current ? (
@@ -15192,7 +15204,6 @@ const AdminAppIcons = () => {
                     Ícone exibido na tela inicial do celular quando o app é instalado (Máx 5MB). O sistema gerará automaticamente as versões em 192px e 512px.
                 </p>
                 
-                {/* ATUALIZAÇÃO: Estrutura colocada diretamente no HTML para não perder o foco */}
                 <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
                     <div className="w-32 h-32 flex-shrink-0 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 p-2 flex items-center justify-center relative overflow-hidden group">
                         {icons.pwa_icon?.current ? (
@@ -15428,7 +15439,20 @@ function AppContent({ deferredPrompt }) {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
 
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes' });
+  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
+
+  // --- EFEITO: Escuta o evento global para atualizar o nome instantaneamente ---
+  useEffect(() => {
+      const handleNameUpdate = (event) => {
+          if (event.detail) {
+              setAppNameConfig(event.detail);
+              document.title = event.detail.name;
+          }
+      };
+
+      window.addEventListener('app-name-updated', handleNameUpdate);
+      return () => window.removeEventListener('app-name-updated', handleNameUpdate);
+  }, []);
 
   // --- EFEITO: Atualiza Favicon, Logo Dinâmica e Nome do App no Carregamento Principal ---
   useEffect(() => {
@@ -15659,8 +15683,9 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} />}
       <main className="flex-grow">{renderPage()}</main>
+      {/* Aqui o Header recebe a nova prop appLogoText */}
+      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
