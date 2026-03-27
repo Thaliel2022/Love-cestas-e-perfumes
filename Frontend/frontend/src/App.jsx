@@ -9008,23 +9008,20 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
     const [pendingRefundsCount, setPendingRefundsCount] = useState(0); 
-    const [isMaintenance, setIsMaintenance] = useState(false); // Estado reativo para a barra superior
+    const [isMaintenance, setIsMaintenance] = useState(false); 
     const mainContentRef = useRef(null);
 
     useEffect(() => {
-        // Busca status inicial
         apiService('/settings/maintenance')
             .then(data => setIsMaintenance(data.status === 'on'))
             .catch(() => {});
 
-        // Escuta as alterações feitas pelo toggle
         const handleMaintenanceUpdate = (e) => setIsMaintenance(e.detail === 'on');
         window.addEventListener('maintenance-changed', handleMaintenanceUpdate);
         
         return () => window.removeEventListener('maintenance-changed', handleMaintenanceUpdate);
     }, []);
 
-    // Busca contagem de novos pedidos e reembolsos para os badges de notificação
     useEffect(() => {
         apiService('/orders')
             .then(data => {
@@ -9092,9 +9089,10 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
        {
             title: "Sistema",
             items: [
-                { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
+                { key: 'theme', label: 'Tema e Cores', icon: <SparklesIcon className="h-5 w-5"/> }, // NOVO ITEM AQUI
+                { key: 'app-icons', label: 'Ícones e Nomes', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
-                { key: 'app-icons', label: 'Ícones e PWA', icon: <CameraIcon className="h-5 w-5"/> }, 
+                { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -9102,12 +9100,9 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
 
     return (
         <div className="h-screen flex overflow-hidden bg-gray-50 text-slate-800 font-sans selection:bg-indigo-100 selection:text-indigo-700">
-            {/* Overlay Mobile */}
             {isSidebarOpen && <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)}></div>}
 
-            {/* Sidebar */}
             <aside className={`bg-white w-72 fixed inset-y-0 left-0 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:relative lg:translate-x-0 transition-transform duration-300 ease-in-out z-50 flex flex-col border-r border-gray-200 shadow-xl lg:shadow-none`}>
-                {/* Logo Area */}
                 <div className="h-16 flex items-center px-6 border-b border-gray-100 flex-shrink-0 bg-white">
                     <div className="flex items-center gap-3 text-indigo-600">
                         <div className="p-1.5 bg-indigo-600 rounded-lg">
@@ -9120,7 +9115,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     </button>
                 </div>
 
-                {/* Navigation */}
                 <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
                     {menuGroups.map((group, idx) => (
                         <div key={idx}>
@@ -9158,7 +9152,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                     ))}
                 </nav>
 
-                {/* User Footer */}
                 <div className="p-4 border-t border-gray-100 bg-gray-50/50">
                     <div className="flex items-center gap-3 mb-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold border border-indigo-200">
@@ -9180,9 +9173,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 </div>
             </aside>
 
-            {/* Main Content */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
-                {/* Header Topbar */}
                 <header className="bg-white/80 backdrop-blur-md h-16 flex items-center justify-between px-6 sm:px-8 flex-shrink-0 z-20 border-b border-gray-200 sticky top-0">
                      <div className="flex items-center gap-4">
                          <button onClick={() => setIsSidebarOpen(true)} className="p-2 lg:hidden text-slate-500 hover:bg-gray-100 rounded-md">
@@ -15455,19 +15446,270 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+const AdminThemeSettings = () => {
+    const defaultTheme = {
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+    };
+
+    const predefinedThemes = [
+        { name: 'Padrão (Original)', colors: defaultTheme },
+        { name: 'Claro Moderno', colors: { primary: '#2563eb', primaryHover: '#1d4ed8', bg: '#f8fafc', surface: '#ffffff', surfaceHover: '#f1f5f9', text: '#0f172a', textMuted: '#64748b' } },
+        { name: 'Escuro Elegante (Ouro)', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
+        { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } },
+    ];
+
+    const [themeConfig, setThemeConfig] = useState(defaultTheme);
+    const [originalTheme, setOriginalTheme] = useState(defaultTheme);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const notification = useNotification();
+    const confirmation = useConfirmation();
+
+    useEffect(() => {
+        apiService('/settings/theme')
+            .then(data => {
+                if (data && data.primary) {
+                    setThemeConfig(data);
+                    setOriginalTheme(data);
+                }
+            })
+            .catch(err => notification.show("Erro ao carregar o tema atual.", "error"))
+            .finally(() => setIsLoading(false));
+    }, [notification]);
+
+    // Aplica o preview em tempo real emitindo o evento
+    const handleColorChange = (key, value) => {
+        const newTheme = { ...themeConfig, [key]: value };
+        setThemeConfig(newTheme);
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newTheme }));
+    };
+
+    const applyPreset = (presetColors) => {
+        setThemeConfig(presetColors);
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: presetColors }));
+    };
+
+    const handleCancel = () => {
+        setThemeConfig(originalTheme);
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: originalTheme }));
+        notification.show("Alterações descartadas. Tema original restaurado.");
+    };
+
+    const handleSave = () => {
+        confirmation.show(
+            "Tem certeza que deseja aplicar essas cores ao site de forma definitiva?",
+            async () => {
+                setIsSaving(true);
+                try {
+                    await apiService('/settings/theme', 'PUT', { themeConfig });
+                    setOriginalTheme(themeConfig); // Atualiza a base original
+                    notification.show("Novo tema aplicado com sucesso!");
+                } catch (error) {
+                    notification.show(`Erro ao salvar: ${error.message}`, "error");
+                } finally {
+                    setIsSaving(false);
+                }
+            },
+            { requiresAuth: true, confirmText: "Aplicar Tema", confirmColor: "bg-green-600 hover:bg-green-700" }
+        );
+    };
+
+    if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
+
+    const ColorPickerRow = ({ label, field, desc }) => (
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div>
+                <p className="font-bold text-gray-800 text-sm">{label}</p>
+                <p className="text-xs text-gray-500">{desc}</p>
+            </div>
+            <div className="flex items-center gap-3">
+                <span className="text-xs font-mono text-gray-500 uppercase">{themeConfig[field]}</span>
+                <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer">
+                    <input 
+                        type="color" 
+                        value={themeConfig[field]} 
+                        onChange={(e) => handleColorChange(field, e.target.value)}
+                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="max-w-5xl mx-auto space-y-8 pb-12">
+            <div>
+                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Tema e Cores</h1>
+                <p className="text-slate-500 text-sm mt-1">Personalize a identidade visual da sua loja. As alterações aparecem em tempo real, mas só afetam os clientes após salvar.</p>
+            </div>
+
+            {/* Temas Pré-definidos */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <SparklesIcon className="h-5 w-5 text-indigo-500"/> Temas Prontos
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    {predefinedThemes.map((preset, idx) => (
+                        <button 
+                            key={idx} 
+                            onClick={() => applyPreset(preset.colors)}
+                            className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:shadow-md hover:border-indigo-300 transition-all group"
+                        >
+                            <div className="flex w-full h-12 rounded-lg overflow-hidden mb-3 border border-gray-300 shadow-sm">
+                                <div className="flex-1" style={{ backgroundColor: preset.colors.bg }}></div>
+                                <div className="flex-1" style={{ backgroundColor: preset.colors.surface }}></div>
+                                <div className="flex-1" style={{ backgroundColor: preset.colors.primary }}></div>
+                            </div>
+                            <span className="text-sm font-bold text-gray-700 group-hover:text-indigo-600">{preset.name}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Personalização Customizada */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-4">
+                    <h2 className="text-lg font-bold text-slate-800 mb-2">Cores Customizadas</h2>
+                    
+                    <ColorPickerRow label="Cor Primária" field="primary" desc="Botões, ícones ativos, destaques." />
+                    <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão ao passar o mouse." />
+                    <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo do site." />
+                    <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões, menus e rodapé." />
+                    <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos e textos normais." />
+                    <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio e descrições menores." />
+                </div>
+
+                {/* Pré-visualização do componente */}
+                <div className="bg-gray-100 p-6 rounded-xl border border-gray-200 flex flex-col justify-center items-center">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Preview do Tema (Visão do Cliente)</p>
+                    
+                    {/* Card que simula o site */}
+                    <div 
+                        className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-300 border border-white/10"
+                        style={{ backgroundColor: themeConfig.bg }}
+                    >
+                        {/* Header Falso */}
+                        <div className="p-4 flex items-center justify-between" style={{ backgroundColor: themeConfig.surface }}>
+                            <span className="font-bold text-lg" style={{ color: themeConfig.primary }}>Meu Site</span>
+                            <div className="flex gap-2">
+                                <CartIcon className="h-5 w-5" style={{ color: themeConfig.text }} />
+                                <UserIcon className="h-5 w-5" style={{ color: themeConfig.text }} />
+                            </div>
+                        </div>
+                        {/* Corpo Falso */}
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold mb-2" style={{ color: themeConfig.text }}>Produto Exemplo</h3>
+                            <p className="text-sm mb-6" style={{ color: themeConfig.textMuted }}>Esta é uma simulação de como seus produtos e textos aparecerão com as novas cores escolhidas.</p>
+                            <button 
+                                className="w-full py-3 rounded-lg font-bold shadow-md transition-colors"
+                                style={{ backgroundColor: themeConfig.primary, color: themeConfig.bg }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = themeConfig.primaryHover}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = themeConfig.primary}
+                            >
+                                Comprar Agora
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Ações */}
+            <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50 p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0">
+                <button 
+                    onClick={handleCancel}
+                    disabled={isSaving}
+                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
+                >
+                    Descartar e Restaurar
+                </button>
+                <button 
+                    onClick={handleSave}
+                    disabled={isSaving}
+                    className="px-8 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                >
+                    {isSaving ? <SpinnerIcon className="h-5 w-5"/> : <CheckIcon className="h-5 w-5"/>}
+                    Salvar Novo Tema
+                </button>
+            </div>
+        </div>
+    );
+};
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // Estados Dinâmicos Visuais
+  const [appTheme, setAppTheme] = useState(null); // Estado para as cores (Tema)
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
-
   const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
-  // --- EFEITO: Escuta o evento global para atualizar o nome instantaneamente ---
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables ---
+  // Isso sobrescreve o comportamento das classes Tailwind originais em toda a aplicação (menos no Admin)
+  useEffect(() => {
+      if (!appTheme) return;
+
+      const isAdmin = currentPath.startsWith('admin');
+      
+      // Aplicamos o estilo dinâmico na tag head para sobrescrever o tailwind globalmente
+      const styleId = 'dynamic-theme-override';
+      let styleElement = document.getElementById(styleId);
+
+      if (!styleElement) {
+          styleElement = document.createElement('style');
+          styleElement.id = styleId;
+          document.head.appendChild(styleElement);
+      }
+
+      // Se for admin, desativa as cores customizadas para não estragar a interface do painel
+      if (isAdmin) {
+          styleElement.innerHTML = '';
+          return;
+      }
+
+      // Converte as cores para regras CSS que substituem classes estáticas e definem variáveis
+      styleElement.innerHTML = `
+          :root {
+              --theme-primary: ${appTheme.primary};
+              --theme-primary-hover: ${appTheme.primaryHover};
+              --theme-bg: ${appTheme.bg};
+              --theme-surface: ${appTheme.surface};
+              --theme-surface-hover: ${appTheme.surfaceHover};
+              --theme-text: ${appTheme.text};
+              --theme-text-muted: ${appTheme.textMuted};
+          }
+
+          /* Overrides de Classes Tailwind Estáticas do Layout Antigo */
+          .bg-black { background-color: var(--theme-bg) !important; }
+          .bg-gray-900 { background-color: var(--theme-surface) !important; }
+          .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
+          
+          .text-white { color: var(--theme-text) !important; }
+          .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
+          .text-gray-400 { color: var(--theme-text-muted) !important; }
+          .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
+          
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; }
+          
+          .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
+          .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
+          
+          .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
+          .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
+          .border-gray-700 { border-color: var(--theme-surface-hover) !important; opacity: 0.7; }
+      `;
+
+      return () => {
+          if (styleElement) styleElement.innerHTML = '';
+      };
+  }, [appTheme, currentPath]);
+
+  // Escuta os eventos do Painel em tempo real para Live Preview
   useEffect(() => {
       const handleNameUpdate = (event) => {
           if (event.detail) {
@@ -15476,19 +15718,30 @@ function AppContent({ deferredPrompt }) {
           }
       };
 
+      const handleThemeUpdate = (event) => {
+          if (event.detail) setAppTheme(event.detail);
+      };
+
       window.addEventListener('app-name-updated', handleNameUpdate);
-      return () => window.removeEventListener('app-name-updated', handleNameUpdate);
+      window.addEventListener('app-theme-updated', handleThemeUpdate);
+      
+      return () => {
+          window.removeEventListener('app-name-updated', handleNameUpdate);
+          window.removeEventListener('app-theme-updated', handleThemeUpdate);
+      };
   }, []);
 
-  // --- EFEITO: Atualiza Favicon, Logo Dinâmica e Nome do App no Carregamento Principal ---
+  // Carrega as configurações (Tema, Ícones, Nomes) do DB no início
   useEffect(() => {
+      apiService(`/settings/theme?v=${new Date().getTime()}`)
+          .then(data => { if (data) setAppTheme(data); })
+          .catch(err => console.log("Usando tema local estático fallback."));
+
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
           .then(data => {
               if (data && data.favicon && data.favicon.current) {
                   const faviconLink = document.querySelector("link[rel~='icon']");
-                  if (faviconLink) {
-                      faviconLink.href = data.favicon.current;
-                  }
+                  if (faviconLink) faviconLink.href = data.favicon.current;
                   localStorage.setItem('lovecestas_app_favicon', data.favicon.current);
               }
               if (data && data.pwa_icon && data.pwa_icon.current) {
@@ -15662,6 +15915,7 @@ function AppContent({ deferredPrompt }) {
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
+            'theme': <AdminThemeSettings />, // <-- ADICIONADA NOVA ROTA
         };
 
         return (
@@ -15707,15 +15961,13 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+  // As classes bg-black e similares aqui são base, o script injetado as substitui
   return (
-    <div className="bg-black min-h-screen flex flex-col">
-      {/* CORREÇÃO: O Header voltou para o topo */}
-      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
-      
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
       <main className="flex-grow">{renderPage()}</main>
-      
+      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
@@ -15766,7 +16018,7 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800">
+            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
                 <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {appNameConfig.name}. Todos os direitos reservados.</p>
             </div>
         </footer>

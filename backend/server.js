@@ -4769,6 +4769,51 @@ app.put('/api/settings/maintenance', verifyToken, verifyAdmin, async (req, res) 
     }
 });
 
+// --- NOVAS ROTAS PARA TEMA (Cores do Site) ---
+app.get('/api/settings/theme', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'theme_config'");
+        
+        // Cores atuais (padrão) do site
+        const defaultThemeConfig = {
+            primary: '#fbbf24',       // amber-400
+            primaryHover: '#f59e0b',  // amber-500
+            bg: '#000000',            // black
+            surface: '#111827',       // gray-900
+            surfaceHover: '#1f2937',  // gray-800
+            text: '#ffffff',          // white
+            textMuted: '#9ca3af'      // gray-400
+        };
+        
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : defaultThemeConfig;
+        res.json(config);
+    } catch (err) {
+        console.error("Erro ao buscar configurações de tema:", err);
+        res.status(500).json({ message: "Erro ao buscar configurações de tema." });
+    }
+});
+
+app.put('/api/settings/theme', verifyToken, verifyAdmin, async (req, res) => {
+    const { themeConfig } = req.body;
+    const clientIp = req.ip || req.connection.remoteAddress;
+    
+    if (!themeConfig || !themeConfig.primary || !themeConfig.bg) {
+        return res.status(400).json({ message: "Configuração de tema inválida. Cores obrigatórias ausentes." });
+    }
+
+    try {
+        const configString = JSON.stringify(themeConfig);
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('theme_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+            [configString, configString]
+        );
+        logAdminAction(req.user, 'ATUALIZOU TEMA VISUAL', 'Cores principais do site alteradas', clientIp);
+        res.json({ message: "Tema atualizado com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar tema:", err);
+        res.status(500).json({ message: "Erro ao salvar tema." });
+    }
+});
 // (Público/Admin) Busca configurações de ícones do App
 app.get('/api/settings/app-icons', async (req, res) => {
     try {
