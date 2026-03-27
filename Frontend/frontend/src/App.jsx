@@ -15683,9 +15683,11 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col">
-      <main className="flex-grow">{renderPage()}</main>
-      {/* Aqui o Header recebe a nova prop appLogoText */}
+      {/* CORREÇÃO: O Header voltou para o topo */}
       {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
+      
+      <main className="flex-grow">{renderPage()}</main>
+      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
