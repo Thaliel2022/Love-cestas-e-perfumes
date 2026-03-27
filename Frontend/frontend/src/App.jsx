@@ -2076,9 +2076,9 @@ const ProductCarousel = memo(({ products, onNavigate, title }) => {
 });
 
 
-const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortName = "Love Cestas" }) => {
+const Header = memo(({ onNavigate }) => {
     const { isAuthenticated, user, logout } = useAuth();
-    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); 
+    const { cart, wishlist, addresses, shippingLocation, setShippingLocation, fetchAddresses, orderNotificationCount } = useShop(); // Garanta que orderNotificationCount está aqui
     const [searchTerm, setSearchTerm] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -2088,6 +2088,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
     const [dynamicMenuItems, setDynamicMenuItems] = useState([]);
     const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
 
+    // Estado para visibilidade da BottomNavBar
     const [isBottomNavVisible, setIsBottomNavVisible] = useState(true);
     const lastScrollY = useRef(0);
     const isScrollingDown = useRef(false);
@@ -2339,6 +2340,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                 <button onClick={() => onNavigate('categories')} className={`relative flex flex-col items-center justify-center transition-colors w-1/5 ${currentPath === 'categories' ? 'text-amber-400' : 'text-gray-400 hover:text-amber-400'}`}>
                     <div className="relative">
                         <BarsGripIcon className="h-6 w-6 mb-1"/>
+                         {/* --- NOTIFICAÇÃO NO MENU PRINCIPAL MOBILE --- */}
                         {isAuthenticated && orderNotificationCount > 0 && (
                             <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-600 rounded-full border-2 border-black animate-pulse"></span>
                         )}
@@ -2384,6 +2386,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
         </AnimatePresence>
 
         <header className="bg-black/80 backdrop-blur-md text-white shadow-lg sticky top-0 z-40">
+            {/* Top Bar - Desktop */}
             <div className="hidden md:block px-4 sm:px-6">
                 <div className="flex justify-between items-center py-3">
                     <a href="#home" onClick={(e) => { e.preventDefault(); onNavigate('home'); }} className="flex items-center gap-2 text-xl font-bold tracking-wide text-amber-400 group">
@@ -2392,7 +2395,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                             </svg>
                         </div>
-                        <span>{appName}</span>
+                        <span>LovecestasePerfumes</span>
                     </a>
                     <div className="hidden lg:block flex-1 max-w-2xl mx-8">
                          <form onSubmit={handleSearchSubmit} className="relative">
@@ -2401,7 +2404,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onFocus={() => setIsSearchFocused(true)}
                                 onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                                placeholder={`O que você procura em ${appShortName}?`}
+                                placeholder="O que você procura?"
                                 className="w-full bg-gray-800 text-white px-5 py-2 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-500"/>
                            <button type="submit" className="absolute right-0 top-0 h-full px-4 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                             <AnimatePresence>
@@ -2437,6 +2440,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         {isAuthenticated && ( 
                             <button onClick={() => onNavigate('account/orders')} className="hidden sm:flex items-center gap-1 hover:text-amber-400 transition px-2 py-1 relative"> 
                                 <PackageIcon className="h-6 w-6"/> 
+                                {/* --- NOTIFICAÇÃO NO HEADER DESKTOP --- */}
                                 {orderNotificationCount > 0 && (
                                     <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white border-2 border-black transform translate-x-1/2 -translate-y-1/2 animate-bounce">
                                         {orderNotificationCount}
@@ -2465,11 +2469,11 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-amber-500">
                             <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.943c1.035 0 1.875.84 1.875 1.875v.75c0 1.036-.84 1.875-1.875 1.875H12.75v-4.5h1.875a1.875 1.875 0 10-1.875-1.875V6.75h-1.5V4.875C11.25 3.839 10.41 3 9.375 3zM11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6a2.25 2.25 0 002.25-2.25v-6.75h-8.25z" />
                         </svg>
-                        {appName}
+                        LovecestasePerfumes
                     </a>
                 </div>
                 <form onSubmit={handleSearchSubmit} className="relative mb-2">
-                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder={`Pesquisar em ${appShortName}`} className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
+                    <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)} placeholder="Pesquisar em LovecestasePerfumes" className="w-full bg-gray-800 text-white px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm" />
                     <button type="submit" className="absolute right-0 top-0 h-full px-3 text-gray-400 hover:text-amber-400"><SearchIcon className="h-5 w-5" /></button>
                     <AnimatePresence>
                         {isSearchFocused && searchTerm.length > 0 && (
@@ -2522,6 +2526,7 @@ const Header = memo(({ onNavigate, appName = "Love Cestas e Perfumes", appShortN
                                             <a href="#account" onClick={(e) => { e.preventDefault(); onNavigate('account'); setIsMobileMenuOpen(false); }} className="block text-white hover:text-amber-400">Minha Conta</a> 
                                             <a href="#account/orders" onClick={(e) => { e.preventDefault(); onNavigate('account/orders'); setIsMobileMenuOpen(false); }} className="flex items-center justify-between text-white hover:text-amber-400">
                                                 <span>Devoluções e Pedidos</span>
+                                                {/* --- CORREÇÃO DO BADGE NO DRAWER MOBILE --- */}
                                                 {orderNotificationCount > 0 && <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2 animate-pulse">{orderNotificationCount}</span>}
                                             </a> 
                                             {user.role === 'admin' && <a href="#admin" onClick={(e) => { e.preventDefault(); onNavigate('admin/dashboard'); setIsMobileMenuOpen(false);}} className="block text-amber-400 hover:text-amber-300">Painel Admin</a>} 
@@ -15428,10 +15433,11 @@ function AppContent({ deferredPrompt }) {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
 
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes' });
-
-  // --- EFEITO: Atualiza Favicon, Logo Dinâmica e Nome do App no Carregamento Principal ---
+  // --- EFEITO: Atualiza Favicon e Logo Dinâmica no Carregamento Principal ---
   useEffect(() => {
+      // ATUALIZAÇÃO CRÍTICA: Adicionado ?v=timestamp na chamada da API
+      // Isso impede que o navegador faça cache da resposta e garante que ele sempre 
+      // pergunte ao banco de dados qual é a imagem mais recente!
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
           .then(data => {
               if (data && data.favicon && data.favicon.current) {
@@ -15447,15 +15453,6 @@ function AppContent({ deferredPrompt }) {
               }
           })
           .catch(err => console.log("Ícones mantidos como original."));
-
-      apiService(`/settings/app-name?v=${new Date().getTime()}`)
-          .then(data => {
-              if (data && data.name) {
-                  setAppNameConfig(data);
-                  document.title = data.name; 
-              }
-          })
-          .catch(err => console.log("Nome mantido como original."));
   }, []);
 
   useEffect(() => {
@@ -15563,7 +15560,7 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src={appLogo} alt={appNameConfig.name} className="w-full h-full object-contain relative z-10" />
+                <img src={appLogo} alt="Love Cestas e Perfumes" className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -15659,14 +15656,14 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col">
-      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} />}
+      {showHeaderFooter && <Header onNavigate={navigate} />}
       <main className="flex-grow">{renderPage()}</main>
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">{appNameConfig.name}</h3>
+                        <h3 className="text-xl font-bold text-amber-400">LovecestasePerfumes</h3>
                         <p className="text-sm text-gray-400">
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
@@ -15714,7 +15711,7 @@ function AppContent({ deferredPrompt }) {
                 </div>
             </div>
             <div className="bg-black py-4 border-t border-gray-800">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {appNameConfig.name}. Todos os direitos reservados.</p>
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} LovecestasePerfumes. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
