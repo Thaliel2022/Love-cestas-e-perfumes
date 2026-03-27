@@ -15642,20 +15642,18 @@ function AppContent({ deferredPrompt }) {
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
   // Estados Dinâmicos Visuais
-  const [appTheme, setAppTheme] = useState(null); // Estado para as cores (Tema)
+  const [appTheme, setAppTheme] = useState(null); 
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
   const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
 
   // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables ---
-  // Isso sobrescreve o comportamento das classes Tailwind originais em toda a aplicação (menos no Admin)
   useEffect(() => {
       if (!appTheme) return;
 
       const isAdmin = currentPath.startsWith('admin');
       
-      // Aplicamos o estilo dinâmico na tag head para sobrescrever o tailwind globalmente
       const styleId = 'dynamic-theme-override';
       let styleElement = document.getElementById(styleId);
 
@@ -15665,13 +15663,11 @@ function AppContent({ deferredPrompt }) {
           document.head.appendChild(styleElement);
       }
 
-      // Se for admin, desativa as cores customizadas para não estragar a interface do painel
       if (isAdmin) {
           styleElement.innerHTML = '';
           return;
       }
 
-      // Converte as cores para regras CSS que substituem classes estáticas e definem variáveis
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${appTheme.primary};
@@ -15685,6 +15681,7 @@ function AppContent({ deferredPrompt }) {
 
           /* Overrides de Classes Tailwind Estáticas do Layout Antigo */
           .bg-black { background-color: var(--theme-bg) !important; }
+          .bg-black\\/80 { background-color: var(--theme-bg) !important; opacity: 0.95; }
           .bg-gray-900 { background-color: var(--theme-surface) !important; }
           .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
           
@@ -15709,7 +15706,6 @@ function AppContent({ deferredPrompt }) {
       };
   }, [appTheme, currentPath]);
 
-  // Escuta os eventos do Painel em tempo real para Live Preview
   useEffect(() => {
       const handleNameUpdate = (event) => {
           if (event.detail) {
@@ -15731,7 +15727,6 @@ function AppContent({ deferredPrompt }) {
       };
   }, []);
 
-  // Carrega as configurações (Tema, Ícones, Nomes) do DB no início
   useEffect(() => {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
           .then(data => { if (data) setAppTheme(data); })
@@ -15915,7 +15910,7 @@ function AppContent({ deferredPrompt }) {
             'newsletter': <AdminNewsletter />, 
             'shipping': <AdminShippingSettings />, 
             'app-icons': <AdminAppIcons />,
-            'theme': <AdminThemeSettings />, // <-- ADICIONADA NOVA ROTA
+            'theme': <AdminThemeSettings />,
         };
 
         return (
@@ -15961,11 +15956,13 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
-  // As classes bg-black e similares aqui são base, o script injetado as substitui
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
-      <main className="flex-grow">{renderPage()}</main>
+      {/* AGORA SIM O HEADER ESTÁ NO TOPO DA PÁGINA (Antes do <main>) */}
       {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
+      
+      <main className="flex-grow">{renderPage()}</main>
+      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
             <div className="container mx-auto px-4 py-12">
@@ -16028,7 +16025,6 @@ function AppContent({ deferredPrompt }) {
     </div>
   );
 }
-
 // ATUALIZAÇÃO DO COMPONENTE BASE: Carregando a biblioteca do frontend
 export default function App() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
