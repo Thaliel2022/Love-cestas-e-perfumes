@@ -9007,12 +9007,25 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
     const { user, logout } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [newOrdersCount, setNewOrdersCount] = useState(0);
-    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); // NOVO ESTADO
+    const [pendingRefundsCount, setPendingRefundsCount] = useState(0); 
+    const [isMaintenance, setIsMaintenance] = useState(false); // Estado reativo para a barra superior
     const mainContentRef = useRef(null);
+
+    useEffect(() => {
+        // Busca status inicial
+        apiService('/settings/maintenance')
+            .then(data => setIsMaintenance(data.status === 'on'))
+            .catch(() => {});
+
+        // Escuta as alterações feitas pelo toggle
+        const handleMaintenanceUpdate = (e) => setIsMaintenance(e.detail === 'on');
+        window.addEventListener('maintenance-changed', handleMaintenanceUpdate);
+        
+        return () => window.removeEventListener('maintenance-changed', handleMaintenanceUpdate);
+    }, []);
 
     // Busca contagem de novos pedidos e reembolsos para os badges de notificação
     useEffect(() => {
-        // Busca Pedidos Recentes
         apiService('/orders')
             .then(data => {
                 if (!Array.isArray(data)) {
@@ -9032,7 +9045,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                 setNewOrdersCount(0);
             });
 
-        // NOVO: Busca Reembolsos Pendentes
         apiService('/refunds')
             .then(data => {
                 if (Array.isArray(data)) {
@@ -9058,7 +9070,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'dashboard', label: 'Visão Geral', icon: <ChartIcon className="h-5 w-5"/> },
                 { key: 'orders', label: 'Pedidos', icon: <TruckIcon className="h-5 w-5"/>, badge: newOrdersCount },
-                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, // ATUALIZADO
+                { key: 'refunds', label: 'Reembolsos', icon: <CurrencyDollarArrowIcon className="h-5 w-5"/>, badge: pendingRefundsCount }, 
             ]
         },
         {
@@ -9082,7 +9094,7 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
             items: [
                 { key: 'reports', label: 'Relatórios', icon: <FileIcon className="h-5 w-5"/> },
                 { key: 'shipping', label: 'Frete Local', icon: <TruckIcon className="h-5 w-5"/> }, 
-                { key: 'app-icons', label: 'Ícones e PWA', icon: <CameraIcon className="h-5 w-5"/> }, // NOVO MENU ADICIONADO
+                { key: 'app-icons', label: 'Ícones e PWA', icon: <CameraIcon className="h-5 w-5"/> }, 
                 { key: 'logs', label: 'Logs do Sistema', icon: <ClipboardDocListIcon className="h-5 w-5"/> },
             ]
         }
@@ -9181,13 +9193,23 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
                          </h1>
                      </div>
                      <div className="flex items-center gap-4">
-                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
-                        </div>
+                        {isMaintenance ? (
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-full border border-amber-200 shadow-sm">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                                <span className="text-xs font-bold tracking-wide">EM MANUTENÇÃO</span>
+                            </div>
+                        ) : (
+                            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                <span className="text-xs font-bold tracking-wide">SISTEMA ONLINE</span>
+                            </div>
+                        )}
                      </div>
                 </header>
 
@@ -9201,7 +9223,6 @@ const AdminLayout = memo(({ activePage, onNavigate, children }) => {
         </div>
     );
 });
-
 const AdminShippingSettings = () => {
     const [config, setConfig] = useState({ base_price: 20, rules: [] });
     const [productsData, setProductsData] = useState({ brands: [], categories: [] });
@@ -9716,7 +9737,11 @@ const AdminDashboard = ({ onNavigate }) => {
                 </div>
                 <div className="flex-grow overflow-y-auto max-h-[320px] p-2 space-y-1 custom-scrollbar">
                     {filtered.length > 0 ? filtered.map(item => (
-                        <div key={item.id + item.name} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100">
+                        <div 
+                            key={item.id + item.name} 
+                            onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
+                            className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors group border border-transparent hover:border-gray-100 cursor-pointer"
+                        >
                             <div className="flex items-center gap-3 overflow-hidden">
                                 <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 border border-gray-200 p-0.5">
                                     <img src={getFirstImage(item.images)} alt={item.name} className="w-full h-full object-contain rounded-sm" />
@@ -9728,12 +9753,11 @@ const AdminDashboard = ({ onNavigate }) => {
                             </div>
                             <div className="text-right flex-shrink-0 flex flex-col items-end">
                                 <span className="text-xs font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">{item.stock} un.</span>
-                                <button 
-                                    onClick={() => { setSelectedStockItem(item); setIsStockModalOpen(true); }}
-                                    className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                <span 
+                                    className="text-[10px] text-indigo-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     Repor
-                                </button>
+                                </span>
                             </div>
                         </div>
                     )) : (
@@ -13833,6 +13857,8 @@ const MaintenanceModeToggle = () => {
             await apiService('/settings/maintenance', 'PUT', { status: newStatus ? 'on' : 'off' });
             setIsOn(newStatus);
             notification.show(`Modo de manutenção foi ${newStatus ? 'ATIVADO' : 'DESATIVADO'}.`);
+            // Dispara um evento global para atualizar a barra do topo (AdminLayout) na hora
+            window.dispatchEvent(new CustomEvent('maintenance-changed', { detail: newStatus ? 'on' : 'off' }));
         } catch (error) {
             notification.show(`Erro ao alterar status: ${error.message}`, 'error');
         } finally {
