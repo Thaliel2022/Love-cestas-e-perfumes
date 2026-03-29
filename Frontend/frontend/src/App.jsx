@@ -15668,6 +15668,9 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
+      // CORREÇÃO: CSS refinado. 
+      // 1. Removida a sobreposição de 'bg-black/80' para manter a transparência atrás do modal.
+      // 2. Restaurado o contraste do 'border-gray-600' para os botões de tamanho ficarem bem visíveis.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${appTheme.primary};
@@ -15679,26 +15682,35 @@ function AppContent({ deferredPrompt }) {
               --theme-text-muted: ${appTheme.textMuted};
           }
 
-          /* Overrides de Classes Tailwind Estáticas do Layout Antigo */
+          /* Overrides de Fundo */
           .bg-black { background-color: var(--theme-bg) !important; }
-          .bg-black\\/80 { background-color: var(--theme-bg) !important; opacity: 0.95; }
+          /* Classes com transparência (como bg-black/80) foram removidas daqui para manter o blur original do Tailwind */
+          
           .bg-gray-900 { background-color: var(--theme-surface) !important; }
           .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
           
+          /* Overrides de Texto */
           .text-white { color: var(--theme-text) !important; }
           .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
           .text-gray-400 { color: var(--theme-text-muted) !important; }
           .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
           
-          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
+          /* Overrides da Cor Primária (Amber) */
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; }
           .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; }
           
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
           
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
+          
+          /* Bordas de Superfície e Contornos de Botões */
           .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
-          .border-gray-700 { border-color: var(--theme-surface-hover) !important; opacity: 0.7; }
+          .border-gray-700 { border-color: var(--theme-text-muted) !important; opacity: 0.3; }
+          
+          /* RESTAURA O CONTRASTE DOS BOTÕES DE TAMANHO */
+          .border-gray-600 { border-color: var(--theme-text-muted) !important; } /* Removida opacidade para ficar forte */
+          .hover\\:border-gray-400:hover { border-color: var(--theme-text) !important; }
       `;
 
       return () => {
@@ -15958,11 +15970,8 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
-      {/* AGORA SIM O HEADER ESTÁ NO TOPO DA PÁGINA (Antes do <main>) */}
       {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
-      
       <main className="flex-grow">{renderPage()}</main>
-      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
             <div className="container mx-auto px-4 py-12">
