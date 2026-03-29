@@ -15423,10 +15423,10 @@ function urlBase64ToUint8Array(base64String) {
 
 const AdminThemeSettings = () => {
     const defaultThemeFallback = {
-        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
     };
 
-    // Temas Sazonais com IDs para forçar a animação no Preview
+    // Temas Sazonais com IDs para forçar a animação
     const seasonalThemesPreview = [
         { id: 'natal', name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
         { id: 'namorados', name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, 
@@ -15442,8 +15442,8 @@ const AdminThemeSettings = () => {
         { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
     ];
 
-    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true });
-    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true });
+    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -15455,8 +15455,11 @@ const AdminThemeSettings = () => {
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                const animEnabled = data.animationsEnabled !== false; // Default true
-                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled };
+                const animEnabled = data.animationsEnabled !== false;
+                const activeSeason = data.activeSeason || null;
+                const loadedConfig = data.colors 
+                    ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason } 
+                    : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason };
                 
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
@@ -15470,14 +15473,14 @@ const AdminThemeSettings = () => {
     };
 
     const handleColorChange = (key, value) => {
-        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
     };
 
     const handleToggleSeasonal = () => {
         const newSeasonalStatus = !localConfig.autoSeasonal;
-        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         if (newSeasonalStatus) {
@@ -15495,14 +15498,15 @@ const AdminThemeSettings = () => {
     };
 
     const applyPreset = (presetColors, seasonId = null) => {
-        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false };
+        // CORREÇÃO: Agora salvamos permanentemente o activeSeason no config local
+        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
         setLocalConfig(newConfig);
-        dispatchPreview(newConfig, seasonId); // Passa o ID da temporada para forçar a animação
+        dispatchPreview(newConfig, seasonId);
         notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
@@ -15510,7 +15514,7 @@ const AdminThemeSettings = () => {
 
     const handleCancel = () => {
         setLocalConfig(originalConfig);
-        dispatchPreview(originalConfig);
+        dispatchPreview(originalConfig, originalConfig.activeSeason);
         notification.show("Alterações descartadas.");
     };
 
@@ -15537,14 +15541,16 @@ const AdminThemeSettings = () => {
         return localConfig.colors.primary === colorsObj.primary &&
                localConfig.colors.bg === colorsObj.bg &&
                localConfig.colors.surface === colorsObj.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal && 
+               !localConfig.activeSeason;
     };
 
-    const isSeasonalActive = (seasonColors) => {
+    const isSeasonalActive = (seasonColors, seasonId) => {
         return localConfig.colors.primary === seasonColors.primary &&
                localConfig.colors.bg === seasonColors.bg &&
                localConfig.colors.surface === seasonColors.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal &&
+               localConfig.activeSeason === seasonId;
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
@@ -15587,7 +15593,6 @@ const AdminThemeSettings = () => {
                             Ative esta opção para que o site mude automaticamente de tema e exiba efeitos visuais (corações, neve) durante datas comemorativas.
                         </p>
                         
-                        {/* TOGGLE DE ANIMAÇÕES (Mestre) */}
                         <div className="flex items-center justify-between p-4 bg-black/30 border border-white/10 rounded-xl mt-4 max-w-md">
                             <div>
                                 <h3 className="text-white font-bold text-sm">Permitir Efeitos Animados</h3>
@@ -15620,7 +15625,7 @@ const AdminThemeSettings = () => {
                                 type="button"
                                 onClick={() => applyPreset(season.colors, season.id)}
                                 className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                    isSeasonalActive(season.colors) 
+                                    isSeasonalActive(season.colors, season.id) 
                                     ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
                                     : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
                                 }`}
@@ -15766,7 +15771,6 @@ const AdminThemeSettings = () => {
                 </div>
             </div>
 
-            {/* Ações Fixas */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
                     type="button"
@@ -15799,7 +15803,7 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
             return;
         }
 
-        // Se veio forçado pelo Preview do Admin, usa ele, senão calcula a data
+        // Se veio forçado pelo config (Admin salvou o tema sazonal)
         if (forcedSeason) {
             setSeason(forcedSeason);
             return;
@@ -15817,8 +15821,7 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
         else setSeason(null);
     }, [isEnabled, forcedSeason]);
 
-    // CORREÇÃO: O useMemo garante que os valores aleatórios sejam gerados apenas UMA vez por tema.
-    // Isso impede que a animação "resete" ou pare toda vez que o React atualizar a página.
+    // O useMemo garante que os valores aleatórios sejam gerados apenas UMA vez por tema.
     const particles = useMemo(() => {
         if (!season) return [];
         
@@ -15831,7 +15834,7 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
         return [...Array(count)].map((_, i) => ({
             id: i,
             left: Math.random() * 100,
-            top: season === 'blackfriday' ? Math.random() * 100 : -10, // -10vh para começar fora da tela
+            top: season === 'blackfriday' ? Math.random() * 100 : -10,
             animDuration: season === 'blackfriday' ? 1.5 + Math.random() * 2 : 6 + Math.random() * 8,
             delay: season === 'blackfriday' ? Math.random() * 4 : Math.random() * -10,
             size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
@@ -15924,7 +15927,7 @@ function AppContent({ deferredPrompt }) {
   };
 
   const defaultThemeFallback = {
-      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
   };
 
   const seasonalThemes = {
@@ -15954,13 +15957,12 @@ function AppContent({ deferredPrompt }) {
           const cached = localStorage.getItem('lovecestas_theme_config');
           if (cached) {
               const parsed = JSON.parse(cached);
-              // Garante que os controles novos existam no cache antigo
               if (parsed.animationsEnabled === undefined) parsed.animationsEnabled = true;
               if (parsed.autoSeasonal === undefined) parsed.autoSeasonal = false;
               return parsed;
           }
       } catch(e) {}
-      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true };
+      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null };
   });
   
   const [previewSeason, setPreviewSeason] = useState(null);
@@ -16070,7 +16072,8 @@ function AppContent({ deferredPrompt }) {
       const handleThemeUpdate = (event) => {
           if (event.detail) {
               setAppThemeConfig(event.detail);
-              setPreviewSeason(event.detail.previewSeason || null); 
+              // CORREÇÃO: Pega a season ativa se forçando preview ou vindo direto do config
+              setPreviewSeason(event.detail.previewSeason || event.detail.activeSeason || null); 
               localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
           }
       };
@@ -16090,7 +16093,7 @@ function AppContent({ deferredPrompt }) {
               if (data) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
                   const animEnabled = data.animationsEnabled !== false;
-                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled };
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: data.activeSeason } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: null };
                   setAppThemeConfig(loadedConfig); 
                   localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
@@ -16225,7 +16228,6 @@ function AppContent({ deferredPrompt }) {
 
   if (isLoading || isStatusLoading) {
       return (
-        // CORREÇÃO: Style color aplicado na div principal para garantir que o SVG herde a cor
         <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
                 animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
@@ -16328,10 +16330,12 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
-  // CORREÇÃO: Condição para rodar a animação (garante que Admin Preview ou Temporada Ativa ative a animação)
+  // CORREÇÃO: A animação só deve rodar se (o painel geral permitir E o cliente não tiver desligado) E
+  // (estiver na temporada automática OU o admin tiver salvo um tema específico de calendário)
+  const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
                               !userAnimationsDisabled && 
-                              (appThemeConfig.autoSeasonal || previewSeason);
+                              (appThemeConfig.autoSeasonal || effectiveForcedSeason);
   
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
@@ -16339,7 +16343,7 @@ function AppContent({ deferredPrompt }) {
       {!currentPath.startsWith('admin') && (
           <SeasonalAnimations 
             isEnabled={shouldRunAnimations} 
-            forcedSeason={previewSeason} 
+            forcedSeason={effectiveForcedSeason} 
           />
       )}
       
@@ -16411,8 +16415,7 @@ function AppContent({ deferredPrompt }) {
                 <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
                     <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
                     
-                    {/* Botão de Controle das Animações no Rodapé */}
-                    {appThemeConfig.animationsEnabled && (appThemeConfig.autoSeasonal || previewSeason) && (
+                    {appThemeConfig.animationsEnabled && (appThemeConfig.autoSeasonal || effectiveForcedSeason) && (
                         <button 
                             onClick={toggleUserAnimations} 
                             className="text-xs text-gray-500 hover:text-amber-400 transition-colors flex items-center justify-center gap-1.5 bg-gray-900/50 px-4 py-2 rounded-full border border-gray-800 shadow-sm active:scale-95"
