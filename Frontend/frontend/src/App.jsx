@@ -15779,6 +15779,114 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
+// Componente de Animações Sazonais (Alta Performance)
+const SeasonalAnimations = memo(({ isEnabled }) => {
+    const [season, setSeason] = useState(null);
+
+    useEffect(() => {
+        if (!isEnabled) {
+            setSeason(null);
+            return;
+        }
+        const now = new Date();
+        const m = now.getMonth() + 1;
+        const d = now.getDate();
+
+        // Lógica de Datas Comemorativas
+        if (m === 12 && d <= 25) setSeason('natal');
+        else if (m === 6 && d <= 12) setSeason('namorados');
+        else if (m === 5 && d <= 15) setSeason('maes');
+        else if (m === 8 && d <= 15) setSeason('pais');
+        else if (m === 11 && d >= 15) setSeason('blackfriday');
+        else setSeason(null);
+    }, [isEnabled]);
+
+    if (!isEnabled || !season) return null;
+
+    const renderParticles = (type, count) => {
+        return [...Array(count)].map((_, i) => {
+            const left = Math.random() * 100;
+            const animDuration = 5 + Math.random() * 10;
+            const delay = Math.random() * -10;
+            const size = 0.5 + Math.random() * 1.5;
+
+            let content;
+            if (type === 'natal') {
+                content = <div className="rounded-full bg-white/80" style={{ width: `${size * 0.4}rem`, height: `${size * 0.4}rem`, boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />;
+            } else if (type === 'namorados') {
+                content = '❤️';
+            } else if (type === 'maes') {
+                content = '🌸';
+            } else if (type === 'pais') {
+                content = '👔';
+            }
+
+            return (
+                <div
+                    key={i}
+                    className="absolute drop-shadow-md"
+                    style={{
+                        left: `${left}vw`,
+                        top: `-5%`,
+                        fontSize: type !== 'natal' ? `${size}rem` : undefined,
+                        animation: `fall ${animDuration}s linear ${delay}s infinite`,
+                        opacity: type === 'pais' ? 0.4 : 0.8
+                    }}
+                >
+                    {content}
+                </div>
+            );
+        });
+    };
+
+    return (
+        <div className="fixed inset-0 pointer-events-none z-[45] overflow-hidden" aria-hidden="true">
+            <style>{`
+                @keyframes fall {
+                    0% { transform: translateY(-5vh) rotate(0deg); opacity: 0; }
+                    10% { opacity: 1; }
+                    90% { opacity: 1; }
+                    100% { transform: translateY(105vh) rotate(360deg); opacity: 0; }
+                }
+                @keyframes sparkle {
+                    0%, 100% { opacity: 0; transform: scale(0); }
+                    50% { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
+
+            {season === 'natal' && renderParticles('natal', 40)}
+            {season === 'namorados' && renderParticles('namorados', 25)}
+            {season === 'maes' && renderParticles('maes', 25)}
+            {season === 'pais' && renderParticles('pais', 15)}
+            
+            {/* Efeito Especial Black Friday */}
+            {season === 'blackfriday' && (
+                [...Array(50)].map((_, i) => {
+                    const left = Math.random() * 100;
+                    const top = Math.random() * 100;
+                    const delay = Math.random() * 3;
+                    const duration = 1 + Math.random() * 2;
+                    const size = 0.1 + Math.random() * 0.3;
+                    return (
+                        <div
+                            key={i}
+                            className="absolute bg-amber-400 rounded-full"
+                            style={{
+                                left: `${left}vw`,
+                                top: `${top}vh`,
+                                width: `${size}rem`,
+                                height: `${size}rem`,
+                                boxShadow: '0 0 10px 3px rgba(251, 191, 36, 0.7)',
+                                animation: `sparkle ${duration}s ease-in-out ${delay}s infinite`,
+                            }}
+                        />
+                    );
+                })
+            )}
+        </div>
+    );
+});
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
@@ -15789,11 +15897,10 @@ function AppContent({ deferredPrompt }) {
       primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
   };
 
-  // Temas Sazonais (Aplicados na loja para os clientes) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
   const seasonalThemes = {
       natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
-      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, // Cores antigas de Mães
-      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, // Cores antigas de Namorados
+      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, 
+      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, 
       pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
       blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
   };
@@ -16181,7 +16288,12 @@ function AppContent({ deferredPrompt }) {
   const showHeaderFooter = !currentPath.startsWith('admin');
   
   return (
-    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
+      
+      {/* Componente de Animações Sazonais Injetado Globalmente (Controlado SOMENTE pelo Painel Admin) */}
+      {!currentPath.startsWith('admin') && (
+          <SeasonalAnimations isEnabled={appThemeConfig.autoSeasonal} />
+      )}
       
       {showHeaderFooter && (
           <Header 
@@ -16192,10 +16304,10 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      <main className="flex-grow">{renderPage()}</main>
+      <main className="flex-grow z-10">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
@@ -16246,8 +16358,11 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+            {/* O Botão de controle de animação foi retirado daqui */}
+            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
+                <div className="container mx-auto px-4 flex items-center justify-center">
+                    <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+                </div>
             </div>
         </footer>
       )}
