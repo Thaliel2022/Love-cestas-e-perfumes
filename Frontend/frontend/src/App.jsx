@@ -2557,7 +2557,7 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
     useEffect(() => {
         setIsLoading(true);
         apiService('/collections')
-            .then(data => setCategories(data)) // Apenas define os dados na ordem recebida
+            .then(data => setCategories(data)) 
             .catch(err => console.error("Falha ao buscar coleções:", err))
             .finally(() => setIsLoading(false));
     }, []);
@@ -2637,22 +2637,24 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                 >
                                     <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
                                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-2 transition-all group-hover:bg-black/60">
-                                            <h3 className="text-xl font-semibold text-white text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
+                                        
+                                        {/* AQUI ESTÁ A CORREÇÃO: Cores blindadas para overlay não ficar branco no tema claro */}
+                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover:bg-[#000000]/60">
+                                            <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação - Visíveis sempre que houver mais itens para mostrar */}
+                    {/* Botões de Navegação */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-white/50 hover:bg-white text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -15361,11 +15363,13 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                     onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
                 >
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageUrl})` }} />
-                    <div className="absolute inset-0 bg-black/40" />
+                    
+                    {/* AQUI ESTÁ A CORREÇÃO: Utilizando a cor sólida HEX para não sofrer interferência das variáveis do tema claro */}
+                    <div className="absolute inset-0 bg-[#000000]/40" />
                     
                     {(currentBanner.title || currentBanner.subtitle || currentBanner.cta_enabled) && (
                          <motion.div 
-                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-white p-4"
+                            className="relative z-10 h-full flex flex-col items-center justify-center text-center text-[#ffffff] p-4"
                             variants={bannerVariants}
                             initial="hidden"
                             animate="visible"
@@ -15383,14 +15387,13 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
                             {currentBanner.subtitle && (
                                 <motion.p 
                                     variants={itemVariants}
-                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-gray-200"
+                                    className="text-base md:text-xl mt-2 md:mt-4 max-w-2xl text-[#e5e7eb]"
                                 >
                                     {currentBanner.subtitle}
                                 </motion.p>
                             )}
                              {currentBanner.cta_enabled === 1 && currentBanner.cta_text && (
                                 <motion.div variants={itemVariants}>
-                                    {/* ATUALIZAÇÃO: Botões aumentados no mobile (px-8 py-3 e text-base) para melhor destaque e usabilidade */}
                                     <button className="mt-6 md:mt-8 bg-amber-400 text-black px-8 py-3 md:px-12 md:py-4 rounded-md text-base md:text-lg font-bold hover:bg-amber-300 transition-colors shadow-xl active:scale-95">
                                         {currentBanner.cta_text}
                                     </button>
@@ -15403,15 +15406,15 @@ const BannerCarousel = memo(({ banners, onNavigate }) => {
 
             {banners.length > 1 && (
                 <>
-                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goPrev(); }} className="absolute left-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-black/30 rounded-full text-white md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); goNext(); }} className="absolute right-2 top-1/2 -translate-y-1/2 z-20 p-2 bg-[#000000]/30 rounded-full text-[#ffffff] md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                     <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
                         {banners.map((_, index) => (
-                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-white/50'}`} />
+                            <button key={index} onClick={(e) => { e.stopPropagation(); setCurrentIndex(index); }} className={`w-3 h-3 rounded-full transition-colors ${currentIndex === index ? 'bg-amber-400' : 'bg-[#ffffff]/50'}`} />
                         ))}
                     </div>
                 </>
@@ -15822,7 +15825,6 @@ function AppContent({ deferredPrompt }) {
       return null;
   }, []);
 
-  // --- ATUALIZAÇÃO: Busca inicial otimizada com localStorage para evitar o Flash na tela de loading ---
   const [appThemeConfig, setAppThemeConfig] = useState(() => {
       try {
           const cached = localStorage.getItem('lovecestas_theme_config');
@@ -15851,7 +15853,6 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (useLayoutEffect impede que a cor antiga pisque) ---
   React.useLayoutEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
@@ -15881,7 +15882,6 @@ function AppContent({ deferredPrompt }) {
               --theme-text-muted: ${t.textMuted};
           }
 
-          /* Cor Primária (Botões, Ícones, Textos Destacados) */
           .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: var(--theme-bg) !important; }
           .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: var(--theme-bg) !important; }
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
@@ -15889,12 +15889,10 @@ function AppContent({ deferredPrompt }) {
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
 
-          /* Fundos e Superfícies globais */
           .bg-black { background-color: var(--theme-bg) !important; }
           .bg-gray-900 { background-color: var(--theme-surface) !important; }
           .bg-gray-800 { background-color: var(--theme-surface-hover) !important; }
           
-          /* Fundos com opacidade (resolvendo cabeçalhos e modais usando color-mix) */
           .bg-black\\/80 { background-color: color-mix(in srgb, var(--theme-bg) 80%, transparent) !important; }
           .bg-black\\/70 { background-color: color-mix(in srgb, var(--theme-bg) 70%, transparent) !important; }
           .bg-black\\/60 { background-color: color-mix(in srgb, var(--theme-bg) 60%, transparent) !important; }
@@ -15907,10 +15905,8 @@ function AppContent({ deferredPrompt }) {
           
           .bg-gray-800\\/50 { background-color: color-mix(in srgb, var(--theme-surface-hover) 50%, transparent) !important; }
 
-          /* Bordas */
           .border-gray-800, .border-gray-700 { border-color: var(--theme-surface-hover) !important; }
           
-          /* Textos globais */
           .text-white { color: var(--theme-text) !important; }
           .text-gray-200 { color: color-mix(in srgb, var(--theme-text) 90%, var(--theme-bg)) !important; }
           .text-gray-300 { color: color-mix(in srgb, var(--theme-text) 80%, var(--theme-bg)) !important; }
@@ -15967,7 +15963,6 @@ function AppContent({ deferredPrompt }) {
           })
           .catch(err => {
               console.log("Usando tema local estático fallback.");
-              // Em caso de erro, continua usando o que já estava em memória
           });
 
       apiService(`/settings/app-icons?v=${new Date().getTime()}`)
@@ -16096,19 +16091,19 @@ function AppContent({ deferredPrompt }) {
 
   if (isLoading || isStatusLoading) {
       return (
-        <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
+        // AQUI: Forçando cores Inline para matar completamente a cintilação do FOUC!
+        <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
                 animate={{ scale: [1, 1.05, 1], opacity: [0.8, 1, 0.8] }} 
                 transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                 className="w-28 h-28 relative"
             >
-                <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
                 <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
-                {/* Alterado: Removido o /80 (arbitrário do tailwind) e trocado por opacity-80 para não piscar no FOUC */}
-                <p className="text-amber-400 opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
+                <SpinnerIcon className="h-8 w-8 animate-spin" style={{ color: activeThemeColors.primary }}/>
+                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse" style={{ color: activeThemeColors.primary }}>Preparando a loja...</p>
             </div>
         </div>
       );
