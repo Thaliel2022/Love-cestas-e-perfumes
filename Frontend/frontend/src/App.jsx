@@ -7672,7 +7672,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
 
+    // Função para buscar pedidos
     const fetchOrders = useCallback(() => {
+        // A API agora retorna o campo 'has_unseen_update'
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -7764,6 +7766,8 @@ const MyOrdersListPage = ({ onNavigate }) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
                         
+                        // --- LÓGICA DE NOTIFICAÇÃO ---
+                        // Verifica se o pedido tem atualização não vista
                         const hasNotification = !!order.has_unseen_update;
 
                         return (
@@ -7774,6 +7778,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 transition={{ delay: 0.1 * idx }}
                                 className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
+                                {/* --- BOLINHA DE NOTIFICAÇÃO NO CARD --- */}
                                 {hasNotification && (
                                     <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
                                         <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
@@ -7802,15 +7807,14 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
+                                            className={`w-full font-bold px-4 py-2 rounded-md transition ${hasNotification ? 'bg-amber-500 text-black hover:bg-amber-400' : 'bg-gray-700 text-white hover:bg-gray-600'}`}
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
