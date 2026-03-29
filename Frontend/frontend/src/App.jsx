@@ -15832,18 +15832,7 @@ function AppContent({ deferredPrompt }) {
       return appThemeConfig.colors || defaultThemeFallback;
   }, [appThemeConfig, getSeasonalTheme]);
 
-  // Função para garantir que os textos em cima dos botões primários fiquem legíveis (Branco ou Preto)
-  const getContrastTextColor = (hexColor) => {
-      if (!hexColor) return '#000000';
-      const hex = hexColor.replace('#', '');
-      const r = parseInt(hex.substr(0, 2), 16);
-      const g = parseInt(hex.substr(2, 2), 16);
-      const b = parseInt(hex.substr(4, 2), 16);
-      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      return (yiq >= 128) ? '#000000' : '#ffffff';
-  };
-
-  // --- INJEÇÃO DINÂMICA DE TEMA (TOTALMENTE BLINDADA) ---
+  // --- MÁGICA DOS TEMAS: Injeção Dinâmica de CSS Variables (CORRIGIDA E BLINDADA) ---
   useEffect(() => {
       const t = activeThemeColors;
       const isAdmin = currentPath.startsWith('admin');
@@ -15862,58 +15851,24 @@ function AppContent({ deferredPrompt }) {
           return;
       }
 
-      // O filtro :not garante que classes com opacidade, como bg-black/80, 
-      // nunca sejam sobrescritas pela cor base do tema.
+      // CORREÇÃO CRÍTICA: Apenas a cor Primária (Amber) é substituída.
+      // Os fundos (bg-black, bg-gray-900) permanecem usando o Tailwind nativo,
+      // preservando assim as opacidades (bg-black/80) dos modais e elementos.
       styleElement.innerHTML = `
           :root {
               --theme-primary: ${t.primary};
               --theme-primary-hover: ${t.primaryHover};
-              --theme-bg: ${t.bg};
-              --theme-surface: ${t.surface};
-              --theme-surface-hover: ${t.surfaceHover};
-              --theme-text: ${t.text};
-              --theme-text-muted: ${t.textMuted};
           }
 
-          /* --- BACKGROUNDS PROTEGIDOS --- */
-          body, .min-h-screen.bg-black, .bg-black:not(.bg-black\\/20):not(.bg-black\\/30):not(.bg-black\\/40):not(.bg-black\\/50):not(.bg-black\\/60):not(.bg-black\\/70):not(.bg-black\\/80):not(.bg-black\\/90) { 
-              background-color: var(--theme-bg) !important; 
-          }
-          
-          .bg-gray-900:not(.bg-gray-900\\/50):not(.bg-gray-900\\/80):not(.bg-gray-900\\/90):not(.bg-gray-900\\/95) { 
-              background-color: var(--theme-surface) !important; 
-          }
-          
-          .bg-gray-800:not(.bg-gray-800\\/30):not(.bg-gray-800\\/50):not(.bg-gray-800\\/80) { 
-              background-color: var(--theme-surface-hover) !important; 
-          }
-
-          /* --- TEXTOS --- */
-          .text-white:not(.group-hover\\:text-white) { color: var(--theme-text) !important; }
-          .text-gray-200 { color: var(--theme-text) !important; opacity: 0.95; }
-          .text-gray-300 { color: var(--theme-text) !important; opacity: 0.9; }
-          .text-gray-400 { color: var(--theme-text-muted) !important; }
-          .text-gray-500 { color: var(--theme-text-muted) !important; opacity: 0.8; }
-
-          /* --- CORES PRIMÁRIAS --- */
-          .bg-amber-400, .bg-amber-500 { 
-              background-color: var(--theme-primary) !important; 
-              color: ${getContrastTextColor(t.primary)} !important; 
-          }
-          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { 
-              background-color: var(--theme-primary-hover) !important; 
-          }
+          /* Cor Primária (Botões, Ícones, Textos Destacados) */
+          .bg-amber-400, .bg-amber-500 { background-color: var(--theme-primary) !important; color: #000000 !important; }
+          .hover\\:bg-amber-300:hover, .hover\\:bg-amber-400:hover { background-color: var(--theme-primary-hover) !important; color: #000000 !important; }
           
           .text-amber-400, .text-amber-500 { color: var(--theme-primary) !important; }
           .hover\\:text-amber-300:hover, .hover\\:text-amber-400:hover { color: var(--theme-primary-hover) !important; }
           
           .border-amber-400, .border-amber-500 { border-color: var(--theme-primary) !important; }
           .ring-amber-400 { --tw-ring-color: var(--theme-primary) !important; }
-          
-          /* --- BORDAS --- */
-          .border-gray-800 { border-color: var(--theme-surface-hover) !important; }
-          .border-gray-700 { border-color: var(--theme-text-muted) !important; opacity: 0.3; }
-          .border-gray-600 { border-color: var(--theme-text-muted) !important; opacity: 0.6; }
       `;
 
       return () => {
@@ -16082,7 +16037,6 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
-  // Garantia do Nome Dinâmico 
   const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
