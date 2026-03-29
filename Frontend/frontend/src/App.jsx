@@ -31,7 +31,20 @@ const SearchIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" cl
 const CheckCircleIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const ExclamationIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 const CreditCardIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>;
-const SpinnerIcon = ({ className }) => <svg className={className || "h-5 w-5 animate-spin"} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+const SpinnerIcon = ({ className }) => {
+    // Garante que a classe 'animate-spin' sempre seja aplicada, mesmo quando 
+    // a propriedade className for sobrescrita por outros componentes
+    const finalClassName = className && className.includes('animate-spin') 
+        ? className 
+        : `animate-spin ${className || "h-5 w-5"}`;
+        
+    return (
+        <svg className={finalClassName} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    );
+};
 const ClockIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const PackageIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>;
 const CheckBadgeIcon = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>;
@@ -2632,11 +2645,11 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                                     className="flex-shrink-0 px-2"
                                     style={{ width: `${100 / itemsPerPage}%` }}
                                 >
-                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
-                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"/>
+                                    {/* CORREÇÃO: Adicionado group/card para isolar o hover do card do hover do carrossel inteiro */}
+                                    <div className="relative rounded-lg overflow-hidden aspect-[4/5] group/card cursor-pointer" onClick={() => onNavigate(`products?category=${cat.filter}`)}>
+                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover/card:scale-110 transition-transform duration-500"/>
                                         
-                                        {/* AQUI ESTÁ A CORREÇÃO: Cores blindadas para overlay não ficar branco no tema claro */}
-                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover:bg-[#000000]/60">
+                                        <div className="absolute inset-0 bg-[#000000]/40 flex items-center justify-center p-2 transition-all group-hover/card:bg-[#000000]/60">
                                             <h3 className="text-xl font-semibold text-[#ffffff] text-center tracking-wide" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.9)' }}>{cat.name}</h3>
                                         </div>
                                     </div>
@@ -2644,14 +2657,14 @@ const CollectionsCarousel = memo(({ onNavigate, title }) => {
                             ))}
                         </motion.div>
                     </div>
-                    {/* Botões de Navegação */}
+                    {/* Botões de Navegação (ocultos por padrão, visíveis no hover do carrossel) */}
                     {canGoPrev && (
-                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                        <button onClick={goPrev} className="absolute top-1/2 left-0 transform -translate-y-1/2 -translate-x-2 md:-translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                         </button>
                     )}
                     {canGoNext && (
-                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity">
+                         <button onClick={goNext} className="absolute top-1/2 right-0 transform -translate-y-1/2 translate-x-2 md:translate-x-4 bg-[#ffffff]/50 hover:bg-[#ffffff] text-black p-2 rounded-full shadow-lg z-10 transition-opacity opacity-0 group-hover:opacity-100">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
                     )}
@@ -7697,9 +7710,9 @@ const MyOrdersListPage = ({ onNavigate }) => {
 
     const getStatusChipClass = (status) => {
         const lowerStatus = status.toLowerCase();
-        if (lowerStatus.includes('entregue')) return 'bg-green-200 text-green-800';
+        if (lowerStatus.includes('entregue')) return 'bg-[#86efac] text-green-900'; 
         if (lowerStatus.includes('cancelado') || lowerStatus.includes('recusado')) return 'bg-red-200 text-red-800';
-        if (lowerStatus.includes('pendente')) return 'bg-yellow-200 text-yellow-800';
+        if (lowerStatus.includes('pendente')) return 'bg-[#fde047] text-yellow-900'; // Cor fiel à imagem
         return 'bg-blue-200 text-blue-800';
     };
 
@@ -7750,7 +7763,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                     {orders.map((order, idx) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
-                        
                         const hasNotification = !!order.has_unseen_update;
 
                         return (
@@ -7759,45 +7771,72 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.1 * idx }}
-                                className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
+                                className={`bg-gray-800 p-5 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
                                 {hasNotification && (
-                                    <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
-                                        <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
+                                    <div className="absolute -top-2.5 -right-2.5 bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full border-2 border-gray-900 z-10 flex items-center gap-1.5 animate-bounce">
+                                        <span className="h-1.5 w-1.5 bg-white rounded-full inline-block"></span>
                                         Nova Atualização
                                     </div>
                                 )}
 
+                                {/* SEÇÃO DO PRODUTO: COM A LINHA DIVISÓRIA RESTAURADA E VISÍVEL (border-gray-600) */}
                                 {firstItem && (
-                                    <div className="flex items-center gap-4 border-b border-gray-700 pb-4 mb-4">
+                                    <div className="flex items-center gap-4 border-b border-gray-600 pb-4 mb-4">
                                         <div onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="cursor-pointer flex-shrink-0">
-                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-16 h-16 object-contain bg-white rounded-md"/>
+                                            <img src={getFirstImage(firstItem.images)} alt={firstItem.name} className="w-14 h-14 object-contain bg-white rounded p-1"/>
                                         </div>
                                         <div className="flex-grow overflow-hidden">
-                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-semibold text-white truncate cursor-pointer hover:text-amber-400 transition-colors">
+                                            <p onClick={() => onNavigate(`product/${firstItem.product_id}`)} className="font-bold text-gray-200 text-sm truncate cursor-pointer hover:text-amber-400 transition-colors">
                                                 {firstItem.name}
                                             </p>
-                                            {order.items.length > 1 && ( <p className="text-sm text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
+                                            {order.items.length > 1 && ( <p className="text-xs text-gray-400 mt-1">+ {order.items.length - 1} outro(s) item(ns)</p> )}
                                         </div>
                                     </div>
                                 )}
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center sm:text-left">
-                                        <div><p className="text-xs text-gray-400">Pedido</p><p className="font-bold text-white">#{order.id}</p></div>
-                                        <div><p className="text-xs text-gray-400">Data</p><p className="font-semibold text-gray-300">{new Date(order.date).toLocaleDateString('pt-BR')}</p></div>
-                                        <div><p className="text-xs text-gray-400">Status</p><span className={`px-2 py-1 text-xs font-semibold rounded-full inline-block ${getStatusChipClass(order.status)}`}>{order.status}</span></div>
-                                        <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
+                                
+                                {/* SEÇÃO DO RESUMO DO PEDIDO: GRID ALINHADO RESTAURADO */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 text-left">
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Pedido</span>
+                                            <span className="font-bold text-white text-sm">#{order.id}</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Data</span>
+                                            <span className="font-bold text-white text-sm">{new Date(order.date).toLocaleDateString('pt-BR')}</span>
+                                        </div>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-[11px] text-gray-400 mb-1">Status</span>
+                                            <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full w-fit ${getStatusChipClass(order.status)}`}>
+                                                {order.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] text-gray-400 mb-1">Total</span>
+                                            <span className="font-bold text-amber-400 text-sm">R$ {Number(order.total).toFixed(2)}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
+
+                                    {/* BOTÕES ALINHADOS À DIREITA RESTAURADOS */}
+                                    <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2 mt-2 sm:mt-0">
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
+                                            className={`w-full sm:w-auto font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 text-xs sm:text-sm border ${
+                                                hasNotification 
+                                                    ? 'bg-amber-400 text-black border-amber-400 hover:bg-amber-300' 
+                                                    : 'bg-[#374151] text-gray-200 border-gray-600 hover:bg-gray-600 hover:text-white'
+                                            }`}
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
+                                             <button 
+                                                onClick={() => setOrderToReview(order)} 
+                                                className="w-full sm:w-auto bg-amber-600 text-white font-bold px-4 py-2 rounded-md border border-amber-600 hover:bg-amber-500 transition shadow-md active:scale-95 text-xs sm:text-sm"
+                                             >
+                                                Avaliar Pedido
+                                             </button>
                                         )}
                                     </div>
                                 </div>
@@ -15421,22 +15460,43 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+// AQUI ESTÁ A CORREÇÃO: O componente ColorPickerRow foi movido para FORA 
+// do AdminThemeSettings. Isso impede que o React destrua o input enquanto 
+// você arrasta a bolinha de cor.
+const ColorPickerRow = ({ label, field, desc, value, onChange }) => (
+    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
+        <div className="pr-4">
+            <p className="font-bold text-gray-800 text-sm">{label}</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{value}</span>
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
+                <input 
+                    type="color" 
+                    value={value} 
+                    onChange={(e) => onChange(field, e.target.value)}
+                    className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                />
+            </div>
+        </div>
+    </div>
+);
+
 const AdminThemeSettings = () => {
-    // Tema intocável (Original)
     const defaultThemeFallback = {
-        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+        primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
     };
 
-    // Temas Sazonais (Demonstração no painel) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
+    // Temas Sazonais com IDs para forçar a animação
     const seasonalThemesPreview = [
-        { name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
-        { name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, // Usando cores antigas de Mães
-        { name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
-        { name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, // Usando cores antigas de Namorados
-        { name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
+        { id: 'natal', name: 'Natal', date: 'Dezembro', colors: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' } },
+        { id: 'namorados', name: 'Namorados', date: 'Junho', colors: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' } }, 
+        { id: 'pais', name: 'Pais', date: 'Agosto', colors: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' } },
+        { id: 'maes', name: 'Mães', date: 'Maio', colors: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' } }, 
+        { id: 'blackfriday', name: 'Black Friday', date: 'Novembro', colors: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
     ];
 
-    // Presets Premium
     const predefinedPresets = [
         { name: 'Ouro Elegante', colors: { primary: '#d4af37', primaryHover: '#b8972e', bg: '#020617', surface: '#0f172a', surfaceHover: '#1e293b', text: '#f8fafc', textMuted: '#94a3b8' } },
         { name: 'Ruby Premium', colors: { primary: '#e11d48', primaryHover: '#be123c', bg: '#000000', surface: '#1c1917', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' } },
@@ -15444,8 +15504,11 @@ const AdminThemeSettings = () => {
         { name: 'Natureza Suave', colors: { primary: '#10b981', primaryHover: '#059669', bg: '#ecfdf5', surface: '#ffffff', surfaceHover: '#f0fdf4', text: '#064e3b', textMuted: '#34d399' } }
     ];
 
-    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
-    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false });
+    const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
+    
+    // Estado para carregar o nome dinâmico da loja no simulador
+    const [simulatorName, setSimulatorName] = useState('Love Cestas');
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -15454,10 +15517,19 @@ const AdminThemeSettings = () => {
     const confirmation = useConfirmation();
 
     useEffect(() => {
+        // Busca o nome configurado para refletir no simulador
+        apiService('/settings/app-name')
+            .then(data => { if(data && data.short_name) setSimulatorName(data.short_name); })
+            .catch(()=>{});
+
         apiService('/settings/theme')
             .then(data => {
                 const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                const animEnabled = data.animationsEnabled !== false;
+                const activeSeason = data.activeSeason || null;
+                const loadedConfig = data.colors 
+                    ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason } 
+                    : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason };
                 
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
@@ -15466,19 +15538,19 @@ const AdminThemeSettings = () => {
             .finally(() => setIsLoading(false));
     }, []); 
 
-    const dispatchPreview = (newConfig) => {
-        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
+    const dispatchPreview = (newConfig, activeSeason = null) => {
+        window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: { ...newConfig, previewSeason: activeSeason } }));
     };
 
     const handleColorChange = (key, value) => {
-        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
     };
 
     const handleToggleSeasonal = () => {
         const newSeasonalStatus = !localConfig.autoSeasonal;
-        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         if (newSeasonalStatus) {
@@ -15488,15 +15560,22 @@ const AdminThemeSettings = () => {
         }
     };
 
-    const applyPreset = (presetColors) => {
-        const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
+    const handleToggleAnimations = () => {
+        const newStatus = !localConfig.animationsEnabled;
+        const newConfig = { ...localConfig, animationsEnabled: newStatus };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+    };
+
+    const applyPreset = (presetColors, seasonId = null) => {
+        const newConfig = { ...localConfig, colors: { ...presetColors }, autoSeasonal: false, activeSeason: seasonId };
+        setLocalConfig(newConfig);
+        dispatchPreview(newConfig, seasonId);
         notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
+        const newConfig = { ...localConfig, colors: { ...defaultThemeFallback }, autoSeasonal: false, activeSeason: null };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
         notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
@@ -15504,19 +15583,19 @@ const AdminThemeSettings = () => {
 
     const handleCancel = () => {
         setLocalConfig(originalConfig);
-        dispatchPreview(originalConfig);
+        dispatchPreview(originalConfig, originalConfig.activeSeason);
         notification.show("Alterações descartadas.");
     };
 
     const handleSave = () => {
         confirmation.show(
-            "Tem certeza que deseja aplicar este tema ao site de forma definitiva?",
+            "Tem certeza que deseja aplicar este tema e configurações ao site de forma definitiva?",
             async () => {
                 setIsSaving(true);
                 try {
                     await apiService('/settings/theme', 'PUT', { themeConfig: localConfig });
                     setOriginalConfig(localConfig); 
-                    notification.show("Novo tema aplicado com sucesso!");
+                    notification.show("Novo tema e configurações aplicados com sucesso!");
                 } catch (error) {
                     notification.show(`Erro ao salvar: ${error.message}`, "error");
                 } finally {
@@ -15527,51 +15606,32 @@ const AdminThemeSettings = () => {
         );
     };
 
-    // Função auxiliar para verificar visualmente se o preset atual está ativo
     const isPresetActive = (colorsObj) => {
         return localConfig.colors.primary === colorsObj.primary &&
                localConfig.colors.bg === colorsObj.bg &&
                localConfig.colors.surface === colorsObj.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal && 
+               !localConfig.activeSeason;
     };
 
-    const isSeasonalActive = (seasonColors) => {
+    const isSeasonalActive = (seasonColors, seasonId) => {
         return localConfig.colors.primary === seasonColors.primary &&
                localConfig.colors.bg === seasonColors.bg &&
                localConfig.colors.surface === seasonColors.surface &&
-               !localConfig.autoSeasonal;
+               !localConfig.autoSeasonal &&
+               localConfig.activeSeason === seasonId;
     };
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
-
-    const ColorPickerRow = ({ label, field, desc }) => (
-        <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
-            <div className="pr-4">
-                <p className="font-bold text-gray-800 text-sm">{label}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{localConfig.colors[field]}</span>
-                <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
-                    <input 
-                        type="color" 
-                        value={localConfig.colors[field]} 
-                        onChange={(e) => handleColorChange(field, e.target.value)}
-                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                    />
-                </div>
-            </div>
-        </div>
-    );
 
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
             <div>
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Identidade Visual e Temas</h1>
-                <p className="text-slate-500 text-sm mt-1">Gerencie as cores da sua loja. O preview é em tempo real, mas os clientes só verão as mudanças após você salvar.</p>
+                <p className="text-slate-500 text-sm mt-1">Gerencie as cores e os efeitos da sua loja. O preview é em tempo real.</p>
             </div>
 
-            {/* SEÇÃO 1: Automação Sazonal */}
+            {/* SEÇÃO 1: Automação Sazonal e Animações */}
             <div className="bg-gradient-to-r from-indigo-900 to-slate-900 rounded-2xl shadow-lg p-1">
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
                     <div className="text-white flex-1">
@@ -15579,9 +15639,21 @@ const AdminThemeSettings = () => {
                             <SparklesIcon className="h-6 w-6 text-amber-400"/> Temas Sazonais Inteligentes
                         </h2>
                         <p className="text-indigo-200 text-sm leading-relaxed max-w-2xl">
-                            Ative esta opção para que o site mude automaticamente de tema durante datas comemorativas (Natal, Dia dos Namorados, Black Friday, etc). Fora dessas datas, o seu tema personalizado será exibido normalmente.
+                            Ative esta opção para que o site mude automaticamente de tema e exiba efeitos visuais (corações, neve) durante datas comemorativas.
                         </p>
+                        
+                        <div className="flex items-center justify-between p-4 bg-black/30 border border-white/10 rounded-xl mt-4 max-w-md">
+                            <div>
+                                <h3 className="text-white font-bold text-sm">Permitir Efeitos Animados</h3>
+                                <p className="text-indigo-200 text-[10px]">Neve, corações, brilhos caindo na tela.</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={localConfig.animationsEnabled !== false} onChange={handleToggleAnimations} className="sr-only peer" />
+                                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                        </div>
                     </div>
+                    
                     <div className="flex-shrink-0 bg-white/5 p-4 rounded-xl border border-white/10 flex flex-col items-center">
                         <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" checked={localConfig.autoSeasonal} onChange={handleToggleSeasonal} className="sr-only peer" />
@@ -15593,26 +15665,25 @@ const AdminThemeSettings = () => {
                     </div>
                 </div>
                 
-                <div className="px-6 pb-6 pt-2">
-                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas do calendário:</p>
+                <div className="px-6 pb-6 pt-4">
+                    <p className="text-xs text-indigo-300 mb-3 uppercase tracking-wider font-bold">Clique para testar os temas e animações do calendário:</p>
                     <div className="flex flex-wrap gap-3">
                         {seasonalThemesPreview.map(season => (
                             <button 
                                 key={season.name} 
                                 type="button"
-                                onClick={() => applyPreset(season.colors)}
+                                onClick={() => applyPreset(season.colors, season.id)}
                                 className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
-                                    isSeasonalActive(season.colors) 
+                                    isSeasonalActive(season.colors, season.id) 
                                     ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
                                     : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
                                 }`}
-                                title={`Clique para testar as cores de ${season.name}`}
                             >
                                 <div className="flex -space-x-2">
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.surface }}></div>
                                     <div className="w-4 h-4 rounded-full border border-slate-800 shadow-sm" style={{ backgroundColor: season.colors.primary }}></div>
                                 </div>
-                                <span className="text-xs text-white font-bold">{season.name} <span className="text-indigo-300 font-normal">({season.date})</span></span>
+                                <span className="text-xs text-white font-bold">{season.name}</span>
                             </button>
                         ))}
                     </div>
@@ -15622,7 +15693,6 @@ const AdminThemeSettings = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* SEÇÃO 2: Controles de Cor */}
                 <div className="lg:col-span-7 space-y-6">
-                    {/* Temas Rápidos */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -15662,17 +15732,24 @@ const AdminThemeSettings = () => {
                         </div>
                     </div>
 
-                    {/* Cores Customizadas */}
                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
                         <h2 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
                         </h2>
-                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." />
-                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." />
-                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." />
-                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." />
-                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." />
-                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." />
+                        
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                            <p className="text-xs text-blue-800">
+                                💡 <strong>Dica:</strong> Se você alterar uma cor manualmente e não gostar, basta <strong>clicar novamente no Estilo (preset) acima</strong> para restaurar as cores originais daquele estilo, ou clicar em "Descartar" no final da página.
+                            </p>
+                        </div>
+
+                        {/* As propriedades value e onChange agora são passadas como propriedades */}
+                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." value={localConfig.colors.primary} onChange={handleColorChange} />
+                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." value={localConfig.colors.primaryHover} onChange={handleColorChange} />
+                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." value={localConfig.colors.bg} onChange={handleColorChange} />
+                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." value={localConfig.colors.surface} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." value={localConfig.colors.text} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." value={localConfig.colors.textMuted} onChange={handleColorChange} />
                     </div>
                 </div>
 
@@ -15693,13 +15770,12 @@ const AdminThemeSettings = () => {
                             className="w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden transition-colors duration-500 border border-white/10 flex flex-col"
                             style={{ backgroundColor: localConfig.colors.bg }}
                         >
-                            {/* Header Falso */}
                             <div className="px-5 py-4 flex items-center justify-between shadow-sm transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}>
                                 <div className="flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}>
-                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>L</span>
+                                        <span className="text-[10px] font-bold" style={{ color: localConfig.colors.bg }}>{simulatorName.charAt(0).toUpperCase()}</span>
                                     </div>
-                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Love Cestas</span>
+                                    <span className="font-bold text-sm transition-colors duration-500" style={{ color: localConfig.colors.primary }}>{simulatorName}</span>
                                 </div>
                                 <div className="flex gap-3">
                                     <SearchIcon className="h-4 w-4 transition-colors duration-500" style={{ color: localConfig.colors.textMuted }} />
@@ -15707,13 +15783,11 @@ const AdminThemeSettings = () => {
                                 </div>
                             </div>
                             
-                            {/* Banner Falso */}
                             <div className="h-24 w-full flex flex-col items-center justify-center transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surfaceHover }}>
                                 <span className="text-[10px] font-bold uppercase tracking-widest transition-colors duration-500" style={{ color: localConfig.colors.primary }}>Nova Coleção</span>
                                 <h3 className="text-lg font-bold transition-colors duration-500" style={{ color: localConfig.colors.text }}>Inverno 2026</h3>
                             </div>
 
-                            {/* Corpo Falso */}
                             <div className="p-5 flex-grow">
                                 <div className="flex gap-4 mb-4">
                                     <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
@@ -15741,11 +15815,9 @@ const AdminThemeSettings = () => {
                                     style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
                                     onMouseEnter={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primaryHover;
-                                        e.target.style.transform = 'scale(1.02)';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.target.style.backgroundColor = localConfig.colors.primary;
-                                        e.target.style.transform = 'scale(1)';
                                     }}
                                 >
                                     <CartIcon className="h-4 w-4"/> Comprar Agora
@@ -15756,7 +15828,6 @@ const AdminThemeSettings = () => {
                 </div>
             </div>
 
-            {/* Ações Fixas */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
                     type="button"
@@ -15764,7 +15835,7 @@ const AdminThemeSettings = () => {
                     disabled={isSaving}
                     className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
                 >
-                    Descartar Alterações
+                    Descartar
                 </button>
                 <button 
                     type="button"
@@ -15779,21 +15850,157 @@ const AdminThemeSettings = () => {
         </div>
     );
 };
+// Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
+const SeasonalAnimations = memo(({ isEnabled, forcedSeason, isAppReady }) => {
+    const [season, setSeason] = useState(null);
+    const [isActive, setIsActive] = useState(false); 
+    const [isMounted, setIsMounted] = useState(false); 
+
+    useEffect(() => {
+        // Se a animação estiver desativada pelo Admin ou se o app ainda estiver na tela de carregamento, não faz nada.
+        if (!isEnabled || !isAppReady) {
+            return;
+        }
+
+        // Se veio forçado pelo config (Admin salvou o tema sazonal)
+        if (forcedSeason) {
+            setSeason(forcedSeason);
+        } else {
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+
+            if (m === 12 && d <= 25) setSeason('natal');
+            else if (m === 6 && d <= 12) setSeason('namorados');
+            else if (m === 5 && d <= 15) setSeason('maes');
+            else if (m === 8 && d <= 15) setSeason('pais');
+            else if (m === 11 && d >= 15) setSeason('blackfriday');
+            else {
+                setSeason(null);
+                return;
+            }
+        }
+
+        // Inicia a animação apenas quando o app estiver pronto
+        setIsActive(true);
+        setIsMounted(true);
+        
+        const fadeTimer = setTimeout(() => {
+            setIsActive(false); // Inicia o fade out suave aos 5 segundos
+        }, 5000);
+        
+        const unmountTimer = setTimeout(() => {
+            setIsMounted(false); // Remove totalmente da memória aos 6 segundos
+        }, 6000);
+
+        return () => {
+            clearTimeout(fadeTimer);
+            clearTimeout(unmountTimer);
+        };
+    }, [isEnabled, forcedSeason, isAppReady]); // A dependência isAppReady garante que só inicie após o load
+
+    const particles = useMemo(() => {
+        if (!season) return [];
+        
+        let count = 0;
+        if (season === 'natal') count = 40;
+        else if (season === 'namorados' || season === 'maes') count = 25;
+        else if (season === 'pais') count = 15;
+        else if (season === 'blackfriday') count = 40;
+
+        return [...Array(count)].map((_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            top: season === 'blackfriday' ? Math.random() * 100 : -10,
+            animDuration: season === 'blackfriday' ? 1 + Math.random() * 2 : 4 + Math.random() * 4,
+            delay: season === 'blackfriday' ? Math.random() * 2 : Math.random() * -5,
+            size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
+        }));
+    }, [season]);
+
+    if (!isEnabled || !isAppReady || !isMounted || !season || particles.length === 0) return null;
+
+    return (
+        <div className={`fixed inset-0 pointer-events-none z-[100] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
+            <style>{`
+                @keyframes fall {
+                    0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
+                    10% { opacity: 1; }
+                    80% { opacity: 1; }
+                    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+                }
+                @keyframes sparkle {
+                    0%, 100% { opacity: 0; transform: scale(0); }
+                    50% { opacity: 1; transform: scale(1); }
+                }
+            `}</style>
+
+            {particles.map((p) => {
+                if (season === 'blackfriday') {
+                    return (
+                        <div
+                            key={p.id}
+                            className="absolute bg-amber-400 rounded-full"
+                            style={{
+                                left: `${p.left}vw`,
+                                top: `${p.top}vh`,
+                                width: `${p.size}rem`,
+                                height: `${p.size}rem`,
+                                boxShadow: '0 0 12px 4px rgba(251, 191, 36, 0.8)',
+                                animation: `sparkle ${p.animDuration}s ease-in-out ${p.delay}s infinite`,
+                            }}
+                        />
+                    );
+                }
+
+                let content;
+                if (season === 'natal') {
+                    content = <div className="rounded-full bg-white" style={{ width: `${p.size * 0.3}rem`, height: `${p.size * 0.3}rem`, boxShadow: '0 0 10px rgba(255,255,255,1)' }} />;
+                } else if (season === 'namorados') {
+                    content = '❤️';
+                } else if (season === 'maes') {
+                    content = '🌸';
+                } else if (season === 'pais') {
+                    content = '👔';
+                }
+
+                return (
+                    <div
+                        key={p.id}
+                        className="absolute"
+                        style={{
+                            left: `${p.left}vw`,
+                            top: `${p.top}vh`,
+                            fontSize: season !== 'natal' ? `${p.size}rem` : undefined,
+                            animation: `fall ${p.animDuration}s linear ${p.delay}s infinite`,
+                            opacity: season === 'pais' ? 0.4 : 0.7,
+                            filter: season !== 'natal' ? 'drop-shadow(0px 4px 6px rgba(0,0,0,0.3))' : 'none'
+                        }}
+                    >
+                        {content}
+                    </div>
+                );
+            })}
+        </div>
+    );
+});
+
 function AppContent({ deferredPrompt }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [currentPath, setCurrentPath] = useState(window.location.hash.slice(1) || 'home');
   const [isInMaintenance, setIsInMaintenance] = useState(false);
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
+  // LOGICA DO CLIENTE REMOVIDA TOTALMENTE (APENAS O ADMIN CONTROLA)
+
   const defaultThemeFallback = {
-      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af'
+      primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
   };
 
-  // Temas Sazonais (Aplicados na loja para os clientes) - CORES INVERTIDAS ENTRE NAMORADOS E MÃES
   const seasonalThemes = {
       natal: { primary: '#ef4444', primaryHover: '#dc2626', bg: '#000000', surface: '#052e16', surfaceHover: '#064e3b', text: '#ffffff', textMuted: '#a7f3d0' },
-      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, // Cores antigas de Mães
-      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, // Cores antigas de Namorados
+      namorados: { primary: '#f43f5e', primaryHover: '#e11d48', bg: '#000000', surface: '#2e1065', surfaceHover: '#4c1d95', text: '#ffffff', textMuted: '#e2e8f0' }, 
+      maes: { primary: '#ec4899', primaryHover: '#db2777', bg: '#000000', surface: '#4a044e', surfaceHover: '#701a75', text: '#ffffff', textMuted: '#fbcfe8' }, 
       pais: { primary: '#3b82f6', primaryHover: '#2563eb', bg: '#000000', surface: '#0f172a', surfaceHover: '#1e293b', text: '#ffffff', textMuted: '#94a3b8' },
       blackfriday: { primary: '#a855f7', primaryHover: '#9333ea', bg: '#000000', surface: '#18181b', surfaceHover: '#27272a', text: '#ffffff', textMuted: '#a1a1aa' }
   };
@@ -15815,10 +16022,17 @@ function AppContent({ deferredPrompt }) {
   const [appThemeConfig, setAppThemeConfig] = useState(() => {
       try {
           const cached = localStorage.getItem('lovecestas_theme_config');
-          if (cached) return JSON.parse(cached);
+          if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed.animationsEnabled === undefined) parsed.animationsEnabled = true;
+              if (parsed.autoSeasonal === undefined) parsed.autoSeasonal = false;
+              return parsed;
+          }
       } catch(e) {}
-      return { colors: defaultThemeFallback, autoSeasonal: false };
+      return { colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null };
   });
+  
+  const [previewSeason, setPreviewSeason] = useState(null);
 
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
@@ -15925,6 +16139,7 @@ function AppContent({ deferredPrompt }) {
       const handleThemeUpdate = (event) => {
           if (event.detail) {
               setAppThemeConfig(event.detail);
+              setPreviewSeason(event.detail.previewSeason || event.detail.activeSeason || null); 
               localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
           }
       };
@@ -15943,7 +16158,8 @@ function AppContent({ deferredPrompt }) {
           .then(data => { 
               if (data) {
                   const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
-                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                  const animEnabled = data.animationsEnabled !== false;
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: data.activeSeason } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto, animationsEnabled: animEnabled, activeSeason: null };
                   setAppThemeConfig(loadedConfig); 
                   localStorage.setItem('lovecestas_theme_config', JSON.stringify(loadedConfig));
               }
@@ -16076,7 +16292,9 @@ function AppContent({ deferredPrompt }) {
   const safeShortName = appNameConfig?.short_name || 'Love Cestas';
   const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
 
-  if (isLoading || isStatusLoading) {
+  const isAppReady = !isLoading && !isStatusLoading;
+
+  if (!isAppReady) {
       return (
         <div className="h-screen flex flex-col items-center justify-center gap-6" style={{ backgroundColor: activeThemeColors.bg }}>
             <motion.div 
@@ -16087,9 +16305,9 @@ function AppContent({ deferredPrompt }) {
                 <div className="absolute inset-0 blur-2xl opacity-20 rounded-full animate-pulse" style={{ backgroundColor: activeThemeColors.primary }}></div>
                 <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
-            <div className="flex flex-col items-center gap-3">
-                <SpinnerIcon className="h-8 w-8 animate-spin" style={{ color: activeThemeColors.primary }}/>
-                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse" style={{ color: activeThemeColors.primary }}>Preparando a loja...</p>
+            <div className="flex flex-col items-center gap-3" style={{ color: activeThemeColors.primary }}>
+                <SpinnerIcon className="h-8 w-8 animate-spin" />
+                <p className="opacity-80 font-bold tracking-[0.2em] text-xs uppercase animate-pulse">Preparando a loja...</p>
             </div>
         </div>
       );
@@ -16180,8 +16398,20 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
+  const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
+  const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
+                              (appThemeConfig.autoSeasonal || effectiveForcedSeason);
+  
   return (
-    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
+    <div className="bg-black min-h-screen flex flex-col transition-colors duration-500 relative">
+      
+      {!currentPath.startsWith('admin') && (
+          <SeasonalAnimations 
+            isEnabled={shouldRunAnimations} 
+            forcedSeason={effectiveForcedSeason} 
+            isAppReady={isAppReady}
+          />
+      )}
       
       {showHeaderFooter && (
           <Header 
@@ -16192,10 +16422,10 @@ function AppContent({ deferredPrompt }) {
           />
       )}
 
-      <main className="flex-grow">{renderPage()}</main>
+      <main className="flex-grow z-10">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
-        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
+        <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500 z-10 relative">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
@@ -16246,8 +16476,11 @@ function AppContent({ deferredPrompt }) {
                     </div>
                 </div>
             </div>
-            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+            
+            <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500 pb-20 md:pb-4">
+                <div className="container mx-auto px-4 flex items-center justify-center">
+                    <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
+                </div>
             </div>
         </footer>
       )}
