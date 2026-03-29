@@ -2931,8 +2931,8 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated, logout } = useAuth(); 
-    const { orderNotificationCount } = useShop(); 
+    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
+    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2977,14 +2977,14 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Sub-tela (Nível 2)
+    // Sub-tela (Nível 2) - Estilo Dark
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" 
+            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
         >
             <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
@@ -3032,6 +3032,7 @@ const CategoriesPage = ({ onNavigate }) => {
         </motion.div>
     );
 
+    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -3047,7 +3048,7 @@ const CategoriesPage = ({ onNavigate }) => {
         );
     }
 
-    // --- CORREÇÃO APLICADA AQUI: Remoção do gradiente 'from-gray-800' que impedia a injeção do tema claro ---
+    // Atalhos Rápidos (Estilo Amazon)
     const QuickShortcuts = () => (
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
@@ -3089,6 +3090,7 @@ const CategoriesPage = ({ onNavigate }) => {
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
             
+            {/* Botão de Logout adicionado */}
             {isAuthenticated && (
                 <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-500 font-bold text-sm">
                     Sair da Conta
@@ -3127,8 +3129,9 @@ const CategoriesPage = ({ onNavigate }) => {
                                 <SaleIcon className="h-6 w-6 text-red-500 group-hover:text-red-400" />
                             </div>
                             <div className="text-left">
-                                <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
-                                <p className="text-red-300 text-xs font-medium">Ver todos os produtos em oferta</p>
+                                {/* CORREÇÃO: Cores blindadas para não inverterem no tema claro */}
+                                <h3 className="text-[#ffffff] font-bold text-lg uppercase tracking-wide">Promoções</h3>
+                                <p className="text-[#fca5a5] text-xs font-medium">Ver todos os produtos em oferta</p>
                             </div>
                         </div>
                         <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
@@ -3154,7 +3157,8 @@ const CategoriesPage = ({ onNavigate }) => {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
                             <div className="p-3 border-t border-gray-800 bg-gray-900">
-                                <h3 className="text-gray-100 font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
+                                {/* CORREÇÃO APLICADA AQUI: text-gray-100 trocado por text-white para ficar escuro no tema claro */}
+                                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
                                 <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
@@ -7097,6 +7101,7 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
+                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
@@ -7622,8 +7627,8 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
 
                     <div className="pt-4 mt-4 border-t border-gray-800 space-y-4 sm:space-y-0 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* CORREÇÃO APLICADA AQUI: bg-gray-700 trocado por bg-gray-800 e hover para bg-gray-900 */}
-                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-gray-800 border border-gray-700 text-white text-sm px-4 py-1.5 rounded-md hover:bg-gray-900 transition-colors">Repetir Pedido</button>
+                            {/* CORREÇÃO APLICADA AQUI: Botão alterado para usar as cores temáticas e dar destaque */}
+                            <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
                                 <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
                             ) : (
@@ -7794,10 +7799,10 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO APLICADA AQUI: bg-gray-700 trocado por bg-gray-800, e hover por bg-gray-900 */}
+                                        {/* CORREÇÃO APLICADA AQUI: Botão alterado para cor primária (azul no tema claro) para dar destaque */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className={`w-full font-bold px-4 py-2 rounded-md transition border ${hasNotification ? 'bg-amber-500 text-black border-amber-500 hover:bg-amber-400' : 'bg-gray-800 text-white border-gray-700 hover:bg-gray-900'}`}
+                                            className="w-full font-bold px-4 py-2 rounded-md transition bg-amber-500 text-black hover:bg-amber-400 shadow-md active:scale-95"
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
