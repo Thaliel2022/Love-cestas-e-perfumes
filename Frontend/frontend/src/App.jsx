@@ -2885,6 +2885,101 @@ const PromoBannerSection = ({ customBanners, onNavigate }) => {
             )}
         </section>
     );
+const PromoBannerSection = ({ customBanners, onNavigate }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    
+    const defaultBanner = [{
+        image_url: "https://images.unsplash.com/photo-1607083206869-4c7672e72a8a?q=80&w=2070&auto=format&fit=crop",
+        title: "Semana do Consumidor",
+        subtitle: "Até 50% OFF em itens selecionados.",
+        cta_text: "Ver Ofertas",
+        link_url: "products?promo=true",
+        isFlashOffer: true,
+        id: 'default'
+    }];
+
+    const activeBanners = customBanners && customBanners.length > 0 ? customBanners : defaultBanner;
+    
+    useEffect(() => {
+        if (activeBanners.length > 1) {
+            const timer = setTimeout(() => {
+                setCurrentIndex(prev => (prev === activeBanners.length - 1 ? 0 : prev + 1));
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [currentIndex, activeBanners.length]);
+
+    const safeIndex = currentIndex >= activeBanners.length ? 0 : currentIndex;
+    const currentBanner = activeBanners[safeIndex];
+    
+    if (!currentBanner) return null;
+
+    const isFlashOffer = currentBanner.isFlashOffer || 
+                            currentBanner.title?.toLowerCase().includes('relâmpago') || 
+                            currentBanner.subtitle?.toLowerCase().includes('relâmpago');
+
+    const renderTitle = () => {
+        if (currentBanner.id === 'default' && currentBanner.title === "Semana do Consumidor") {
+            return (<>Semana do <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-600">Consumidor</span></>);
+        }
+        return currentBanner.title;
+    };
+
+    return (
+        <section className="container mx-auto px-4 mb-12 mt-4 md:mt-8">
+            <AnimatePresence mode="wait">
+                <motion.div 
+                    key={currentBanner.id || safeIndex} 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="rounded-xl md:rounded-2xl overflow-hidden relative h-[350px] md:h-[500px] flex items-center bg-cover bg-center cursor-pointer group shadow-2xl border border-gray-800"
+                    style={{ backgroundImage: `url(${currentBanner.image_url})` }}
+                    onClick={() => onNavigate(currentBanner.link_url.replace(/^#/, ''))}
+                >
+                    <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-black/95 via-black/40 to-transparent transition-all duration-500"></div>
+                    <div className="relative z-10 w-full px-6 md:px-16 pb-8 md:pb-0 flex flex-col items-center md:items-start justify-end md:justify-center h-full text-center md:text-left">
+                        {isFlashOffer && (
+                            <motion.span initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-red-600 text-[#ffffff] text-xs md:text-sm font-bold px-3 py-1 md:px-4 md:py-1.5 rounded-full uppercase tracking-wider mb-3 md:mb-6 inline-flex items-center gap-2 shadow-lg">
+                                <ClockIcon className="h-3 w-3 md:h-4 md:w-4" /> Oferta Relâmpago
+                            </motion.span>
+                        )}
+                        
+                        {/* AQUI ESTÁ A CORREÇÃO: Protegendo o texto contra temas que o tornam escuro */}
+                        <motion.h2 initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="text-4xl md:text-7xl font-extrabold mb-3 md:mb-6 text-[#ffffff] drop-shadow-lg leading-tight">
+                            {renderTitle()}
+                        </motion.h2>
+                        
+                        {currentBanner.subtitle && (
+                            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="text-base md:text-xl text-[#e5e7eb] mb-6 md:mb-10 max-w-xs md:max-w-lg font-light leading-snug">
+                                {currentBanner.subtitle}
+                            </motion.p>
+                        )}
+                        
+                        {currentBanner.cta_enabled !== 0 && (
+                            <motion.button whileTap={{ scale: 0.95 }} className="bg-white text-black px-8 py-3 md:px-12 md:py-4 rounded-full font-bold text-sm md:text-lg hover:bg-amber-400 transition-all shadow-xl flex items-center gap-2 md:gap-3">
+                                {currentBanner.cta_text || 'Ver Ofertas'} <ArrowUturnLeftIcon className="h-4 w-4 md:h-5 md:w-5 rotate-180"/>
+                            </motion.button>
+                        )}
+                    </div>
+                </motion.div>
+            </AnimatePresence>
+            
+            {activeBanners.length > 1 && (
+                <div className="flex justify-center mt-4 gap-2">
+                    {activeBanners.map((_, idx) => (
+                        <button 
+                            key={idx}
+                            onClick={(e) => { e.stopPropagation(); setCurrentIndex(idx); }}
+                            className={`w-2 h-2 rounded-full transition-all ${safeIndex === idx ? 'bg-amber-500 w-4' : 'bg-gray-600'}`}
+                            aria-label={`Ir para banner ${idx + 1}`}
+                        />
+                    ))}
+                </div>
+            )}
+        </section>
+    );
 };
 
 // Componente Cards Inferiores
