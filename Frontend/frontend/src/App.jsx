@@ -15460,6 +15460,29 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+// AQUI ESTÁ A CORREÇÃO: O componente ColorPickerRow foi movido para FORA 
+// do AdminThemeSettings. Isso impede que o React destrua o input enquanto 
+// você arrasta a bolinha de cor.
+const ColorPickerRow = ({ label, field, desc, value, onChange }) => (
+    <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
+        <div className="pr-4">
+            <p className="font-bold text-gray-800 text-sm">{label}</p>
+            <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{value}</span>
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
+                <input 
+                    type="color" 
+                    value={value} 
+                    onChange={(e) => onChange(field, e.target.value)}
+                    className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
+                />
+            </div>
+        </div>
+    </div>
+);
+
 const AdminThemeSettings = () => {
     const defaultThemeFallback = {
         primary: '#fbbf24', primaryHover: '#f59e0b', bg: '#000000', surface: '#111827', surfaceHover: '#1f2937', text: '#ffffff', textMuted: '#9ca3af', animationsEnabled: true, activeSeason: null
@@ -15484,7 +15507,7 @@ const AdminThemeSettings = () => {
     const [localConfig, setLocalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     const [originalConfig, setOriginalConfig] = useState({ colors: defaultThemeFallback, autoSeasonal: false, animationsEnabled: true, activeSeason: null });
     
-    // NOVO: Estado para carregar o nome dinâmico da loja no simulador
+    // Estado para carregar o nome dinâmico da loja no simulador
     const [simulatorName, setSimulatorName] = useState('Love Cestas');
     
     const [isLoading, setIsLoading] = useState(true);
@@ -15601,26 +15624,6 @@ const AdminThemeSettings = () => {
 
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
 
-    const ColorPickerRow = ({ label, field, desc }) => (
-        <div className="flex items-center justify-between p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 transition-colors">
-            <div className="pr-4">
-                <p className="font-bold text-gray-800 text-sm">{label}</p>
-                <p className="text-[10px] sm:text-xs text-gray-500 leading-tight mt-0.5">{desc}</p>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                <span className="hidden sm:inline text-xs font-mono text-gray-500 uppercase">{localConfig.colors[field]}</span>
-                <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-gray-300 shadow-inner cursor-pointer flex-shrink-0">
-                    <input 
-                        type="color" 
-                        value={localConfig.colors[field]} 
-                        onChange={(e) => handleColorChange(field, e.target.value)}
-                        className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                    />
-                </div>
-            </div>
-        </div>
-    );
-
     return (
         <div className="max-w-6xl mx-auto space-y-8 pb-12">
             <div>
@@ -15734,19 +15737,19 @@ const AdminThemeSettings = () => {
                             <ChartIcon className="h-5 w-5 text-indigo-500"/> Personalização Fina
                         </h2>
                         
-                        {/* NOVO: Aviso visual orientando como resetar as cores ao estado original do Preset */}
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
                             <p className="text-xs text-blue-800">
                                 💡 <strong>Dica:</strong> Se você alterar uma cor manualmente e não gostar, basta <strong>clicar novamente no Estilo (preset) acima</strong> para restaurar as cores originais daquele estilo, ou clicar em "Descartar" no final da página.
                             </p>
                         </div>
 
-                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." />
-                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." />
-                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." />
-                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." />
-                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." />
-                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." />
+                        {/* As propriedades value e onChange agora são passadas como propriedades */}
+                        <ColorPickerRow label="Cor Primária" field="primary" desc="Botões principais, ícones ativos e selos de desconto." value={localConfig.colors.primary} onChange={handleColorChange} />
+                        <ColorPickerRow label="Cor Primária (Hover)" field="primaryHover" desc="Cor do botão primário ao passar o mouse." value={localConfig.colors.primaryHover} onChange={handleColorChange} />
+                        <ColorPickerRow label="Fundo Principal" field="bg" desc="Cor de fundo de todo o site." value={localConfig.colors.bg} onChange={handleColorChange} />
+                        <ColorPickerRow label="Superfície (Cards)" field="surface" desc="Fundo de cartões de produto, menus drop-down e rodapé." value={localConfig.colors.surface} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Principal" field="text" desc="Cor dos títulos, nomes de produtos e textos normais." value={localConfig.colors.text} onChange={handleColorChange} />
+                        <ColorPickerRow label="Texto Secundário" field="textMuted" desc="Textos de apoio, descrições menores e bordas suaves." value={localConfig.colors.textMuted} onChange={handleColorChange} />
                     </div>
                 </div>
 
