@@ -4159,7 +4159,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     };
 
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
-    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
+    const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-50 p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
     // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
     if (isLoading) {
@@ -4212,7 +4212,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
+            {/* --- MODAL DO GUIA DE MEDIDAS --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
@@ -4221,22 +4221,22 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MODAL DE SELEÇÃO --- */}
+            {/* --- MODAL DE SELEÇÃO (CORRIGIDO AS CAMADAS E BACKGROUNDS) --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-40 backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
                                 animate={{ y: 0 }} 
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
+                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
                             >
                                 <div className="p-6 pb-0 flex justify-between items-start">
                                     <div className="pr-4">
