@@ -15481,7 +15481,10 @@ const AdminThemeSettings = () => {
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
-                const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: !!data.autoSeasonal };
+                // Correção Crítica do Boolean: Evita que "false" em string vire true
+                const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
+                const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
+                
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
             })
@@ -15500,19 +15503,12 @@ const AdminThemeSettings = () => {
     };
 
     const handleToggleSeasonal = () => {
-        const newSeasonalStatus = !localConfig.autoSeasonal;
-        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
+        const newConfig = { ...localConfig, autoSeasonal: !localConfig.autoSeasonal };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
-        if (newSeasonalStatus) {
-            notification.show("Automação sazonal ATIVADA na pré-visualização.");
-        } else {
-            notification.show("Automação sazonal DESATIVADA.");
-        }
     };
 
     const applyPreset = (presetColors) => {
-        // Cópia profunda para garantir a atualização do React
         const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
@@ -15520,11 +15516,10 @@ const AdminThemeSettings = () => {
     };
 
     const handleRestoreDefault = () => {
-        // Cópia profunda do tema padrão e desligamento forçado do sazonal
         const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
-        notification.show("Cores padrão restauradas na pré-visualização. Lembre-se de salvar.");
+        notification.show("Cores padrão restauradas na pré-visualização. Clique em 'Salvar' para confirmar.");
     };
 
     const handleCancel = () => {
@@ -15635,6 +15630,7 @@ const AdminThemeSettings = () => {
                                 <PhotoIcon className="h-5 w-5 text-indigo-500"/> Escolha um Estilo
                             </h2>
                             <button 
+                                type="button"
                                 onClick={handleRestoreDefault}
                                 className="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1.5 rounded-lg border border-amber-200 hover:bg-amber-200 transition-colors flex items-center gap-1"
                             >
@@ -15646,6 +15642,7 @@ const AdminThemeSettings = () => {
                             {predefinedPresets.map((preset, idx) => (
                                 <button 
                                     key={idx} 
+                                    type="button"
                                     onClick={() => applyPreset(preset.colors)}
                                     className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl hover:shadow-md hover:border-indigo-400 transition-all group bg-gray-50"
                                 >
@@ -15734,6 +15731,7 @@ const AdminThemeSettings = () => {
                                 </div>
 
                                 <button 
+                                    type="button"
                                     className="w-full py-3 rounded-lg font-bold shadow-md transition-all duration-300 text-sm flex items-center justify-center gap-2"
                                     style={{ backgroundColor: localConfig.colors.primary, color: localConfig.colors.bg }}
                                     onMouseEnter={(e) => {
@@ -15756,6 +15754,7 @@ const AdminThemeSettings = () => {
             {/* Ações Fixas */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200 sticky bottom-0 bg-gray-50/90 backdrop-blur p-4 -mx-4 sm:mx-0 sm:bg-transparent sm:p-0 z-10">
                 <button 
+                    type="button"
                     onClick={handleCancel}
                     disabled={isSaving}
                     className="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 shadow-sm transition-all"
@@ -15763,6 +15762,7 @@ const AdminThemeSettings = () => {
                     Descartar Alterações
                 </button>
                 <button 
+                    type="button"
                     onClick={handleSave}
                     disabled={isSaving}
                     className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-70"
@@ -15922,7 +15922,9 @@ function AppContent({ deferredPrompt }) {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
           .then(data => { 
               if (data) {
-                  const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: !!data.autoSeasonal };
+                  // Correção Crítica do Boolean aqui também
+                  const isAuto = data.autoSeasonal === true || data.autoSeasonal === 'true' || data.autoSeasonal === 1;
+                  const loadedConfig = data.colors ? { ...data, autoSeasonal: isAuto } : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: isAuto };
                   setAppThemeConfig(loadedConfig); 
               }
           })
@@ -16161,8 +16163,8 @@ function AppContent({ deferredPrompt }) {
   
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
-      <main className="flex-grow">{renderPage()}</main>
       
+      {/* CORREÇÃO DO MENU: Header posicionado ACIMA do conteúdo principal */}
       {showHeaderFooter && (
           <Header 
               onNavigate={navigate} 
@@ -16171,6 +16173,9 @@ function AppContent({ deferredPrompt }) {
               appLogoText={safeLogoText} 
           />
       )}
+
+      {/* Conteúdo Principal agora fica abaixo do Menu na árvore do DOM */}
+      <main className="flex-grow">{renderPage()}</main>
       
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
