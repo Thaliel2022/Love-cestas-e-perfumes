@@ -5039,6 +5039,63 @@ app.put('/api/settings/shipping-local', verifyToken, verifyAdmin, async (req, re
     }
 });
 
+// (Público) Busca configuração de retirada na loja
+app.get('/api/settings/pickup', async (req, res) => {
+    try {
+        const [rows] = await db.query("SELECT setting_value FROM site_settings WHERE setting_key = 'pickup_config'");
+        const defaultPickup = { 
+            address: "R. Leopoldo Pereira Lima, 378 – Mangabeira VIII, João Pessoa – PB, 58059-123", 
+            hours: "Segunda a Sábado, das 9h às 11h30 e das 15h às 17h30 (exceto feriados).", 
+            instructions: "Apresentar um documento com foto e o número do pedido.", 
+            mapsLink: "" 
+        };
+        const config = rows.length > 0 ? JSON.parse(rows[0].setting_value) : defaultPickup;
+        res.json(config);
+    } catch (err) {
+        console.error("Erro ao buscar config de retirada:", err);
+        res.status(500).json({}); 
+    }
+});
+
+// (Admin) Edição de Retirada na Loja (Com validação 2FA/Senha)
+app.put('/api/settings/pickup', verifyToken, verifyAdmin, async (req, res) => {
+    const { config, password, token } = req.body;
+    const clientIp = req.ip || req.connection.remoteAddress;
+
+    const adminId = req.user.id;
+    try {
+        const [admins] = await db.query("SELECT password, two_factor_secret, is_two_factor_enabled FROM users WHERE id = ?", [adminId]);
+        if (admins.length === 0) return res.status(404).json({ message: 'Administrador não encontrado.' });
+        const admin = admins[0];
+
+        let isVerified = false;
+        if (admin.is_two_factor_enabled) {
+            if (!token) return res.status(400).json({ message: 'Código 2FA é obrigatório para esta alteração.' });
+            isVerified = speakeasy.totp.verify({ secret: admin.two_factor_secret, encoding: 'base32', token: token, window: 4 });
+        } else {
+            if (!password) return res.status(400).json({ message: 'Senha é obrigatória para esta alteração.' });
+            isVerified = await bcrypt.compare(password, admin.password);
+        }
+
+        if (!isVerified) return res.status(401).json({ message: 'Credencial inválida. Alteração negada.' });
+    } catch (err) {
+        return res.status(500).json({ message: "Erro interno na verificação de segurança." });
+    }
+
+    const configString = JSON.stringify(config);
+    try {
+        await db.query(
+            "INSERT INTO site_settings (setting_key, setting_value) VALUES ('pickup_config', ?) ON DUPLICATE KEY UPDATE setting_value = ?", 
+            [configString, configString]
+        );
+        logAdminAction(req.user, 'ATUALIZOU RETIRADA NA LOJA', `Endereço: ${config.address}`, clientIp);
+        res.json({ message: "Configuração de retirada atualizada com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar config de retirada:", err);
+        res.status(500).json({ message: "Erro ao salvar configuração." });
+    }
+});
+
 // (Admin) Rota para buscar os logs de ações
 app.get('/api/admin-logs', verifyToken, verifyAdmin, async (req, res) => {
     try {
