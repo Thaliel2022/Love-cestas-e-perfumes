@@ -15796,6 +15796,8 @@ const AdminThemeSettings = () => {
 // Componente de Animações Sazonais (Alta Performance via CSS Animation e Memoização)
 const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
     const [season, setSeason] = useState(null);
+    const [isActive, setIsActive] = useState(true); // Controla a opacidade (fade out)
+    const [isMounted, setIsMounted] = useState(true); // Controla a presença na tela para economizar memória
 
     useEffect(() => {
         if (!isEnabled) {
@@ -15806,19 +15808,35 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
         // Se veio forçado pelo config (Admin salvou o tema sazonal)
         if (forcedSeason) {
             setSeason(forcedSeason);
-            return;
+        } else {
+            const now = new Date();
+            const m = now.getMonth() + 1;
+            const d = now.getDate();
+
+            if (m === 12 && d <= 25) setSeason('natal');
+            else if (m === 6 && d <= 12) setSeason('namorados');
+            else if (m === 5 && d <= 15) setSeason('maes');
+            else if (m === 8 && d <= 15) setSeason('pais');
+            else if (m === 11 && d >= 15) setSeason('blackfriday');
+            else setSeason(null);
         }
 
-        const now = new Date();
-        const m = now.getMonth() + 1;
-        const d = now.getDate();
+        // Toda vez que a season muda ou a página carrega, reseta o tempo para rodar por 5s
+        setIsActive(true);
+        setIsMounted(true);
+        
+        const fadeTimer = setTimeout(() => {
+            setIsActive(false); // Inicia o fade out suave aos 5 segundos
+        }, 5000);
+        
+        const unmountTimer = setTimeout(() => {
+            setIsMounted(false); // Remove totalmente da memória aos 6 segundos
+        }, 6000);
 
-        if (m === 12 && d <= 25) setSeason('natal');
-        else if (m === 6 && d <= 12) setSeason('namorados');
-        else if (m === 5 && d <= 15) setSeason('maes');
-        else if (m === 8 && d <= 15) setSeason('pais');
-        else if (m === 11 && d >= 15) setSeason('blackfriday');
-        else setSeason(null);
+        return () => {
+            clearTimeout(fadeTimer);
+            clearTimeout(unmountTimer);
+        };
     }, [isEnabled, forcedSeason]);
 
     // O useMemo garante que os valores aleatórios sejam gerados apenas UMA vez por tema.
@@ -15835,16 +15853,17 @@ const SeasonalAnimations = memo(({ isEnabled, forcedSeason }) => {
             id: i,
             left: Math.random() * 100,
             top: season === 'blackfriday' ? Math.random() * 100 : -10,
-            animDuration: season === 'blackfriday' ? 1.5 + Math.random() * 2 : 6 + Math.random() * 8,
-            delay: season === 'blackfriday' ? Math.random() * 4 : Math.random() * -10,
+            // Aceleramos a animação (de 4s a 8s) para que sejam bem visíveis nos primeiros 5 segundos
+            animDuration: season === 'blackfriday' ? 1 + Math.random() * 2 : 4 + Math.random() * 4,
+            delay: season === 'blackfriday' ? Math.random() * 2 : Math.random() * -5,
             size: season === 'blackfriday' ? 0.1 + Math.random() * 0.3 : 0.8 + Math.random() * 1.5,
         }));
     }, [season]);
 
-    if (!isEnabled || !season || particles.length === 0) return null;
+    if (!isEnabled || !season || particles.length === 0 || !isMounted) return null;
 
     return (
-        <div className="fixed inset-0 pointer-events-none z-[45] overflow-hidden" aria-hidden="true">
+        <div className={`fixed inset-0 pointer-events-none z-[45] overflow-hidden transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'}`} aria-hidden="true">
             <style>{`
                 @keyframes fall {
                     0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; }
@@ -16072,7 +16091,6 @@ function AppContent({ deferredPrompt }) {
       const handleThemeUpdate = (event) => {
           if (event.detail) {
               setAppThemeConfig(event.detail);
-              // CORREÇÃO: Pega a season ativa se forçando preview ou vindo direto do config
               setPreviewSeason(event.detail.previewSeason || event.detail.activeSeason || null); 
               localStorage.setItem('lovecestas_theme_config', JSON.stringify(event.detail));
           }
@@ -16330,8 +16348,6 @@ function AppContent({ deferredPrompt }) {
 
   const showHeaderFooter = !currentPath.startsWith('admin');
   
-  // CORREÇÃO: A animação só deve rodar se (o painel geral permitir E o cliente não tiver desligado) E
-  // (estiver na temporada automática OU o admin tiver salvo um tema específico de calendário)
   const effectiveForcedSeason = previewSeason || appThemeConfig.activeSeason;
   const shouldRunAnimations = appThemeConfig.animationsEnabled !== false && 
                               !userAnimationsDisabled && 
