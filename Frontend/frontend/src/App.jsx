@@ -2931,8 +2931,8 @@ const CategoriesPage = ({ onNavigate }) => {
     const [categories, setCategories] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedGroup, setSelectedGroup] = useState(null);
-    const { user, isAuthenticated, logout } = useAuth(); // Acesso ao logout
-    const { orderNotificationCount } = useShop(); // NOVO: Acesso às notificações
+    const { user, isAuthenticated, logout } = useAuth(); 
+    const { orderNotificationCount } = useShop(); 
 
     const groupedCategories = useMemo(() => {
         const groups = {};
@@ -2977,16 +2977,17 @@ const CategoriesPage = ({ onNavigate }) => {
         return () => controller.abort();
     }, []);
 
-    // Sub-tela (Nível 2) - Estilo Dark
+    // Sub-tela (Nível 2)
     const SubCategoryView = ({ group, onBack }) => (
         <motion.div 
             initial={{ x: '100%' }} 
             animate={{ x: 0 }} 
             exit={{ x: '100%' }} 
             transition={{ type: 'tween', ease: 'easeInOut', duration: 0.3 }}
-            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24" // Fundo Preto
+            className="fixed inset-0 bg-black z-50 overflow-y-auto pb-24"
         >
-            <div className="sticky top-0 bg-black/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
+            {/* CORREÇÃO AQUI: Trocado bg-black/95 por bg-gray-900/95 para respeitar o tema claro (fundo claro com texto escuro) */}
+            <div className="sticky top-0 bg-gray-900/95 backdrop-blur-md border-b border-gray-800 z-10 px-4 py-4 flex items-center shadow-md">
                 <button onClick={onBack} className="p-2 -ml-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-full transition-colors mr-3">
                     <ArrowUturnLeftIcon className="h-6 w-6" />
                 </button>
@@ -3024,15 +3025,14 @@ const CategoriesPage = ({ onNavigate }) => {
                 
                 <button 
                     onClick={() => onNavigate(`products?search=${group.title}`)}
-                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 hover:border-amber-500/50 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
+                    className="w-full mt-8 py-3.5 bg-gray-800 border border-gray-700 text-white font-bold rounded-lg shadow-md hover:bg-gray-700 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wide"
                 >
-                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180 text-amber-500"/>
+                    Ver todos em {group.title} <ArrowUturnLeftIcon className="h-4 w-4 rotate-180"/>
                 </button>
             </div>
         </motion.div>
     );
 
-    // --- TELA DE CARREGAMENTO CATEGORIAS ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-[80vh] flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -3048,7 +3048,6 @@ const CategoriesPage = ({ onNavigate }) => {
         );
     }
 
-    // Atalhos Rápidos (Estilo Amazon)
     const QuickShortcuts = () => (
         <div className="bg-gray-900 p-4 rounded-xl mb-6 shadow-lg border border-gray-800 grid grid-cols-2 gap-4">
             {isAuthenticated ? (
@@ -3090,7 +3089,6 @@ const CategoriesPage = ({ onNavigate }) => {
                 <ArrowUturnLeftIcon className="h-4 w-4 text-gray-500 rotate-180"/>
             </button>
             
-            {/* Botão de Logout adicionado */}
             {isAuthenticated && (
                 <button onClick={() => { logout(); onNavigate('home'); }} className="col-span-2 bg-red-900/20 border border-red-900/50 p-3 rounded-lg flex items-center justify-center gap-2 hover:bg-red-900/30 active:scale-95 transition-all text-red-500 font-bold text-sm">
                     Sair da Conta
@@ -3122,16 +3120,15 @@ const CategoriesPage = ({ onNavigate }) => {
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0 }}
                         onClick={() => onNavigate('products?promo=true')}
-                        className="col-span-2 bg-gradient-to-r from-red-900 via-red-800 to-black rounded-lg shadow-lg border border-red-900/50 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
+                        className="col-span-2 bg-gray-900 rounded-lg shadow-lg border border-gray-800 overflow-hidden cursor-pointer active:scale-95 transition-transform flex flex-row items-center justify-between p-4 relative group mb-2"
                     >
                         <div className="flex items-center gap-4 relative z-10">
                             <div className="w-12 h-12 bg-red-600/20 rounded-full flex items-center justify-center border border-red-500/30 group-hover:bg-red-600/40 transition-colors">
                                 <SaleIcon className="h-6 w-6 text-red-500 group-hover:text-red-400" />
                             </div>
                             <div className="text-left">
-                                {/* CORREÇÃO: Cores blindadas para não inverterem no tema claro */}
-                                <h3 className="text-[#ffffff] font-bold text-lg uppercase tracking-wide">Promoções</h3>
-                                <p className="text-[#fca5a5] text-xs font-medium">Ver todos os produtos em oferta</p>
+                                <h3 className="text-white font-bold text-lg uppercase tracking-wide">Promoções</h3>
+                                <p className="text-red-400 text-xs font-medium">Ver todos os produtos em oferta</p>
                             </div>
                         </div>
                         <ArrowUturnLeftIcon className="h-5 w-5 text-red-500 rotate-180 relative z-10"/>
@@ -3157,7 +3154,6 @@ const CategoriesPage = ({ onNavigate }) => {
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/10 to-transparent pointer-events-none"></div>
                             </div>
                             <div className="p-3 border-t border-gray-800 bg-gray-900">
-                                {/* CORREÇÃO APLICADA AQUI: text-gray-100 trocado por text-white para ficar escuro no tema claro */}
                                 <h3 className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-amber-400 transition-colors">
                                     {group.title}
                                 </h3>
@@ -7101,7 +7097,6 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
         try {
             const paymentResult = await apiService('/create-mercadopago-payment', 'POST', { orderId });
             if (paymentResult && paymentResult.init_point) {
-                // --- CORREÇÃO: localStorage ---
                 localStorage.setItem('pendingOrderId', orderId);
                 window.location.href = paymentResult.init_point;
             } else { throw new Error("Não foi possível obter o link de pagamento."); }
@@ -7630,12 +7625,12 @@ const OrderDetailPage = ({ onNavigate, orderId }) => {
                             {/* CORREÇÃO APLICADA AQUI: Botão alterado para usar as cores temáticas e dar destaque */}
                             <button onClick={() => handleRepeatOrder(order.items)} className="bg-amber-500 text-black text-sm font-bold px-4 py-1.5 rounded-md hover:bg-amber-400 shadow-sm transition-colors">Repetir Pedido</button>
                             {isPickupOrder ? (
-                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Ver Status da Retirada</button>
+                                <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Ver Status da Retirada</button>
                             ) : (
-                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-blue-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-blue-700">Rastrear Pedido</button>
+                                order.tracking_code && !isLocalDelivery && !isOrderInactive && <button onClick={() => setIsTrackingModalOpen(true)} className="bg-gray-800 text-white text-sm font-bold px-4 py-1.5 rounded-md hover:bg-gray-700 transition-colors">Rastrear Pedido</button>
                             )}
                              {canRequest && (
-                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-amber-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-amber-700 font-bold shadow-lg shadow-amber-900/30 transform hover:-translate-y-0.5 transition-transform">
+                                <button onClick={() => setIsRefundModalOpen(true)} className="bg-red-600 text-white text-sm px-4 py-1.5 rounded-md hover:bg-red-700 font-bold shadow-lg transform hover:-translate-y-0.5 transition-transform">
                                     {isRefundDenied ? 'Nova Solicitação' : `Solicitar ${actionText}`}
                                 </button>
                             )}
@@ -7664,9 +7659,7 @@ const MyOrdersListPage = ({ onNavigate }) => {
     const [orderToReview, setOrderToReview] = useState(null);
     const [itemToReview, setItemToReview] = useState(null);
 
-    // Função para buscar pedidos
     const fetchOrders = useCallback(() => {
-        // A API agora retorna o campo 'has_unseen_update'
         return apiService('/orders/my-orders')
             .then(data => setOrders(data.sort((a, b) => new Date(b.date) - new Date(a.date))))
             .catch(err => {
@@ -7758,8 +7751,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                         const firstItem = order.items && order.items.length > 0 ? order.items[0] : null;
                         const canReviewOrder = order.status === 'Entregue' && order.items?.some(item => !item.is_reviewed);
                         
-                        // --- LÓGICA DE NOTIFICAÇÃO ---
-                        // Verifica se o pedido tem atualização não vista
                         const hasNotification = !!order.has_unseen_update;
 
                         return (
@@ -7770,7 +7761,6 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                 transition={{ delay: 0.1 * idx }}
                                 className={`bg-gray-800 p-4 rounded-lg border relative transition-all ${hasNotification ? 'border-amber-500 shadow-lg shadow-amber-900/20' : 'border-gray-700'}`}
                             >
-                                {/* --- BOLINHA DE NOTIFICAÇÃO NO CARD --- */}
                                 {hasNotification && (
                                     <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded-full border-2 border-black z-10 flex items-center gap-1 animate-bounce">
                                         <span className="h-2 w-2 bg-white rounded-full inline-block"></span>
@@ -7799,15 +7789,15 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO APLICADA AQUI: Botão alterado para cor primária (azul no tema claro) para dar destaque */}
+                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className="w-full font-bold px-4 py-2 rounded-md transition bg-amber-500 text-black hover:bg-amber-400 shadow-md active:scale-95"
+                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-amber-600 text-white font-bold px-4 py-2 rounded-md hover:bg-amber-700 transition">Avaliar Pedido</button>
+                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
                                         )}
                                     </div>
                                 </div>
