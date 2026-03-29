@@ -3687,7 +3687,6 @@ const ShippingCalculator = memo(({ items: itemsFromProp }) => {
 });
 const VariationSelector = ({ product, variations, selectedColor, setSelectedColor, selectedSize, setSelectedSize, error }) => {
     
-    // Calcula cores únicas e verifica se há estoque disponível para cada uma
     const uniqueColors = useMemo(() => {
         const colorsMap = new Map();
         if (!variations || !product) return [];
@@ -3695,15 +3694,12 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         variations.forEach(v => {
             if (v.color) {
                 if (!colorsMap.has(v.color)) {
-                    // Tenta pegar a imagem da variação, senão a principal do produto
                     const primaryImage = (v.images && v.images.length > 0) 
                         ? v.images[0] 
                         : getFirstImage(product.images);
-                    // Inicializa assumindo sem estoque
                     colorsMap.set(v.color, { image: primaryImage, hasStock: false });
                 }
                 
-                // Se encontrar QUALQUER tamanho com estoque > 0 para esta cor, marca como disponível
                 if (v.stock > 0) {
                     const info = colorsMap.get(v.color);
                     info.hasStock = true;
@@ -3726,10 +3722,9 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
     }, [variations, selectedColor]);
 
     const handleColorChange = (color, hasStock) => {
-        if (!hasStock) return; // Impede seleção de cores esgotadas
+        if (!hasStock) return; 
 
         setSelectedColor(color);
-        // Ao mudar de cor, tenta selecionar um tamanho disponível automaticamente se houver apenas um
         const sizesForNewColor = variations
             .filter(v => v.color === color && v.stock > 0)
             .map(v => v.size);
@@ -3737,7 +3732,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
         if (sizesForNewColor.length === 1) {
             setSelectedSize(sizesForNewColor[0]);
         } else {
-            setSelectedSize(''); // Reseta para forçar o usuário a escolher
+            setSelectedSize(''); 
         }
     };
 
@@ -3766,7 +3761,6 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                             >
                                  <img src={colorInfo.image} alt={colorInfo.name} className="w-full h-full object-cover rounded-full bg-gray-800 shadow-sm"/>
                                  
-                                 {/* Indicador visual de Esgotado (X vermelho) */}
                                  {isOutOfStock && (
                                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                                          <div className="w-full h-0.5 bg-red-500/80 rotate-45 absolute"></div>
@@ -3779,7 +3773,7 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                 </div>
             </div>
 
-            {/* Seção de Tamanhos - Só aparece se cor estiver selecionada */}
+            {/* Seção de Tamanhos - CORRIGIDO AS CORES E TRANSPARÊNCIAS */}
             <AnimatePresence>
                 {selectedColor && (
                      <motion.div 
@@ -3802,17 +3796,21 @@ const VariationSelector = ({ product, variations, selectedColor, setSelectedColo
                                         key={size}
                                         onClick={() => setSelectedSize(size)}
                                         disabled={stock === 0}
+                                        style={
+                                            selectedSize === size 
+                                            ? { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)', borderColor: 'var(--theme-primary, #fbbf24)' }
+                                            : { borderColor: '#4b5563', color: '#d1d5db' }
+                                        }
                                         className={`min-w-[3.5rem] h-11 px-3 border rounded-md font-bold text-sm transition-all duration-200 flex items-center justify-center relative overflow-hidden
                                             ${selectedSize === size 
-                                                ? 'bg-amber-400 text-black border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)] scale-105' 
-                                                : 'bg-transparent border-gray-600 text-gray-300 hover:border-gray-400 hover:bg-gray-800'
+                                                ? 'shadow-lg scale-105' 
+                                                : 'bg-transparent hover:border-gray-400 hover:bg-gray-800'
                                             }
                                             ${stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-900 border-gray-800 text-gray-600 decoration-slice line-through' : ''}
                                             ${showError && !selectedSize ? 'border-red-500 text-red-100 bg-red-900/20' : ''}`
                                         }
                                     >
                                         {size}
-                                        {/* Indicador de "Últimas unidades" para estoque baixo */}
                                         {stock > 0 && stock <= 2 && selectedSize !== size && (
                                             <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                                         )}
@@ -3872,21 +3870,18 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     
-    // Estados para controle de scroll vertical da galeria (Desktop)
     const [canScrollUp, setCanScrollUp] = useState(false);
     const [canScrollDown, setCanScrollDown] = useState(false);
 
     const productImages = useMemo(() => parseJsonString(product?.images, []), [product]);
     const productVariations = useMemo(() => parseJsonString(product?.variations, []), [product]);
 
-    // Helper para garantir imagem principal atualizada pelo índice
     useEffect(() => {
         if (galleryImages.length > 0 && galleryImages[currentImageIndex]) {
             setMainImage(galleryImages[currentImageIndex]);
         }
     }, [currentImageIndex, galleryImages]);
 
-    // --- LÓGICA DE AUTO-SELEÇÃO DA PRIMEIRA COR ---
     useEffect(() => {
         if (product && product.product_type === 'clothing' && productVariations.length > 0 && !selectedColor) {
             const firstVar = productVariations.find(v => v.stock > 0) || productVariations[0];
@@ -3896,7 +3891,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
     }, [product, productVariations, selectedColor]);
 
-    // --- Sincroniza a variação completa baseada na cor/tamanho selecionados ---
     useEffect(() => {
         if (selectedColor && selectedSize) {
             const found = productVariations.find(v => v.color === selectedColor && v.size === selectedSize);
@@ -3923,7 +3917,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         }
 
     }, [selectedColor, selectedSize, productVariations, productImages]);
-
 
     useEffect(() => {
         if (product) {
@@ -3994,7 +3987,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const stockLimit = isClothing ? selectedVariation?.stock : product?.stock;
     const isQtyAtMax = stockLimit !== undefined ? quantity >= stockLimit : false;
 
-    // --- HELPERS ---
     const getYouTubeEmbedUrl = (url) => { if (!url) return null; try { let videoId = ''; const urlObj = new URL(url); if (urlObj.hostname === 'youtu.be') { videoId = urlObj.pathname.slice(1); } else if (urlObj.hostname.includes('youtube.com')) { if (urlObj.searchParams.has('v')) { videoId = urlObj.searchParams.get('v'); } else if (urlObj.pathname.includes('/embed/')) { videoId = urlObj.pathname.split('/embed/')[1]; } else if (urlObj.pathname.includes('/shorts/')) { videoId = urlObj.pathname.split('/shorts/')[1]; } } if (!videoId) return null; videoId = videoId.split('?')[0].split('&')[0]; return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`; } catch (e) { if (url && url.includes('youtu.be/')) { const simpleId = url.split('youtu.be/')[1]?.split('?')[0]; return simpleId ? `https://www.youtube.com/embed/${simpleId}?autoplay=1&rel=0` : null; } return null; } };
     const parseTextToList = (text) => { if (!text || text.trim() === '') return null; return <ul className="space-y-1">{text.split('\n').map((line, index) => <li key={index} className="flex items-start"><span className="text-amber-400 mr-2 mt-1 text-xs">&#10003;</span><span>{line}</span></li>)}</ul>; };
     const getInstallmentSummary = () => { if (isLoadingInstallments) { return <div className="h-4 bg-gray-700 rounded w-3/4 animate-pulse"></div>; } if (!installments || installments.length === 0) { return <span className="text-gray-500 text-xs">Parcelamento indisponível.</span>; } const noInterest = [...installments].reverse().find(p => p.installment_rate === 0); if (noInterest) { return <span className="text-xs">em até <span className="font-bold">{noInterest.installments}x de R$&nbsp;{noInterest.installment_amount.toFixed(2).replace('.', ',')}</span> sem juros</span>; } const lastInstallment = installments[installments.length - 1]; if (lastInstallment) { return <span className="text-xs">ou em até <span className="font-bold">{lastInstallment.installments}x de R$&nbsp;{lastInstallment.installment_amount.toFixed(2).replace('.', ',')}</span></span>; } return null; };
@@ -4047,6 +4039,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             }
         });
     };
+
     const handleShare = async () => {
         const shareText = `✨ Olha o que eu encontrei na Love Cestas e Perfumes!\n\n*${product.name}*\n\nConfira mais detalhes no site 👇`;
         const shareData = { title: `Love Cestas e Perfumes - ${product.name}`, text: shareText, url: window.location.href };
@@ -4103,7 +4096,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
         } catch (error) { notification.show(error.message, 'error'); }
     };
 
-    // --- NAVEGAÇÃO DE IMAGEM PRINCIPAL ---
     const handleNextImage = (e) => {
         e.stopPropagation();
         if (galleryImages.length <= 1) return;
@@ -4119,14 +4111,11 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     useEffect(() => { fetchProductData(productId); window.scrollTo(0, 0); }, [productId, fetchProductData]);
     useEffect(() => { const fetchInstallments = async (price) => { if (!price || price <= 0) { setInstallments([]); setIsLoadingInstallments(false); return; } setIsLoadingInstallments(true); setInstallments([]); try { const installmentData = await apiService(`/mercadopago/installments?amount=${price}`); setInstallments(installmentData || []); } catch (error) { console.warn("Erro parcelas", error); setInstallments([]); } finally { setIsLoadingInstallments(false); } }; if (product && !product.error && currentPrice > 0) { fetchInstallments(currentPrice); } else if (!product || product.error || !(currentPrice > 0)) { setInstallments([]); setIsLoadingInstallments(false); } }, [product, currentPrice]);
     
-    // --- CONTROLE DE SCROLL DA GALERIA ---
     const checkScrollButtons = useCallback(() => { 
         const gallery = galleryRef.current; 
         if (gallery) { 
-            // Horizontal (Mobile)
             setCanScrollLeft(gallery.scrollLeft > 0); 
             setCanScrollRight(gallery.scrollWidth > gallery.clientWidth + gallery.scrollLeft + 1);
-            // Vertical (Desktop)
             setCanScrollUp(gallery.scrollTop > 0);
             setCanScrollDown(gallery.scrollHeight > gallery.clientHeight + gallery.scrollTop + 1);
         } 
@@ -4161,7 +4150,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
     const TabButton = ({ label, tabName, isVisible = true }) => { if (!isVisible) return null; return ( <button onClick={() => setActiveTab(tabName)} className={`px-5 py-3 text-sm font-semibold transition-colors duration-200 border-b-2 ${activeTab === tabName ? 'border-amber-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-300 hover:border-gray-600'}`} > {label} </button> ); };
     const Lightbox = ({ mainImage, onClose }) => ( <div className="fixed inset-0 bg-black/90 z-[999] flex items-center justify-center p-4" onClick={onClose}> <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-4 right-4 text-white text-5xl leading-none z-[1000] p-2">&times;</button> <div className="relative w-full h-full max-w-5xl max-h-[90vh] flex items-center justify-center" onClick={e => e.stopPropagation()}><img src={mainImage} alt="Imagem ampliada" className="max-w-full max-h-full object-contain rounded-lg" /></div> </div> );
 
-    // --- TELA DE CARREGAMENTO PRODUTO PREMIUM ---
     if (isLoading) {
         return (
             <div className="bg-black min-h-screen flex flex-col items-center justify-center pt-20 pb-32 px-4 gap-6">
@@ -4184,7 +4172,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
 
     return (
         <div className="bg-black text-white min-h-screen">
-             {/* --- CSS INJETADO PARA REMOVER SCROLLBAR NA GALERIA E TABELA --- */}
             <style>{`
                 .scrollbar-hide::-webkit-scrollbar {
                     display: none;
@@ -4212,7 +4199,6 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
             <InstallmentModal isOpen={isInstallmentModalOpen} onClose={() => setIsInstallmentModalOpen(false)} installments={installments}/>
             {isLightboxOpen && galleryImages.length > 0 && ( <Lightbox mainImage={mainImage} onClose={() => setIsLightboxOpen(false)} /> )}
             
-            {/* --- MODAL DO GUIA DE MEDIDAS (TAMANHO 3XL) --- */}
             <AnimatePresence>
                 {isSizeGuideModalOpen && product.size_guide && (
                     <Modal isOpen={true} onClose={() => setIsSizeGuideModalOpen(false)} title="Guia de Medidas" size="3xl">
@@ -4221,22 +4207,24 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 )}
             </AnimatePresence>
 
-            {/* --- MODAL DE SELEÇÃO --- */}
+            {/* --- MODAL DE SELEÇÃO DE ROUPA CORRIGIDO --- */}
             <AnimatePresence>
                 {isSelectionModalOpen && (
                     <>
                         <motion.div 
                             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                            className="fixed inset-0 bg-black/80 z-[60] backdrop-blur-md"
+                            className="fixed inset-0 bg-black/80 z-[100] backdrop-blur-md"
                             onClick={() => setIsSelectionModalOpen(false)}
                         />
-                        <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
+                        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center pointer-events-none p-0 md:p-4">
                             <motion.div
                                 initial={{ y: "100%" }} 
                                 animate={{ y: 0 }} 
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                                className="pointer-events-auto bg-gray-900 border border-gray-700 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/10"
+                                /* CORREÇÃO: Forçando cor de fundo sólida via inline style e bordas evidentes */
+                                style={{ backgroundColor: 'var(--theme-surface, #111827)' }}
+                                className="pointer-events-auto border border-gray-600 w-full max-w-lg rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden"
                             >
                                 <div className="p-6 pb-0 flex justify-between items-start">
                                     <div className="pr-4">
@@ -4275,10 +4263,16 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                                     </div>
                                     <button 
                                         onClick={handleConfirmSelection}
+                                        /* CORREÇÃO: Forçando cores sólidas no botão de compra do Modal */
+                                        style={
+                                            selectionError && !selectedSize
+                                            ? {}
+                                            : { backgroundColor: 'var(--theme-primary, #fbbf24)', color: 'var(--theme-bg, #000000)' }
+                                        }
                                         className={`w-full font-bold py-4 rounded-xl text-base shadow-lg transition-all transform active:scale-[0.98] uppercase tracking-wide flex items-center justify-center gap-3
                                             ${selectionError && !selectedSize 
                                                 ? 'bg-red-600 text-white animate-pulse' 
-                                                : 'bg-amber-400 hover:bg-amber-300 text-black'}`
+                                                : 'hover:opacity-90'}`
                                         }
                                     >
                                         {selectionError && !selectedSize ? '⚠️ Escolha um Tamanho' : (pendingAction === 'buyNow' ? 'Confirmar Compra' : 'Adicionar à Sacola')}
@@ -4323,7 +4317,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12">
-                    {/* COLUNA GALERIA (Mantida original "Perfeita") */}
+                    {/* COLUNA GALERIA */}
                     <div className="lg:col-span-7 lg:sticky lg:top-24 self-start">
                         <div className="flex flex-col lg:flex-row gap-4 align-stretch h-full">
                             
@@ -4441,7 +4435,7 @@ const ProductDetailPage = ({ productId, onNavigate }) => {
                         </div>
                     </div>
 
-                    {/* COLUNA DETALHES (Direita) - Ocupa 5 colunas no Desktop */}
+                    {/* COLUNA DETALHES (Direita) */}
                     <div className="lg:col-span-5 space-y-6">
                         <div>
                             <p className="text-sm text-amber-400 font-semibold tracking-wider mb-1">{product.brand.toUpperCase()}</p>
