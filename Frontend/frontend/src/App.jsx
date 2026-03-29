@@ -15459,8 +15459,6 @@ const AdminThemeSettings = () => {
     const notification = useNotification();
     const confirmation = useConfirmation();
 
-    // CORREÇÃO CRÍTICA: Removido [notification] das dependências.
-    // Isso impede que o tema "Puxe do Banco" toda vez que um balãozinho verde aparecer na tela.
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
@@ -15535,6 +15533,21 @@ const AdminThemeSettings = () => {
         );
     };
 
+    // Função auxiliar para verificar visualmente se o preset atual está ativo
+    const isPresetActive = (colorsObj) => {
+        return localConfig.colors.primary === colorsObj.primary &&
+               localConfig.colors.bg === colorsObj.bg &&
+               localConfig.colors.surface === colorsObj.surface &&
+               !localConfig.autoSeasonal;
+    };
+
+    const isSeasonalActive = (seasonColors) => {
+        return localConfig.colors.primary === seasonColors.primary &&
+               localConfig.colors.bg === seasonColors.bg &&
+               localConfig.colors.surface === seasonColors.surface &&
+               !localConfig.autoSeasonal;
+    };
+
     if (isLoading) return <div className="flex justify-center py-20"><SpinnerIcon className="h-8 w-8 text-indigo-600"/></div>;
 
     const ColorPickerRow = ({ label, field, desc }) => (
@@ -15594,7 +15607,11 @@ const AdminThemeSettings = () => {
                                 key={season.name} 
                                 type="button"
                                 onClick={() => applyPreset(season.colors)}
-                                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-amber-300 rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                                className={`flex items-center gap-2 border rounded-lg px-3 py-1.5 transition-all cursor-pointer shadow-sm active:scale-95 ${
+                                    isSeasonalActive(season.colors) 
+                                    ? 'bg-white/20 border-amber-400 ring-1 ring-amber-400' 
+                                    : 'bg-white/10 hover:bg-white/20 border-white/20 hover:border-amber-300'
+                                }`}
                                 title={`Clique para testar as cores de ${season.name}`}
                             >
                                 <div className="flex -space-x-2">
@@ -15632,14 +15649,20 @@ const AdminThemeSettings = () => {
                                     key={idx} 
                                     type="button"
                                     onClick={() => applyPreset(preset.colors)}
-                                    className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-xl hover:shadow-md hover:border-indigo-400 transition-all group bg-gray-50"
+                                    className={`flex flex-col items-center justify-center p-3 border rounded-xl hover:shadow-md transition-all group ${
+                                        isPresetActive(preset.colors) 
+                                        ? 'border-indigo-600 ring-2 ring-indigo-100 bg-indigo-50' 
+                                        : 'border-gray-200 bg-gray-50 hover:border-indigo-400'
+                                    }`}
                                 >
                                     <div className="flex w-full h-10 rounded-lg overflow-hidden mb-2 border border-gray-300 shadow-sm">
                                         <div className="flex-1" style={{ backgroundColor: preset.colors.bg }}></div>
                                         <div className="flex-1" style={{ backgroundColor: preset.colors.surface }}></div>
                                         <div className="flex-1" style={{ backgroundColor: preset.colors.primary }}></div>
                                     </div>
-                                    <span className="text-[10px] font-bold text-gray-600 group-hover:text-indigo-600 uppercase tracking-wide text-center">{preset.name}</span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wide text-center ${isPresetActive(preset.colors) ? 'text-indigo-700' : 'text-gray-600 group-hover:text-indigo-600'}`}>
+                                        {preset.name}
+                                    </span>
                                 </button>
                             ))}
                         </div>
@@ -15702,9 +15725,9 @@ const AdminThemeSettings = () => {
                                     <div className="w-20 h-24 rounded-lg flex-shrink-0 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.surface }}></div>
                                     <div className="flex-1">
                                         <div className="h-3 w-16 rounded mb-2 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.primary }}></div>
-                                        <div className="h-4 w-3/4 rounded mb-2 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.text }}></div>
-                                        <div className="h-3 w-full rounded mb-1 transition-colors duration-500" style={{ backgroundColor: localConfig.colors.textMuted }}></div>
-                                        <div className="h-3 w-2/3 rounded transition-colors duration-500" style={{ backgroundColor: localConfig.colors.textMuted }}></div>
+                                        <div className="h-4 w-3/4 rounded mb-2 transition-colors duration-500" style={{ color: localConfig.colors.text, backgroundColor: localConfig.colors.text }}></div>
+                                        <div className="h-3 w-full rounded mb-1 transition-colors duration-500" style={{ color: localConfig.colors.textMuted, backgroundColor: localConfig.colors.textMuted }}></div>
+                                        <div className="h-3 w-2/3 rounded transition-colors duration-500" style={{ color: localConfig.colors.textMuted, backgroundColor: localConfig.colors.textMuted }}></div>
                                     </div>
                                 </div>
 
