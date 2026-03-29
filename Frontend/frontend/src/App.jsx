@@ -7802,15 +7802,24 @@ const MyOrdersListPage = ({ onNavigate }) => {
                                         <div><p className="text-xs text-gray-400">Total</p><p className="font-bold text-amber-400">R$ {Number(order.total).toFixed(2)}</p></div>
                                     </div>
                                     <div className="flex-shrink-0 w-full sm:w-auto flex flex-col items-stretch gap-2">
-                                        {/* CORREÇÃO AQUI: O botão 'Ver Detalhes' usa a cor primária dinâmica com bg-amber-500 */}
+                                        {/* CORREÇÃO: Hierarquia visual restaurada conforme a primeira foto */}
                                         <button 
                                             onClick={() => onNavigate(`account/orders/${order.id}`)} 
-                                            className="w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 bg-amber-500 text-black hover:bg-amber-400"
+                                            className={`w-full font-bold px-4 py-2 rounded-md transition shadow-md active:scale-95 ${
+                                                hasNotification 
+                                                    ? 'bg-amber-500 text-black hover:bg-amber-400' 
+                                                    : 'bg-gray-700 text-white hover:bg-gray-600 border border-gray-600'
+                                            }`}
                                         >
                                             {hasNotification ? 'Ver Atualização' : 'Ver Detalhes'}
                                         </button>
                                         {canReviewOrder && (
-                                             <button onClick={() => setOrderToReview(order)} className="w-full bg-gray-800 text-white font-bold px-4 py-2 rounded-md hover:bg-gray-700 transition">Avaliar Pedido</button>
+                                             <button 
+                                                onClick={() => setOrderToReview(order)} 
+                                                className="w-full bg-amber-500 text-black font-bold px-4 py-2 rounded-md hover:bg-amber-400 transition shadow-md active:scale-95"
+                                             >
+                                                Avaliar Pedido
+                                             </button>
                                         )}
                                     </div>
                                 </div>
