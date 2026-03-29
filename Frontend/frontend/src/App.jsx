@@ -15481,7 +15481,7 @@ const AdminThemeSettings = () => {
     useEffect(() => {
         apiService('/settings/theme')
             .then(data => {
-                const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: false };
+                const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: !!data.autoSeasonal };
                 setLocalConfig(loadedConfig);
                 setOriginalConfig(loadedConfig);
             })
@@ -15493,7 +15493,6 @@ const AdminThemeSettings = () => {
         window.dispatchEvent(new CustomEvent('app-theme-updated', { detail: newConfig }));
     };
 
-    // CORREÇÃO: Qualquer alteração manual desliga a automação sazonal para evitar que ela sobrescreva o preview
     const handleColorChange = (key, value) => {
         const newConfig = { ...localConfig, colors: { ...localConfig.colors, [key]: value }, autoSeasonal: false };
         setLocalConfig(newConfig);
@@ -15501,22 +15500,31 @@ const AdminThemeSettings = () => {
     };
 
     const handleToggleSeasonal = () => {
-        const newConfig = { ...localConfig, autoSeasonal: !localConfig.autoSeasonal };
+        const newSeasonalStatus = !localConfig.autoSeasonal;
+        const newConfig = { ...localConfig, autoSeasonal: newSeasonalStatus };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+        if (newSeasonalStatus) {
+            notification.show("Automação sazonal ATIVADA na pré-visualização.");
+        } else {
+            notification.show("Automação sazonal DESATIVADA.");
+        }
     };
 
     const applyPreset = (presetColors) => {
-        const newConfig = { colors: presetColors, autoSeasonal: false };
+        // Cópia profunda para garantir a atualização do React
+        const newConfig = { colors: { ...presetColors }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
+        notification.show("Tema aplicado na pré-visualização. Clique em Salvar para publicar.");
     };
 
     const handleRestoreDefault = () => {
-        const newConfig = { colors: defaultThemeFallback, autoSeasonal: false };
+        // Cópia profunda do tema padrão e desligamento forçado do sazonal
+        const newConfig = { colors: { ...defaultThemeFallback }, autoSeasonal: false };
         setLocalConfig(newConfig);
         dispatchPreview(newConfig);
-        notification.show("Cores padrão restauradas na pré-visualização.");
+        notification.show("Cores padrão restauradas na pré-visualização. Lembre-se de salvar.");
     };
 
     const handleCancel = () => {
@@ -15802,7 +15810,13 @@ function AppContent({ deferredPrompt }) {
   const [appLogo, setAppLogo] = useState(() => {
       return localStorage.getItem('lovecestas_app_logo') || 'https://res.cloudinary.com/dvflxuxh3/image/upload/v1752292990/uqw1twmffseqafkiet0t.png';
   });
-  const [appNameConfig, setAppNameConfig] = useState({ short_name: 'Love Cestas', name: 'Love Cestas e Perfumes', logo_text: 'LovecestasePerfumes' });
+  
+  // Valores iniciais seguros
+  const [appNameConfig, setAppNameConfig] = useState({ 
+      short_name: 'Love Cestas', 
+      name: 'Love Cestas e Perfumes', 
+      logo_text: 'LovecestasePerfumes' 
+  });
 
   const activeThemeColors = useMemo(() => {
       if (appThemeConfig.autoSeasonal) {
@@ -15875,11 +15889,19 @@ function AppContent({ deferredPrompt }) {
       };
   }, [activeThemeColors, currentPath]);
 
+  // Atualização robusta do Title da aba do navegador
+  useEffect(() => {
+      if (appNameConfig && appNameConfig.name) {
+          document.title = appNameConfig.name;
+      } else {
+          document.title = "Love Cestas e Perfumes";
+      }
+  }, [appNameConfig]);
+
   useEffect(() => {
       const handleNameUpdate = (event) => {
           if (event.detail) {
               setAppNameConfig(event.detail);
-              document.title = event.detail.name;
           }
       };
 
@@ -15900,7 +15922,7 @@ function AppContent({ deferredPrompt }) {
       apiService(`/settings/theme?v=${new Date().getTime()}`)
           .then(data => { 
               if (data) {
-                  const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: false };
+                  const loadedConfig = data.colors ? data : { colors: data.primary ? data : defaultThemeFallback, autoSeasonal: !!data.autoSeasonal };
                   setAppThemeConfig(loadedConfig); 
               }
           })
@@ -15927,7 +15949,6 @@ function AppContent({ deferredPrompt }) {
           .then(data => {
               if (data && data.name) {
                   setAppNameConfig(data);
-                  document.title = data.name; 
               }
           })
           .catch(err => console.log("Nome mantido como original."));
@@ -16029,6 +16050,11 @@ function AppContent({ deferredPrompt }) {
     window.scrollTo(0, 0);
   }, [currentPath]);
   
+  // Nomes extraídos de forma totalmente à prova de falhas (Fallbacks absolutos)
+  const safeName = appNameConfig?.name || 'Love Cestas e Perfumes';
+  const safeShortName = appNameConfig?.short_name || 'Love Cestas';
+  const safeLogoText = appNameConfig?.logo_text || (safeName ? String(safeName).replace(/\s/g, '') : 'LoveCestas');
+
   if (isLoading || isStatusLoading) {
       return (
         <div className="h-screen flex flex-col items-center justify-center bg-black gap-6">
@@ -16038,7 +16064,7 @@ function AppContent({ deferredPrompt }) {
                 className="w-28 h-28 relative"
             >
                 <div className="absolute inset-0 bg-amber-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                <img src={appLogo} alt={appNameConfig.name} className="w-full h-full object-contain relative z-10" />
+                <img src={appLogo} alt={safeName} className="w-full h-full object-contain relative z-10" />
             </motion.div>
             <div className="flex flex-col items-center gap-3">
                 <SpinnerIcon className="h-8 w-8 text-amber-400 animate-spin"/>
@@ -16136,13 +16162,22 @@ function AppContent({ deferredPrompt }) {
   return (
     <div className="bg-black min-h-screen flex flex-col transition-colors duration-500">
       <main className="flex-grow">{renderPage()}</main>
-      {showHeaderFooter && <Header onNavigate={navigate} appName={appNameConfig.name} appShortName={appNameConfig.short_name} appLogoText={appNameConfig.logo_text || appNameConfig.name.replace(/\s/g, '')} />}
+      
+      {showHeaderFooter && (
+          <Header 
+              onNavigate={navigate} 
+              appName={safeName} 
+              appShortName={safeShortName} 
+              appLogoText={safeLogoText} 
+          />
+      )}
+      
       {showHeaderFooter && !currentPath.startsWith('order-success') && (
         <footer className="bg-gray-900 text-gray-300 mt-auto border-t border-gray-800 transition-colors duration-500">
             <div className="container mx-auto px-4 py-12">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center md:text-left">
                     <div className="space-y-4">
-                        <h3 className="text-xl font-bold text-amber-400">{appNameConfig.name}</h3>
+                        <h3 className="text-xl font-bold text-amber-400">{safeName}</h3>
                         <p className="text-sm text-gray-400">
                             Elegância que veste e perfuma. Descubra fragrâncias e peças que definem seu estilo e marcam momentos.
                         </p>
@@ -16190,12 +16225,11 @@ function AppContent({ deferredPrompt }) {
                 </div>
             </div>
             <div className="bg-black py-4 border-t border-gray-800 transition-colors duration-500">
-                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {appNameConfig.name}. Todos os direitos reservados.</p>
+                <p className="text-center text-sm text-gray-500">© {new Date().getFullYear()} {safeName}. Todos os direitos reservados.</p>
             </div>
         </footer>
       )}
       
-      {/* O botão do PWA agora não aparece no painel admin */}
       {deferredPrompt && !currentPath.startsWith('admin') && <InstallPWAButton deferredPrompt={deferredPrompt} />}
     </div>
   );
